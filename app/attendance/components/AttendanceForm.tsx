@@ -102,7 +102,7 @@ export default function AttendanceForm() {
                   status: isOnCampus ? 'success' : 'outside',
                   message: isOnCampus 
                     ? 'キャンパス内から出席登録を行っています' 
-                    : '大学外から出席登録を行っています',
+                    : 'キャンパスの外から出席登録を行っています',
                   latitude: lat,
                   longitude: lng,
                   distance,
