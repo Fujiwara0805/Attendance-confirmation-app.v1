@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 export default function AdminPage() {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const [isExporting, setIsExporting] = useState(false);
 
   const handleExport = async () => {
     setIsLoading(true);
@@ -42,6 +43,37 @@ export default function AdminPage() {
     }
   };
 
+  const handleExportCSV = async () => {
+    try {
+      setIsExporting(true);
+      
+      // CSVエクスポートAPIを呼び出し、レスポンスをBlobとして取得
+      const response = await fetch('/api/export');
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'エクスポートに失敗しました');
+      }
+      
+      // Blobを取得してダウンロード
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `attendance_export_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+    } catch (error) {
+      console.error('CSVエクスポートエラー:', error);
+      alert('CSVエクスポートに失敗しました: ' + error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
       <div className="container mx-auto py-12 px-4">
@@ -50,16 +82,20 @@ export default function AdminPage() {
           <CardTitle className="text-2xl font-bold text-slate-900">管理画面</CardTitle>
         </CardHeader>
         <CardContent>
-          <Button
-            onClick={handleExport}
-            disabled={isLoading}
-            className="w-full sm:w-auto bg-slate-800 hover:bg-slate-900 text-white"
-          >
-            <Download className="mr-2 h-4 w-4" />
-            {isLoading ? 'エクスポート中...' : '出席データをエクスポート'}
-          </Button>
+          <div className="mt-8">
+            <h2 className="text-xl font-semibold mb-4">データエクスポート</h2>
+            <p className="mb-4">出席記録をCSVファイルとしてエクスポートします。</p>
+            <Button 
+              onClick={handleExportCSV} 
+              disabled={isExporting}
+              className="bg-indigo-600 hover:bg-indigo-700"
+            >
+              {isExporting ? 'エクスポート中...' : '出席データをCSVでダウンロード'}
+            </Button>
+          </div>
         </CardContent>
       </Card>
+      
       </div>
     </div>
   );

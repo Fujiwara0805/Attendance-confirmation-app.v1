@@ -36,14 +36,14 @@ const formSchema = z.object({
   grade: z.string().min(1, { message: '学年を選択してください' }),
   name: z.string().min(1, { message: '名前を入力してください' }),
   department: z.string().min(1, { message: '学科・コースを入力してください' }),
-  feedback: z.string().optional(),
+  feedback: z.string().min(1, { message: '講義レポートを入力してください' }),
 });
 
 // 大分大学旦野原キャンパスの位置情報
 const CAMPUS_CENTER = {
   latitude: 33.5518, // 大分大学旦野原キャンパスの緯度
   longitude: 131.4076, // 大分大学旦野原キャンパスの経度
-  radius: 0.5, // キャンパス半径（km）
+  radius: 1, // キャンパス半径（km）
 };
 
 export default function AttendanceForm() {
@@ -157,12 +157,10 @@ export default function AttendanceForm() {
     
     try {
       setIsSubmitting(true);
-      
-      console.log('送信データ:', values);
 
       // 位置情報を取得
-      let latitude = locationInfo.latitude || 35.1234; // デフォルト値
-      let longitude = locationInfo.longitude || 139.1234; // デフォルト値
+      let latitude = locationInfo.latitude || 33.5518; // デフォルト値
+      let longitude = locationInfo.longitude || 131.4076; // デフォルト値
 
       // Supabaseにデータを送信
       const { data, error } = await supabase
@@ -174,7 +172,7 @@ export default function AttendanceForm() {
           grade: parseInt(values.grade),
           name: values.name,
           department: values.department,
-          feedback: values.feedback || null,
+          feedback: values.feedback,
           latitude,
           longitude,
         })
@@ -280,9 +278,19 @@ export default function AttendanceForm() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel className="text-indigo-700">講義名</FormLabel>
-                  <FormControl>
-                    <Input placeholder="例: プログラミング基礎" className="border-indigo-200 focus:border-indigo-400" {...field} />
-                  </FormControl>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger className="border-indigo-200 focus:border-indigo-400">
+                        <SelectValue placeholder="講義を選択してください" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="地域経営論Ⅰ">地域経営論Ⅰ</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
@@ -354,7 +362,7 @@ export default function AttendanceForm() {
                 <FormItem>
                   <FormLabel className="text-indigo-700">学科・コース</FormLabel>
                   <FormControl>
-                    <Input placeholder="例: 情報工学科" className="border-indigo-200 focus:border-indigo-400" {...field} />
+                    <Input placeholder="例: 経済学部" className="border-indigo-200 focus:border-indigo-400" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -367,10 +375,10 @@ export default function AttendanceForm() {
             name="feedback"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="text-indigo-700">講義の感想（任意）</FormLabel>
+                <FormLabel className="text-indigo-700">講義レポート</FormLabel>
                 <FormControl>
                   <Textarea 
-                    placeholder="今日の講義の感想を入力してください" 
+                    placeholder="出題された問いに対してのレポートを入力してください" 
                     className="resize-none border-indigo-200 focus:border-indigo-400" 
                     {...field} 
                   />
