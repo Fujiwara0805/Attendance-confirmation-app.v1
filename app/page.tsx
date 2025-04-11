@@ -10,10 +10,10 @@ export default function Home() {
             <GraduationCap className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 text-center">
-            Campus Attendance
+            出席管理システム
           </h1>
           <p className="text-gray-600 mt-2 text-center max-w-md">
-            今日の講義の出席を記録しましょう。あなたの感想が講義をより良くします。
+            レポートを提出して、出席登録をしましょう。
           </p>
         </div>
         <AttendanceForm />
