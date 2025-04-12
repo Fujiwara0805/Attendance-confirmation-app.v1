@@ -43,7 +43,7 @@ const formSchema = z.object({
 const CAMPUS_CENTER = {
   latitude: 33.5518, // 大分大学旦野原キャンパスの緯度
   longitude: 131.4076, // 大分大学旦野原キャンパスの経度
-  radius: 1, // キャンパス半径（km）
+  radius: 0.5, // キャンパス半径（km）
 };
 
 export default function AttendanceForm() {
