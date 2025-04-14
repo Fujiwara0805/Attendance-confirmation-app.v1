@@ -43,7 +43,7 @@ const formSchema = z.object({
 const CAMPUS_CENTER = {
   latitude: 33.5518, // 大分大学旦野原キャンパスの緯度
   longitude: 131.4076, // 大分大学旦野原キャンパスの経度
-  radius: 0.5, // キャンパス半径（km）
+  radius: 1, // キャンパス半径（km）
 };
 
 export default function AttendanceForm() {
@@ -117,6 +117,11 @@ export default function AttendanceForm() {
                   status: 'error',
                   message: `位置情報を取得できませんでした: ${error.message}`,
                 });
+              },
+              {
+                enableHighAccuracy: true, // 高精度モードを有効化
+                maximumAge: 0,           // キャッシュを使わず常に新しい位置情報を取得
+                timeout: 10000           // タイムアウト時間を延長（ミリ秒）
               }
             );
           } else {
