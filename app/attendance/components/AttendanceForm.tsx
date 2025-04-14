@@ -41,9 +41,9 @@ const formSchema = z.object({
 
 // 大分大学旦野原キャンパスの位置情報
 const CAMPUS_CENTER = {
-  latitude: 33.5518, // 大分大学旦野原キャンパスの緯度
-  longitude: 131.4076, // 大分大学旦野原キャンパスの経度
-  radius: 1, // キャンパス半径（km）
+  latitude: 33.1751332, // 現在地の緯度を使用
+  longitude: 131.6138803, // 現在地の経度を使用
+  radius: 0.5, // キャンパス半径（km）
 };
 
 export default function AttendanceForm() {
@@ -164,8 +164,8 @@ export default function AttendanceForm() {
       setIsSubmitting(true);
 
       // 位置情報を取得
-      let latitude = locationInfo.latitude || 33.5518; // デフォルト値
-      let longitude = locationInfo.longitude || 131.4076; // デフォルト値
+      let latitude = locationInfo.latitude || 33.1751332; // デフォルト値
+      let longitude = locationInfo.longitude || 131.6138803; // デフォルト値
 
       // Supabaseにデータを送信
       const { data, error } = await supabase
