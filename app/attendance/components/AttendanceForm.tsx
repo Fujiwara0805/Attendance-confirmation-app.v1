@@ -62,6 +62,8 @@ export default function AttendanceForm() {
     message: '位置情報を取得中...',
   });
   const [showLocationModal, setShowLocationModal] = useState(true);
+  const [lastSubmissionTime, setLastSubmissionTime] = useState<number | null>(null);
+  const [timeUntilNextSubmission, setTimeUntilNextSubmission] = useState<number>(0);
 
   // フォームの初期化
   const form = useForm<z.infer<typeof formSchema>>({
@@ -77,6 +79,51 @@ export default function AttendanceForm() {
     },
     mode: 'onChange', // リアルタイムバリデーション
   });
+
+  // コンポーネントマウント時に前回の登録時刻を取得
+  useEffect(() => {
+    const storedTime = localStorage.getItem('lastAttendanceSubmission');
+    if (storedTime) {
+      const parsedTime = parseInt(storedTime, 10);
+      setLastSubmissionTime(parsedTime);
+      
+      // 残り時間の計算
+      const cooldownPeriod = 15 * 60 * 1000; // 15分（ミリ秒）
+      const currentTime = Date.now();
+      const elapsedTime = currentTime - parsedTime;
+      
+      if (elapsedTime < cooldownPeriod) {
+        setTimeUntilNextSubmission(Math.ceil((cooldownPeriod - elapsedTime) / 1000 / 60));
+      }
+    }
+  }, []);
+
+  // 残り時間のカウントダウン処理
+  useEffect(() => {
+    if (timeUntilNextSubmission <= 0) return;
+    
+    const timer = setInterval(() => {
+      const storedTime = localStorage.getItem('lastAttendanceSubmission');
+      if (!storedTime) {
+        clearInterval(timer);
+        return;
+      }
+      
+      const parsedTime = parseInt(storedTime, 10);
+      const cooldownPeriod = 15 * 60 * 1000; // 15分（ミリ秒）
+      const currentTime = Date.now();
+      const elapsedTime = currentTime - parsedTime;
+      
+      if (elapsedTime >= cooldownPeriod) {
+        setTimeUntilNextSubmission(0);
+        clearInterval(timer);
+      } else {
+        setTimeUntilNextSubmission(Math.ceil((cooldownPeriod - elapsedTime) / 1000 / 60));
+      }
+    }, 60000); // 1分ごとに更新
+    
+    return () => clearInterval(timer);
+  }, [timeUntilNextSubmission]);
 
   // 位置情報を取得
   useEffect(() => {
@@ -160,6 +207,20 @@ export default function AttendanceForm() {
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setSubmitError(null);
     
+    // 前回の登録から15分経過していないかチェック
+    const lastSubmissionTimeStored = localStorage.getItem('lastAttendanceSubmission');
+    if (lastSubmissionTimeStored) {
+      const lastTime = parseInt(lastSubmissionTimeStored, 10);
+      const currentTime = Date.now();
+      const elapsedMinutes = (currentTime - lastTime) / (1000 * 60);
+      
+      if (elapsedMinutes < 15) {
+        setSubmitError(`同一端末からの出席登録は15分間隔を空ける必要があります。あと約${Math.ceil(15 - elapsedMinutes)}分お待ちください。`);
+        toast.error('出席登録の間隔が短すぎます');
+        return;
+      }
+    }
+    
     try {
       setIsSubmitting(true);
 
@@ -190,6 +251,11 @@ export default function AttendanceForm() {
 
       console.log('登録成功:', data);
       
+      // 成功時に現在時刻をローカルストレージに保存
+      localStorage.setItem('lastAttendanceSubmission', Date.now().toString());
+      setLastSubmissionTime(Date.now());
+      setTimeUntilNextSubmission(15); // 15分に設定
+      
       // 成功メッセージ
       toast.success('出席を登録しました');
       
@@ -206,9 +272,11 @@ export default function AttendanceForm() {
 
   // 全てのフィールドが入力されているか確認
   const isFormValid = form.formState.isValid;
-  const isSubmitEnabled = process.env.NODE_ENV === 'development' 
-    ? isFormValid // 開発環境では位置情報チェックをスキップ
-    : isFormValid && (locationInfo.isOnCampus === true); // 本番環境ではキャンパス内のみ許可
+  const isSubmitEnabled = 
+    (process.env.NODE_ENV === 'development' 
+      ? isFormValid // 開発環境では位置情報チェックをスキップ
+      : isFormValid && (locationInfo.isOnCampus === true)) // 本番環境ではキャンパス内のみ許可
+    && timeUntilNextSubmission === 0; // 15分経過していれば登録可能
 
   return (
     <div
@@ -238,6 +306,15 @@ export default function AttendanceForm() {
 
       <h2 className="text-2xl font-bold mb-2 text-center text-indigo-700">出席登録</h2>
       
+      {timeUntilNextSubmission > 0 && (
+        <div className="mb-6 p-3 bg-amber-50 border border-amber-200 text-amber-700 rounded-md flex items-center gap-2">
+          <AlertTriangle size={20} />
+          <span className="text-sm">
+            同一端末からの連続登録はできません。次回登録可能まであと約{timeUntilNextSubmission}分です。
+          </span>
+        </div>
+      )}
+
       <div className={`mb-6 p-3 rounded-md flex items-center gap-2 ${
         locationInfo.status === 'loading' ? 'bg-gray-100 text-gray-600' :
         locationInfo.status === 'success' ? 'bg-green-50 text-green-700 border border-green-200' :
@@ -399,12 +476,15 @@ export default function AttendanceForm() {
               className="w-full bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white font-medium"
               disabled={isSubmitting || !isSubmitEnabled}
             >
-              {isSubmitting ? "送信中..." : "出席を登録する"}
+              {isSubmitting ? "送信中..." : 
+               timeUntilNextSubmission > 0 ? `あと${timeUntilNextSubmission}分お待ちください` : "出席を登録する"}
             </Button>
           </div>
           
           {!isFormValid ? (
             <p className="text-sm text-amber-600 text-center">全ての必須項目を入力してください</p>
+          ) : timeUntilNextSubmission > 0 ? (
+            <p className="text-sm text-amber-600 text-center">同一端末からの連続登録には15分の間隔が必要です</p>
           ) : (!locationInfo.isOnCampus && process.env.NODE_ENV === 'production') ? (
             <p className="text-sm text-red-600 text-center">大分大学キャンパス内からのみ出席登録が可能です</p>
           ) : null}
