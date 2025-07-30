@@ -347,7 +347,12 @@ export default function AttendanceForm() {
                 <FormItem>
                   <FormLabel className="text-indigo-700">日付</FormLabel>
                   <FormControl>
-                    <Input type="date" className="border-indigo-200 focus:border-indigo-400" {...field} />
+                    <Input
+                      type="date"
+                      className="border-indigo-200 focus:border-indigo-400"
+                      style={{ fontSize: '16px' }} // iOSズームアップ対策
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -365,7 +370,7 @@ export default function AttendanceForm() {
                     defaultValue={field.value}
                   >
                     <FormControl>
-                      <SelectTrigger className="border-indigo-200 focus:border-indigo-400">
+                      <SelectTrigger className="border-indigo-200 focus:border-indigo-400" style={{ fontSize: '16px' }}> {/* SelectTriggerも対象に */}
                         <SelectValue placeholder="講義を選択してください" />
                       </SelectTrigger>
                     </FormControl>
@@ -387,7 +392,12 @@ export default function AttendanceForm() {
                 <FormItem>
                   <FormLabel className="text-indigo-700">学籍番号</FormLabel>
                   <FormControl>
-                    <Input placeholder="例: A12345" className="border-indigo-200 focus:border-indigo-400" {...field} />
+                    <Input
+                      placeholder="例: A12345"
+                      className="border-indigo-200 focus:border-indigo-400"
+                      style={{ fontSize: '16px' }} // iOSズームアップ対策
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -405,7 +415,7 @@ export default function AttendanceForm() {
                     defaultValue={field.value}
                   >
                     <FormControl>
-                      <SelectTrigger className="border-indigo-200 focus:border-indigo-400">
+                      <SelectTrigger className="border-indigo-200 focus:border-indigo-400" style={{ fontSize: '16px' }}> {/* SelectTriggerも対象に */}
                         <SelectValue placeholder="学年を選択してください" />
                       </SelectTrigger>
                     </FormControl>
@@ -430,7 +440,12 @@ export default function AttendanceForm() {
                 <FormItem>
                   <FormLabel className="text-indigo-700">名前</FormLabel>
                   <FormControl>
-                    <Input placeholder="例: 山田太郎" className="border-indigo-200 focus:border-indigo-400" {...field} />
+                    <Input
+                      placeholder="例: 山田太郎"
+                      className="border-indigo-200 focus:border-indigo-400"
+                      style={{ fontSize: '16px' }} // iOSズームアップ対策
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -444,7 +459,12 @@ export default function AttendanceForm() {
                 <FormItem>
                   <FormLabel className="text-indigo-700">学科・コース</FormLabel>
                   <FormControl>
-                    <Input placeholder="例: 経済学部" className="border-indigo-200 focus:border-indigo-400" {...field} />
+                    <Input
+                      placeholder="例: 経済学部"
+                      className="border-indigo-200 focus:border-indigo-400"
+                      style={{ fontSize: '16px' }} // iOSズームアップ対策
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -459,10 +479,11 @@ export default function AttendanceForm() {
               <FormItem>
                 <FormLabel className="text-indigo-700">講義レポート</FormLabel>
                 <FormControl>
-                  <Textarea 
-                    placeholder="出題された問いに対してのレポートを入力してください" 
-                    className="resize-none border-indigo-200 focus:border-indigo-400" 
-                    {...field} 
+                  <Textarea
+                    placeholder="出題された問いに対してのレポートを入力してください"
+                    className="resize-none border-indigo-200 focus:border-indigo-400"
+                    style={{ fontSize: '16px' }} // iOSズームアップ対策
+                    {...field}
                   />
                 </FormControl>
                 <FormMessage />
