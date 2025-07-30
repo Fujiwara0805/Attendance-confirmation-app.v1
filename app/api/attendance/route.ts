@@ -1,87 +1,57 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { google } from 'googleapis';
 import { v4 as uuidv4 } from 'uuid';
-import { promises as fs } from 'fs';
-import path from 'path';
-
-// 動的レンダリングを強制する行を削除
-// export const dynamic = 'force-dynamic';
-
-const auth = new google.auth.GoogleAuth({
-  credentials: {
-    client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-    private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-  },
-  scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-});
-
-const sheets = google.sheets({ version: 'v4', auth });
+import { getAdminConfigSpreadsheetId, getSheetData, createSheetIfEmpty, appendSheetData } from '@/lib/googleSheets';
 
 // 出席データのヘッダー
 const ATTENDANCE_HEADERS = [
   'ID', 'Date', 'ClassName', 'StudentID', 'Grade', 'Name', 'Department', 'Feedback', 'Latitude', 'Longitude', 'CreatedAt'
 ];
 
-const CONFIG_FILE_PATH = path.join(process.cwd(), 'attendance-config.json');
-
-// 設定ファイルから管理者が設定したスプレッドシートIDを取得
-const getAttendanceSpreadsheetId = async () => {
+// 講義名に対応するスプレッドシートIDを取得
+const getCourseSpreadsheetId = async (className: string) => {
   try {
-    const configData = await fs.readFile(CONFIG_FILE_PATH, 'utf8');
-    const config = JSON.parse(configData);
-    return config.attendanceSpreadsheetId;
+    const adminConfigSpreadsheetId = getAdminConfigSpreadsheetId();
+    const coursesSheetName = 'Courses';
+    
+    // 講義データを取得
+    const coursesData = await getSheetData(adminConfigSpreadsheetId, coursesSheetName);
+    
+    // 講義名に一致するデータを検索
+    const courseRow = coursesData.find(row => row[1] === className);
+    
+    if (courseRow && courseRow[3]) {
+      return {
+        spreadsheetId: courseRow[3],
+        defaultSheetName: courseRow[4] || 'Attendance'
+      };
+    }
+    
+    // 講義が見つからない場合はデフォルト設定を使用
+    console.log(`Course not found: ${className}, using global settings`);
+    return null;
   } catch (error) {
-    console.error('Error reading attendance spreadsheet ID:', error);
+    console.error('Error getting course spreadsheet ID:', error);
     return null;
   }
 };
 
-// シートが存在しない場合や空の場合にヘッダーを作成
-const createSheetIfEmpty = async (spreadsheetId: string, sheetName: string, headers: string[]) => {
+// デフォルトスプレッドシート設定を取得
+const getGlobalSpreadsheetId = async () => {
   try {
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId,
-      range: `${sheetName}!A1`,
-    });
-
-    if (!response.data.values || response.data.values.length === 0) {
-      await sheets.spreadsheets.values.update({
-        spreadsheetId,
-        range: `${sheetName}!A1`,
-        valueInputOption: 'RAW',
-        requestBody: {
-          values: [headers],
-        },
-      });
-    }
-  } catch (error: any) {
-    if (error.code === 400 && error.message && error.message.includes("Unable to parse range")) {
-      // シートを作成
-      await sheets.spreadsheets.batchUpdate({
-        spreadsheetId,
-        requestBody: {
-          requests: [{
-            addSheet: {
-              properties: {
-                title: sheetName,
-              },
-            },
-          }],
-        },
-      });
-
-      // ヘッダーを書き込む
-      await sheets.spreadsheets.values.update({
-        spreadsheetId,
-        range: `${sheetName}!A1`,
-        valueInputOption: 'RAW',
-        requestBody: {
-          values: [headers],
-        },
-      });
-    } else {
-      throw error;
-    }
+    const adminConfigSpreadsheetId = getAdminConfigSpreadsheetId();
+    const appSettingsSheetName = 'AppSettings';
+    
+    const settingsData = await getSheetData(adminConfigSpreadsheetId, appSettingsSheetName);
+    const globalSpreadsheetIdRow = settingsData.find(row => row[0] === 'GLOBAL_SPREADSHEET_ID');
+    const globalDefaultSheetNameRow = settingsData.find(row => row[0] === 'GLOBAL_DEFAULT_SHEET_NAME');
+    
+    return {
+      spreadsheetId: globalSpreadsheetIdRow?.[1],
+      defaultSheetName: globalDefaultSheetNameRow?.[1] || 'Attendance'
+    };
+  } catch (error) {
+    console.error('Error getting global spreadsheet settings:', error);
+    return null;
   }
 };
 
@@ -94,18 +64,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Missing required fields' }, { status: 400 });
     }
 
-    const attendanceSpreadsheetId = await getAttendanceSpreadsheetId();
-    if (!attendanceSpreadsheetId) {
+    // 講義名に対応するスプレッドシート設定を取得
+    let spreadsheetConfig = await getCourseSpreadsheetId(class_name);
+    
+    // 講義が見つからない場合はグローバル設定を使用
+    if (!spreadsheetConfig) {
+      spreadsheetConfig = await getGlobalSpreadsheetId();
+    }
+    
+    if (!spreadsheetConfig || !spreadsheetConfig.spreadsheetId) {
       return NextResponse.json({ 
-        message: 'Attendance spreadsheet not configured. Please configure it in the admin panel.' 
+        message: 'Spreadsheet not configured for this course. Please contact administrator.' 
       }, { status: 400 });
     }
 
-    // 講義名に基づいてシート名を決定
-    const attendanceSheetName = `${class_name}Attendance`;
+    // シート名を決定
+    const attendanceSheetName = `${spreadsheetConfig.defaultSheetName}`;
 
     // シートが存在しない、または空の場合はヘッダーを作成
-    await createSheetIfEmpty(attendanceSpreadsheetId, attendanceSheetName, ATTENDANCE_HEADERS);
+    await createSheetIfEmpty(spreadsheetConfig.spreadsheetId, attendanceSheetName, ATTENDANCE_HEADERS);
 
     // サーバーサイドでIDとタイムスタンプを生成
     const id = uuidv4();
@@ -128,16 +105,13 @@ export async function POST(req: NextRequest) {
       ],
     ];
 
-    await sheets.spreadsheets.values.append({
-      spreadsheetId: attendanceSpreadsheetId,
-      range: `${attendanceSheetName}!A:A`,
-      valueInputOption: 'USER_ENTERED',
-      requestBody: {
-        values,
-      },
-    });
+    await appendSheetData(spreadsheetConfig.spreadsheetId, attendanceSheetName, values);
 
-    return NextResponse.json({ message: 'Attendance recorded successfully!' }, { status: 200 });
+    return NextResponse.json({ 
+      message: 'Attendance recorded successfully!',
+      spreadsheetId: spreadsheetConfig.spreadsheetId,
+      sheetName: attendanceSheetName
+    }, { status: 200 });
   } catch (error) {
     console.error('Error recording attendance:', error);
     return NextResponse.json({ 

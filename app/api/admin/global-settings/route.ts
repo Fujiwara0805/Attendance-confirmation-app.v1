@@ -7,7 +7,7 @@ const APP_SETTINGS_HEADERS = ['Key', 'Value', 'Description'];
 // 設定を読み取り
 export async function GET() {
   try {
-    console.log('GET request received for spreadsheet config');
+    console.log('GET request received for global settings');
     
     const adminConfigSpreadsheetId = getAdminConfigSpreadsheetId();
     const appSettingsSheetName = 'AppSettings';
@@ -17,22 +17,22 @@ export async function GET() {
     
     // 設定データを取得
     const settingsData = await getSheetData(adminConfigSpreadsheetId, appSettingsSheetName);
-    const attendanceSpreadsheetIdRow = settingsData.find(row => row[0] === 'ATTENDANCE_DATA_SPREADSHEET_ID');
-    const defaultSheetNameRow = settingsData.find(row => row[0] === 'DEFAULT_SHEET_NAME');
+    const globalSpreadsheetIdRow = settingsData.find(row => row[0] === 'GLOBAL_SPREADSHEET_ID');
+    const globalDefaultSheetNameRow = settingsData.find(row => row[0] === 'GLOBAL_DEFAULT_SHEET_NAME');
     
-    const attendanceSpreadsheetId = attendanceSpreadsheetIdRow?.[1] || null;
-    const defaultSheetName = defaultSheetNameRow?.[1] || 'Attendance';
+    const globalSpreadsheetId = globalSpreadsheetIdRow?.[1] || null;
+    const globalDefaultSheetName = globalDefaultSheetNameRow?.[1] || 'Attendance';
     
-    console.log('Config read from spreadsheet:', { attendanceSpreadsheetId, defaultSheetName });
+    console.log('Global settings read from spreadsheet:', { globalSpreadsheetId, globalDefaultSheetName });
     
     return NextResponse.json({
-      attendanceSpreadsheetId,
-      defaultSheetName,
+      globalSpreadsheetId,
+      globalDefaultSheetName,
     }, { status: 200 });
   } catch (error) {
-    console.error('Error fetching settings:', error);
+    console.error('Error fetching global settings:', error);
     return NextResponse.json({ 
-      message: 'Failed to fetch settings',
+      message: 'Failed to fetch global settings',
       error: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
@@ -41,15 +41,15 @@ export async function GET() {
 // 設定を更新
 export async function POST(req: NextRequest) {
   try {
-    console.log('POST request received for spreadsheet config');
+    console.log('POST request received for global settings');
     const body = await req.json();
     console.log('Request body:', body);
     
-    const { attendanceSpreadsheetId: newId, defaultSheetName: newSheetName } = body;
+    const { globalSpreadsheetId: newId, globalDefaultSheetName: newSheetName } = body;
 
     if (!newId || typeof newId !== 'string' || !newId.trim()) {
       return NextResponse.json({ 
-        message: 'スプレッドシートIDが無効です。正しいIDを入力してください。' 
+        message: 'グローバルスプレッドシートIDが無効です。正しいIDを入力してください。' 
       }, { status: 400 });
     }
 
@@ -72,51 +72,51 @@ export async function POST(req: NextRequest) {
     // 既存の設定データを取得
     const settingsData = await getSheetData(adminConfigSpreadsheetId, appSettingsSheetName);
     
-    // スプレッドシートIDの更新または追加
-    const attendanceSpreadsheetIdRowIndex = settingsData.findIndex(row => row[0] === 'ATTENDANCE_DATA_SPREADSHEET_ID');
-    if (attendanceSpreadsheetIdRowIndex >= 0) {
+    // グローバルスプレッドシートIDの更新または追加
+    const globalSpreadsheetIdRowIndex = settingsData.findIndex(row => row[0] === 'GLOBAL_SPREADSHEET_ID');
+    if (globalSpreadsheetIdRowIndex >= 0) {
       await updateSheetData(
         adminConfigSpreadsheetId, 
         appSettingsSheetName, 
-        attendanceSpreadsheetIdRowIndex + 2, 
-        [['ATTENDANCE_DATA_SPREADSHEET_ID', trimmedId, '出席データを保存するスプレッドシートのID']]
+        globalSpreadsheetIdRowIndex + 2, 
+        [['GLOBAL_SPREADSHEET_ID', trimmedId, 'グローバル設定のスプレッドシートID']]
       );
     } else {
       await appendSheetData(
         adminConfigSpreadsheetId, 
         appSettingsSheetName, 
-        [['ATTENDANCE_DATA_SPREADSHEET_ID', trimmedId, '出席データを保存するスプレッドシートのID']]
+        [['GLOBAL_SPREADSHEET_ID', trimmedId, 'グローバル設定のスプレッドシートID']]
       );
     }
 
-    // デフォルトシート名の更新または追加
-    const defaultSheetNameRowIndex = settingsData.findIndex(row => row[0] === 'DEFAULT_SHEET_NAME');
-    if (defaultSheetNameRowIndex >= 0) {
+    // グローバルデフォルトシート名の更新または追加
+    const globalDefaultSheetNameRowIndex = settingsData.findIndex(row => row[0] === 'GLOBAL_DEFAULT_SHEET_NAME');
+    if (globalDefaultSheetNameRowIndex >= 0) {
       await updateSheetData(
         adminConfigSpreadsheetId, 
         appSettingsSheetName, 
-        defaultSheetNameRowIndex + 2, 
-        [['DEFAULT_SHEET_NAME', trimmedSheetName, 'デフォルトのシート名']]
+        globalDefaultSheetNameRowIndex + 2, 
+        [['GLOBAL_DEFAULT_SHEET_NAME', trimmedSheetName, 'グローバル設定のデフォルトシート名']]
       );
     } else {
       await appendSheetData(
         adminConfigSpreadsheetId, 
         appSettingsSheetName, 
-        [['DEFAULT_SHEET_NAME', trimmedSheetName, 'デフォルトのシート名']]
+        [['GLOBAL_DEFAULT_SHEET_NAME', trimmedSheetName, 'グローバル設定のデフォルトシート名']]
       );
     }
 
-    console.log('Settings saved successfully:', { attendanceSpreadsheetId: trimmedId, defaultSheetName: trimmedSheetName });
+    console.log('Global settings saved successfully:', { globalSpreadsheetId: trimmedId, globalDefaultSheetName: trimmedSheetName });
 
     return NextResponse.json({ 
-      message: 'スプレッドシート設定を正常に保存しました。',
-      attendanceSpreadsheetId: trimmedId,
-      defaultSheetName: trimmedSheetName
+      message: 'グローバル設定を正常に保存しました。',
+      globalSpreadsheetId: trimmedId,
+      globalDefaultSheetName: trimmedSheetName
     }, { status: 200 });
   } catch (error) {
-    console.error('Error updating spreadsheet settings:', error);
+    console.error('Error updating global settings:', error);
     return NextResponse.json({ 
-      message: 'スプレッドシート設定の保存に失敗しました。',
+      message: 'グローバル設定の保存に失敗しました。',
       error: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }

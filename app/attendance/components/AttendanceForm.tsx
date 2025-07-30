@@ -27,6 +27,15 @@ import {
 import { toast } from 'sonner';
 import { MapPin, AlertTriangle, CheckCircle } from 'lucide-react';
 
+// 講義情報の型定義
+interface Course {
+  id: string;
+  courseName: string;
+  teacherName: string;
+  spreadsheetId: string;
+  defaultSheetName: string;
+}
+
 // フォームのバリデーションスキーマ
 const formSchema = z.object({
   date: z.string().min(1, { message: '日付を入力してください' }),
@@ -40,15 +49,17 @@ const formSchema = z.object({
 
 // 大分大学旦野原キャンパスの位置情報
 const CAMPUS_CENTER = {
-  latitude: 33.1751332, // 現在地の緯度を使用
-  longitude: 131.6138803, // 現在地の経度を使用
-  radius: 0.5, // キャンパス半径（km）
+  latitude: 33.1751332,
+  longitude: 131.6138803,
+  radius: 0.5,
 };
 
 export default function AttendanceForm() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [loadingCourses, setLoadingCourses] = useState(true);
   const [locationInfo, setLocationInfo] = useState<{
     status: 'loading' | 'success' | 'error' | 'outside';
     message: string;
@@ -68,7 +79,7 @@ export default function AttendanceForm() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      date: new Date().toISOString().split('T')[0], // 今日の日付をデフォルト値に
+      date: new Date().toISOString().split('T')[0],
       class_name: '',
       student_id: '',
       grade: '',
@@ -76,18 +87,40 @@ export default function AttendanceForm() {
       department: '',
       feedback: '',
     },
-    mode: 'onChange', // リアルタイムバリデーション
+    mode: 'onChange',
   });
 
-  // コンポーネントマウント時に前回の登録時刻を取得
+  // 講義一覧を取得
+  const fetchCourses = async () => {
+    try {
+      const response = await fetch('/api/admin/courses');
+      if (response.ok) {
+        const data = await response.json();
+        setCourses(data.courses || []);
+      } else {
+        console.error('Failed to fetch courses');
+        toast.error('講義一覧の取得に失敗しました');
+      }
+    } catch (error) {
+      console.error('Error fetching courses:', error);
+      toast.error('講義一覧の取得中にエラーが発生しました');
+    } finally {
+      setLoadingCourses(false);
+    }
+  };
+
+  // コンポーネントマウント時の処理
   useEffect(() => {
+    // 講義一覧を取得
+    fetchCourses();
+
+    // 前回の登録時刻を取得
     const storedTime = localStorage.getItem('lastAttendanceSubmission');
     if (storedTime) {
       const parsedTime = parseInt(storedTime, 10);
       setLastSubmissionTime(parsedTime);
       
-      // 残り時間の計算
-      const cooldownPeriod = 15 * 60 * 1000; // 15分（ミリ秒）
+      const cooldownPeriod = 15 * 60 * 1000;
       const currentTime = Date.now();
       const elapsedTime = currentTime - parsedTime;
       
@@ -109,7 +142,7 @@ export default function AttendanceForm() {
       }
       
       const parsedTime = parseInt(storedTime, 10);
-      const cooldownPeriod = 15 * 60 * 1000; // 15分（ミリ秒）
+      const cooldownPeriod = 15 * 60 * 1000;
       const currentTime = Date.now();
       const elapsedTime = currentTime - parsedTime;
       
@@ -119,14 +152,13 @@ export default function AttendanceForm() {
       } else {
         setTimeUntilNextSubmission(Math.ceil((cooldownPeriod - elapsedTime) / 1000 / 60));
       }
-    }, 60000); // 1分ごとに更新
+    }, 60000);
     
     return () => clearInterval(timer);
   }, [timeUntilNextSubmission]);
 
   // 位置情報を取得
   useEffect(() => {
-    // モーダルが閉じられた後に位置情報を取得するよう変更
     if (!showLocationModal) {
       const getLocation = async () => {
         try {
@@ -136,7 +168,6 @@ export default function AttendanceForm() {
                 const lat = position.coords.latitude;
                 const lng = position.coords.longitude;
                 
-                // キャンパスとの距離を計算（Haversine公式）
                 const distance = calculateDistance(
                   lat, lng,
                   CAMPUS_CENTER.latitude, CAMPUS_CENTER.longitude
@@ -165,9 +196,9 @@ export default function AttendanceForm() {
                 });
               },
               {
-                enableHighAccuracy: true, // 高精度モードを有効化
-                maximumAge: 0,           // キャッシュを使わず常に新しい位置情報を取得
-                timeout: 10000           // タイムアウト時間を延長（ミリ秒）
+                enableHighAccuracy: true,
+                maximumAge: 0,
+                timeout: 10000
               }
             );
           } else {
@@ -191,7 +222,7 @@ export default function AttendanceForm() {
 
   // 2点間の距離を計算（Haversine公式）
   function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
-    const R = 6371; // 地球の半径（km）
+    const R = 6371;
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
     const a = 
@@ -199,7 +230,7 @@ export default function AttendanceForm() {
       Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
       Math.sin(dLon/2) * Math.sin(dLon/2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c; // km単位の距離
+    return R * c;
   }
 
   // フォーム送信処理
@@ -223,11 +254,9 @@ export default function AttendanceForm() {
     try {
       setIsSubmitting(true);
 
-      // 位置情報を取得
-      let latitude = locationInfo.latitude || 33.1751332; // デフォルト値
-      let longitude = locationInfo.longitude || 131.6138803; // デフォルト値
+      let latitude = locationInfo.latitude || 33.1751332;
+      let longitude = locationInfo.longitude || 131.6138803;
 
-      // APIルートにデータを送信
       const response = await fetch('/api/attendance', {
         method: 'POST',
         headers: {
@@ -253,15 +282,11 @@ export default function AttendanceForm() {
 
       console.log('登録成功');
       
-      // 成功時に現在時刻をローカルストレージに保存
       localStorage.setItem('lastAttendanceSubmission', Date.now().toString());
       setLastSubmissionTime(Date.now());
-      setTimeUntilNextSubmission(15); // 15分に設定
+      setTimeUntilNextSubmission(15);
       
-      // 成功メッセージ
       toast.success('出席を登録しました');
-      
-      // 出席完了画面に遷移
       router.push('/attendance/complete');
     } catch (error: any) {
       console.error('出席登録エラー:', error);
@@ -272,13 +297,12 @@ export default function AttendanceForm() {
     }
   };
 
-  // 全てのフィールドが入力されているか確認
   const isFormValid = form.formState.isValid;
   const isSubmitEnabled = 
     (process.env.NODE_ENV === 'development' 
-      ? isFormValid // 開発環境では位置情報チェックをスキップ
-      : isFormValid && (locationInfo.isOnCampus === true)) // 本番環境ではキャンパス内のみ許可
-    && timeUntilNextSubmission === 0; // 15分経過していれば登録可能
+      ? isFormValid
+      : isFormValid && (locationInfo.isOnCampus === true))
+    && timeUntilNextSubmission === 0;
 
   return (
     <div
@@ -324,7 +348,7 @@ export default function AttendanceForm() {
         'bg-red-50 text-red-700 border border-red-200'
       }`}>
         {locationInfo.status === 'loading' && (
-          <div className="h-5 w-5 rounded-full border-2 border-gray-400 border-t-transparent" />
+          <div className="h-5 w-5 rounded-full border-2 border-gray-400 border-t-transparent animate-spin" />
         )}
         {locationInfo.status === 'success' && <CheckCircle size={20} />}
         {locationInfo.status === 'outside' && <AlertTriangle size={20} />}
@@ -352,7 +376,7 @@ export default function AttendanceForm() {
                     <Input
                       type="date"
                       className="border-indigo-200 focus:border-indigo-400"
-                      style={{ fontSize: '16px' }} // iOSズームアップ対策
+                      style={{ fontSize: '16px' }}
                       {...field}
                     />
                   </FormControl>
@@ -373,11 +397,21 @@ export default function AttendanceForm() {
                   >
                     <FormControl>
                       <SelectTrigger className="border-indigo-200 focus:border-indigo-400" style={{ fontSize: '16px' }}>
-                        <SelectValue placeholder="講義を選択してください" />
+                        <SelectValue placeholder={loadingCourses ? "講義を読み込み中..." : "講義を選択してください"} />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="地域経営論Ⅰ">地域経営論Ⅰ</SelectItem>
+                      {loadingCourses ? (
+                        <SelectItem value="loading" disabled>講義を読み込み中...</SelectItem>
+                      ) : courses.length === 0 ? (
+                        <SelectItem value="no-courses" disabled>登録されている講義がありません</SelectItem>
+                      ) : (
+                        courses.map((course) => (
+                          <SelectItem key={course.id} value={course.courseName}>
+                            {course.courseName} ({course.teacherName})
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -397,7 +431,7 @@ export default function AttendanceForm() {
                     <Input
                       placeholder="例: A12345"
                       className="border-indigo-200 focus:border-indigo-400"
-                      style={{ fontSize: '16px' }} // iOSズームアップ対策
+                      style={{ fontSize: '16px' }}
                       {...field}
                     />
                   </FormControl>
@@ -445,7 +479,7 @@ export default function AttendanceForm() {
                     <Input
                       placeholder="例: 山田太郎"
                       className="border-indigo-200 focus:border-indigo-400"
-                      style={{ fontSize: '16px' }} // iOSズームアップ対策
+                      style={{ fontSize: '16px' }}
                       {...field}
                     />
                   </FormControl>
@@ -464,7 +498,7 @@ export default function AttendanceForm() {
                     <Input
                       placeholder="例: 経済学部"
                       className="border-indigo-200 focus:border-indigo-400"
-                      style={{ fontSize: '16px' }} // iOSズームアップ対策
+                      style={{ fontSize: '16px' }}
                       {...field}
                     />
                   </FormControl>
@@ -484,7 +518,7 @@ export default function AttendanceForm() {
                   <Textarea
                     placeholder="出題された問いに対してのレポートを入力してください"
                     className="resize-none border-indigo-200 focus:border-indigo-400"
-                    style={{ fontSize: '16px' }} // iOSズームアップ対策
+                    style={{ fontSize: '16px' }}
                     {...field}
                   />
                 </FormControl>
