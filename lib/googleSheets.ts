@@ -1,13 +1,23 @@
 import { google } from 'googleapis';
 
-const auth = new google.auth.GoogleAuth({
-  credentials: {
-    client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-    private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-  },
-  scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-});
+// OpenSSLエラーを回避するための設定
+const createAuth = () => {
+  // 本番環境でのOpenSSL設定
+  if (process.env.NODE_ENV === 'production') {
+    // Node.jsのOpenSSL設定を調整
+    process.env.NODE_OPTIONS = '--openssl-legacy-provider';
+  }
 
+  return new google.auth.GoogleAuth({
+    credentials: {
+      client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+      private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    },
+    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+  });
+};
+
+const auth = createAuth();
 export const sheets = google.sheets({ version: 'v4', auth });
 
 /**
