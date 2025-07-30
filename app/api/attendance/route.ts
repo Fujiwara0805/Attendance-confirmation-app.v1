@@ -4,8 +4,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { promises as fs } from 'fs';
 import path from 'path';
 
-// 動的レンダリングを強制する
-export const dynamic = 'force-dynamic';
+// 動的レンダリングを強制する行を削除
+// export const dynamic = 'force-dynamic';
 
 const auth = new google.auth.GoogleAuth({
   credentials: {
@@ -31,6 +31,7 @@ const getAttendanceSpreadsheetId = async () => {
     const config = JSON.parse(configData);
     return config.attendanceSpreadsheetId;
   } catch (error) {
+    console.error('Error reading attendance spreadsheet ID:', error);
     return null;
   }
 };
@@ -95,7 +96,9 @@ export async function POST(req: NextRequest) {
 
     const attendanceSpreadsheetId = await getAttendanceSpreadsheetId();
     if (!attendanceSpreadsheetId) {
-      return NextResponse.json({ message: 'Attendance spreadsheet not configured' }, { status: 400 });
+      return NextResponse.json({ 
+        message: 'Attendance spreadsheet not configured. Please configure it in the admin panel.' 
+      }, { status: 400 });
     }
 
     // 講義名に基づいてシート名を決定
@@ -137,6 +140,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: 'Attendance recorded successfully!' }, { status: 200 });
   } catch (error) {
     console.error('Error recording attendance:', error);
-    return NextResponse.json({ message: 'Failed to record attendance' }, { status: 500 });
+    return NextResponse.json({ 
+      message: 'Failed to record attendance',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
   }
 }

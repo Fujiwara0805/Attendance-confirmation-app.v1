@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { supabase } from '@/lib/supabase';
 
 import {
   Form,
@@ -228,10 +227,13 @@ export default function AttendanceForm() {
       let latitude = locationInfo.latitude || 33.1751332; // デフォルト値
       let longitude = locationInfo.longitude || 131.6138803; // デフォルト値
 
-      // Supabaseにデータを送信
-      const { data, error } = await supabase
-        .from('attendance_records')
-        .insert({
+      // APIルートにデータを送信
+      const response = await fetch('/api/attendance', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           date: values.date,
           class_name: values.class_name,
           student_id: values.student_id,
@@ -241,15 +243,15 @@ export default function AttendanceForm() {
           feedback: values.feedback,
           latitude,
           longitude,
-        })
-        .select();
+        }),
+      });
 
-      if (error) {
-        console.error('Supabaseエラー:', error);
-        throw new Error(`データ挿入エラー: ${error.message}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || '出席登録に失敗しました');
       }
 
-      console.log('登録成功:', data);
+      console.log('登録成功');
       
       // 成功時に現在時刻をローカルストレージに保存
       localStorage.setItem('lastAttendanceSubmission', Date.now().toString());
@@ -370,7 +372,7 @@ export default function AttendanceForm() {
                     defaultValue={field.value}
                   >
                     <FormControl>
-                      <SelectTrigger className="border-indigo-200 focus:border-indigo-400" style={{ fontSize: '16px' }}> {/* SelectTriggerも対象に */}
+                      <SelectTrigger className="border-indigo-200 focus:border-indigo-400" style={{ fontSize: '16px' }}>
                         <SelectValue placeholder="講義を選択してください" />
                       </SelectTrigger>
                     </FormControl>
@@ -415,7 +417,7 @@ export default function AttendanceForm() {
                     defaultValue={field.value}
                   >
                     <FormControl>
-                      <SelectTrigger className="border-indigo-200 focus:border-indigo-400" style={{ fontSize: '16px' }}> {/* SelectTriggerも対象に */}
+                      <SelectTrigger className="border-indigo-200 focus:border-indigo-400" style={{ fontSize: '16px' }}>
                         <SelectValue placeholder="学年を選択してください" />
                       </SelectTrigger>
                     </FormControl>
