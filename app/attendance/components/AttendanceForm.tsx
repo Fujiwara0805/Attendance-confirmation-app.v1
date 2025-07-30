@@ -518,7 +518,7 @@ export default function AttendanceForm() {
                   <Textarea
                     placeholder="出題された問いに対してのレポートを入力してください"
                     className="resize-none border-indigo-200 focus:border-indigo-400"
-                    style={{ fontSize: '16px' }}
+                    style={{ fontSize: '16px', minHeight: 'calc(1.5em * 4 + 1rem + 32px)' }}
                     {...field}
                   />
                 </FormControl>
