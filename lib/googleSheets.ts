@@ -2,16 +2,24 @@ import { google } from 'googleapis';
 
 // OpenSSLエラーを回避するための設定
 const createAuth = () => {
-  // 本番環境でのOpenSSL設定
-  if (process.env.NODE_ENV === 'production') {
-    // Node.jsのOpenSSL設定を調整
+  // Vercel環境でのOpenSSL設定
+  if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
     process.env.NODE_OPTIONS = '--openssl-legacy-provider';
+  }
+
+  // 秘密鍵の正規化処理を強化
+  const privateKey = process.env.GOOGLE_PRIVATE_KEY
+    ?.replace(/\\n/g, '\n')
+    ?.trim();
+
+  if (!privateKey || !process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL) {
+    throw new Error('Google Service Account credentials are missing');
   }
 
   return new google.auth.GoogleAuth({
     credentials: {
       client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-      private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+      private_key: privateKey,
     },
     scopes: ['https://www.googleapis.com/auth/spreadsheets'],
   });
