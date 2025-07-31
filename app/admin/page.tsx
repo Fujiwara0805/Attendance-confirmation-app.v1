@@ -41,8 +41,6 @@ interface Course {
 export default function AdminPage() {
   const { toast } = useToast();
   
-
-
   // 講義管理用の状態
   const [courses, setCourses] = useState<Course[]>([]);
   const [loadingCourses, setLoadingCourses] = useState<boolean>(false);
@@ -52,10 +50,19 @@ export default function AdminPage() {
   const [newCourse, setNewCourse] = useState({
     courseName: '',
     teacherName: '',
-    spreadsheetId: '',
-    defaultSheetName: 'Attendance'
+    spreadsheetId: ''
   });
   const [savingNewCourse, setSavingNewCourse] = useState<boolean>(false);
+
+  // 編集用の状態
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState<boolean>(false);
+  const [editingCourse, setEditingCourse] = useState<Course | null>(null);
+  const [editCourse, setEditCourse] = useState({
+    courseName: '',
+    teacherName: '',
+    spreadsheetId: ''
+  });
+  const [savingEditCourse, setSavingEditCourse] = useState<boolean>(false);
 
   const SERVICE_ACCOUNT_EMAIL = 'id-791@attendance-management-467501.iam.gserviceaccount.com';
 
@@ -69,6 +76,12 @@ export default function AdminPage() {
     });
   }, [toast]);
 
+  // スプレッドシートIDをマスクする関数
+  const maskSpreadsheetId = (id: string) => {
+    if (id.length <= 8) return id;
+    return id.substring(0, 4) + '*'.repeat(id.length - 8) + id.substring(id.length - 4);
+  };
+
   // サービスアカウントのメールアドレスをクリップボードにコピーする関数
   const copyServiceAccountEmail = async () => {
     try {
@@ -78,8 +91,6 @@ export default function AdminPage() {
       showToast("コピー失敗", "クリップボードへのコピーに失敗しました。手動でコピーしてください。", "destructive");
     }
   };
-
-
 
   // 講義一覧の取得
   const fetchCourses = useCallback(async () => {
@@ -117,15 +128,14 @@ export default function AdminPage() {
         body: JSON.stringify({
           courseName: newCourse.courseName.trim(),
           teacherName: newCourse.teacherName.trim(),
-          spreadsheetId: newCourse.spreadsheetId.trim(),
-          defaultSheetName: newCourse.defaultSheetName.trim() || 'Attendance'
+          spreadsheetId: newCourse.spreadsheetId.trim()
         }),
       });
       
       if (response.ok) {
         showToast("講義追加完了", "新しい講義を正常に追加しました。");
         setIsAddDialogOpen(false);
-        setNewCourse({ courseName: '', teacherName: '', spreadsheetId: '', defaultSheetName: 'Attendance' });
+        setNewCourse({ courseName: '', teacherName: '', spreadsheetId: '' });
         await fetchCourses();
       } else {
         const errorData = await response.json();
@@ -136,6 +146,54 @@ export default function AdminPage() {
       showToast("通信エラー", "サーバーとの通信中にエラーが発生しました。", "destructive");
     } finally {
       setSavingNewCourse(false);
+    }
+  };
+
+  // 編集ダイアログを開く
+  const handleEditCourse = (course: Course) => {
+    setEditingCourse(course);
+    setEditCourse({
+      courseName: course.courseName,
+      teacherName: course.teacherName,
+      spreadsheetId: course.spreadsheetId
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  // 講義の編集
+  const handleUpdateCourse = async () => {
+    if (!editingCourse || !editCourse.courseName.trim() || !editCourse.teacherName.trim() || !editCourse.spreadsheetId.trim()) {
+      showToast("入力エラー", "すべての必須項目を入力してください。", "destructive");
+      return;
+    }
+
+    setSavingEditCourse(true);
+    try {
+      const response = await fetch(`/api/admin/courses/${editingCourse.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          courseName: editCourse.courseName.trim(),
+          teacherName: editCourse.teacherName.trim(),
+          spreadsheetId: editCourse.spreadsheetId.trim()
+        }),
+      });
+      
+      if (response.ok) {
+        showToast("講義更新完了", "講義情報を正常に更新しました。");
+        setIsEditDialogOpen(false);
+        setEditingCourse(null);
+        setEditCourse({ courseName: '', teacherName: '', spreadsheetId: '' });
+        await fetchCourses();
+      } else {
+        const errorData = await response.json();
+        showToast("更新失敗", errorData.message || "講義の更新に失敗しました。", "destructive");
+      }
+    } catch (error) {
+      console.error('Failed to update course:', error);
+      showToast("通信エラー", "サーバーとの通信中にエラーが発生しました。", "destructive");
+    } finally {
+      setSavingEditCourse(false);
     }
   };
 
@@ -227,7 +285,7 @@ export default function AdminPage() {
                     <DialogHeader>
                       <DialogTitle>新規講義追加</DialogTitle>
                       <DialogDescription>
-                        新しい講義とそのスプレッドシート設定を追加します。
+                        新しい講義とそのスプレッドシート設定を追加します。講義名がシート名として使用されます。
                       </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
@@ -239,6 +297,7 @@ export default function AdminPage() {
                           value={newCourse.courseName}
                           onChange={(e) => setNewCourse({...newCourse, courseName: e.target.value})}
                         />
+                        <p className="text-xs text-slate-500">この名前がスプレッドシートのシート名としても使用されます</p>
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="teacher-name">担当教員名 *</Label>
@@ -256,15 +315,6 @@ export default function AdminPage() {
                           placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
                           value={newCourse.spreadsheetId}
                           onChange={(e) => setNewCourse({...newCourse, spreadsheetId: e.target.value})}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="new-sheet-name">デフォルトシート名</Label>
-                        <Input
-                          id="new-sheet-name"
-                          placeholder="Attendance"
-                          value={newCourse.defaultSheetName}
-                          onChange={(e) => setNewCourse({...newCourse, defaultSheetName: e.target.value})}
                         />
                       </div>
                     </div>
@@ -289,6 +339,66 @@ export default function AdminPage() {
                   </DialogContent>
                 </Dialog>
               </div>
+
+              {/* 編集ダイアログ */}
+              <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+                <DialogContent className="sm:max-w-[500px]">
+                  <DialogHeader>
+                    <DialogTitle>講義編集</DialogTitle>
+                    <DialogDescription>
+                      講義情報を編集します。講義名がシート名として使用されます。
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-course-name">講義名 *</Label>
+                      <Input
+                        id="edit-course-name"
+                        placeholder="例: 経済学1"
+                        value={editCourse.courseName}
+                        onChange={(e) => setEditCourse({...editCourse, courseName: e.target.value})}
+                      />
+                      <p className="text-xs text-slate-500">この名前がスプレッドシートのシート名としても使用されます</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-teacher-name">担当教員名 *</Label>
+                      <Input
+                        id="edit-teacher-name"
+                        placeholder="例: 田中太郎"
+                        value={editCourse.teacherName}
+                        onChange={(e) => setEditCourse({...editCourse, teacherName: e.target.value})}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-spreadsheet-id">スプレッドシートID *</Label>
+                      <Input
+                        id="edit-spreadsheet-id"
+                        placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
+                        value={editCourse.spreadsheetId}
+                        onChange={(e) => setEditCourse({...editCourse, spreadsheetId: e.target.value})}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                      キャンセル
+                    </Button>
+                    <Button onClick={handleUpdateCourse} disabled={savingEditCourse}>
+                      {savingEditCourse ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                          更新中...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="h-4 w-4 mr-2" />
+                          更新
+                        </>
+                      )}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
 
               {/* 統計カード */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -388,7 +498,6 @@ export default function AdminPage() {
                             <th className="text-left p-4 font-semibold text-slate-700">講義名</th>
                             <th className="text-left p-4 font-semibold text-slate-700">担当教員</th>
                             <th className="text-left p-4 font-semibold text-slate-700">スプレッドシートID</th>
-                            <th className="text-left p-4 font-semibold text-slate-700">シート名</th>
                             <th className="text-left p-4 font-semibold text-slate-700">最終更新</th>
                             <th className="text-left p-4 font-semibold text-slate-700">操作</th>
                           </tr>
@@ -410,11 +519,8 @@ export default function AdminPage() {
                               </td>
                               <td className="p-4">
                                 <code className="text-sm bg-slate-100 px-2 py-1 rounded text-slate-700 break-all">
-                                  {course.spreadsheetId}
+                                  {maskSpreadsheetId(course.spreadsheetId)}
                                 </code>
-                              </td>
-                              <td className="p-4">
-                                <span className="text-sm text-slate-600">{course.defaultSheetName}</span>
                               </td>
                               <td className="p-4">
                                 <span className="text-sm text-slate-600">
@@ -426,6 +532,7 @@ export default function AdminPage() {
                                   <Button
                                     size="sm"
                                     variant="outline"
+                                    onClick={() => handleEditCourse(course)}
                                     className="text-indigo-600 border-indigo-300 hover:bg-indigo-50"
                                   >
                                     <Edit className="h-3 w-3 mr-1" />
@@ -452,8 +559,6 @@ export default function AdminPage() {
               </Card>
             </div>
           </TabsContent>
-
-
 
           {/* セットアップガイドタブ */}
           <TabsContent value="guide">
@@ -595,15 +700,15 @@ export default function AdminPage() {
                         <div className="space-y-3">
                           <div className="flex items-center space-x-3">
                             <ArrowRight className="h-4 w-4 text-slate-400" />
-                            <span className="text-slate-700">左側の設定フォームにスプレッドシートIDを入力</span>
+                            <span className="text-slate-700">「新規講義追加」ボタンから講義を登録</span>
                           </div>
                           <div className="flex items-center space-x-3">
                             <ArrowRight className="h-4 w-4 text-slate-400" />
-                            <span className="text-slate-700">デフォルトシート名を設定（オプション）</span>
+                            <span className="text-slate-700">講義名がスプレッドシートのシート名として自動設定</span>
                           </div>
                           <div className="flex items-center space-x-3">
                             <ArrowRight className="h-4 w-4 text-slate-400" />
-                            <span className="text-slate-700">「設定を保存」ボタンで完了</span>
+                            <span className="text-slate-700">スプレッドシートIDは他の教員から見えないよう保護</span>
                           </div>
                         </div>
                       </div>
@@ -641,7 +746,7 @@ export default function AdminPage() {
                       </table>
                     </div>
                     <p className="text-sm text-slate-500 mt-3">
-                      各講義ごとに「Attendance」+「講義名」の形式でシートが自動作成されます
+                      各講義ごとに講義名の形式でシートが自動作成されます
                     </p>
                   </div>
                 </div>

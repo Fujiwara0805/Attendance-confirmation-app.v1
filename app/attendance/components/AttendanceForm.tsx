@@ -408,7 +408,7 @@ export default function AttendanceForm() {
                       ) : (
                         courses.map((course) => (
                           <SelectItem key={course.id} value={course.courseName}>
-                            {course.courseName} ({course.teacherName})
+                            {course.courseName}
                           </SelectItem>
                         ))
                       )}
