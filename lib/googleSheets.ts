@@ -53,6 +53,31 @@ export const getAttendanceSpreadsheetId = async () => {
 };
 
 /**
+ * Rate Limitエラーに対する再試行機能付きでAPIを実行します
+ */
+const executeWithRetry = async <T>(
+  apiCall: () => Promise<T>,
+  maxRetries: number = 3,
+  baseDelay: number = 1000
+): Promise<T> => {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await apiCall();
+    } catch (error: any) {
+      // Rate Limitエラー（429）の場合のみリトライ
+      if (error.code === 429 && attempt < maxRetries) {
+        const delay = baseDelay * Math.pow(2, attempt - 1); // Exponential backoff
+        console.log(`Rate limit exceeded. Retrying in ${delay}ms... (attempt ${attempt}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new Error('Max retries exceeded');
+};
+
+/**
  * 指定されたスプレッドシートの指定されたシートからデータを取得します。
  * @param spreadsheetId 対象のスプレッドシートID
  * @param sheetName シート名
@@ -61,11 +86,13 @@ export const getAttendanceSpreadsheetId = async () => {
 export const getSheetData = async (spreadsheetId: string, sheetName: string) => {
   const range = `${sheetName}!A:Z`; // A列からZ列までを対象とする (必要に応じて調整)
 
-  const response = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range,
+  return executeWithRetry(async () => {
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range,
+    });
+    return response.data.values || [];
   });
-  return response.data.values || [];
 };
 
 /**

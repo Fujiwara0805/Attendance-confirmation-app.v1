@@ -13,10 +13,7 @@ export async function GET() {
     const adminConfigSpreadsheetId = getAdminConfigSpreadsheetId();
     const coursesSheetName = 'Courses';
     
-    // Coursesシートが存在しない場合は作成
-    await createSheetIfEmpty(adminConfigSpreadsheetId, coursesSheetName, COURSES_HEADERS);
-    
-    // 講義データを取得
+    // 講義データを取得（createSheetIfEmptyを削除してAPI呼び出しを削減）
     const coursesData = await getSheetData(adminConfigSpreadsheetId, coursesSheetName);
     
     // ヘッダー行を除外してデータを整形
@@ -38,6 +35,15 @@ export async function GET() {
     }, { status: 200 });
   } catch (error) {
     console.error('Error fetching courses:', error);
+    
+    // Rate Limitエラーの場合は特別なメッセージを返す
+    if (error instanceof Error && (error.message.includes('429') || error.message.includes('Too Many Requests'))) {
+      return NextResponse.json({ 
+        message: 'Google Sheets APIのリクエスト制限に達しました。しばらく待ってから再試行してください。',
+        error: 'Rate limit exceeded'
+      }, { status: 429 });
+    }
+    
     return NextResponse.json({ 
       message: 'Failed to fetch courses',
       error: error instanceof Error ? error.message : 'Unknown error'

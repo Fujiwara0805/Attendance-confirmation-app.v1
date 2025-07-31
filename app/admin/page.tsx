@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,22 +11,18 @@ import {
   HelpCircle, 
   ExternalLink, 
   Settings, 
-  Database, 
-  Save, 
   RefreshCw, 
   CheckCircle, 
   AlertCircle,
-  Info,
   ArrowRight,
   Shield,
-  Zap,
-  BarChart3,
   Plus,
   Trash2,
   Edit,
   BookOpen,
   User,
-  GraduationCap
+  GraduationCap,
+  Save
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -45,11 +41,7 @@ interface Course {
 export default function AdminPage() {
   const { toast } = useToast();
   
-  // 全体設定用の状態
-  const [globalSpreadsheetId, setGlobalSpreadsheetId] = useState<string>('');
-  const [globalDefaultSheetName, setGlobalDefaultSheetName] = useState<string>('Attendance');
-  const [loadingGlobalSettings, setLoadingGlobalSettings] = useState<boolean>(true);
-  const [savingGlobal, setSavingGlobal] = useState<boolean>(false);
+
 
   // 講義管理用の状態
   const [courses, setCourses] = useState<Course[]>([]);
@@ -68,14 +60,14 @@ export default function AdminPage() {
   const SERVICE_ACCOUNT_EMAIL = 'id-791@attendance-management-467501.iam.gserviceaccount.com';
 
   // トースト表示を1秒間に設定
-  const showToast = (title: string, description: string, variant: 'default' | 'destructive' = 'default') => {
+  const showToast = useCallback((title: string, description: string, variant: 'default' | 'destructive' = 'default') => {
     toast({
       title,
       description,
       variant,
       duration: 1000,
     });
-  };
+  }, [toast]);
 
   // サービスアカウントのメールアドレスをクリップボードにコピーする関数
   const copyServiceAccountEmail = async () => {
@@ -87,63 +79,10 @@ export default function AdminPage() {
     }
   };
 
-  // 全体設定の取得
-  const fetchGlobalSettings = async () => {
-    setLoadingGlobalSettings(true);
-    try {
-      const response = await fetch('/api/admin/global-settings');
-      if (response.ok) {
-        const data = await response.json();
-        setGlobalSpreadsheetId(data.globalSpreadsheetId || '');
-        setGlobalDefaultSheetName(data.globalDefaultSheetName || 'Attendance');
-        showToast("設定読み込み完了", "全体設定を正常に読み込みました。");
-      } else {
-        const errorData = await response.json();
-        showToast("読み込みエラー", errorData.message || "設定の読み込みに失敗しました。", "destructive");
-      }
-    } catch (error) {
-      console.error('Failed to fetch global settings:', error);
-      showToast("通信エラー", "サーバーとの通信中にエラーが発生しました。", "destructive");
-    } finally {
-      setLoadingGlobalSettings(false);
-    }
-  };
 
-  // 全体設定の保存
-  const handleSaveGlobalSettings = async () => {
-    if (!globalSpreadsheetId.trim()) {
-      showToast("入力エラー", "デフォルトスプレッドシートIDを入力してください。", "destructive");
-      return;
-    }
-
-    setSavingGlobal(true);
-    try {
-      const response = await fetch('/api/admin/global-settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          globalSpreadsheetId: globalSpreadsheetId.trim(),
-          globalDefaultSheetName: globalDefaultSheetName.trim() || 'Attendance'
-        }),
-      });
-      
-      if (response.ok) {
-        showToast("保存完了", "全体設定を正常に保存しました。");
-        await fetchGlobalSettings();
-      } else {
-        const errorData = await response.json();
-        showToast("保存失敗", errorData.message || "設定の保存に失敗しました。", "destructive");
-      }
-    } catch (error) {
-      console.error('Failed to save global settings:', error);
-      showToast("通信エラー", "サーバーとの通信中にエラーが発生しました。", "destructive");
-    } finally {
-      setSavingGlobal(false);
-    }
-  };
 
   // 講義一覧の取得
-  const fetchCourses = async () => {
+  const fetchCourses = useCallback(async () => {
     setLoadingCourses(true);
     try {
       const response = await fetch('/api/admin/courses');
@@ -161,7 +100,7 @@ export default function AdminPage() {
     } finally {
       setLoadingCourses(false);
     }
-  };
+  }, [showToast]);
 
   // 新規講義の追加
   const handleAddCourse = async () => {
@@ -225,9 +164,8 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
-    fetchGlobalSettings();
     fetchCourses();
-  }, []);
+  }, [fetchCourses]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
@@ -258,14 +196,10 @@ export default function AdminPage() {
 
       <div className="container mx-auto px-6 py-8">
         <Tabs defaultValue="courses" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-8">
+          <TabsList className="grid w-full grid-cols-2 mb-8">
             <TabsTrigger value="courses" className="flex items-center space-x-2">
               <BookOpen className="h-4 w-4" />
               <span>講義管理</span>
-            </TabsTrigger>
-            <TabsTrigger value="global" className="flex items-center space-x-2">
-              <Database className="h-4 w-4" />
-              <span>全体設定</span>
             </TabsTrigger>
             <TabsTrigger value="guide" className="flex items-center space-x-2">
               <HelpCircle className="h-4 w-4" />
@@ -390,7 +324,7 @@ export default function AdminPage() {
                   <CardContent className="p-6">
                     <div className="flex items-center space-x-3">
                       <div className="p-2 bg-purple-100 rounded-lg">
-                        <Database className="h-6 w-6 text-purple-600" />
+                        <BookOpen className="h-6 w-6 text-purple-600" />
                       </div>
                       <div>
                         <p className="text-2xl font-bold text-purple-900">
@@ -519,179 +453,7 @@ export default function AdminPage() {
             </div>
           </TabsContent>
 
-          {/* 全体設定タブ */}
-          <TabsContent value="global">
-            <div className="space-y-6">
-              {/* 全体設定ヘッダー */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-2xl font-bold text-slate-900">全体設定</h2>
-                  <p className="text-slate-600 mt-1">システム全体の設定を管理します</p>
-                </div>
-              </div>
 
-              {/* 全体設定フォーム */}
-              <Card className="bg-white shadow-lg border-0 overflow-hidden">
-                <CardHeader className="bg-gradient-to-r from-indigo-600 to-blue-700 text-white p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <Database className="h-6 w-6" />
-                      <div>
-                        <CardTitle className="text-xl font-semibold">データ連携設定</CardTitle>
-                        <CardDescription className="text-indigo-100 mt-1">
-                          全体設定としてのGoogleスプレッドシート設定
-                        </CardDescription>
-                      </div>
-                    </div>
-                    <div className="p-2 bg-white/10 rounded-lg">
-                      <Zap className="h-5 w-5" />
-                    </div>
-                  </div>
-                </CardHeader>
-                
-                <CardContent className="p-6">
-                  {loadingGlobalSettings ? (
-                    <div className="flex items-center justify-center py-12">
-                      <div className="text-center space-y-3">
-                        <RefreshCw className="h-8 w-8 animate-spin text-indigo-500 mx-auto" />
-                        <p className="text-slate-600 font-medium">設定を読み込み中</p>
-                        <p className="text-sm text-slate-500">少々お待ちください...</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-8">
-                      {/* デフォルトスプレッドシートID入力 */}
-                      <div className="space-y-3">
-                        <div className="flex items-center space-x-2">
-                          <Label htmlFor="global-spreadsheet-id" className="text-slate-900 font-semibold text-base">
-                            デフォルトスプレッドシートID
-                          </Label>
-                          <div className="px-2 py-1 bg-red-50 border border-red-200 rounded text-xs font-medium text-red-700">
-                            必須
-                          </div>
-                        </div>
-                        <Input
-                          id="global-spreadsheet-id"
-                          type="text"
-                          placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
-                          value={globalSpreadsheetId}
-                          onChange={(e) => setGlobalSpreadsheetId(e.target.value)}
-                          className="border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 text-base h-12 px-4 rounded-lg shadow-sm"
-                        />
-                        <div className="flex items-start space-x-2">
-                          <Info className="h-4 w-4 text-slate-400 mt-0.5 flex-shrink-0" />
-                          <p className="text-sm text-slate-600">
-                            全ての講義で共通のスプレッドシートIDを設定します。
-                          </p>
-                        </div>
-                      </div>
-
-                      <Separator className="bg-slate-200" />
-
-                      {/* デフォルトシート名入力 */}
-                      <div className="space-y-3">
-                        <Label htmlFor="global-sheet-name" className="text-slate-900 font-semibold text-base">
-                          デフォルトシート名
-                        </Label>
-                        <Input
-                          id="global-sheet-name"
-                          type="text"
-                          placeholder="Attendance"
-                          value={globalDefaultSheetName}
-                          onChange={(e) => setGlobalDefaultSheetName(e.target.value)}
-                          className="border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 text-base h-12 px-4 rounded-lg shadow-sm"
-                        />
-                        <div className="flex items-start space-x-2">
-                          <Info className="h-4 w-4 text-slate-400 mt-0.5 flex-shrink-0" />
-                          <p className="text-sm text-slate-600">
-                            全ての講義で共通のデフォルトシート名を設定します。
-                          </p>
-                        </div>
-                      </div>
-
-                      <Separator className="bg-slate-200" />
-
-                      {/* アクションボタン */}
-                      <div className="space-y-4">
-                        <Button 
-                          onClick={handleSaveGlobalSettings} 
-                          disabled={savingGlobal || !globalSpreadsheetId.trim()}
-                          className="w-full bg-gradient-to-r from-indigo-600 to-blue-700 hover:from-indigo-700 hover:to-blue-800 text-white font-semibold py-4 text-base rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50"
-                          size="lg"
-                        >
-                          {savingGlobal ? (
-                            <>
-                              <RefreshCw className="h-5 w-5 animate-spin mr-3" />
-                              設定を保存中...
-                            </>
-                          ) : (
-                            <>
-                              <Save className="h-5 w-5 mr-3" />
-                              設定を保存
-                            </>
-                          )}
-                        </Button>
-
-                        <Button 
-                          onClick={fetchGlobalSettings} 
-                          variant="outline"
-                          disabled={loadingGlobalSettings}
-                          className="w-full border-slate-300 text-slate-700 hover:bg-slate-50 font-medium py-4 rounded-lg transition-all duration-200"
-                          size="lg"
-                        >
-                          <RefreshCw className="h-5 w-5 mr-3" />
-                          設定を再読み込み
-                        </Button>
-                      </div>
-
-                      {/* 現在の設定表示 */}
-                      {globalSpreadsheetId && (
-                        <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-6">
-                          <div className="flex items-center space-x-3 mb-4">
-                            <CheckCircle className="h-6 w-6 text-green-600" />
-                            <h4 className="font-semibold text-green-900 text-lg">設定確認</h4>
-                          </div>
-                          <div className="space-y-3">
-                            <div className="grid grid-cols-1 gap-3">
-                              <div className="bg-white/50 rounded-lg p-4">
-                                <p className="text-sm font-medium text-green-800 mb-1">デフォルトスプレッドシートID</p>
-                                <p className="text-green-900 font-mono text-sm break-all">{globalSpreadsheetId}</p>
-                              </div>
-                              <div className="bg-white/50 rounded-lg p-4">
-                                <p className="text-sm font-medium text-green-800 mb-1">デフォルトシート名</p>
-                                <p className="text-green-900 font-medium">{globalDefaultSheetName}</p>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* ステータスカード */}
-              <Card className="bg-white shadow-lg border-0">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="p-2 bg-blue-100 rounded-lg">
-                        <BarChart3 className="h-5 w-5 text-blue-600" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-slate-900">システム統計</h3>
-                        <p className="text-sm text-slate-600">リアルタイム稼働状況</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-2xl font-bold text-slate-900">100%</div>
-                      <div className="text-sm text-slate-600">稼働率</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
 
           {/* セットアップガイドタブ */}
           <TabsContent value="guide">
@@ -879,7 +641,7 @@ export default function AdminPage() {
                       </table>
                     </div>
                     <p className="text-sm text-slate-500 mt-3">
-                      各講義ごとに「{globalDefaultSheetName}」+「講義名」の形式でシートが自動作成されます
+                      各講義ごとに「Attendance」+「講義名」の形式でシートが自動作成されます
                     </p>
                   </div>
                 </div>
