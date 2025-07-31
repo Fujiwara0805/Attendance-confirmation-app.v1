@@ -2,9 +2,12 @@ import { google } from 'googleapis';
 
 // OpenSSLエラーを回避するための設定
 const createAuth = () => {
-  // Vercel環境でのOpenSSL設定
+  // Vercel環境でのOpenSSL設定（プロセス開始時に1回だけ設定）
   if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
-    process.env.NODE_OPTIONS = '--openssl-legacy-provider';
+    // OpenSSL設定を環境変数として設定
+    if (!process.env.NODE_OPTIONS?.includes('--openssl-legacy-provider')) {
+      process.env.NODE_OPTIONS = (process.env.NODE_OPTIONS || '') + ' --openssl-legacy-provider';
+    }
   }
 
   // 秘密鍵の正規化処理を強化
@@ -16,13 +19,18 @@ const createAuth = () => {
     throw new Error('Google Service Account credentials are missing');
   }
 
-  return new google.auth.GoogleAuth({
-    credentials: {
-      client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-      private_key: privateKey,
-    },
-    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-  });
+  try {
+    return new google.auth.GoogleAuth({
+      credentials: {
+        client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+        private_key: privateKey,
+      },
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+  } catch (error) {
+    console.error('Google Auth creation failed:', error);
+    throw error;
+  }
 };
 
 const auth = createAuth();

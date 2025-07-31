@@ -7,10 +7,7 @@ const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: ['googleapis'],
   },
-  // Vercel環境でのOpenSSL設定
-  env: {
-    NODE_OPTIONS: '--openssl-legacy-provider',
-  },
+  // NODE_OPTIONS設定を削除（Vercel環境変数で設定）
 };
 
 module.exports = nextConfig;
