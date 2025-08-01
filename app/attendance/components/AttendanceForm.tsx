@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+import Image from 'next/image';
 
 import {
   Form,
@@ -311,9 +312,9 @@ export default function AttendanceForm() {
       {showLocationModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg p-6 max-w-md w-full shadow-xl">
-            <h3 className="text-xl font-bold text-indigo-700 mb-4">位置情報の許可が必要です</h3>
+            <h3 className="text-xl font-bold text-indigo-700 mb-4 text-center">位置情報の許可が必要です</h3>
             <p className="mb-4">
-              出席管理システムでは、大分大学旦野原キャンパス内からの出席登録を確認するために、位置情報の利用許可が必要です。
+              ざせきくん - 出席管理システムでは、大分大学旦野原キャンパス内からの出席登録を確認するために、位置情報の利用許可が必要です。
             </p>
             <p className="mb-6 text-sm text-gray-600">
               次の画面で「許可」を選択してください。位置情報はキャンパス内にいることの確認のみに使用され、他の目的では利用されません。
@@ -329,7 +330,7 @@ export default function AttendanceForm() {
           </div>
         </div>
       )}
-
+      
       <h2 className="text-2xl font-bold mb-2 text-center text-indigo-700">出席登録</h2>
       
       {timeUntilNextSubmission > 0 && (
