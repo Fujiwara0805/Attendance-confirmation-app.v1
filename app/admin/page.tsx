@@ -28,13 +28,16 @@ import {
   LogOut,
   ArrowLeft,
   Menu,
-  X
+  X,
+  QrCode,
+  Download
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import { useEffect as useEffectQR, useRef } from 'react';
 
 interface Course {
   id: string;
@@ -78,6 +81,12 @@ export default function AdminPage() {
   // モバイルメニュー用の状態
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
+  // QRコード用の状態
+  const [isQRDialogOpen, setIsQRDialogOpen] = useState<boolean>(false);
+  const [selectedCourseForQR, setSelectedCourseForQR] = useState<Course | null>(null);
+  const [qrCodeLoading, setQrCodeLoading] = useState<boolean>(false);
+  const qrCanvasRef = useRef<HTMLCanvasElement>(null);
+
   const SERVICE_ACCOUNT_EMAIL = 'id-791@attendance-management-467501.iam.gserviceaccount.com';
 
   // トースト表示を1秒間に設定
@@ -105,6 +114,189 @@ export default function AdminPage() {
       showToast("コピー失敗", "クリップボードへのコピーに失敗しました。手動でコピーしてください。", "destructive");
     }
   };
+
+  // QRコード生成関数（デバッグ強化版）
+  const generateQRCode = useCallback(async (text: string, canvas: HTMLCanvasElement) => {
+    console.log('QRコード生成開始 - URL:', text);
+    console.log('キャンバス要素:', canvas);
+    setQrCodeLoading(true);
+    
+    try {
+      // まず手動でQRコードパターンを描画してキャンバスが動作するかテスト
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        throw new Error('キャンバスコンテキストが取得できません');
+      }
+      console.log('キャンバスコンテキスト取得成功');
+      
+      // キャンバスをクリア
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // 複数のCDNを試行
+      const cdnUrls = [
+        'https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.3/qrcode.min.js',
+        'https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js',
+        'https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js'
+      ];
+      
+      let QRCode = (window as any).QRCode;
+      
+      if (!QRCode) {
+        console.log('QRCodeライブラリが見つかりません。CDNから読み込み中...');
+        
+        for (const url of cdnUrls) {
+          try {
+            console.log('CDN試行中:', url);
+            await new Promise<void>((resolve, reject) => {
+              const script = document.createElement('script');
+              script.src = url;
+              script.async = true;
+              script.onload = () => {
+                console.log('CDN読み込み成功:', url);
+                resolve();
+              };
+              script.onerror = () => {
+                console.log('CDN読み込み失敗:', url);
+                reject(new Error(`CDN読み込み失敗: ${url}`));
+              };
+              document.head.appendChild(script);
+            });
+            
+            QRCode = (window as any).QRCode;
+            if (QRCode) {
+              console.log('QRCodeライブラリ読み込み成功');
+              break;
+            }
+          } catch (error) {
+            console.log('CDN読み込みエラー:', error);
+            continue;
+          }
+        }
+      }
+
+      if (!QRCode) {
+        console.error('すべてのCDNからの読み込みに失敗');
+        // フォールバック：手動でシンプルなQRコードパターンを描画
+        drawFallbackQR(ctx, canvas.width, canvas.height);
+        return;
+      }
+
+      console.log('QRCode.toCanvas実行中...');
+      await QRCode.toCanvas(canvas, text, {
+        width: 256,
+        height: 256,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        },
+        errorCorrectionLevel: 'M'
+      });
+
+      console.log('QRコード生成成功');
+    } catch (error) {
+      console.error('QRコード生成エラー:', error);
+      showToast("QRコード生成エラー", "QRコードの生成に失敗しました。コンソールでエラーを確認してください。", "destructive");
+      
+      // エラー時の表示
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        drawErrorDisplay(ctx, canvas.width, canvas.height);
+      }
+    } finally {
+      setQrCodeLoading(false);
+    }
+  }, [showToast]);
+
+  // フォールバック用のQRコードパターン描画
+  const drawFallbackQR = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
+    console.log('フォールバックQRコードを描画');
+    // 背景を白で塗りつぶし
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, width, height);
+    
+    // 黒い正方形でシンプルなQRコードパターンを模倣
+    ctx.fillStyle = '#000000';
+    const blockSize = width / 21; // 21x21のグリッド
+    
+    // 角の検出パターンを描画
+    for (let i = 0; i < 7; i++) {
+      for (let j = 0; j < 7; j++) {
+        if ((i === 0 || i === 6 || j === 0 || j === 6) || (i >= 2 && i <= 4 && j >= 2 && j <= 4)) {
+          ctx.fillRect(i * blockSize, j * blockSize, blockSize, blockSize);
+          ctx.fillRect((width - (7 - i) * blockSize), j * blockSize, blockSize, blockSize);
+          ctx.fillRect(i * blockSize, (height - (7 - j) * blockSize), blockSize, blockSize);
+        }
+      }
+    }
+    
+    // 中央にテキストを表示
+    ctx.fillStyle = '#666666';
+    ctx.font = '12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('QRコード', width / 2, height / 2 - 10);
+    ctx.fillText('生成中...', width / 2, height / 2 + 10);
+  };
+
+  // エラー表示用の関数
+  const drawErrorDisplay = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
+    ctx.clearRect(0, 0, width, height);
+    ctx.fillStyle = '#f3f4f6';
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = '#374151';
+    ctx.font = '14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('QRコード生成エラー', width / 2, height / 2 - 10);
+    ctx.fillText('再試行してください', width / 2, height / 2 + 10);
+  };
+
+  // QRコードダイアログを開く
+  const handleShowQRCode = async (course: Course) => {
+    setSelectedCourseForQR(course);
+    setIsQRDialogOpen(true);
+  };
+
+  // QRコードをダウンロード
+  const downloadQRCode = () => {
+    if (qrCanvasRef.current && selectedCourseForQR) {
+      try {
+        const link = document.createElement('a');
+        link.download = `${selectedCourseForQR.courseName}_QRコード.png`;
+        link.href = qrCanvasRef.current.toDataURL('image/png');
+        link.click();
+        showToast("ダウンロード完了", `${selectedCourseForQR.courseName}のQRコードをダウンロードしました。`);
+      } catch (error) {
+        console.error('QRコードダウンロードエラー:', error);
+        showToast("ダウンロード失敗", "QRコードのダウンロードに失敗しました。", "destructive");
+      }
+    }
+  };
+
+  // QRコードダイアログが開かれた時の処理（高速化版）
+  useEffectQR(() => {
+    if (isQRDialogOpen && selectedCourseForQR && qrCanvasRef.current) {
+      const formUrl = `${window.location.origin}/attendance/${selectedCourseForQR.id}`;
+      console.log('⚡ QRコードダイアログ開かれた - 即座に生成開始:', formUrl);
+      
+      // 非同期関数を即座に実行（遅延なし）
+      (async () => {
+        try {
+          // 最小限の遅延のみ（DOM準備完了確認）
+          await new Promise(resolve => setTimeout(resolve, 50));
+          
+          if (qrCanvasRef.current) {
+            console.log('🚀 generateQRCode即座実行');
+            await generateQRCode(formUrl, qrCanvasRef.current);
+            console.log('✅ generateQRCode完了');
+          } else {
+            console.error('❌ キャンバス参照が見つかりません');
+          }
+        } catch (error) {
+          console.error('❌ QRコード生成で例外が発生:', error);
+        }
+      })();
+    }
+  }, [isQRDialogOpen, selectedCourseForQR, generateQRCode]);
 
   // 講義一覧の取得
   const fetchCourses = useCallback(async () => {
@@ -338,6 +530,15 @@ export default function AdminPage() {
             >
               <ExternalLink className="h-3 w-3 mr-2" />
               フォームを開く
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleShowQRCode(course)}
+              className="w-full text-green-600 border-green-300 hover:bg-green-50"
+            >
+              <QrCode className="h-3 w-3 mr-2" />
+              QRコード表示
             </Button>
           </div>
           
@@ -584,6 +785,106 @@ export default function AdminPage() {
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
+
+              {/* QRコード表示ダイアログ（デバッグ強化版） */}
+              <Dialog open={isQRDialogOpen} onOpenChange={setIsQRDialogOpen}>
+                <DialogContent className="mx-4 sm:mx-auto sm:max-w-[400px]">
+                  <DialogHeader>
+                    <DialogTitle className="text-lg sm:text-xl flex items-center space-x-2">
+                      <QrCode className="h-5 w-5 text-green-600" />
+                      <span>QRコード</span>
+                    </DialogTitle>
+                    <DialogDescription className="text-sm sm:text-base">
+                      {selectedCourseForQR ? `「${selectedCourseForQR.courseName}」の出席フォーム用QRコード` : 'QRコード'}
+                    </DialogDescription>
+                  </DialogHeader>
+                  
+                  <div className="py-6">
+                    <div className="flex flex-col items-center space-y-4">
+                      {/* QRコード表示エリア */}
+                      <div className="p-4 bg-white border border-slate-200 rounded-lg shadow-sm relative">
+                        {qrCodeLoading && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75 rounded-lg">
+                            <div className="flex flex-col items-center space-y-2">
+                              <RefreshCw className="h-6 w-6 animate-spin text-green-600" />
+                              <span className="text-sm text-slate-600">QRコード生成中...</span>
+                            </div>
+                          </div>
+                        )}
+                        <canvas
+                          ref={qrCanvasRef}
+                          width={256}
+                          height={256}
+                          className="block border border-gray-200"
+                          style={{ width: '200px', height: '200px' }}
+                          onLoad={() => console.log('キャンバス読み込み完了')}
+                        />
+                        {/* デバッグ情報表示 */}
+                        <div className="mt-2 text-xs text-gray-500 text-center">
+                          Canvas: {qrCanvasRef.current ? '準備完了' : '未準備'} | 
+                          Loading: {qrCodeLoading ? 'はい' : 'いいえ'}
+                        </div>
+                      </div>
+                      
+                      {/* URL表示 */}
+                      {selectedCourseForQR && (
+                        <div className="w-full">
+                          <p className="text-xs text-slate-500 mb-2 text-center">フォームURL</p>
+                          <div className="p-2 bg-slate-50 border border-slate-200 rounded text-center">
+                            <code className="text-xs text-slate-700 break-all">
+                              {`${window.location.origin}/attendance/${selectedCourseForQR.id}`}
+                            </code>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* 使用方法 */}
+                      <div className="w-full p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <h4 className="text-sm font-medium text-blue-900 mb-2">使用方法</h4>
+                        <ul className="text-xs text-blue-800 space-y-1">
+                          <li>• 学生にQRコードをスクリーンで表示</li>
+                          <li>• スマートフォンのカメラでスキャン</li>
+                          <li>• 自動的に出席フォームが開きます</li>
+                        </ul>
+                      </div>
+
+                      {/* デバッグボタン */}
+                      <Button
+                        onClick={() => {
+                          if (selectedCourseForQR && qrCanvasRef.current) {
+                            const formUrl = `${window.location.origin}/attendance/${selectedCourseForQR.id}`;
+                            console.log('手動QRコード生成トリガー');
+                            generateQRCode(formUrl, qrCanvasRef.current);
+                          }
+                        }}
+                        variant="outline"
+                        size="sm"
+                        className="text-xs"
+                      >
+                        手動生成（デバッグ用）
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <DialogFooter className="flex flex-col-reverse space-y-2 space-y-reverse sm:flex-row sm:justify-end sm:space-y-0 sm:space-x-2">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setIsQRDialogOpen(false)} 
+                      className="w-full sm:w-auto"
+                    >
+                      閉じる
+                    </Button>
+                    <Button 
+                      onClick={downloadQRCode}
+                      disabled={qrCodeLoading}
+                      className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      QRコードをダウンロード
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
               </div>
 
               {/* 編集ダイアログ */}
@@ -816,6 +1117,15 @@ export default function AdminPage() {
                                       >
                                         <ExternalLink className="h-3 w-3 mr-1" />
                                         フォームを開く
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => handleShowQRCode(course)}
+                                        className="w-full text-xs text-green-600 border-green-300 hover:bg-green-50 h-7"
+                                      >
+                                        <QrCode className="h-3 w-3 mr-1" />
+                                        QRコード
                                       </Button>
                                     </div>
                                   </td>
