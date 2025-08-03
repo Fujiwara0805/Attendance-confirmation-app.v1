@@ -42,14 +42,14 @@ export default function AdminLoginPage() {
         className="w-full max-w-md"
       >
         {/* 戻るボタン */}
-        <div className="mb-6">
+        {/* <div className="mb-6">
           <Link href="/">
             <Button variant="ghost" className="text-slate-600 hover:text-slate-800">
               <ArrowLeft className="h-4 w-4 mr-2" />
               出席管理画面に戻る
             </Button>
           </Link>
-        </div>
+        </div> */}
 
         <Card className="shadow-xl border-0">
           <CardHeader className="text-center pb-8">

@@ -441,12 +441,12 @@ export default function AdminPage() {
           {/* デスクトップ用ヘッダー */}
           <div className="hidden lg:flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <Link href="/">
+              {/* <Link href="/">
                 <Button variant="ghost" size="sm" className="text-slate-600 hover:text-slate-800">
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   出席管理画面に戻る
                 </Button>
-              </Link>
+              </Link> */}
               <div className="p-3 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-xl shadow-lg">
                 <Settings className="h-8 w-8 text-white" />
               </div>
