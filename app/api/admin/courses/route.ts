@@ -1,13 +1,20 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { getAdminConfigSpreadsheetId, getSheetData, appendSheetData, createSheetIfEmpty } from '@/lib/googleSheets';
 import { v4 as uuidv4 } from 'uuid';
+import { getCurrentUser } from '@/lib/auth';
 
-// 講義管理シートの構造
-const COURSES_HEADERS = ['ID', 'CourseName', 'TeacherName', 'SpreadsheetId', 'DefaultSheetName', 'CreatedAt', 'LastUpdated'];
+// 講義管理シートの構造（CreatedByを追加）
+const COURSES_HEADERS = ['ID', 'CourseName', 'TeacherName', 'SpreadsheetId', 'DefaultSheetName', 'CreatedBy', 'CreatedAt', 'LastUpdated'];
 
 // 講義一覧を取得
 export async function GET() {
   try {
+    // 認証チェック
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ message: '認証が必要です' }, { status: 401 });
+    }
+
     console.log('GET request received for courses');
     
     const adminConfigSpreadsheetId = getAdminConfigSpreadsheetId();
@@ -16,16 +23,20 @@ export async function GET() {
     // 講義データを取得（createSheetIfEmptyを削除してAPI呼び出しを削減）
     const coursesData = await getSheetData(adminConfigSpreadsheetId, coursesSheetName);
     
-    // ヘッダー行を除外してデータを整形
-    const courses = coursesData.slice(1).map(row => ({
-      id: row[0] || '',
-      courseName: row[1] || '',
-      teacherName: row[2] || '',
-      spreadsheetId: row[3] || '',
-      defaultSheetName: row[4] || 'Attendance',
-      createdAt: row[5] || '',
-      lastUpdated: row[6] || ''
-    })).filter(course => course.id); // IDが存在するもののみ
+    // 作成者でフィルタリング
+    const courses = coursesData.slice(1)
+      .filter(row => row[5] === user.email) // CreatedByでフィルタ（メールアドレスで管理）
+      .map(row => ({
+        id: row[0] || '',
+        courseName: row[1] || '',
+        teacherName: row[2] || '',
+        spreadsheetId: row[3] || '',
+        defaultSheetName: row[4] || 'Attendance',
+        createdBy: row[5] || '',
+        createdAt: row[6] || '',
+        lastUpdated: row[7] || ''
+      }))
+      .filter(course => course.id); // IDが存在するもののみ
     
     console.log('Courses read from spreadsheet:', courses.length);
     
@@ -54,6 +65,12 @@ export async function GET() {
 // 新規講義を追加
 export async function POST(req: NextRequest) {
   try {
+    // 認証チェック
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ message: '認証が必要です' }, { status: 401 });
+    }
+
     console.log('POST request received for new course');
     const body = await req.json();
     console.log('Request body:', body);
@@ -80,10 +97,12 @@ export async function POST(req: NextRequest) {
     // Coursesシートが存在しない場合は作成
     await createSheetIfEmpty(adminConfigSpreadsheetId, coursesSheetName, COURSES_HEADERS);
     
-    // 既存の講義データを確認（重複チェック）
+    // 既存の講義データを確認（重複チェック - 同じユーザーのみ）
     const existingData = await getSheetData(adminConfigSpreadsheetId, coursesSheetName);
     const isDuplicate = existingData.some(row => 
-      row[1] === courseName.trim() && row[2] === teacherName.trim()
+      row[1] === courseName.trim() && 
+      row[2] === teacherName.trim() && 
+      row[5] === user.email // 同じユーザーの重複チェック
     );
     
     if (isDuplicate) {
@@ -101,6 +120,7 @@ export async function POST(req: NextRequest) {
       teacherName.trim(),
       trimmedId,
       courseName.trim(), // 講義名をデフォルトシート名として使用
+      user.email, // 作成者のメールアドレスを保存
       now,
       now
     ];
