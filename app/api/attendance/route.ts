@@ -7,7 +7,34 @@ const ATTENDANCE_HEADERS = [
   'ID', 'Date', 'ClassName', 'StudentID', 'Grade', 'Name', 'Department', 'Feedback', 'Latitude', 'Longitude', 'CreatedAt'
 ];
 
-// 講義名に対応するスプレッドシートIDを取得
+// 講義IDから対応するスプレッドシートIDを取得（新機能）
+const getCourseSpreadsheetIdById = async (courseId: string) => {
+  try {
+    const adminConfigSpreadsheetId = getAdminConfigSpreadsheetId();
+    const coursesSheetName = 'Courses';
+    
+    // 講義データを取得
+    const coursesData = await getSheetData(adminConfigSpreadsheetId, coursesSheetName);
+    
+    // 講義IDに一致するデータを検索（A列：row[0]）
+    const courseRow = coursesData.find(row => row[0] === courseId);
+    
+    if (courseRow && courseRow[3]) {
+      return {
+        spreadsheetId: courseRow[3],
+        defaultSheetName: courseRow[4] || 'Attendance',
+        courseName: courseRow[1] // 講義名も返却
+      };
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error getting course by ID:', error);
+    return null;
+  }
+};
+
+// 講義名に対応するスプレッドシートIDを取得（既存機能）
 const getCourseSpreadsheetId = async (className: string) => {
   try {
     const adminConfigSpreadsheetId = getAdminConfigSpreadsheetId();
@@ -16,7 +43,7 @@ const getCourseSpreadsheetId = async (className: string) => {
     // 講義データを取得
     const coursesData = await getSheetData(adminConfigSpreadsheetId, coursesSheetName);
     
-    // 講義名に一致するデータを検索
+    // 講義名に一致するデータを検索（B列：row[1]）
     const courseRow = coursesData.find(row => row[1] === className);
     
     if (courseRow && courseRow[3]) {
@@ -35,7 +62,7 @@ const getCourseSpreadsheetId = async (className: string) => {
   }
 };
 
-// デフォルトスプレッドシート設定を取得
+// デフォルトスプレッドシート設定を取得（既存機能）
 const getGlobalSpreadsheetId = async () => {
   try {
     const adminConfigSpreadsheetId = getAdminConfigSpreadsheetId();
@@ -57,15 +84,45 @@ const getGlobalSpreadsheetId = async () => {
 
 export async function POST(req: NextRequest) {
   try {
-    const { date, class_name, student_id, grade, name, department, feedback, latitude, longitude } = await req.json();
+    const { 
+      date, 
+      class_name, 
+      student_id, 
+      grade, 
+      name, 
+      department, 
+      feedback, 
+      latitude, 
+      longitude,
+      courseId // 🆕 新しいパラメータ（オプショナル）
+    } = await req.json();
 
     // 必須フィールドの検証
-    if (!date || !class_name || !student_id || !grade || !name || !department || !latitude || !longitude) {
+    if (!date || !student_id || !grade || !name || !department || !latitude || !longitude) {
       return NextResponse.json({ message: 'Missing required fields' }, { status: 400 });
     }
 
-    // 講義名に対応するスプレッドシート設定を取得
-    let spreadsheetConfig = await getCourseSpreadsheetId(class_name);
+    let spreadsheetConfig = null;
+    let finalClassName = class_name;
+
+    // 🆕 新方式：courseId が提供された場合はIDベースで検索
+    if (courseId) {
+      spreadsheetConfig = await getCourseSpreadsheetIdById(courseId);
+      if (spreadsheetConfig) {
+        finalClassName = spreadsheetConfig.courseName; // IDから講義名を取得
+      }
+    } 
+    // 🔄 従来方式：講義名ベースで検索（後方互換性のため残す）
+    else if (class_name) {
+      spreadsheetConfig = await getCourseSpreadsheetId(class_name);
+    }
+    
+    // どちらでも見つからない場合はclass_nameが必須
+    if (!spreadsheetConfig && !class_name) {
+      return NextResponse.json({ 
+        message: 'Either courseId or class_name is required' 
+      }, { status: 400 });
+    }
     
     // 講義が見つからない場合はグローバル設定を使用
     if (!spreadsheetConfig) {
@@ -93,7 +150,7 @@ export async function POST(req: NextRequest) {
       [
         id,
         date,
-        class_name,
+        finalClassName, // 確定した講義名を使用
         student_id,
         grade,
         name,
@@ -110,7 +167,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ 
       message: 'Attendance recorded successfully!',
       spreadsheetId: spreadsheetConfig.spreadsheetId,
-      sheetName: attendanceSheetName
+      sheetName: attendanceSheetName,
+      courseName: finalClassName,
+      method: courseId ? 'courseId' : 'className' // デバッグ用
     }, { status: 200 });
   } catch (error) {
     console.error('Error recording attendance:', error);

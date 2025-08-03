@@ -1,11 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import Image from 'next/image';
 
 import {
   Form,
@@ -26,7 +25,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { MapPin, AlertTriangle, CheckCircle } from 'lucide-react';
+import { MapPin, AlertTriangle, CheckCircle, GraduationCap } from 'lucide-react';
+import Image from 'next/image';
 
 // 講義情報の型定義
 interface Course {
@@ -40,7 +40,7 @@ interface Course {
 // フォームのバリデーションスキーマ
 const formSchema = z.object({
   date: z.string().min(1, { message: '日付を入力してください' }),
-  class_name: z.string().min(1, { message: '講義名を入力してください' }),
+  class_name: z.string().optional(), // 特定講義の場合は自動設定されるため任意
   student_id: z.string().min(1, { message: '学籍番号を入力してください' }),
   grade: z.string().min(1, { message: '学年を選択してください' }),
   name: z.string().min(1, { message: '名前を入力してください' }),
@@ -55,12 +55,17 @@ const CAMPUS_CENTER = {
   radius: 0.5,
 };
 
-export default function AttendanceForm() {
+export default function DynamicAttendanceForm() {
   const router = useRouter();
+  const params = useParams();
+  const courseId = params.courseId as string;
+  
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [courses, setCourses] = useState<Course[]>([]);
   const [loadingCourses, setLoadingCourses] = useState(true);
+  const [targetCourse, setTargetCourse] = useState<Course | null>(null);
+  
   const [locationInfo, setLocationInfo] = useState<{
     status: 'loading' | 'success' | 'error' | 'outside';
     message: string;
@@ -91,7 +96,7 @@ export default function AttendanceForm() {
     mode: 'onChange',
   });
 
-  // 講義一覧を取得
+  // 全講義一覧を取得
   const fetchCourses = async () => {
     try {
       const response = await fetch('/api/admin/courses');
@@ -110,13 +115,40 @@ export default function AttendanceForm() {
     }
   };
 
+  // 特定の講義情報を取得
+  const fetchTargetCourse = async () => {
+    if (!courseId) return;
+
+    try {
+      const response = await fetch(`/api/courses/${courseId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setTargetCourse(data.course);
+        // フォームに講義名を自動設定
+        form.setValue('class_name', data.course.courseName);
+      } else {
+        console.error('Target course not found');
+        toast.error('指定された講義が見つかりません');
+      }
+    } catch (error) {
+      console.error('Error fetching target course:', error);
+      toast.error('講義情報の取得中にエラーが発生しました');
+    }
+  };
+
   // コンポーネントマウント時の処理
   useEffect(() => {
-    // 講義一覧を取得
+    // 全講義一覧を取得
     fetchCourses();
+    
+    // 特定の講義情報を取得（courseIdがある場合）
+    if (courseId) {
+      fetchTargetCourse();
+    }
 
     // 前回の登録時刻を取得
-    const storedTime = localStorage.getItem('lastAttendanceSubmission');
+    const storageKey = courseId ? `lastAttendanceSubmission_${courseId}` : 'lastAttendanceSubmission';
+    const storedTime = localStorage.getItem(storageKey);
     if (storedTime) {
       const parsedTime = parseInt(storedTime, 10);
       setLastSubmissionTime(parsedTime);
@@ -129,14 +161,15 @@ export default function AttendanceForm() {
         setTimeUntilNextSubmission(Math.ceil((cooldownPeriod - elapsedTime) / 1000 / 60));
       }
     }
-  }, []);
+  }, [courseId]);
 
   // 残り時間のカウントダウン処理
   useEffect(() => {
     if (timeUntilNextSubmission <= 0) return;
     
     const timer = setInterval(() => {
-      const storedTime = localStorage.getItem('lastAttendanceSubmission');
+      const storageKey = courseId ? `lastAttendanceSubmission_${courseId}` : 'lastAttendanceSubmission';
+      const storedTime = localStorage.getItem(storageKey);
       if (!storedTime) {
         clearInterval(timer);
         return;
@@ -156,7 +189,7 @@ export default function AttendanceForm() {
     }, 60000);
     
     return () => clearInterval(timer);
-  }, [timeUntilNextSubmission]);
+  }, [timeUntilNextSubmission, courseId]);
 
   // 位置情報を取得
   useEffect(() => {
@@ -238,8 +271,16 @@ export default function AttendanceForm() {
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setSubmitError(null);
     
+    // 講義名の確認
+    if (!values.class_name) {
+      setSubmitError('講義が選択されていません。');
+      toast.error('講義を選択してください');
+      return;
+    }
+    
     // 前回の登録から15分経過していないかチェック
-    const lastSubmissionTimeStored = localStorage.getItem('lastAttendanceSubmission');
+    const storageKey = courseId ? `lastAttendanceSubmission_${courseId}` : 'lastAttendanceSubmission';
+    const lastSubmissionTimeStored = localStorage.getItem(storageKey);
     if (lastSubmissionTimeStored) {
       const lastTime = parseInt(lastSubmissionTimeStored, 10);
       const currentTime = Date.now();
@@ -273,6 +314,7 @@ export default function AttendanceForm() {
           feedback: values.feedback,
           latitude,
           longitude,
+          courseId: targetCourse?.id, // 講義IDも送信（ある場合）
         }),
       });
 
@@ -283,7 +325,7 @@ export default function AttendanceForm() {
 
       console.log('登録成功');
       
-      localStorage.setItem('lastAttendanceSubmission', Date.now().toString());
+      localStorage.setItem(storageKey, Date.now().toString());
       setLastSubmissionTime(Date.now());
       setTimeUntilNextSubmission(15);
       
@@ -298,7 +340,7 @@ export default function AttendanceForm() {
     }
   };
 
-  const isFormValid = form.formState.isValid;
+  const isFormValid = form.formState.isValid && form.watch('class_name'); // 講義名も含めて有効性チェック
   const isSubmitEnabled = 
     (process.env.NODE_ENV === 'development' 
       ? isFormValid
@@ -306,9 +348,7 @@ export default function AttendanceForm() {
     && timeUntilNextSubmission === 0;
 
   return (
-    <div
-      className="w-full max-w-md mx-auto p-4 sm:p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg shadow-md border border-blue-100"
-    >
+    <div className="w-full max-w-md mx-auto p-4 sm:p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg shadow-md border border-blue-100">
       {showLocationModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg p-6 max-w-md w-full shadow-xl">
@@ -331,7 +371,19 @@ export default function AttendanceForm() {
         </div>
       )}
       
-      <h2 className="text-2xl font-bold mb-2 text-center text-indigo-700">出席登録</h2>
+      <div className="flex flex-col items-center mb-6">
+        <Image
+          src="https://res.cloudinary.com/dz9trbwma/image/upload/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png"
+          alt="ざせきくん"
+          width={96}
+          height={96}
+          className="rounded-lg shadow-sm mb-3"
+        />
+        <h2 className="text-2xl font-bold text-indigo-700 text-center mb-1">出席管理システム</h2>
+        <p className="text-gray-600 text-center text-sm max-w-sm">
+          レポートを提出して、出席登録をしましょう。
+        </p>
+      </div>
       
       {timeUntilNextSubmission > 0 && (
         <div className="mb-6 p-3 bg-amber-50 border border-amber-200 text-amber-700 rounded-md flex items-center gap-2">
@@ -394,11 +446,15 @@ export default function AttendanceForm() {
                   <FormLabel className="text-indigo-700">講義名</FormLabel>
                   <Select
                     onValueChange={field.onChange}
-                    defaultValue={field.value}
+                    value={field.value}
+                    disabled={targetCourse !== null} // 特定講義の場合は無効化
                   >
                     <FormControl>
                       <SelectTrigger className="border-indigo-200 focus:border-indigo-400" style={{ fontSize: '16px' }}>
-                        <SelectValue placeholder={loadingCourses ? "講義を読み込み中..." : "講義を選択してください"} />
+                        <SelectValue placeholder={
+                          loadingCourses ? "読み込み中..." : 
+                          targetCourse ? targetCourse.courseName : ""
+                        } />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -540,7 +596,9 @@ export default function AttendanceForm() {
           </div>
           
           {!isFormValid ? (
-            <p className="text-sm text-amber-600 text-center">全ての必須項目を入力してください</p>
+            <p className="text-sm text-amber-600 text-center">
+              {!form.watch('class_name') ? '講義を選択してください' : '全ての必須項目を入力してください'}
+            </p>
           ) : timeUntilNextSubmission > 0 ? (
             <p className="text-sm text-amber-600 text-center">同一端末からの連続登録には15分の間隔が必要です</p>
           ) : (!locationInfo.isOnCampus && process.env.NODE_ENV === 'production') ? (
