@@ -35,6 +35,13 @@ interface Course {
   teacherName: string;
   spreadsheetId: string;
   defaultSheetName: string;
+  // 新しく追加
+  locationSettings?: {
+    latitude: number;
+    longitude: number;
+    radius: number; // km
+    locationName?: string; // キャンパス名など
+  };
 }
 
 // フォームのバリデーションスキーマ
@@ -47,6 +54,15 @@ const formSchema = z.object({
   department: z.string().min(1, { message: '学科・コースを入力してください' }),
   feedback: z.string().min(1, { message: '講義レポートを入力してください' }),
 });
+
+export interface GlobalSettings {
+  defaultLocationSettings: {
+    latitude: number;
+    longitude: number;
+    radius: number;
+    locationName?: string;
+  };
+}
 
 // 大分大学旦野原キャンパスの位置情報
 const CAMPUS_CENTER = {
@@ -80,6 +96,13 @@ export default function DynamicAttendanceForm() {
   const [showLocationModal, setShowLocationModal] = useState(true);
   const [lastSubmissionTime, setLastSubmissionTime] = useState<number | null>(null);
   const [timeUntilNextSubmission, setTimeUntilNextSubmission] = useState<number>(0);
+
+  const [campusCenter, setCampusCenter] = useState<{
+    latitude: number;
+    longitude: number;
+    radius: number;
+    locationName?: string;
+  } | null>(null);
 
   // フォームの初期化
   const form = useForm<z.infer<typeof formSchema>>({
@@ -136,6 +159,45 @@ export default function DynamicAttendanceForm() {
     }
   };
 
+  // 位置情報設定を取得
+  const fetchLocationSettings = async () => {
+    try {
+      let locationSettings = null;
+
+      // 特定講義の位置情報設定を優先
+      if (targetCourse?.locationSettings) {
+        locationSettings = targetCourse.locationSettings;
+      } else {
+        // グローバル設定を取得
+        const response = await fetch('/api/admin/global-settings');
+        if (response.ok) {
+          const data = await response.json();
+          locationSettings = data.defaultLocationSettings;
+        }
+      }
+
+      if (locationSettings) {
+        setCampusCenter(locationSettings);
+      } else {
+        // フォールバック: デフォルト値
+        setCampusCenter({
+          latitude: 33.1751332,
+          longitude: 131.6138803,
+          radius: 0.5,
+          locationName: 'デフォルトキャンパス'
+        });
+      }
+    } catch (error) {
+      console.error('位置情報設定の取得に失敗:', error);
+      // フォールバック値を設定
+      setCampusCenter({
+        latitude: 33.1751332,
+        longitude: 131.6138803,
+        radius: 0.5
+      });
+    }
+  };
+
   // コンポーネントマウント時の処理
   useEffect(() => {
     // 全講義一覧を取得
@@ -145,6 +207,7 @@ export default function DynamicAttendanceForm() {
     if (courseId) {
       fetchTargetCourse();
     }
+    fetchLocationSettings(); // 位置情報設定を取得
 
     // 前回の登録時刻を取得
     const storageKey = courseId ? `lastAttendanceSubmission_${courseId}` : 'lastAttendanceSubmission';
@@ -193,7 +256,7 @@ export default function DynamicAttendanceForm() {
 
   // 位置情報を取得
   useEffect(() => {
-    if (!showLocationModal) {
+    if (!showLocationModal && campusCenter) {
       const getLocation = async () => {
         try {
           if (navigator.geolocation) {
@@ -204,16 +267,16 @@ export default function DynamicAttendanceForm() {
                 
                 const distance = calculateDistance(
                   lat, lng,
-                  CAMPUS_CENTER.latitude, CAMPUS_CENTER.longitude
+                  campusCenter.latitude, campusCenter.longitude
                 );
                 
-                const isOnCampus = distance <= CAMPUS_CENTER.radius;
+                const isOnCampus = distance <= campusCenter.radius;
                 
                 setLocationInfo({
                   status: isOnCampus ? 'success' : 'outside',
                   message: isOnCampus 
-                    ? 'キャンパス内から出席登録を行っています' 
-                    : 'キャンパスの外から出席登録を行っています',
+                    ? `${campusCenter.locationName || 'キャンパス'}内から出席登録を行っています` 
+                    : `${campusCenter.locationName || 'キャンパス'}の外から出席登録を行っています`,
                   latitude: lat,
                   longitude: lng,
                   distance,
@@ -252,7 +315,7 @@ export default function DynamicAttendanceForm() {
       
       getLocation();
     }
-  }, [showLocationModal]);
+  }, [showLocationModal, campusCenter]);
 
   // 2点間の距離を計算（Haversine公式）
   function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -296,8 +359,8 @@ export default function DynamicAttendanceForm() {
     try {
       setIsSubmitting(true);
 
-      let latitude = locationInfo.latitude || 33.1751332;
-      let longitude = locationInfo.longitude || 131.6138803;
+      let latitude = locationInfo.latitude || campusCenter?.latitude || 33.1751332;
+      let longitude = locationInfo.longitude || campusCenter?.longitude || 131.6138803;
 
       const response = await fetch('/api/attendance', {
         method: 'POST',

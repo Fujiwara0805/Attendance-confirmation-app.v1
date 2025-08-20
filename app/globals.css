@@ -80,3 +80,12 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* 既存のスタイルに追加 */
+@layer utilities {
+  /* 極小デバイス用のブレークポイント */
+  @media (min-width: 475px) {
+    .xs\:inline { display: inline; }
+    .xs\:hidden { display: none; }
+  }
+}

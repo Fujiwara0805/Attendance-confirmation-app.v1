@@ -28,13 +28,17 @@ import {
   LogOut,
   ArrowLeft,
   Menu,
-  X
+  X,
+  MapPin,
+  Search,
+  Loader2
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import LocationSettingsForm from './components/LocationSettingsForm'; // 追加
 
 interface Course {
   id: string;
@@ -77,6 +81,19 @@ export default function AdminPage() {
 
   // モバイルメニュー用の状態
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
+
+  // 位置情報設定用の状態を追加
+  const [locationSettings, setLocationSettings] = useState({
+    latitude: 33.1751332,
+    longitude: 131.6138803,
+    radius: 0.5,
+    locationName: ''
+  });
+  const [loadingLocationSettings, setLoadingLocationSettings] = useState(false);
+  const [addressSearch, setAddressSearch] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
 
   const SERVICE_ACCOUNT_EMAIL = 'id-791@attendance-management-467501.iam.gserviceaccount.com';
 
@@ -127,6 +144,44 @@ export default function AdminPage() {
     }
   }, [showToast]);
 
+  // 位置情報設定を取得
+  const fetchLocationSettings = useCallback(async () => {
+    setLoadingLocationSettings(true);
+    try {
+      const response = await fetch('/api/admin/location-settings');
+      if (response.ok) {
+        const data = await response.json();
+        setLocationSettings(data.defaultLocationSettings);
+      }
+    } catch (error) {
+      console.error('位置情報設定の取得に失敗:', error);
+      showToast('エラー', '位置情報設定の取得に失敗しました', 'destructive');
+    } finally {
+      setLoadingLocationSettings(false);
+    }
+  }, [showToast]);
+
+  // 位置情報設定を保存
+  const saveLocationSettings = async (settings: typeof locationSettings) => {
+    try {
+      const response = await fetch('/api/admin/location-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settings)
+      });
+
+      if (response.ok) {
+        setLocationSettings(settings);
+        showToast('成功', '位置情報設定を保存しました');
+      } else {
+        throw new Error('保存に失敗しました');
+      }
+    } catch (error) {
+      console.error('位置情報設定の保存に失敗:', error);
+      showToast('エラー', '位置情報設定の保存に失敗しました', 'destructive');
+    }
+  };
+
   // 認証チェック
   useEffect(() => {
     if (status === 'loading') return;
@@ -135,10 +190,13 @@ export default function AdminPage() {
     }
   }, [session, status, router]);
 
-  // 初期データ取得
+  // 初期データ取得時に位置情報設定も読み込むように変更
   useEffect(() => {
-    fetchCourses();
-  }, [fetchCourses]);
+    if (status === 'authenticated') {
+      fetchCourses();
+      fetchLocationSettings(); // 位置情報設定を初期読み込みに戻す
+    }
+  }, [status, fetchCourses]);
 
   // ローディング表示
   if (status === 'loading') {
@@ -488,22 +546,30 @@ export default function AdminPage() {
 
       <div className="container mx-auto px-3 py-4 sm:px-4 sm:py-6 lg:px-6 lg:py-8">
         <Tabs defaultValue="courses" className="w-full">
-          <TabsList className="w-full mb-6 sm:mb-8 bg-slate-100 p-1 rounded-lg">
+          <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 mb-6 sm:mb-8 bg-slate-100 p-1 rounded-lg gap-1 sm:gap-0">
             <TabsTrigger 
               value="courses" 
-              className="flex-1 flex items-center justify-center space-x-2 py-3 px-4 text-sm font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md transition-all"
+              className="w-full data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all duration-200 text-sm sm:text-base py-2 sm:py-3"
             >
-              <BookOpen className="h-4 w-4" />
-              <span className="hidden sm:inline">講義管理</span>
-              <span className="sm:hidden">講義</span>
+              <BookOpen className="w-4 h-4 mr-2" />
+              <span className="hidden xs:inline">講義管理</span>
+              <span className="xs:hidden">講義</span>
             </TabsTrigger>
             <TabsTrigger 
               value="guide" 
-              className="flex-1 flex items-center justify-center space-x-2 py-3 px-4 text-sm font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md transition-all"
+              className="w-full flex items-center justify-center space-x-2 py-2 sm:py-3 px-2 sm:px-4 text-sm font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md transition-all"
             >
               <HelpCircle className="h-4 w-4" />
               <span className="hidden sm:inline">セットアップガイド</span>
               <span className="sm:hidden">ガイド</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="location" 
+              className="w-full data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all duration-200 text-sm sm:text-base py-2 sm:py-3"
+            >
+              <MapPin className="w-4 h-4 mr-2" />
+              <span className="hidden xs:inline">位置情報設定</span>
+              <span className="xs:hidden">位置情報</span>
             </TabsTrigger>
           </TabsList>
 
@@ -1051,6 +1117,68 @@ export default function AdminPage() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* 位置情報設定タブを改善 */}
+          <TabsContent value="location" className="space-y-4 sm:space-y-6">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <Card>
+                <CardHeader className="p-4 sm:p-6">
+                  <CardTitle className="text-xl sm:text-2xl font-bold text-indigo-700 flex items-center">
+                    <MapPin className="w-5 h-5 sm:w-6 sm:h-6 mr-2" />
+                    位置情報設定
+                  </CardTitle>
+                  <CardDescription className="text-sm sm:text-base">
+                    出席登録で使用するキャンパスの位置情報を設定します。この設定は全ての講義に適用されます。
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-4 sm:p-6">
+                  {loadingLocationSettings ? (
+                    <div className="flex items-center justify-center p-8">
+                      <RefreshCw className="w-6 h-6 animate-spin mr-2" />
+                      <span className="text-sm sm:text-base">設定を読み込み中...</span>
+                    </div>
+                  ) : (
+                    <div className="space-y-4 sm:space-y-6">
+                      {/* 現在の設定表示 - レスポンシブ対応 */}
+                      <div className="p-3 sm:p-4 bg-blue-50 rounded-lg border border-blue-200">
+                        <h3 className="font-semibold text-blue-900 mb-2 text-sm sm:text-base">現在の設定</h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm">
+                          <div className="flex flex-col sm:flex-row sm:items-center">
+                            <span className="text-blue-700 font-medium mb-1 sm:mb-0 sm:mr-2">キャンパス名:</span>
+                            <span className="font-medium break-words">
+                              {locationSettings.locationName || '大分大学旦野原キャンパス'}
+                            </span>
+                          </div>
+                          <div className="flex flex-col sm:flex-row sm:items-center">
+                            <span className="text-blue-700 font-medium mb-1 sm:mb-0 sm:mr-2">許可範囲:</span>
+                            <span className="font-medium">{locationSettings.radius}km</span>
+                          </div>
+                          <div className="flex flex-col sm:flex-row sm:items-center">
+                            <span className="text-blue-700 font-medium mb-1 sm:mb-0 sm:mr-2">緯度:</span>
+                            <span className="font-mono text-xs break-all">{locationSettings.latitude}</span>
+                          </div>
+                          <div className="flex flex-col sm:flex-row sm:items-center">
+                            <span className="text-blue-700 font-medium mb-1 sm:mb-0 sm:mr-2">経度:</span>
+                            <span className="font-mono text-xs break-all">{locationSettings.longitude}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 位置情報設定フォーム */}
+                      <LocationSettingsForm
+                        initialSettings={locationSettings}
+                        onSave={saveLocationSettings}
+                      />
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
           </TabsContent>
         </Tabs>
       </div>
