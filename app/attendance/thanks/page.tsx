@@ -21,7 +21,7 @@ export default function ThanksShowcase() {
         >
           <h1 className="text-2xl sm:text-3xl font-bold text-indigo-700">送信ありがとうございました</h1>
           <p className="mt-2 text-slate-600">
-            {COMPANY_NAME} が開発するアプリをご紹介します。
+            {COMPANY_NAME} が開発したアプリをご紹介します。
           </p>
         </motion.div>
 
@@ -48,7 +48,7 @@ export default function ThanksShowcase() {
             </div>
             <p className="mt-3 text-sm text-slate-600 leading-relaxed">
             🚀 学生生活をもっと楽しく、もっと便利に！
-            利用者の半径5km限定の掲示板「おとく板」なら、アルバイトやサークル活動、講義情報やその日のテスト対策情報までリアルタイムで共有が可能です。また、投稿は 最大12時間で自動削除されるから、いつ見ても“いま欲しい”最新情報だけが集まります。さらに投稿に「おすそわけ機能」を追加することで、投稿を見た人から応援金を受け取れる仕組みもあります。
+            利用者の周辺5km圏内の投稿だけを表示する掲示板「おとく板」なら、アルバイトやサークル、講義情報やテスト対策情報までリアルタイムで共有が可能です。また、投稿は 最大12時間で自動削除されるから、いつ見ても“いま欲しい”最新情報だけが集まります。さらに投稿に「おすそわけ機能」を追加することで、投稿を見た人から応援金を受け取れる仕組みもあります。
                <br />
                <span className="font-medium text-blue-600">
                  今すぐアクセス → 
@@ -58,8 +58,8 @@ export default function ThanksShowcase() {
                </span>
              </p>
              <ul className="mt-4 text-xs text-slate-700 list-disc pl-5 space-y-1.5">
-               <li>利用者から周辺5km圏内の投稿のみを表示する「おとく板」</li>
-               <li>投稿に「おすそわけ機能」を追加で、生活資金の足しなる</li>
+               <li>利用者の周辺5km圏内の投稿のみを表示する「おとく板」</li>
+               <li>投稿に「おすそわけ機能」を追加で、生活資金の足しになる</li>
                <li>投稿は、最大12時間で自動削除されるので常に情報が新しい</li>
                <li>学生生活の中で必要な情報をキャンパスメイトと共有できる</li>
                <li>メモ機能は、サークル活動の際のTODO管理にも最適</li>
