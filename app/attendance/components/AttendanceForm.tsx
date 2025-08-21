@@ -344,8 +344,8 @@ export default function DynamicAttendanceForm() {
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setSubmitError(null);
     
-    // 講義名の確認
-    if (!values.class_name) {
+    // 講義名の確認を条件付きに変更
+    if (!courseId && !values.class_name) {
       setSubmitError('講義が選択されていません。');
       toast.error('講義を選択してください');
       return;
@@ -413,7 +413,9 @@ export default function DynamicAttendanceForm() {
     }
   };
 
-  const isFormValid = form.formState.isValid && form.watch('class_name'); // 講義名も含めて有効性チェック
+  // フォーム有効性チェックの修正（416行目付近）
+  const isFormValid = form.formState.isValid; // 講義名チェックを削除
+
   const isSubmitEnabled = 
     (process.env.NODE_ENV === 'development' 
       ? isFormValid
@@ -703,7 +705,7 @@ export default function DynamicAttendanceForm() {
           
           {!isFormValid ? (
             <p className="text-sm text-amber-600 text-center">
-              {!form.watch('class_name') ? '講義を選択してください' : '全ての必須項目を入力してください'}
+              全ての必須項目を入力してください
             </p>
           ) : timeUntilNextSubmission > 0 ? (
             <p className="text-sm text-amber-600 text-center">同一端末からの連続登録には15分の間隔が必要です</p>
