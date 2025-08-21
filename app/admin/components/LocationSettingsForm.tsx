@@ -16,7 +16,7 @@ interface LocationSettings {
 
 interface LocationSettingsFormProps {
   initialSettings?: LocationSettings;
-  onSave: (settings: LocationSettings) => void;
+  onSave: (settings: LocationSettings) => Promise<void>; // Promise<void>に変更
 }
 
 export default function LocationSettingsForm({ initialSettings, onSave }: LocationSettingsFormProps) {
@@ -32,6 +32,7 @@ export default function LocationSettingsForm({ initialSettings, onSave }: Locati
   const [addressSearch, setAddressSearch] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [isSaving, setIsSaving] = useState(false); // 保存中の状態を追加
   const [searchError, setSearchError] = useState<string | null>(null);
 
   // 住所から緯度・経度を取得する関数
@@ -140,6 +141,21 @@ export default function LocationSettingsForm({ initialSettings, onSave }: Locati
     );
   };
 
+  // 保存処理にローディング状態を追加
+  const handleSave = async () => {
+    setIsSaving(true);
+    setSearchError(null);
+    
+    try {
+      await onSave(settings);
+    } catch (error) {
+      console.error('保存エラー:', error);
+      setSearchError('位置情報の保存に失敗しました。再度お試しください。');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <Card>
       <CardHeader className="p-4 sm:p-6">
@@ -157,11 +173,12 @@ export default function LocationSettingsForm({ initialSettings, onSave }: Locati
               placeholder="例: 大分大学旦野原キャンパス、東京都渋谷区..."
               className="flex-1 text-sm sm:text-base"
               onKeyPress={(e) => e.key === 'Enter' && searchByAddress()}
+              disabled={isSearching || isSaving} // 保存中は無効化
             />
             <Button 
               type="button" 
               onClick={searchByAddress}
-              disabled={isSearching}
+              disabled={isSearching || isSaving} // 保存中は無効化
               className="flex items-center justify-center gap-2 w-full sm:w-auto whitespace-nowrap"
             >
               {isSearching ? (
@@ -187,6 +204,7 @@ export default function LocationSettingsForm({ initialSettings, onSave }: Locati
               onChange={(e) => setSettings(prev => ({ ...prev, locationName: e.target.value }))}
               placeholder="例: 大分大学旦野原キャンパス"
               className="text-sm sm:text-base"
+              disabled={isSaving} // 保存中は無効化
             />
           </div>
 
@@ -200,6 +218,7 @@ export default function LocationSettingsForm({ initialSettings, onSave }: Locati
                 value={settings.latitude}
                 onChange={(e) => setSettings(prev => ({ ...prev, latitude: parseFloat(e.target.value) || 0 }))}
                 className="text-sm sm:text-base"
+                disabled={isSaving} // 保存中は無効化
               />
             </div>
             <div>
@@ -211,6 +230,7 @@ export default function LocationSettingsForm({ initialSettings, onSave }: Locati
                 value={settings.longitude}
                 onChange={(e) => setSettings(prev => ({ ...prev, longitude: parseFloat(e.target.value) || 0 }))}
                 className="text-sm sm:text-base"
+                disabled={isSaving} // 保存中は無効化
               />
             </div>
           </div>
@@ -226,6 +246,7 @@ export default function LocationSettingsForm({ initialSettings, onSave }: Locati
               value={settings.radius}
               onChange={(e) => setSettings(prev => ({ ...prev, radius: parseFloat(e.target.value) || 0.5 }))}
               className="text-sm sm:text-base"
+              disabled={isSaving} // 保存中は無効化
             />
           </div>
 
@@ -234,7 +255,7 @@ export default function LocationSettingsForm({ initialSettings, onSave }: Locati
               type="button" 
               variant="outline" 
               onClick={handleCurrentLocation}
-              disabled={isGettingLocation}
+              disabled={isGettingLocation || isSaving} // 保存中は無効化
               className="w-full sm:w-auto"
             >
               {isGettingLocation ? (
@@ -246,8 +267,21 @@ export default function LocationSettingsForm({ initialSettings, onSave }: Locati
                 {isGettingLocation ? '位置情報取得中...' : '現在地を取得'}
               </span>
             </Button>
-            <Button onClick={() => onSave(settings)} className="flex-1">
-              <span className="text-sm sm:text-base">位置情報を保存</span>
+            
+            {/* 保存ボタンにローディング状態を追加 */}
+            <Button 
+              onClick={handleSave} 
+              disabled={isSaving}
+              className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white"
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  <span className="text-sm sm:text-base">保存中...</span>
+                </>
+              ) : (
+                <span className="text-sm sm:text-base">位置情報を保存</span>
+              )}
             </Button>
           </div>
         </div>
@@ -260,6 +294,7 @@ export default function LocationSettingsForm({ initialSettings, onSave }: Locati
               <p>緯度: {settings.latitude}</p>
               <p>経度: {settings.longitude}</p>
               <p>場所名: {settings.locationName}</p>
+              <p>保存状態: {isSaving ? '保存中' : '待機中'}</p>
             </div>
           </div>
         )}

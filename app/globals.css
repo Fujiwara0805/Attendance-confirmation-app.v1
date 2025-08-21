@@ -82,6 +82,41 @@
 }
 
 /* 既存のスタイルに追加 */
+@layer components {
+  /* モバイル用タブスタイル */
+  .mobile-tab {
+    @apply flex flex-col items-center justify-center;
+    @apply min-h-[60px] p-2 text-xs;
+  }
+  
+  /* タブレット・デスクトップ用タブスタイル */
+  @media (min-width: 640px) {
+    .mobile-tab {
+      @apply flex-row min-h-[48px] p-3 text-base;
+    }
+  }
+}
+
+/* タブリストの高さ調整 */
+[role="tablist"] {
+  height: auto !important;
+}
+
+/* タブトリガーの調整 */
+[role="tab"] {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 639px) {
+  [role="tab"] {
+    white-space: normal;
+    line-height: 1.2;
+  }
+}
+
+/* 既存のスタイルに追加 */
 @layer utilities {
   /* 極小デバイス用のブレークポイント */
   @media (min-width: 475px) {

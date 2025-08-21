@@ -159,7 +159,7 @@ export default function DynamicAttendanceForm() {
     }
   };
 
-  // 位置情報設定を取得
+  // 位置情報設定を取得する関数を修正
   const fetchLocationSettings = async () => {
     try {
       let locationSettings = null;
@@ -168,18 +168,22 @@ export default function DynamicAttendanceForm() {
       if (targetCourse?.locationSettings) {
         locationSettings = targetCourse.locationSettings;
       } else {
-        // グローバル設定を取得
-        const response = await fetch('/api/admin/global-settings');
+        // グローバル設定を取得 - 正しいAPIエンドポイントを使用
+        const response = await fetch('/api/admin/location-settings');
         if (response.ok) {
           const data = await response.json();
           locationSettings = data.defaultLocationSettings;
+        } else {
+          console.error('位置情報設定の取得に失敗:', response.status, response.statusText);
         }
       }
 
       if (locationSettings) {
+        console.log('取得した位置情報設定:', locationSettings);
         setCampusCenter(locationSettings);
       } else {
         // フォールバック: デフォルト値
+        console.log('位置情報設定が見つからないため、デフォルト値を使用');
         setCampusCenter({
           latitude: 33.1751332,
           longitude: 131.6138803,
@@ -193,21 +197,27 @@ export default function DynamicAttendanceForm() {
       setCampusCenter({
         latitude: 33.1751332,
         longitude: 131.6138803,
-        radius: 0.5
+        radius: 0.5,
+        locationName: 'デフォルトキャンパス'
       });
     }
   };
 
-  // コンポーネントマウント時の処理
+  // コンポーネントマウント時の処理を修正
   useEffect(() => {
     // 全講義一覧を取得
     fetchCourses();
     
     // 特定の講義情報を取得（courseIdがある場合）
     if (courseId) {
-      fetchTargetCourse();
+      fetchTargetCourse().then(() => {
+        // 講義情報取得後に位置情報設定を取得
+        fetchLocationSettings();
+      });
+    } else {
+      // 講義指定がない場合はすぐに位置情報設定を取得
+      fetchLocationSettings();
     }
-    fetchLocationSettings(); // 位置情報設定を取得
 
     // 前回の登録時刻を取得
     const storageKey = courseId ? `lastAttendanceSubmission_${courseId}` : 'lastAttendanceSubmission';
@@ -417,10 +427,17 @@ export default function DynamicAttendanceForm() {
           <div className="bg-white rounded-lg p-6 max-w-md w-full shadow-xl">
             <h3 className="text-xl font-bold text-indigo-700 mb-4 text-center">位置情報の許可が必要です</h3>
             <p className="mb-4">
-              ざせきくん - 出席管理システムでは、大分大学旦野原キャンパス内からの出席登録を確認するために、位置情報の利用許可が必要です。
+              ざせきくん - 出席管理システムでは、
+              {campusCenter?.locationName || 'キャンパス'}内からの出席登録を確認するために、
+              位置情報の利用許可が必要です。
             </p>
             <p className="mb-6 text-sm text-gray-600">
               次の画面で「許可」を選択してください。位置情報はキャンパス内にいることの確認のみに使用され、他の目的では利用されません。
+              {campusCenter && (
+                <span className="block mt-2 font-medium">
+                  許可範囲: {campusCenter.locationName || 'キャンパス'}から半径{campusCenter.radius}km以内
+                </span>
+              )}
             </p>
             <div className="flex justify-end">
               <Button 
@@ -457,6 +474,24 @@ export default function DynamicAttendanceForm() {
         </div>
       )}
 
+      {process.env.NODE_ENV === 'development' && (
+        <div className="mb-4 p-3 bg-gray-50 rounded-lg text-xs">
+          <p className="font-semibold mb-2">デバッグ情報:</p>
+          <div className="space-y-1">
+            <p>管理者設定位置情報: {campusCenter ? 'あり' : 'なし'}</p>
+            {campusCenter && (
+              <>
+                <p>キャンパス名: {campusCenter.locationName || '未設定'}</p>
+                <p>中心座標: {campusCenter.latitude}, {campusCenter.longitude}</p>
+                <p>許可範囲: {campusCenter.radius}km</p>
+              </>
+            )}
+            <p>現在の位置情報状態: {locationInfo.status}</p>
+            {locationInfo.distance && <p>距離: {locationInfo.distance.toFixed(3)}km</p>}
+          </div>
+        </div>
+      )}
+
       <div className={`mb-6 p-3 rounded-md flex items-center gap-2 ${
         locationInfo.status === 'loading' ? 'bg-gray-100 text-gray-600' :
         locationInfo.status === 'success' ? 'bg-green-50 text-green-700 border border-green-200' :
@@ -470,7 +505,15 @@ export default function DynamicAttendanceForm() {
         {locationInfo.status === 'outside' && <AlertTriangle size={20} />}
         {locationInfo.status === 'error' && <AlertTriangle size={20} />}
         
-        <span className="text-sm">{locationInfo.message}</span>
+        <div className="flex-1">
+          <span className="text-sm block">{locationInfo.message}</span>
+          {campusCenter && locationInfo.distance !== undefined && (
+            <span className="text-xs text-gray-500 block mt-1">
+              {campusCenter.locationName || 'キャンパス'}から約{locationInfo.distance.toFixed(1)}km
+              （許可範囲: {campusCenter.radius}km以内）
+            </span>
+          )}
+        </div>
       </div>
 
       {submitError && (
@@ -665,7 +708,9 @@ export default function DynamicAttendanceForm() {
           ) : timeUntilNextSubmission > 0 ? (
             <p className="text-sm text-amber-600 text-center">同一端末からの連続登録には15分の間隔が必要です</p>
           ) : (!locationInfo.isOnCampus && process.env.NODE_ENV === 'production') ? (
-            <p className="text-sm text-red-600 text-center">大分大学キャンパス内からのみ出席登録が可能です</p>
+            <p className="text-sm text-red-600 text-center">
+              {campusCenter?.locationName || 'キャンパス'}内（半径{campusCenter?.radius || 0.5}km以内）からのみ出席登録が可能です
+            </p>
           ) : null}
           
           <div className="mt-4 text-xs text-gray-500 flex items-center justify-center">

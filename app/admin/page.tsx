@@ -94,6 +94,7 @@ export default function AdminPage() {
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [isSaving, setIsSaving] = useState(false); // 保存中の状態を追加
 
   const SERVICE_ACCOUNT_EMAIL = 'id-791@attendance-management-467501.iam.gserviceaccount.com';
 
@@ -161,8 +162,8 @@ export default function AdminPage() {
     }
   }, [showToast]);
 
-  // 位置情報設定を保存
-  const saveLocationSettings = async (settings: typeof locationSettings) => {
+  // 位置情報設定を保存 - async/awaitに変更
+  const saveLocationSettings = async (settings: typeof locationSettings): Promise<void> => {
     try {
       const response = await fetch('/api/admin/location-settings', {
         method: 'POST',
@@ -179,6 +180,7 @@ export default function AdminPage() {
     } catch (error) {
       console.error('位置情報設定の保存に失敗:', error);
       showToast('エラー', '位置情報設定の保存に失敗しました', 'destructive');
+      throw error; // エラーを再スローしてLocationSettingsFormでキャッチできるようにする
     }
   };
 
@@ -546,30 +548,27 @@ export default function AdminPage() {
 
       <div className="container mx-auto px-3 py-4 sm:px-4 sm:py-6 lg:px-6 lg:py-8">
         <Tabs defaultValue="courses" className="w-full">
-          <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 mb-6 sm:mb-8 bg-slate-100 p-1 rounded-lg gap-1 sm:gap-0">
+          <TabsList className="grid w-full grid-cols-3 h-auto mb-6 sm:mb-8 bg-slate-100 p-1 rounded-lg gap-1">
             <TabsTrigger 
               value="courses" 
-              className="w-full data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all duration-200 text-sm sm:text-base py-2 sm:py-3"
+              className="flex flex-col items-center justify-center p-2 sm:p-3 data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all duration-200 text-xs sm:text-base min-h-[60px] sm:min-h-[48px]"
             >
-              <BookOpen className="w-4 h-4 mr-2" />
-              <span className="hidden xs:inline">講義管理</span>
-              <span className="xs:hidden">講義</span>
+              <BookOpen className="w-4 h-4 mb-1 sm:mb-0 sm:mr-2" />
+              <span className="leading-tight text-center">講義</span>
             </TabsTrigger>
             <TabsTrigger 
               value="guide" 
-              className="w-full flex items-center justify-center space-x-2 py-2 sm:py-3 px-2 sm:px-4 text-sm font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md transition-all"
+              className="flex flex-col items-center justify-center p-2 sm:p-3 data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all duration-200 text-xs sm:text-base min-h-[60px] sm:min-h-[48px]"
             >
-              <HelpCircle className="h-4 w-4" />
-              <span className="hidden sm:inline">セットアップガイド</span>
-              <span className="sm:hidden">ガイド</span>
+              <HelpCircle className="w-4 h-4 mb-1 sm:mb-0 sm:mr-2" />
+              <span className="leading-tight text-center">ガイド</span>
             </TabsTrigger>
             <TabsTrigger 
               value="location" 
-              className="w-full data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all duration-200 text-sm sm:text-base py-2 sm:py-3"
+              className="flex flex-col items-center justify-center p-2 sm:p-3 data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all duration-200 text-xs sm:text-base min-h-[60px] sm:min-h-[48px]"
             >
-              <MapPin className="w-4 h-4 mr-2" />
-              <span className="hidden xs:inline">位置情報設定</span>
-              <span className="xs:hidden">位置情報</span>
+              <MapPin className="w-4 h-4 mb-1 sm:mb-0 sm:mr-2" />
+              <span className="leading-tight text-center">位置情報</span>
             </TabsTrigger>
           </TabsList>
 
