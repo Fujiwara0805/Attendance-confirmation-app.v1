@@ -6,8 +6,9 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { motion } from 'framer-motion'
-import { Chrome, Shield, Settings, ArrowLeft } from 'lucide-react'
+import { Chrome, Shield, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
+import Image from 'next/image'
 
 export default function AdminLoginPage() {
   const [loading, setLoading] = useState(false)
@@ -57,15 +58,21 @@ export default function AdminLoginPage() {
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-              className="mx-auto mb-4 p-3 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-xl shadow-lg w-fit"
+              className="mx-auto mb-4 p-3 bg-gradient-to-br rounded-xl shadow-lg w-fit"
             >
-              <Settings className="h-8 w-8 text-white" />
+              <Image
+                src="https://res.cloudinary.com/dz9trbwma/image/upload/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png"
+                alt="ざせきくん"
+                width={100}
+                height={100}
+                className="rounded"
+              />
             </motion.div>
             <CardTitle className="text-2xl font-bold text-slate-900">
               管理者ログイン
             </CardTitle>
             <p className="text-slate-600 mt-2">
-              講義管理にはGoogleアカウントでのログインが必要です
+              講義管理にはGoogleアカウントでの<br />ログインが必要です
             </p>
           </CardHeader>
           

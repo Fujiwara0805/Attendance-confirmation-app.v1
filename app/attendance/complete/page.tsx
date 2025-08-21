@@ -12,7 +12,7 @@ export default function AttendanceComplete() {
   // 5秒後にトップページに自動遷移する
   useEffect(() => {
     const timer = setTimeout(() => {
-      router.push('/');
+      router.push('/attendance/thanks');
     }, 5000);
     
     return () => clearTimeout(timer);
@@ -50,7 +50,7 @@ export default function AttendanceComplete() {
           transition={{ delay: 0.6 }}
           className="text-gray-600 mb-8"
         >
-          出席が正常に登録されました。5秒後に自動的にトップページに戻ります。
+          出席が正常に登録されました。5秒後に自動的にお知らせページへ遷移します。
         </motion.p>
         
         <motion.div
@@ -60,10 +60,10 @@ export default function AttendanceComplete() {
           className="flex justify-center"
         >
           <Button 
-            onClick={() => router.push('/')}
+            onClick={() => router.push('/attendance/thanks')}
             className="bg-indigo-600 hover:bg-indigo-700 min-w-[200px]"
           >
-            トップページに戻る
+            お知らせページへ
           </Button>
         </motion.div>
       </motion.div>

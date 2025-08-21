@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import Image from 'next/image'
 import { useToast } from '@/hooks/use-toast';
 import { 
   Copy, 
@@ -435,8 +436,14 @@ export default function AdminPage() {
           <div className="block lg:hidden">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-3">
-                <div className="p-2 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-xl shadow-lg">
-                  <Settings className="h-6 w-6 text-white" />
+                <div className="p-2 bg-gradient-to-br rounded-xl shadow-lg">
+                  <Image
+                    src="https://res.cloudinary.com/dz9trbwma/image/upload/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png"
+                    alt="ざせきくん"
+                    width={50}
+                    height={50}
+                    className="rounded"
+                  />
                 </div>
                 <div>
                   <h1 className="text-lg font-bold text-slate-900 tracking-tight">講義管理システム</h1>
@@ -507,8 +514,14 @@ export default function AdminPage() {
                   出席管理画面に戻る
                 </Button>
               </Link> */}
-              <div className="p-3 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-xl shadow-lg">
-                <Settings className="h-8 w-8 text-white" />
+              <div className="p-3 bg-gradient-to-br rounded-xl shadow-lg">
+                <Image
+                  src="https://res.cloudinary.com/dz9trbwma/image/upload/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png"
+                  alt="ざせきくん"
+                  width={50}
+                  height={50}
+                  className="rounded"
+                />
               </div>
               <div>
                 <h1 className="text-3xl font-bold text-slate-900 tracking-tight">講義管理システム</h1>
