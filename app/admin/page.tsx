@@ -391,7 +391,7 @@ export default function AdminPage() {
                 size="sm"
                 variant="outline"
                 onClick={() => copyFormUrl(formUrl, course.courseName)}
-                className="flex-shrink-0 h-7 px-2 border-blue-300 text-blue-700 hover:bg-blue-100"
+                className="flex-shrink-0 h-6 px-2 border-blue-300 text-blue-700 hover:bg-blue-100"
               >
                 <Copy className="h-3 w-3" />
               </Button>
@@ -472,14 +472,7 @@ export default function AdminPage() {
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
                 className="space-y-3 pb-4 border-t border-slate-200 pt-4"
-              >
-                <Link href="/">
-                  <Button variant="ghost" size="sm" className="w-full justify-start text-slate-600 hover:text-slate-800">
-                    <ArrowLeft className="h-4 w-4 mr-2" />
-                    出席管理画面に戻る
-                  </Button>
-                </Link>
-                
+              > 
                 <div className="flex items-center space-x-3 px-3 py-2 bg-slate-50 rounded-lg">
                   <User className="h-4 w-4 text-slate-600" />
                   <div className="text-sm flex-1">
@@ -615,7 +608,7 @@ export default function AdminPage() {
                       <DialogHeader>
                         <DialogTitle className="text-lg sm:text-xl">カスタムフォーム設定</DialogTitle>
                         <DialogDescription className="text-sm sm:text-base">
-                          出席フォームの項目をカスタマイズできます。デフォルト項目の有効/無効化や、独自の項目を追加できます。
+                          出席フォームの項目をカスタマイズできます。<br />デフォルト項目の有効/無効化や、独自の項目を追加できます。
                         </DialogDescription>
                       </DialogHeader>
                       <CustomFormManager 
@@ -648,7 +641,8 @@ export default function AdminPage() {
                           placeholder="例: 経済学1"
                           value={newCourse.courseName}
                           onChange={(e) => setNewCourse({...newCourse, courseName: e.target.value})}
-                          className="w-full"
+                          className="w-full prevent-zoom ios-input"
+                          style={{ fontSize: '16px' }}
                         />
                         <p className="text-xs text-slate-500">この名前がスプレッドシートのシート名としても使用されます</p>
                       </div>
@@ -659,7 +653,8 @@ export default function AdminPage() {
                           placeholder="例: 田中太郎"
                           value={newCourse.teacherName}
                           onChange={(e) => setNewCourse({...newCourse, teacherName: e.target.value})}
-                          className="w-full"
+                          className="w-full prevent-zoom ios-input"
+                          style={{ fontSize: '16px' }}
                         />
                       </div>
                       <div className="space-y-2">
@@ -669,15 +664,16 @@ export default function AdminPage() {
                           placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
                           value={newCourse.spreadsheetId}
                           onChange={(e) => setNewCourse({...newCourse, spreadsheetId: e.target.value})}
-                          className="w-full"
+                          className="w-full prevent-zoom ios-input"
+                          style={{ fontSize: '16px' }}
                         />
                       </div>
                     </div>
                     <DialogFooter className="flex flex-col-reverse space-y-2 space-y-reverse sm:flex-row sm:justify-end sm:space-y-0 sm:space-x-2">
-                      <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} className="w-full sm:w-auto">
+                      <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} className="w-full sm:w-auto min-h-[44px] touch-friendly">
                         キャンセル
                       </Button>
-                      <Button onClick={handleAddCourse} disabled={savingNewCourse} className="w-full sm:w-auto">
+                      <Button onClick={handleAddCourse} disabled={savingNewCourse} className="w-full sm:w-auto min-h-[44px] touch-friendly">
                         {savingNewCourse ? (
                           <>
                             <RefreshCw className="h-4 w-4 animate-spin mr-2" />
@@ -713,7 +709,8 @@ export default function AdminPage() {
                         placeholder="例: 経済学1"
                         value={editCourse.courseName}
                         onChange={(e) => setEditCourse({...editCourse, courseName: e.target.value})}
-                        className="w-full"
+                        className="w-full prevent-zoom ios-input"
+                        style={{ fontSize: '16px' }}
                       />
                       <p className="text-xs text-slate-500">この名前がスプレッドシートのシート名としても使用されます</p>
                     </div>
@@ -724,7 +721,8 @@ export default function AdminPage() {
                         placeholder="例: 田中太郎"
                         value={editCourse.teacherName}
                         onChange={(e) => setEditCourse({...editCourse, teacherName: e.target.value})}
-                        className="w-full"
+                        className="w-full prevent-zoom ios-input"
+                        style={{ fontSize: '16px' }}
                       />
                     </div>
                     <div className="space-y-2">
@@ -734,15 +732,16 @@ export default function AdminPage() {
                         placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
                         value={editCourse.spreadsheetId}
                         onChange={(e) => setEditCourse({...editCourse, spreadsheetId: e.target.value})}
-                        className="w-full"
+                        className="w-full prevent-zoom ios-input"
+                        style={{ fontSize: '16px' }}
                       />
                     </div>
                   </div>
                   <DialogFooter className="flex flex-col-reverse space-y-2 space-y-reverse sm:flex-row sm:justify-end sm:space-y-0 sm:space-x-2">
-                    <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} className="w-full sm:w-auto">
+                    <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} className="w-full sm:w-auto min-h-[44px] touch-friendly">
                       キャンセル
                     </Button>
-                    <Button onClick={handleUpdateCourse} disabled={savingEditCourse} className="w-full sm:w-auto">
+                    <Button onClick={handleUpdateCourse} disabled={savingEditCourse} className="w-full sm:w-auto min-h-[44px] touch-friendly">
                       {savingEditCourse ? (
                         <>
                           <RefreshCw className="h-4 w-4 animate-spin mr-2" />

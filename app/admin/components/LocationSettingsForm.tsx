@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { MapPin, Search, Loader2 } from 'lucide-react';
+import { MapPin, Search, Loader2, Navigation, Globe, Target } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 interface LocationSettings {
   latitude: number;
@@ -16,8 +17,90 @@ interface LocationSettings {
 
 interface LocationSettingsFormProps {
   initialSettings?: LocationSettings;
-  onSave: (settings: LocationSettings) => Promise<void>; // Promise<void>に変更
+  onSave: (settings: LocationSettings) => Promise<void>;
 }
+
+// フローティングラベル付き入力コンポーネント
+const FloatingLabelInput = ({ 
+  label, 
+  error, 
+  success, 
+  icon: Icon, 
+  required = false,
+  ...props 
+}: {
+  label: string;
+  error?: string;
+  success?: boolean;
+  icon?: React.ComponentType<any>;
+  required?: boolean;
+} & React.InputHTMLAttributes<HTMLInputElement>) => {
+  const [isFocused, setIsFocused] = useState(false);
+  const [hasValue, setHasValue] = useState(false);
+
+  const handleFocus = () => setIsFocused(true);
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    setIsFocused(false);
+    setHasValue(e.target.value !== '');
+    props.onBlur?.(e);
+  };
+
+  const isActive = isFocused || hasValue || props.value;
+
+  return (
+    <div className="floating-label-container">
+      <div className="relative">
+        {Icon && (
+          <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 z-10">
+            <Icon className="h-5 w-5" />
+          </div>
+        )}
+        <input
+          {...props}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          onChange={(e) => {
+            setHasValue(e.target.value !== '');
+            props.onChange?.(e);
+          }}
+          className={`
+            modern-input w-full
+            ${Icon ? 'pl-12' : 'pl-4'}
+            ${error ? 'input-error' : success ? 'input-success' : ''}
+            ${isActive ? 'pt-6 pb-2' : 'py-3'}
+          `}
+          placeholder=""
+        />
+        <label 
+          className={`floating-label ${isActive ? 'active' : ''} ${Icon ? 'left-12' : 'left-4'}`}
+        >
+          {label}
+          {required && <span className="text-red-500 ml-1">*</span>}
+        </label>
+      </div>
+      
+      {error && (
+        <motion.div 
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="error-message"
+        >
+          <span>{error}</span>
+        </motion.div>
+      )}
+      
+      {success && !error && (
+        <motion.div 
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-green-600 text-sm mt-1 flex items-center"
+        >
+          <span>✅ 設定が正常に保存されました</span>
+        </motion.div>
+      )}
+    </div>
+  );
+};
 
 export default function LocationSettingsForm({ initialSettings, onSave }: LocationSettingsFormProps) {
   const [settings, setSettings] = useState<LocationSettings>(
@@ -32,8 +115,9 @@ export default function LocationSettingsForm({ initialSettings, onSave }: Locati
   const [addressSearch, setAddressSearch] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
-  const [isSaving, setIsSaving] = useState(false); // 保存中の状態を追加
+  const [isSaving, setIsSaving] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   // 住所から緯度・経度を取得する関数
   const searchByAddress = async () => {
@@ -92,9 +176,9 @@ export default function LocationSettingsForm({ initialSettings, onSave }: Locati
 
     // 高精度な位置情報取得のオプション
     const options = {
-      enableHighAccuracy: true,    // 高精度モードを有効
-      timeout: 10000,             // 10秒でタイムアウト
-      maximumAge: 0               // キャッシュを使用しない（常に新しい位置情報を取得）
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0
     };
 
     navigator.geolocation.getCurrentPosition(
@@ -145,9 +229,12 @@ export default function LocationSettingsForm({ initialSettings, onSave }: Locati
   const handleSave = async () => {
     setIsSaving(true);
     setSearchError(null);
+    setSaveSuccess(false);
     
     try {
       await onSave(settings);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000); // 3秒後に成功メッセージを消す
     } catch (error) {
       console.error('保存エラー:', error);
       setSearchError('位置情報の保存に失敗しました。再度お試しください。');
@@ -157,146 +244,164 @@ export default function LocationSettingsForm({ initialSettings, onSave }: Locati
   };
 
   return (
-    <Card>
+    <Card className="card-hover">
       <CardHeader className="p-4 sm:p-6">
-        <CardTitle className="text-lg sm:text-xl">位置情報設定</CardTitle>
+        <CardTitle className="text-lg sm:text-xl text-gradient flex items-center">
+          <MapPin className="h-5 w-5 mr-2" />
+          位置情報設定
+        </CardTitle>
       </CardHeader>
-      <CardContent className="p-4 sm:p-6 space-y-4 sm:space-y-6">
-        {/* 住所検索セクション - レスポンシブ対応 */}
-        <div className="space-y-3">
-          <Label htmlFor="addressSearch" className="text-sm sm:text-base">住所で検索</Label>
-          <div className="flex flex-col sm:flex-row gap-2">
-            <Input
-              id="addressSearch"
-              value={addressSearch}
-              onChange={(e) => setAddressSearch(e.target.value)}
-              placeholder="例: 大分大学旦野原キャンパス、東京都渋谷区..."
-              className="flex-1 text-sm sm:text-base"
-              onKeyPress={(e) => e.key === 'Enter' && searchByAddress()}
-              disabled={isSearching || isSaving} // 保存中は無効化
-            />
+      <CardContent className="p-4 sm:p-6 space-y-6">
+        {/* 住所検索セクション */}
+        <div className="space-y-4">
+          <Label className="text-sm font-medium text-slate-700">住所で検索</Label>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex-1">
+              <FloatingLabelInput
+                value={addressSearch}
+                onChange={(e) => setAddressSearch(e.target.value)}
+                label="住所を入力"
+                placeholder="例: 大分大学旦野原キャンパス、東京都渋谷区..."
+                onKeyPress={(e) => e.key === 'Enter' && searchByAddress()}
+                disabled={isSearching || isSaving}
+                icon={Globe}
+              />
+            </div>
             <Button 
               type="button" 
               onClick={searchByAddress}
-              disabled={isSearching || isSaving} // 保存中は無効化
-              className="flex items-center justify-center gap-2 w-full sm:w-auto whitespace-nowrap"
+              disabled={isSearching || isSaving}
+              className="modern-button-primary w-full sm:w-auto"
             >
               {isSearching ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
               ) : (
-                <Search className="h-4 w-4" />
+                <Search className="h-4 w-4 mr-2" />
               )}
-              <span className="text-sm sm:text-base">検索</span>
+              検索
             </Button>
           </div>
+          
           {searchError && (
-            <p className="text-sm text-red-600 break-words">{searchError}</p>
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="error-message"
+            >
+              <span>{searchError}</span>
+            </motion.div>
           )}
         </div>
 
-        {/* 手動設定セクション - レスポンシブ対応 */}
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="locationName" className="text-sm sm:text-base">キャンパス・場所名</Label>
-            <Input
-              id="locationName"
-              value={settings.locationName || ''}
-              onChange={(e) => setSettings(prev => ({ ...prev, locationName: e.target.value }))}
-              placeholder="例: 大分大学旦野原キャンパス"
-              className="text-sm sm:text-base"
-              disabled={isSaving} // 保存中は無効化
-            />
-          </div>
+        {/* 手動設定セクション */}
+        <div className="space-y-6">
+          <FloatingLabelInput
+            value={settings.locationName || ''}
+            onChange={(e) => setSettings(prev => ({ ...prev, locationName: e.target.value }))}
+            label="キャンパス・場所名"
+            placeholder="例: 大分大学旦野原キャンパス"
+            disabled={isSaving}
+            icon={MapPin}
+            success={saveSuccess}
+          />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="latitude" className="text-sm sm:text-base">緯度</Label>
-              <Input
-                id="latitude"
-                type="number"
-                step="0.000001"
-                value={settings.latitude}
-                onChange={(e) => setSettings(prev => ({ ...prev, latitude: parseFloat(e.target.value) || 0 }))}
-                className="text-sm sm:text-base"
-                disabled={isSaving} // 保存中は無効化
-              />
-            </div>
-            <div>
-              <Label htmlFor="longitude" className="text-sm sm:text-base">経度</Label>
-              <Input
-                id="longitude"
-                type="number"
-                step="0.000001"
-                value={settings.longitude}
-                onChange={(e) => setSettings(prev => ({ ...prev, longitude: parseFloat(e.target.value) || 0 }))}
-                className="text-sm sm:text-base"
-                disabled={isSaving} // 保存中は無効化
-              />
-            </div>
-          </div>
-
-          <div>
-            <Label htmlFor="radius" className="text-sm sm:text-base">許可範囲（km）</Label>
-            <Input
-              id="radius"
+            <FloatingLabelInput
               type="number"
-              step="0.1"
-              min="0.1"
-              max="10"
-              value={settings.radius}
-              onChange={(e) => setSettings(prev => ({ ...prev, radius: parseFloat(e.target.value) || 0.5 }))}
-              className="text-sm sm:text-base"
-              disabled={isSaving} // 保存中は無効化
+              step="0.000001"
+              value={settings.latitude}
+              onChange={(e) => setSettings(prev => ({ ...prev, latitude: parseFloat(e.target.value) || 0 }))}
+              label="緯度"
+              disabled={isSaving}
+              icon={Navigation}
+              success={saveSuccess}
+            />
+            
+            <FloatingLabelInput
+              type="number"
+              step="0.000001"
+              value={settings.longitude}
+              onChange={(e) => setSettings(prev => ({ ...prev, longitude: parseFloat(e.target.value) || 0 }))}
+              label="経度"
+              disabled={isSaving}
+              icon={Navigation}
+              success={saveSuccess}
             />
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-2 pt-4">
+          <FloatingLabelInput
+            type="number"
+            step="0.1"
+            min="0.1"
+            max="10"
+            value={settings.radius}
+            onChange={(e) => setSettings(prev => ({ ...prev, radius: parseFloat(e.target.value) || 0.5 }))}
+            label="許可範囲（km）"
+            disabled={isSaving}
+            icon={Target}
+            success={saveSuccess}
+          />
+
+          <div className="flex flex-col sm:flex-row gap-3 pt-4">
             <Button 
               type="button" 
               variant="outline" 
               onClick={handleCurrentLocation}
-              disabled={isGettingLocation || isSaving} // 保存中は無効化
-              className="w-full sm:w-auto"
+              disabled={isGettingLocation || isSaving}
+              className="modern-button-secondary w-full sm:w-auto"
             >
               {isGettingLocation ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
               ) : (
-                <MapPin className="h-4 w-4 mr-2" />
+                <Navigation className="h-4 w-4 mr-2" />
               )}
-              <span className="text-sm sm:text-base">
-                {isGettingLocation ? '位置情報取得中...' : '現在地を取得'}
-              </span>
+              {isGettingLocation ? '位置情報取得中...' : '現在地を取得'}
             </Button>
             
-            {/* 保存ボタンにローディング状態を追加 */}
             <Button 
               onClick={handleSave} 
               disabled={isSaving}
-              className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white"
+              className="modern-button-primary flex-1"
             >
               {isSaving ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  <span className="text-sm sm:text-base">保存中...</span>
-                </>
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
               ) : (
-                <span className="text-sm sm:text-base">位置情報を保存</span>
+                <MapPin className="h-4 w-4 mr-2" />
               )}
+              {isSaving ? '保存中...' : '位置情報を保存'}
             </Button>
           </div>
         </div>
 
-        {/* デバッグ情報表示 - レスポンシブ対応 */}
+        {/* デバッグ情報表示 */}
         {process.env.NODE_ENV === 'development' && (
-          <div className="mt-4 p-3 bg-gray-50 rounded-lg text-xs">
-            <p className="font-semibold mb-2">デバッグ情報:</p>
-            <div className="space-y-1 break-all">
-              <p>緯度: {settings.latitude}</p>
-              <p>経度: {settings.longitude}</p>
-              <p>場所名: {settings.locationName}</p>
-              <p>保存状態: {isSaving ? '保存中' : '待機中'}</p>
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-200"
+          >
+            <p className="font-semibold mb-3 text-slate-700">デバッグ情報:</p>
+            <div className="space-y-2 text-sm text-slate-600">
+              <div className="flex justify-between">
+                <span>緯度:</span>
+                <span className="font-mono">{settings.latitude}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>経度:</span>
+                <span className="font-mono">{settings.longitude}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>場所名:</span>
+                <span className="truncate ml-2">{settings.locationName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>保存状態:</span>
+                <span className={`font-medium ${isSaving ? 'text-blue-600' : saveSuccess ? 'text-green-600' : 'text-slate-600'}`}>
+                  {isSaving ? '保存中' : saveSuccess ? '保存完了' : '待機中'}
+                </span>
+              </div>
             </div>
-          </div>
+          </motion.div>
         )}
       </CardContent>
     </Card>

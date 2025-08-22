@@ -79,6 +79,23 @@
   body {
     @apply bg-background text-foreground;
   }
+  
+  /* iOS Safari ズームアップ防止 - 16px以上のフォントサイズ */
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+  
+  /* モバイルでの快適な操作のための調整 */
+  @media (max-width: 768px) {
+    input, textarea, select {
+      font-size: 16px !important;
+      min-height: 44px; /* タッチターゲットの最小サイズ */
+    }
+    
+    button {
+      min-height: 44px; /* タッチターゲットの最小サイズ */
+    }
+  }
 }
 
 /* 既存のスタイルに追加 */
@@ -94,6 +111,178 @@
     .mobile-tab {
       @apply flex-row min-h-[48px] p-3 text-base;
     }
+  }
+  
+  /* iOS対応の入力フィールドスタイル */
+  .ios-input {
+    font-size: 16px !important;
+    -webkit-appearance: none;
+    border-radius: 8px;
+  }
+  
+  /* モダンな入力フィールドスタイル */
+  .modern-input {
+    @apply transition-all duration-200 ease-in-out;
+    @apply border-2 border-slate-200 rounded-xl;
+    @apply bg-white/80 backdrop-blur-sm;
+    @apply px-4 py-3 text-slate-700;
+    @apply placeholder:text-slate-400;
+    @apply focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100;
+    @apply hover:border-slate-300 hover:bg-white;
+    font-size: 16px !important;
+    min-height: 48px;
+  }
+  
+  .modern-input:disabled {
+    @apply bg-slate-50 text-slate-400 cursor-not-allowed;
+    @apply border-slate-100;
+  }
+  
+  /* モダンなテキストエリアスタイル */
+  .modern-textarea {
+    @apply modern-input resize-none;
+    min-height: 96px;
+    line-height: 1.6;
+  }
+  
+  /* モダンなセレクトスタイル */
+  .modern-select {
+    @apply modern-input cursor-pointer;
+  }
+  
+  /* フローティングラベルスタイル */
+  .floating-label-container {
+    @apply relative;
+  }
+  
+  .floating-label {
+    @apply absolute left-4 top-3 text-slate-400 text-sm;
+    @apply transition-all duration-200 ease-in-out pointer-events-none;
+    @apply bg-white px-1 rounded;
+    font-size: 14px;
+  }
+  
+  .floating-label.active {
+    @apply -top-2 left-3 text-xs text-indigo-600;
+    @apply bg-white shadow-sm;
+  }
+  
+  /* エラー状態のスタイル */
+  .input-error {
+    @apply border-red-300 focus:border-red-400 focus:ring-red-100;
+    @apply bg-red-50/50;
+  }
+  
+  .error-message {
+    @apply text-red-500 text-sm mt-1 flex items-center;
+    @apply animate-in slide-in-from-top-1 duration-200;
+  }
+  
+  /* 成功状態のスタイル */
+  .input-success {
+    @apply border-green-300 focus:border-green-400 focus:ring-green-100;
+    @apply bg-green-50/30;
+  }
+  
+  /* レスポンシブなカードレイアウト */
+  .responsive-card {
+    @apply w-full;
+  }
+  
+  @media (min-width: 640px) {
+    .responsive-card {
+      @apply max-w-md;
+    }
+  }
+  
+  /* レスポンシブなダイアログ */
+  .responsive-dialog {
+    @apply mx-4 w-auto;
+  }
+  
+  @media (min-width: 640px) {
+    .responsive-dialog {
+      @apply mx-auto max-w-lg;
+    }
+  }
+  
+  /* モバイル向けのボタングループ */
+  .mobile-button-group {
+    @apply flex flex-col space-y-2;
+  }
+  
+  @media (min-width: 640px) {
+    .mobile-button-group {
+      @apply flex-row space-y-0 space-x-2;
+    }
+  }
+  
+  /* モダンなボタンスタイル */
+  .modern-button {
+    @apply relative overflow-hidden;
+    @apply transition-all duration-200 ease-in-out;
+    @apply transform hover:scale-[1.02] active:scale-[0.98];
+    @apply focus:outline-none focus:ring-4 focus:ring-offset-2;
+    @apply disabled:transform-none disabled:opacity-50;
+    min-height: 48px;
+  }
+  
+  .modern-button-primary {
+    @apply modern-button;
+    @apply bg-gradient-to-r from-indigo-600 to-blue-600;
+    @apply hover:from-indigo-700 hover:to-blue-700;
+    @apply text-white font-medium;
+    @apply shadow-lg hover:shadow-xl;
+    @apply focus:ring-indigo-300;
+  }
+  
+  .modern-button-secondary {
+    @apply modern-button;
+    @apply bg-white border-2 border-slate-200;
+    @apply hover:border-slate-300 hover:bg-slate-50;
+    @apply text-slate-700 font-medium;
+    @apply shadow-sm hover:shadow-md;
+    @apply focus:ring-slate-300;
+  }
+  
+  /* アニメーション効果 */
+  .form-field-enter {
+    @apply animate-in slide-in-from-bottom-4 fade-in duration-300;
+  }
+  
+  .form-field-exit {
+    @apply animate-out slide-out-to-bottom-4 fade-out duration-200;
+  }
+  
+  /* チェックボックスのカスタムスタイル */
+  .modern-checkbox {
+    @apply w-5 h-5 rounded border-2 border-slate-300;
+    @apply transition-all duration-200 ease-in-out;
+    @apply focus:ring-4 focus:ring-indigo-100 focus:ring-offset-0;
+    @apply checked:bg-indigo-600 checked:border-indigo-600;
+    @apply hover:border-indigo-400;
+  }
+  
+  /* トグルスイッチスタイル */
+  .modern-toggle {
+    @apply relative inline-flex h-6 w-11 items-center rounded-full;
+    @apply transition-colors duration-200 ease-in-out;
+    @apply focus:outline-none focus:ring-4 focus:ring-indigo-100 focus:ring-offset-2;
+    @apply bg-slate-200 hover:bg-slate-300;
+  }
+  
+  .modern-toggle[data-state="checked"] {
+    @apply bg-indigo-600;
+  }
+  
+  .modern-toggle-thumb {
+    @apply inline-block h-4 w-4 rounded-full bg-white shadow-lg;
+    @apply transition-transform duration-200 ease-in-out;
+    @apply translate-x-1;
+  }
+  
+  .modern-toggle[data-state="checked"] .modern-toggle-thumb {
+    @apply translate-x-6;
   }
 }
 
@@ -123,4 +312,108 @@
     .xs\:inline { display: inline; }
     .xs\:hidden { display: none; }
   }
+  
+  /* iOS向けのユーティリティクラス */
+  .prevent-zoom {
+    font-size: 16px !important;
+  }
+  
+  /* レスポンシブなスペーシング */
+  .responsive-spacing {
+    @apply space-y-3;
+  }
+  
+  @media (min-width: 640px) {
+    .responsive-spacing {
+      @apply space-y-4;
+    }
+  }
+  
+  @media (min-width: 1024px) {
+    .responsive-spacing {
+      @apply space-y-6;
+    }
+  }
+  
+  /* グラスモーフィズム効果 */
+  .glass-effect {
+    @apply bg-white/10 backdrop-blur-md border border-white/20;
+    @apply shadow-lg shadow-black/5;
+  }
+  
+  /* カードホバー効果 */
+  .card-hover {
+    @apply transition-all duration-300 ease-out;
+    @apply hover:shadow-xl hover:-translate-y-1;
+    @apply hover:bg-white/80;
+  }
+  
+  /* テキストグラデーション */
+  .text-gradient {
+    @apply bg-gradient-to-r from-indigo-600 to-blue-600;
+    @apply bg-clip-text text-transparent;
+  }
+}
+
+/* スクロール可能なコンテンツの調整 */
+.scrollable-content {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* モバイルでのタッチ操作改善 */
+@media (max-width: 768px) {
+  .touch-friendly {
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  
+  button.touch-friendly {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+}
+
+/* カスタムスクロールバー */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f1f5f9;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* フォーカス可視性の改善 */
+.focus-visible {
+  @apply outline-none ring-4 ring-indigo-300 ring-offset-2;
+}
+
+/* ローディング状態のアニメーション */
+@keyframes pulse-soft {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.loading-pulse {
+  animation: pulse-soft 1.5s ease-in-out infinite;
 }

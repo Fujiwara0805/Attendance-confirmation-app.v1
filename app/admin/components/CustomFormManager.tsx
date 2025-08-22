@@ -34,7 +34,12 @@ import {
   ArrowUp,
   ArrowDown,
   X,
-  Settings
+  Settings,
+  AlertCircle,
+  CheckCircle2,
+  Info,
+  BookOpen,
+  User
 } from 'lucide-react';
 import type { CustomFormField } from '@/app/types';
 import { defaultFields, fieldTypeLabels } from '@/lib/dynamicFormUtils';
@@ -75,6 +80,149 @@ const fieldTypeIcons = {
   select: List,
   radio: RadioIcon,
   checkbox: CheckSquare
+};
+
+// フローティングラベル付き入力コンポーネント
+const FloatingLabelInput = ({ 
+  label, 
+  error, 
+  success, 
+  icon: Icon, 
+  required = false,
+  ...props 
+}: {
+  label: string;
+  error?: string;
+  success?: boolean;
+  icon?: React.ComponentType<any>;
+  required?: boolean;
+} & React.InputHTMLAttributes<HTMLInputElement>) => {
+  const [isFocused, setIsFocused] = useState(false);
+  const [hasValue, setHasValue] = useState(false);
+
+  const handleFocus = () => setIsFocused(true);
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    setIsFocused(false);
+    setHasValue(e.target.value !== '');
+    props.onBlur?.(e);
+  };
+
+  const isActive = isFocused || hasValue || props.value;
+
+  return (
+    <div className="floating-label-container">
+      <div className="relative">
+        {Icon && (
+          <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 z-10">
+            <Icon className="h-5 w-5" />
+          </div>
+        )}
+        <input
+          {...props}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          onChange={(e) => {
+            setHasValue(e.target.value !== '');
+            props.onChange?.(e);
+          }}
+          className={`
+            modern-input w-full
+            ${Icon ? 'pl-12' : 'pl-4'}
+            ${error ? 'input-error' : success ? 'input-success' : ''}
+            ${isActive ? 'pt-6 pb-2' : 'py-3'}
+          `}
+          placeholder=""
+        />
+        <label 
+          className={`floating-label ${isActive ? 'active' : ''} ${Icon ? 'left-12' : 'left-4'}`}
+        >
+          {label}
+          {required && <span className="text-red-500 ml-1">*</span>}
+        </label>
+      </div>
+      
+      {error && (
+        <div className="error-message">
+          <AlertCircle className="h-4 w-4 mr-1 flex-shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+      
+      {success && !error && (
+        <div className="text-green-600 text-sm mt-1 flex items-center">
+          <CheckCircle2 className="h-4 w-4 mr-1 flex-shrink-0" />
+          <span>入力内容が正しく設定されました</span>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// フローティングラベル付きテキストエリア
+const FloatingLabelTextarea = ({ 
+  label, 
+  error, 
+  icon: Icon, 
+  required = false,
+  ...props 
+}: {
+  label: string;
+  error?: string;
+  icon?: React.ComponentType<any>;
+  required?: boolean;
+} & React.TextareaHTMLAttributes<HTMLTextAreaElement>) => {
+  const [isFocused, setIsFocused] = useState(false);
+  const [hasValue, setHasValue] = useState(false);
+
+  const handleFocus = () => setIsFocused(true);
+  const handleBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
+    setIsFocused(false);
+    setHasValue(e.target.value !== '');
+    props.onBlur?.(e);
+  };
+
+  const isActive = isFocused || hasValue || props.value;
+
+  return (
+    <div className="floating-label-container">
+      <div className="relative">
+        {Icon && (
+          <div className="absolute left-3 top-4 text-slate-400 z-10">
+            <Icon className="h-5 w-5" />
+          </div>
+        )}
+        <textarea
+          {...props}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          onChange={(e) => {
+            setHasValue(e.target.value !== '');
+            props.onChange?.(e);
+          }}
+          className={`
+            modern-textarea w-full
+            ${Icon ? 'pl-12' : 'pl-4'}
+            ${error ? 'input-error' : ''}
+            ${isActive ? 'pt-6 pb-4' : 'py-4'}
+          `}
+          placeholder=""
+        />
+        <label 
+          className={`floating-label ${isActive ? 'active' : ''} ${Icon ? 'left-12' : 'left-4'}`}
+        >
+          {label}
+          {required && <span className="text-red-500 ml-1">*</span>}
+        </label>
+      </div>
+      
+      {error && (
+        <div className="error-message">
+          <AlertCircle className="h-4 w-4 mr-1 flex-shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+    </div>
+  );
 };
 
 interface CustomFormManagerProps {
@@ -213,7 +361,7 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
     setFieldOptions(['']);
     
     toast({
-      title: '成功',
+      title: '✨ 成功',
       description: 'フィールドを追加しました',
     });
   };
@@ -260,7 +408,7 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
     setFieldOptions(['']);
     
     toast({
-      title: '成功',
+      title: '✨ 成功',
       description: 'フィールドを更新しました',
     });
   };
@@ -273,14 +421,14 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
       // デフォルトフィールドの場合は無効化
       toggleFieldEnabled(fieldId);
       toast({
-        title: '成功',
+        title: '✨ 成功',
         description: 'デフォルトフィールドを無効化しました',
       });
     } else {
       // カスタムフィールドの場合は削除
       setAllFields(prev => prev.filter(field => field.id !== fieldId));
       toast({
-        title: '成功',
+        title: '✨ 成功',
         description: 'カスタムフィールドを削除しました',
       });
     }
@@ -340,7 +488,7 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
       }
 
       toast({
-        title: '成功',
+        title: '🎉 成功',
         description: 'カスタムフォーム付き講義を追加しました',
       });
 
@@ -377,7 +525,7 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
     } catch (error) {
       console.error('Error adding custom course:', error);
       toast({
-        title: 'エラー',
+        title: '❌ エラー',
         description: error instanceof Error ? error.message : 'カスタム講義の追加に失敗しました',
         variant: 'destructive',
       });
@@ -416,14 +564,14 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
       }
 
       toast({
-        title: '成功',
+        title: '✨ 成功',
         description: 'フォーム設定を保存しました',
       });
 
     } catch (error) {
       console.error('Error saving form config:', error);
       toast({
-        title: 'エラー',
+        title: '❌ エラー',
         description: 'フォーム設定の保存に失敗しました',
         variant: 'destructive',
       });
@@ -439,124 +587,181 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
   return (
     <div className="space-y-6">
       {/* フィールド管理 */}
-      <Card className="border-indigo-200">
-        <CardHeader className="bg-gradient-to-r from-indigo-50 to-blue-50">
-          <div className="flex items-center justify-between">
+      <Card className="border-indigo-200 card-hover">
+        <CardHeader className="bg-gradient-to-r from-indigo-50 to-blue-50 p-4 sm:p-6">
+          <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
             <div>
-              <CardTitle className="text-indigo-800">フォームフィールド管理</CardTitle>
-              <CardDescription className="text-indigo-600">
-                デフォルトフィールドの編集・削除と、カスタムフィールドの追加・並び替えができます
+              <CardTitle className="text-lg sm:text-xl text-gradient">フォームフィールド管理</CardTitle>
+              <CardDescription className="text-sm sm:text-base text-indigo-600 mt-2">
+                デフォルトフィールドの編集・削除と、<br />カスタムフィールドの追加・並び替えができます
               </CardDescription>
             </div>
             <Dialog open={isFieldDialogOpen} onOpenChange={setIsFieldDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-indigo-600 hover:bg-indigo-700">
+                <Button className="modern-button-primary w-full sm:w-auto">
                   <Plus className="h-4 w-4 mr-2" />
                   フィールド追加
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-md">
+              <DialogContent className="mx-4 sm:mx-auto sm:max-w-2xl max-h-[90vh] overflow-y-auto custom-scrollbar">
                 <DialogHeader>
-                  <DialogTitle>
+                  <DialogTitle className="text-xl text-gradient flex items-center">
+                    <Settings className="h-5 w-5 mr-2" />
                     {editingField ? 'フィールドを編集' : '新しいフィールドを追加'}
                   </DialogTitle>
+                  <DialogDescription className="text-slate-600">
+                    フォームで使用するフィールドの詳細を設定してください
+                  </DialogDescription>
                 </DialogHeader>
-                <form onSubmit={fieldForm.handleSubmit(editingField ? handleUpdateField : handleAddField)} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="name">フィールド名</Label>
-                      <Input 
-                        {...fieldForm.register('name')} 
-                        placeholder="field_name" 
-                        disabled={editingField?.isDefault} // デフォルトフィールドの場合は無効化
-                      />
-                      {fieldForm.formState.errors.name && (
-                        <p className="text-sm text-red-500">{fieldForm.formState.errors.name.message}</p>
-                      )}
-                    </div>
-                    <div>
-                      <Label htmlFor="label">表示ラベル</Label>
-                      <Input {...fieldForm.register('label')} placeholder="フィールドラベル" />
-                      {fieldForm.formState.errors.label && (
-                        <p className="text-sm text-red-500">{fieldForm.formState.errors.label.message}</p>
-                      )}
-                    </div>
+                
+                <form onSubmit={fieldForm.handleSubmit(editingField ? handleUpdateField : handleAddField)} className="space-y-6 form-field-enter">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <FloatingLabelInput
+                      {...fieldForm.register('name')}
+                      label="フィールド名"
+                      placeholder="field_name"
+                      disabled={editingField?.isDefault}
+                      error={fieldForm.formState.errors.name?.message}
+                      icon={Type}
+                      required
+                    />
+                    
+                    <FloatingLabelInput
+                      {...fieldForm.register('label')}
+                      label="表示ラベル"
+                      placeholder="フィールドラベル"
+                      error={fieldForm.formState.errors.label?.message}
+                      icon={FileText}
+                      required
+                    />
                   </div>
 
                   <div>
-                    <Label htmlFor="type">フィールドタイプ</Label>
+                    <Label className="text-sm font-medium text-slate-700 mb-2 block">
+                      フィールドタイプ <span className="text-red-500">*</span>
+                    </Label>
                     <Select onValueChange={handleFieldTypeChange} defaultValue={fieldForm.watch('type')}>
-                      <SelectTrigger>
+                      <SelectTrigger className="modern-select">
                         <SelectValue placeholder="フィールドタイプを選択" />
                       </SelectTrigger>
                       <SelectContent>
                         {Object.entries(fieldTypeLabels).map(([key, label]) => (
-                          <SelectItem key={key} value={key}>{label}</SelectItem>
+                          <SelectItem key={key} value={key} className="text-base">
+                            <div className="flex items-center space-x-2">
+                              {React.createElement(fieldTypeIcons[key as keyof typeof fieldTypeIcons], { 
+                                className: "h-4 w-4" 
+                              })}
+                              <span>{label}</span>
+                            </div>
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
 
-                  <div>
-                    <Label htmlFor="placeholder">プレースホルダー</Label>
-                    <Input {...fieldForm.register('placeholder')} placeholder="入力例を表示" />
-                  </div>
+                  <FloatingLabelInput
+                    {...fieldForm.register('placeholder')}
+                    label="プレースホルダー"
+                    placeholder="入力例を表示"
+                    icon={Info}
+                  />
 
-                  <div>
-                    <Label htmlFor="description">説明</Label>
-                    <Textarea {...fieldForm.register('description')} placeholder="フィールドの説明" />
-                  </div>
+                  <FloatingLabelTextarea
+                    {...fieldForm.register('description')}
+                    label="説明"
+                    placeholder="フィールドの説明"
+                    icon={FileText}
+                    rows={3}
+                  />
 
                   {/* セレクト・ラジオボタン用のオプション設定 */}
                   {(fieldForm.watch('type') === 'select' || fieldForm.watch('type') === 'radio') && (
-                    <div>
-                      <Label>選択肢</Label>
-                      <div className="space-y-2">
-                        {fieldOptions.map((option, index) => (
-                          <div key={index} className="flex items-center gap-2">
-                            <Input
-                              value={option}
-                              onChange={(e) => updateOption(index, e.target.value)}
-                              placeholder={`選択肢 ${index + 1}`}
-                              className="flex-1"
-                            />
-                            {fieldOptions.length > 1 && (
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => removeOption(index)}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                        ))}
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="space-y-4"
+                    >
+                      <Label className="text-sm font-medium text-slate-700">選択肢</Label>
+                      <div className="space-y-3">
+                        <AnimatePresence>
+                          {fieldOptions.map((option, index) => (
+                            <motion.div
+                              key={index}
+                              initial={{ opacity: 0, x: -20 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              exit={{ opacity: 0, x: 20 }}
+                              className="flex items-center gap-3"
+                            >
+                              <div className="flex-1">
+                                <FloatingLabelInput
+                                  value={option}
+                                  onChange={(e) => updateOption(index, e.target.value)}
+                                  label={`選択肢 ${index + 1}`}
+                                  placeholder={`選択肢 ${index + 1}`}
+                                />
+                              </div>
+                              {fieldOptions.length > 1 && (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => removeOption(index)}
+                                  className="modern-button-secondary min-h-[48px] min-w-[48px]"
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </motion.div>
+                          ))}
+                        </AnimatePresence>
+                        
                         <Button
                           type="button"
                           variant="outline"
-                          size="sm"
                           onClick={addOption}
-                          className="w-full"
+                          className="modern-button-secondary w-full"
                         >
                           <Plus className="h-4 w-4 mr-2" />
                           選択肢を追加
                         </Button>
                       </div>
-                    </div>
+                    </motion.div>
                   )}
 
-                  <div className="flex items-center space-x-2">
-                    <input type="checkbox" {...fieldForm.register('required')} />
-                    <Label>必須項目にする</Label>
+                  <div className="flex items-center space-x-3 p-4 bg-slate-50 rounded-xl">
+                    <input 
+                      type="checkbox" 
+                      {...fieldForm.register('required')} 
+                      className="modern-checkbox"
+                    />
+                    <Label className="text-sm font-medium text-slate-700">必須項目にする</Label>
                   </div>
 
-                  <DialogFooter>
-                    <Button type="button" variant="outline" onClick={handleCloseDialog}>
+                  <DialogFooter className="flex flex-col-reverse space-y-2 space-y-reverse sm:flex-row sm:justify-end sm:space-y-0 sm:space-x-3 pt-6">
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={handleCloseDialog}
+                      className="modern-button-secondary w-full sm:w-auto"
+                    >
                       キャンセル
                     </Button>
-                    <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700">
-                      {editingField ? '更新' : '追加'}
+                    <Button 
+                      type="submit" 
+                      className="modern-button-primary w-full sm:w-auto"
+                    >
+                      {editingField ? (
+                        <>
+                          <Edit className="h-4 w-4 mr-2" />
+                          更新
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="h-4 w-4 mr-2" />
+                          追加
+                        </>
+                      )}
                     </Button>
                   </DialogFooter>
                 </form>
@@ -564,20 +769,24 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
             </Dialog>
           </div>
         </CardHeader>
-        <CardContent className="pt-6">
+        
+        <CardContent className="p-4 sm:p-6">
           {/* 有効なフィールド */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-medium text-gray-900">有効なフィールド</h3>
-              <Badge variant="secondary">{enabledFields.length}個</Badge>
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900">有効なフィールド</h3>
+              <Badge variant="secondary" className="bg-indigo-100 text-indigo-800">
+                {enabledFields.length}個
+              </Badge>
             </div>
             
             {enabledFields.length === 0 ? (
-              <div className="text-center py-8">
-                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Settings className="h-8 w-8 text-gray-400" />
+              <div className="text-center py-12">
+                <div className="w-20 h-20 bg-gradient-to-r from-slate-100 to-slate-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Settings className="h-10 w-10 text-slate-400" />
                 </div>
-                <p className="text-gray-500">有効なフィールドがありません</p>
+                <p className="text-slate-600 font-medium">有効なフィールドがありません</p>
+                <p className="text-sm text-slate-500 mt-1">「フィールド追加」ボタンから新しいフィールドを追加してください</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -588,20 +797,24 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -20 }}
-                      className={`flex items-center justify-between p-4 border-2 rounded-lg transition-all duration-200 hover:shadow-md ${
-                        field.isDefault 
+                      className={`
+                        flex flex-col sm:flex-row sm:items-center justify-between 
+                        p-4 border-2 rounded-xl transition-all duration-300 
+                        hover:shadow-lg hover:-translate-y-0.5 space-y-3 sm:space-y-0
+                        ${field.isDefault 
                           ? 'border-indigo-200 bg-gradient-to-r from-indigo-50 to-blue-50' 
                           : 'border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50'
-                      }`}
+                        }
+                      `}
                     >
-                      <div className="flex items-center space-x-3 flex-1">
-                        <div className="flex flex-col space-y-1">
+                      <div className="flex items-center space-x-3 flex-1 min-w-0">
+                        <div className="flex flex-col space-y-1 flex-shrink-0">
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => moveField(index, Math.max(0, index - 1))}
                             disabled={index === 0}
-                            className="h-6 w-6 p-0"
+                            className="h-8 w-8 p-0 hover:bg-white/50 transition-colors"
                           >
                             <ArrowUp className="h-3 w-3" />
                           </Button>
@@ -610,30 +823,31 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
                             size="sm"
                             onClick={() => moveField(index, Math.min(enabledFields.length - 1, index + 1))}
                             disabled={index === enabledFields.length - 1}
-                            className="h-6 w-6 p-0"
+                            className="h-8 w-8 p-0 hover:bg-white/50 transition-colors"
                           >
                             <ArrowDown className="h-3 w-3" />
                           </Button>
                         </div>
-                        <GripVertical className="h-5 w-5 text-gray-400" />
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                          field.isDefault ? 'bg-indigo-100' : 'bg-purple-100'
-                        }`}>
+                        <GripVertical className="h-5 w-5 text-gray-400 flex-shrink-0" />
+                        <div className={`
+                          w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm
+                          ${field.isDefault ? 'bg-indigo-100' : 'bg-purple-100'}
+                        `}>
                           {React.createElement(fieldTypeIcons[field.type as keyof typeof fieldTypeIcons], { 
-                            size: 18, 
+                            size: 20, 
                             className: field.isDefault ? "text-indigo-600" : "text-purple-600"
                           })}
                         </div>
-                        <div className="flex-1">
-                          <p className="font-medium text-gray-900">{field.label}</p>
-                          <div className="flex items-center space-x-2 mt-1">
-                            <Badge variant="secondary" className={field.isDefault ? 'bg-indigo-100 text-indigo-800' : 'bg-purple-100 text-purple-800'}>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-gray-900 text-sm sm:text-base truncate">{field.label}</p>
+                          <div className="flex flex-wrap items-center gap-2 mt-2">
+                            <Badge variant="secondary" className={`text-xs ${field.isDefault ? 'bg-indigo-100 text-indigo-800' : 'bg-purple-100 text-purple-800'}`}>
                               {fieldTypeLabels[field.type]}
                             </Badge>
-                            <Badge variant={field.isDefault ? 'default' : 'outline'}>
+                            <Badge variant={field.isDefault ? 'default' : 'outline'} className="text-xs">
                               {field.isDefault ? 'デフォルト' : 'カスタム'}
                             </Badge>
-                            {field.required && <Badge variant="destructive">必須</Badge>}
+                            {field.required && <Badge variant="destructive" className="text-xs">必須</Badge>}
                             {field.options && field.options.length > 0 && (
                               <Badge variant="outline" className="text-xs">
                                 {field.options.length}個の選択肢
@@ -641,16 +855,19 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
                             )}
                           </div>
                           {field.description && (
-                            <p className="text-xs text-gray-500 mt-1">{field.description}</p>
+                            <p className="text-xs text-gray-500 mt-2 line-clamp-2">{field.description}</p>
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center justify-end space-x-2 flex-shrink-0">
                         <Button 
                           variant="ghost" 
                           size="sm" 
                           onClick={() => handleEditField(field)}
-                          className={field.isDefault ? "text-indigo-600 hover:text-indigo-800 hover:bg-indigo-100" : "text-purple-600 hover:text-purple-800 hover:bg-purple-100"}
+                          className={`
+                            modern-button-secondary min-h-[44px] min-w-[44px]
+                            ${field.isDefault ? "text-indigo-600 hover:bg-indigo-100" : "text-purple-600 hover:bg-purple-100"}
+                          `}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
@@ -658,7 +875,7 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
                           variant="ghost" 
                           size="sm" 
                           onClick={() => handleDeleteField(field.id)}
-                          className="text-red-600 hover:text-red-800 hover:bg-red-100"
+                          className="text-red-600 hover:text-red-800 hover:bg-red-100 min-h-[44px] min-w-[44px] modern-button-secondary"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -673,32 +890,32 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
             {disabledFields.length > 0 && (
               <div className="mt-8">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-medium text-gray-500">無効なフィールド</h3>
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-500">無効なフィールド</h3>
                   <Badge variant="outline">{disabledFields.length}個</Badge>
                 </div>
                 <div className="space-y-2">
                   {disabledFields.map((field) => (
                     <div
                       key={field.id}
-                      className="flex items-center justify-between p-3 border border-gray-200 rounded-lg bg-gray-50 opacity-60"
+                      className="flex items-center justify-between p-3 border border-gray-200 rounded-xl bg-gray-50/80 opacity-60"
                     >
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-gray-200 rounded-lg flex items-center justify-center">
+                      <div className="flex items-center space-x-3 flex-1 min-w-0">
+                        <div className="w-10 h-10 bg-gray-200 rounded-xl flex items-center justify-center flex-shrink-0">
                           {React.createElement(fieldTypeIcons[field.type as keyof typeof fieldTypeIcons], { 
-                            size: 16, 
+                            size: 18, 
                             className: "text-gray-400"
                           })}
                         </div>
-                        <div>
-                          <p className="font-medium text-gray-600">{field.label}</p>
-                          <Badge variant="outline" className="text-xs">無効</Badge>
+                        <div className="min-w-0">
+                          <p className="font-medium text-gray-600 text-sm truncate">{field.label}</p>
+                          <Badge variant="outline" className="text-xs mt-1">無効</Badge>
                         </div>
                       </div>
                       <Button 
                         variant="ghost" 
                         size="sm" 
                         onClick={() => toggleFieldEnabled(field.id)}
-                        className="text-green-600 hover:text-green-800 hover:bg-green-100"
+                        className="text-green-600 hover:text-green-800 hover:bg-green-100 modern-button-secondary flex-shrink-0"
                       >
                         有効化
                       </Button>
@@ -710,62 +927,85 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
           </div>
         </CardContent>
       </Card>
+      
+      {/* フォーム設定保存 */}
+      <Card className="border-blue-200 card-hover">
+        <CardHeader className="bg-gradient-to-r from-blue-50 to-cyan-50 p-4 sm:p-6">
+          <CardTitle className="text-lg sm:text-xl text-gradient">フォーム設定を保存</CardTitle>
+          <CardDescription className="text-sm sm:text-base text-blue-600 mt-1">
+            現在のフォーム構成をテンプレートとして保存できます
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex justify-end">
+            <Button 
+              onClick={handleSaveFormConfig}
+              disabled={loading || enabledFields.length === 0}
+              variant="outline"
+              className="modern-button-secondary w-full sm:w-auto"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  保存中...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  フォーム設定を保存
+                </>
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* 講義作成フォーム */}
-      <Card className="border-green-200">
-        <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50">
-          <CardTitle className="text-green-800">カスタムフォーム付き講義を追加</CardTitle>
-          <CardDescription className="text-green-600">
+      <Card className="border-green-200 card-hover">
+        <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 sm:p-6">
+          <CardTitle className="text-lg sm:text-xl text-gradient">カスタムフォーム付き講義を追加</CardTitle>
+          <CardDescription className="text-sm sm:text-base text-green-600 mt-1">
             上記で設定したフォーム構成を使用する講義を作成します
           </CardDescription>
         </CardHeader>
-        <CardContent className="pt-6">
-          <form onSubmit={courseForm.handleSubmit(handleAddCustomCourse)} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="courseName">講義名 *</Label>
-              <Input
-                {...courseForm.register('courseName')}
-                placeholder="例: カスタム経済学1"
-                className="border-green-200 focus:border-green-400"
-              />
-              {courseForm.formState.errors.courseName && (
-                <p className="text-sm text-red-500">{courseForm.formState.errors.courseName.message}</p>
-              )}
-            </div>
+        <CardContent className="p-4 sm:p-6">
+          <form onSubmit={courseForm.handleSubmit(handleAddCustomCourse)} className="space-y-6">
+            <FloatingLabelInput
+              {...courseForm.register('courseName')}
+              label="講義名"
+              placeholder="例: カスタム経済学1"
+              error={courseForm.formState.errors.courseName?.message}
+              icon={BookOpen}
+              required
+            />
 
-            <div className="space-y-2">
-              <Label htmlFor="teacherName">担当教員名 *</Label>
-              <Input
-                {...courseForm.register('teacherName')}
-                placeholder="例: 田中太郎"
-                className="border-green-200 focus:border-green-400"
-              />
-              {courseForm.formState.errors.teacherName && (
-                <p className="text-sm text-red-500">{courseForm.formState.errors.teacherName.message}</p>
-              )}
-            </div>
+            <FloatingLabelInput
+              {...courseForm.register('teacherName')}
+              label="担当教員名"
+              placeholder="例: 田中太郎"
+              error={courseForm.formState.errors.teacherName?.message}
+              icon={User}
+              required
+            />
 
-            <div className="space-y-2">
-              <Label htmlFor="spreadsheetId">スプレッドシートID *</Label>
-              <Input
-                {...courseForm.register('spreadsheetId')}
-                placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
-                className="border-green-200 focus:border-green-400"
-              />
-              {courseForm.formState.errors.spreadsheetId && (
-                <p className="text-sm text-red-500">{courseForm.formState.errors.spreadsheetId.message}</p>
-              )}
-            </div>
+            <FloatingLabelInput
+              {...courseForm.register('spreadsheetId')}
+              label="スプレッドシートID"
+              placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
+              error={courseForm.formState.errors.spreadsheetId?.message}
+              icon={FileText}
+              required
+            />
 
             <div className="flex justify-end pt-4">
               <Button 
                 type="submit" 
                 disabled={savingCourse || enabledFields.length === 0}
-                className="bg-green-600 hover:bg-green-700"
+                className="modern-button-primary w-full sm:w-auto"
               >
                 {savingCourse ? (
                   <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     追加中...
                   </>
                 ) : (
@@ -777,38 +1017,6 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
               </Button>
             </div>
           </form>
-        </CardContent>
-      </Card>
-
-      {/* フォーム設定保存 */}
-      <Card className="border-blue-200">
-        <CardHeader className="bg-gradient-to-r from-blue-50 to-cyan-50">
-          <CardTitle className="text-blue-800">フォーム設定を保存</CardTitle>
-          <CardDescription className="text-blue-600">
-            現在のフォーム構成をテンプレートとして保存できます
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="pt-6">
-          <div className="flex justify-end">
-            <Button 
-              onClick={handleSaveFormConfig}
-              disabled={loading || enabledFields.length === 0}
-              variant="outline"
-              className="border-blue-600 text-blue-600 hover:bg-blue-50"
-            >
-              {loading ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  保存中...
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4 mr-2" />
-                  フォーム設定を保存
-                </>
-              )}
-            </Button>
-          </div>
         </CardContent>
       </Card>
     </div>
