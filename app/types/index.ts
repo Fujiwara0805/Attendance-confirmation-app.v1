@@ -41,3 +41,43 @@ export interface GlobalSettings {
     locationName?: string;
   };
 }
+
+// カスタムフォーム設定用の型定義を追加
+export type CustomFieldType = 'text' | 'textarea' | 'number' | 'date' | 'select' | 'radio' | 'checkbox';
+
+export interface CustomFormField {
+  id: string;
+  name: string; // フィールド名（英語、内部用）
+  label: string; // 表示ラベル（日本語）
+  type: CustomFieldType;
+  required: boolean;
+  placeholder?: string;
+  description?: string;
+  validation?: {
+    min?: number;
+    max?: number;
+    pattern?: string;
+    message?: string;
+  };
+  options?: string[]; // select, radio, checkbox用
+  defaultValue?: string;
+  order: number; // 表示順序
+}
+
+export interface CustomFormTemplate {
+  id: string;
+  name: string; // テンプレート名
+  description?: string;
+  fields: CustomFormField[];
+  isDefault: boolean; // デフォルトテンプレートかどうか
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CourseFormConfig {
+  courseId: string;
+  templateId?: string; // 使用するテンプレートID
+  customFields: CustomFormField[]; // 講義固有のカスタムフィールド
+  enabledDefaultFields: string[]; // 有効化されたデフォルトフィールドのリスト
+}

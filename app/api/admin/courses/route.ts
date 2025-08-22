@@ -3,8 +3,8 @@ import { getAdminConfigSpreadsheetId, getSheetData, appendSheetData, createSheet
 import { v4 as uuidv4 } from 'uuid';
 import { getCurrentUser } from '@/lib/auth';
 
-// 講義管理シートの構造（CreatedByを追加）
-const COURSES_HEADERS = ['ID', 'CourseName', 'TeacherName', 'SpreadsheetId', 'DefaultSheetName', 'CreatedBy', 'CreatedAt', 'LastUpdated'];
+// 講義管理シートの構造（IsCustomFormを追加）
+const COURSES_HEADERS = ['ID', 'CourseName', 'TeacherName', 'SpreadsheetId', 'DefaultSheetName', 'CreatedBy', 'CreatedAt', 'LastUpdated', 'IsCustomForm'];
 
 // 講義一覧を取得
 export async function GET() {
@@ -34,7 +34,8 @@ export async function GET() {
         defaultSheetName: row[4] || 'Attendance',
         createdBy: row[5] || '',
         createdAt: row[6] || '',
-        lastUpdated: row[7] || ''
+        lastUpdated: row[7] || '',
+        isCustomForm: row[8] === 'true' // IsCustomFormフラグを追加
       }))
       .filter(course => course.id); // IDが存在するもののみ
     
@@ -75,7 +76,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     console.log('Request body:', body);
     
-    const { courseName, teacherName, spreadsheetId } = body;
+    const { courseName, teacherName, spreadsheetId, isCustomForm } = body;
 
     if (!courseName || !teacherName || !spreadsheetId) {
       return NextResponse.json({ 
@@ -122,7 +123,8 @@ export async function POST(req: NextRequest) {
       courseName.trim(), // 講義名をデフォルトシート名として使用
       user.email, // 作成者のメールアドレスを保存
       now,
-      now
+      now,
+      isCustomForm ? 'true' : 'false' // IsCustomFormフラグを追加
     ];
 
     // データを追加
@@ -132,7 +134,13 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ 
       message: '講義を正常に追加しました。',
-      courseId
+      course: {
+        id: courseId,
+        courseName: courseName.trim(),
+        teacherName: teacherName.trim(),
+        spreadsheetId: trimmedId,
+        isCustomForm: isCustomForm || false
+      }
     }, { status: 200 });
   } catch (error) {
     console.error('Error adding course:', error);

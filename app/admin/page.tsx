@@ -32,7 +32,8 @@ import {
   X,
   MapPin,
   Search,
-  Loader2
+  Loader2,
+  FormInput
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -40,6 +41,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import LocationSettingsForm from './components/LocationSettingsForm'; // 追加
+import CustomFormManager from './components/CustomFormManager'; // 追加
 
 interface Course {
   id: string;
@@ -69,6 +71,9 @@ export default function AdminPage() {
     spreadsheetId: ''
   });
   const [savingNewCourse, setSavingNewCourse] = useState<boolean>(false);
+
+  // カスタムフォーム設定用の状態を追加
+  const [isCustomFormDialogOpen, setIsCustomFormDialogOpen] = useState<boolean>(false);
 
   // 編集用の状態
   const [isEditDialogOpen, setIsEditDialogOpen] = useState<boolean>(false);
@@ -199,7 +204,7 @@ export default function AdminPage() {
       fetchCourses();
       fetchLocationSettings(); // 位置情報設定を初期読み込みに戻す
     }
-  }, [status, fetchCourses]);
+  }, [status, fetchCourses, fetchLocationSettings]);
 
   // ローディング表示
   if (status === 'loading') {
@@ -594,14 +599,40 @@ export default function AdminPage() {
                   <h2 className="text-xl sm:text-2xl font-bold text-slate-900">講義管理</h2>
                   <p className="text-slate-600 mt-1 text-sm sm:text-base">各講義のスプレッドシート設定を管理します</p>
                 </div>
-                <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button className="w-full sm:w-auto bg-gradient-to-r from-indigo-600 to-blue-700 hover:from-indigo-700 hover:to-blue-800 text-white">
-                      <Plus className="h-4 w-4 mr-2" />
-                      <span className="sm:hidden">講義追加</span>
-                      <span className="hidden sm:inline">新規講義追加</span>
-                    </Button>
-                  </DialogTrigger>
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                  <Dialog open={isCustomFormDialogOpen} onOpenChange={setIsCustomFormDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        className="w-full sm:w-auto border-indigo-600 text-indigo-600 hover:bg-indigo-50"
+                      >
+                        <FormInput className="h-4 w-4 mr-2" />
+                        <span className="sm:hidden">カスタムフォーム</span>
+                        <span className="hidden sm:inline">カスタムフォーム設定</span>
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="mx-4 sm:mx-auto sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle className="text-lg sm:text-xl">カスタムフォーム設定</DialogTitle>
+                        <DialogDescription className="text-sm sm:text-base">
+                          出席フォームの項目をカスタマイズできます。デフォルト項目の有効/無効化や、独自の項目を追加できます。
+                        </DialogDescription>
+                      </DialogHeader>
+                      <CustomFormManager 
+                        onCourseAdded={fetchCourses} 
+                        onClose={() => setIsCustomFormDialogOpen(false)} 
+                      />
+                    </DialogContent>
+                  </Dialog>
+                  
+                  <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button className="w-full sm:w-auto bg-gradient-to-r from-indigo-600 to-blue-700 hover:from-indigo-700 hover:to-blue-800 text-white">
+                        <Plus className="h-4 w-4 mr-2" />
+                        <span className="sm:hidden">講義追加</span>
+                        <span className="hidden sm:inline">新規講義追加</span>
+                      </Button>
+                    </DialogTrigger>
                   <DialogContent className="mx-4 sm:mx-auto sm:max-w-[500px]">
                     <DialogHeader>
                       <DialogTitle className="text-lg sm:text-xl">新規講義追加</DialogTitle>
@@ -662,6 +693,7 @@ export default function AdminPage() {
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
+                </div>
               </div>
 
               {/* 編集ダイアログ */}

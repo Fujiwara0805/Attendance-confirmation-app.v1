@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -27,6 +27,9 @@ import {
 import { toast } from 'sonner';
 import { MapPin, AlertTriangle, CheckCircle, GraduationCap } from 'lucide-react';
 import Image from 'next/image';
+import { CustomFormField, CourseFormConfig } from '@/app/types';
+import { createDynamicSchema, createDefaultValues, defaultFields } from '@/lib/dynamicFormUtils';
+import DynamicFormField from './DynamicFormField';
 
 // 講義情報の型定義
 interface Course {
@@ -44,10 +47,10 @@ interface Course {
   };
 }
 
-// フォームのバリデーションスキーマ
-const formSchema = z.object({
+// デフォルトのフォームスキーマ（フォールバック用）
+const defaultFormSchema = z.object({
   date: z.string().min(1, { message: '日付を入力してください' }),
-  class_name: z.string().optional(), // 特定講義の場合は自動設定されるため任意
+  class_name: z.string().optional(),
   student_id: z.string().min(1, { message: '学籍番号を入力してください' }),
   grade: z.string().min(1, { message: '学年を選択してください' }),
   name: z.string().min(1, { message: '名前を入力してください' }),
@@ -82,6 +85,14 @@ export default function DynamicAttendanceForm() {
   const [loadingCourses, setLoadingCourses] = useState(true);
   const [targetCourse, setTargetCourse] = useState<Course | null>(null);
   
+  // 動的フォーム設定用の状態
+  const [formConfig, setFormConfig] = useState<CourseFormConfig | null>(null);
+  const [customFields, setCustomFields] = useState<CustomFormField[]>([]);
+  const [enabledDefaultFields, setEnabledDefaultFields] = useState<string[]>([
+    'date', 'class_name', 'student_id', 'grade', 'name', 'department', 'feedback'
+  ]);
+  const [dynamicSchema, setDynamicSchema] = useState<any>(defaultFormSchema);
+  
   const [locationInfo, setLocationInfo] = useState<{
     status: 'loading' | 'success' | 'error' | 'outside';
     message: string;
@@ -104,20 +115,25 @@ export default function DynamicAttendanceForm() {
     locationName?: string;
   } | null>(null);
 
-  // フォームの初期化
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      date: new Date().toISOString().split('T')[0],
-      class_name: '',
-      student_id: '',
-      grade: '',
-      name: '',
-      department: '',
-      feedback: '',
-    },
+  // 動的フォームの初期化
+  const form = useForm({
+    resolver: zodResolver(dynamicSchema),
+    defaultValues: createDefaultValues(customFields, enabledDefaultFields),
     mode: 'onChange',
   });
+
+  // スキーマが変更された時にフォームを再初期化
+  useEffect(() => {
+    const newSchema = createDynamicSchema(customFields, enabledDefaultFields);
+    setDynamicSchema(newSchema);
+    const newDefaultValues = createDefaultValues(customFields, enabledDefaultFields);
+    
+    // 現在の値を保持しつつ、新しいデフォルト値をマージ
+    const currentValues = form.getValues();
+    const mergedValues = { ...newDefaultValues, ...currentValues };
+    
+    form.reset(mergedValues);
+  }, [customFields, enabledDefaultFields, form]);
 
   // 全講義一覧を取得
   const fetchCourses = async () => {
@@ -138,6 +154,46 @@ export default function DynamicAttendanceForm() {
     }
   };
 
+  // フォーム設定を取得
+  const fetchFormConfig = useCallback(async () => {
+    if (!courseId) return;
+
+    try {
+      console.log('Fetching form config for courseId:', courseId);
+      const response = await fetch(`/api/admin/courses/${courseId}/form-config`);
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Form config response:', data);
+        
+        setFormConfig(data.config);
+        const customFields = data.config.customFields || [];
+        const enabledDefaultFields = data.config.enabledDefaultFields || [
+          'date', 'class_name', 'student_id', 'grade', 'name', 'department', 'feedback'
+        ];
+        
+        console.log('Setting customFields:', customFields);
+        console.log('Setting enabledDefaultFields:', enabledDefaultFields);
+        
+        setCustomFields(customFields);
+        setEnabledDefaultFields(enabledDefaultFields);
+      } else {
+        console.log('フォーム設定が見つかりません。デフォルト設定を使用します。');
+        // デフォルト設定を使用
+        setCustomFields([]);
+        setEnabledDefaultFields([
+          'date', 'class_name', 'student_id', 'grade', 'name', 'department', 'feedback'
+        ]);
+      }
+    } catch (error) {
+      console.error('フォーム設定の取得中にエラーが発生しました:', error);
+      // エラー時はデフォルト設定を使用
+      setCustomFields([]);
+      setEnabledDefaultFields([
+        'date', 'class_name', 'student_id', 'grade', 'name', 'department', 'feedback'
+      ]);
+    }
+  }, [courseId]);
+
   // 特定の講義情報を取得
   const fetchTargetCourse = async () => {
     if (!courseId) return;
@@ -148,7 +204,9 @@ export default function DynamicAttendanceForm() {
         const data = await response.json();
         setTargetCourse(data.course);
         // フォームに講義名を自動設定
-        form.setValue('class_name', data.course.courseName);
+        setTimeout(() => {
+          form.setValue('class_name', data.course.courseName);
+        }, 100);
       } else {
         console.error('Target course not found');
         toast.error('指定された講義が見つかりません');
@@ -210,7 +268,11 @@ export default function DynamicAttendanceForm() {
     
     // 特定の講義情報を取得（courseIdがある場合）
     if (courseId) {
-      fetchTargetCourse().then(() => {
+      // フォーム設定を最初に取得
+      fetchFormConfig().then(() => {
+        // フォーム設定取得後に講義情報を取得
+        return fetchTargetCourse();
+      }).then(() => {
         // 講義情報取得後に位置情報設定を取得
         fetchLocationSettings();
       });
@@ -234,7 +296,7 @@ export default function DynamicAttendanceForm() {
         setTimeUntilNextSubmission(Math.ceil((cooldownPeriod - elapsedTime) / 1000 / 60));
       }
     }
-  }, [courseId]);
+  }, [courseId, fetchFormConfig]);
 
   // 残り時間のカウントダウン処理
   useEffect(() => {
@@ -341,7 +403,7 @@ export default function DynamicAttendanceForm() {
   }
 
   // フォーム送信処理
-  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+  const onSubmit = async (values: any) => {
     setSubmitError(null);
     
     // 講義名の確認を条件付きに変更
@@ -378,16 +440,12 @@ export default function DynamicAttendanceForm() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          date: values.date,
-          class_name: values.class_name,
-          student_id: values.student_id,
-          grade: parseInt(values.grade),
-          name: values.name,
-          department: values.department,
-          feedback: values.feedback,
+          ...values, // 動的フォームの全ての値を送信
+          grade: values.grade ? parseInt(values.grade) : undefined,
           latitude,
           longitude,
           courseId: targetCourse?.id, // 講義IDも送信（ある場合）
+          customFields: customFields, // カスタムフィールド定義も送信
         }),
       });
 
@@ -526,171 +584,62 @@ export default function DynamicAttendanceForm() {
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="date"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-indigo-700">日付</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="date"
-                      className="border-indigo-200 focus:border-indigo-400"
-                      style={{ fontSize: '16px' }}
-                      {...field}
+          {/* 動的フィールドレンダリング */}
+          {(() => {
+            console.log('Rendering dynamic fields...');
+            console.log('enabledDefaultFields:', enabledDefaultFields);
+            console.log('customFields:', customFields);
+
+            const allFields: CustomFormField[] = [
+              // デフォルトフィールドを追加
+              ...defaultFields.filter(field => enabledDefaultFields.includes(field.key)).map((field, index) => ({
+                id: field.key,
+                name: field.key,
+                label: field.label,
+                type: field.type,
+                required: true,
+                placeholder: '',
+                description: '',
+                options: field.key === 'grade' ? ['1', '2', '3', '4'] : [],
+                order: index
+              })),
+              // カスタムフィールドを追加（orderに基づいてソート）
+              ...customFields.sort((a, b) => (a.order || 0) - (b.order || 0))
+            ];
+
+            console.log('allFields:', allFields);
+
+            if (allFields.length === 0) {
+              return (
+                <div className="text-center py-8">
+                  <p className="text-gray-500">フォーム項目が設定されていません</p>
+                </div>
+              );
+            }
+
+            // フィールドをグループ化（2列レイアウト用）
+            const fieldPairs = [];
+            for (let i = 0; i < allFields.length; i += 2) {
+              fieldPairs.push(allFields.slice(i, i + 2));
+            }
+
+            return fieldPairs.map((pair, pairIndex) => (
+              <div key={pairIndex} className={`grid grid-cols-1 ${pair.length === 2 && pair[0].type !== 'textarea' && pair[1]?.type !== 'textarea' ? 'md:grid-cols-2' : ''} gap-4`}>
+                {pair.map((field) => (
+                  <div key={field.name} className={field.type === 'textarea' ? 'md:col-span-2' : ''}>
+                    <DynamicFormField
+                      control={form.control}
+                      field={field}
+                      courses={courses}
+                      isClassNameField={field.name === 'class_name'}
+                      targetCourse={targetCourse}
+                      loadingCourses={loadingCourses}
                     />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="class_name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-indigo-700">講義名</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value}
-                    disabled={targetCourse !== null} // 特定講義の場合は無効化
-                  >
-                    <FormControl>
-                      <SelectTrigger className="border-indigo-200 focus:border-indigo-400" style={{ fontSize: '16px' }}>
-                        <SelectValue placeholder={
-                          loadingCourses ? "読み込み中..." : 
-                          targetCourse ? targetCourse.courseName : ""
-                        } />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {loadingCourses ? (
-                        <SelectItem value="loading" disabled>講義を読み込み中...</SelectItem>
-                      ) : courses.length === 0 ? (
-                        <SelectItem value="no-courses" disabled>登録されている講義がありません</SelectItem>
-                      ) : (
-                        courses.map((course) => (
-                          <SelectItem key={course.id} value={course.courseName}>
-                            {course.courseName}
-                          </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="student_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-indigo-700">学籍番号</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="例: A12345"
-                      className="border-indigo-200 focus:border-indigo-400"
-                      style={{ fontSize: '16px' }}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="grade"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-indigo-700">学年</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger className="border-indigo-200 focus:border-indigo-400" style={{ fontSize: '16px' }}>
-                        <SelectValue placeholder="学年を選択してください" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="1">1年</SelectItem>
-                      <SelectItem value="2">2年</SelectItem>
-                      <SelectItem value="3">3年</SelectItem>
-                      <SelectItem value="4">4年</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-indigo-700">名前</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="例: 山田太郎"
-                      className="border-indigo-200 focus:border-indigo-400"
-                      style={{ fontSize: '16px' }}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="department"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-indigo-700">学科・コース</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="例: 経済学部"
-                      className="border-indigo-200 focus:border-indigo-400"
-                      style={{ fontSize: '16px' }}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          <FormField
-            control={form.control}
-            name="feedback"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-indigo-700">講義レポート</FormLabel>
-                <FormControl>
-                  <Textarea
-                    placeholder="出題された問いに対してのレポートを入力してください"
-                    className="resize-none border-indigo-200 focus:border-indigo-400"
-                    style={{ fontSize: '16px', minHeight: 'calc(1.5em * 4 + 1rem + 32px)' }}
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+                  </div>
+                ))}
+              </div>
+            ));
+          })()}
 
           <div className="pt-2">
             <Button 

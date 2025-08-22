@@ -1,11 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import { getAdminConfigSpreadsheetId, getSheetData, createSheetIfEmpty, appendSheetData } from '@/lib/googleSheets';
+import { CustomFormField } from '@/app/types';
 
-// 出席データのヘッダー
-const ATTENDANCE_HEADERS = [
+// デフォルト出席データのヘッダー
+const DEFAULT_ATTENDANCE_HEADERS = [
   'ID', 'Date', 'ClassName', 'StudentID', 'Grade', 'Name', 'Department', 'Feedback', 'Latitude', 'Longitude', 'CreatedAt'
 ];
+
+// 動的ヘッダー生成
+const generateDynamicHeaders = (customFields: CustomFormField[], enabledDefaultFields: string[] = []) => {
+  const headers = ['ID']; // IDは常に最初
+  
+  // デフォルトフィールドの追加
+  const defaultFieldMap: { [key: string]: string } = {
+    'date': 'Date',
+    'class_name': 'ClassName', 
+    'student_id': 'StudentID',
+    'grade': 'Grade',
+    'name': 'Name',
+    'department': 'Department',
+    'feedback': 'Feedback'
+  };
+
+  enabledDefaultFields.forEach(fieldKey => {
+    if (defaultFieldMap[fieldKey]) {
+      headers.push(defaultFieldMap[fieldKey]);
+    }
+  });
+
+  // カスタムフィールドの追加
+  customFields.forEach(field => {
+    headers.push(field.label || field.name);
+  });
+
+  // 位置情報とタイムスタンプは常に最後
+  headers.push('Latitude', 'Longitude', 'CreatedAt');
+  
+  return headers;
+};
 
 // 講義IDから対応するスプレッドシートIDを取得（新機能）
 const getCourseSpreadsheetIdById = async (courseId: string) => {
@@ -84,26 +117,47 @@ const getGlobalSpreadsheetId = async () => {
 
 export async function POST(req: NextRequest) {
   try {
+    const requestBody = await req.json();
     const { 
-      date, 
-      class_name, 
-      student_id, 
-      grade, 
-      name, 
-      department, 
-      feedback, 
       latitude, 
       longitude,
-      courseId // 🆕 新しいパラメータ（オプショナル）
-    } = await req.json();
+      courseId,
+      customFields = [] // カスタムフィールド定義
+    } = requestBody;
 
-    // 必須フィールドの検証
-    if (!date || !student_id || !grade || !name || !department || !latitude || !longitude) {
-      return NextResponse.json({ message: 'Missing required fields' }, { status: 400 });
+    // customFieldsとrequestBodyから動的にデータを抽出
+    const formData: { [key: string]: any } = {};
+    
+    // 基本的なフィールドを抽出
+    const basicFields = ['date', 'class_name', 'student_id', 'grade', 'name', 'department', 'feedback'];
+    basicFields.forEach(field => {
+      if (requestBody[field] !== undefined) {
+        formData[field] = requestBody[field];
+      }
+    });
+
+    // カスタムフィールドを抽出
+    customFields.forEach((field: CustomFormField) => {
+      if (requestBody[field.name] !== undefined) {
+        formData[field.name] = requestBody[field.name];
+      }
+    });
+
+    // 必須フィールドの検証（動的）
+    if (!latitude || !longitude) {
+      return NextResponse.json({ message: 'Location data is required' }, { status: 400 });
+    }
+
+    // 基本的な必須フィールドの検証（存在する場合のみ）
+    const requiredFields = ['student_id', 'name'];
+    for (const field of requiredFields) {
+      if (formData[field] === undefined || formData[field] === '') {
+        return NextResponse.json({ message: `${field} is required` }, { status: 400 });
+      }
     }
 
     let spreadsheetConfig = null;
-    let finalClassName = class_name;
+    let finalClassName = formData.class_name;
 
     // 🆕 新方式：courseId が提供された場合はIDベースで検索
     if (courseId) {
@@ -113,12 +167,12 @@ export async function POST(req: NextRequest) {
       }
     } 
     // 🔄 従来方式：講義名ベースで検索（後方互換性のため残す）
-    else if (class_name) {
-      spreadsheetConfig = await getCourseSpreadsheetId(class_name);
+    else if (formData.class_name) {
+      spreadsheetConfig = await getCourseSpreadsheetId(formData.class_name);
     }
     
     // どちらでも見つからない場合はclass_nameが必須
-    if (!spreadsheetConfig && !class_name) {
+    if (!spreadsheetConfig && !formData.class_name) {
       return NextResponse.json({ 
         message: 'Either courseId or class_name is required' 
       }, { status: 400 });
@@ -138,29 +192,53 @@ export async function POST(req: NextRequest) {
     // シート名を決定
     const attendanceSheetName = `${spreadsheetConfig.defaultSheetName}`;
 
+    // 動的ヘッダーを生成
+    const enabledDefaultFields = Object.keys(formData).filter(key => 
+      ['date', 'class_name', 'student_id', 'grade', 'name', 'department', 'feedback'].includes(key)
+    );
+    const dynamicHeaders = generateDynamicHeaders(customFields, enabledDefaultFields);
+
     // シートが存在しない、または空の場合はヘッダーを作成
-    await createSheetIfEmpty(spreadsheetConfig.spreadsheetId, attendanceSheetName, ATTENDANCE_HEADERS);
+    await createSheetIfEmpty(spreadsheetConfig.spreadsheetId, attendanceSheetName, dynamicHeaders);
 
     // サーバーサイドでIDとタイムスタンプを生成
     const id = uuidv4();
     const createdAt = new Date().toISOString();
 
-    // スプレッドシートに書き込むデータの形式
-    const values = [
-      [
-        id,
-        date,
-        finalClassName, // 確定した講義名を使用
-        student_id,
-        grade,
-        name,
-        department,
-        feedback || '',
-        latitude,
-        longitude,
-        createdAt,
-      ],
-    ];
+    // 動的にデータ行を構築
+    const rowData = [id]; // IDは常に最初
+    
+    // デフォルトフィールドのデータを追加
+    const defaultFieldMap: { [key: string]: string } = {
+      'date': 'date',
+      'class_name': 'class_name',
+      'student_id': 'student_id',
+      'grade': 'grade',
+      'name': 'name',
+      'department': 'department',
+      'feedback': 'feedback'
+    };
+
+    enabledDefaultFields.forEach(fieldKey => {
+      if (defaultFieldMap[fieldKey]) {
+        let value = formData[fieldKey] || '';
+        // 講義名の特別処理
+        if (fieldKey === 'class_name') {
+          value = finalClassName || value;
+        }
+        rowData.push(value);
+      }
+    });
+
+    // カスタムフィールドのデータを追加
+    customFields.forEach((field: CustomFormField) => {
+      rowData.push(formData[field.name] || '');
+    });
+
+    // 位置情報とタイムスタンプを最後に追加
+    rowData.push(latitude, longitude, createdAt);
+
+    const values = [rowData];
 
     await appendSheetData(spreadsheetConfig.spreadsheetId, attendanceSheetName, values);
 
