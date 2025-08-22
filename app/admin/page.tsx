@@ -32,10 +32,7 @@ import {
   X,
   MapPin,
   Search,
-  Loader2,
-  GripVertical,
-  Plus as PlusIcon,
-  X as XIcon
+  Loader2
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -43,11 +40,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import LocationSettingsForm from './components/LocationSettingsForm'; // 追加
-import { FormField, DEFAULT_FORM_FIELDS } from '@/app/types';
-import FormFieldEditor from './components/FormFieldEditor';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
-import { Textarea } from '@/components/ui/textarea';
 
 interface Course {
   id: string;
@@ -104,12 +96,6 @@ export default function AdminPage() {
   const [searchError, setSearchError] = useState<string | null>(null);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [isSaving, setIsSaving] = useState(false); // 保存中の状態を追加
-
-  // カスタムフォーム設定用の状態
-  const [formFields, setFormFields] = useState<FormField[]>(DEFAULT_FORM_FIELDS);
-  const [useDefaultForm, setUseDefaultForm] = useState(true);
-  const [selectedCourseForForm, setSelectedCourseForForm] = useState<string>('');
-  const [isSavingFormFields, setIsSavingFormFields] = useState(false);
 
   const SERVICE_ACCOUNT_EMAIL = 'id-791@attendance-management-467501.iam.gserviceaccount.com';
 
@@ -196,54 +182,6 @@ export default function AdminPage() {
       console.error('位置情報設定の保存に失敗:', error);
       showToast('エラー', '位置情報設定の保存に失敗しました', 'destructive');
       throw error; // エラーを再スローしてLocationSettingsFormでキャッチできるようにする
-    }
-  };
-
-  // カスタムフォーム項目を取得する関数
-  const fetchFormFields = async (courseId: string) => {
-    try {
-      const response = await fetch(`/api/admin/courses/${courseId}/form-fields`);
-      if (response.ok) {
-        const data = await response.json();
-        setFormFields(data.customFormFields || DEFAULT_FORM_FIELDS);
-        setUseDefaultForm(data.useDefaultForm ?? true);
-      }
-    } catch (error) {
-      console.error('Error fetching form fields:', error);
-      showToast('エラー', 'フォーム項目の取得に失敗しました', 'destructive');
-    }
-  };
-
-  // カスタムフォーム項目を保存する関数
-  const saveFormFields = async () => {
-    if (!selectedCourseForForm) {
-      showToast('エラー', '講義を選択してください', 'destructive');
-      return;
-    }
-    
-    setIsSavingFormFields(true);
-    try {
-      const response = await fetch(`/api/admin/courses/${selectedCourseForForm}/form-fields`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          customFormFields: useDefaultForm ? null : formFields,
-          useDefaultForm
-        }),
-      });
-      
-      if (response.ok) {
-        showToast('成功', 'フォーム項目を保存しました');
-      } else {
-        throw new Error('Failed to save form fields');
-      }
-    } catch (error) {
-      console.error('Error saving form fields:', error);
-      showToast('エラー', 'フォーム項目の保存に失敗しました', 'destructive');
-    } finally {
-      setIsSavingFormFields(false);
     }
   };
 
@@ -530,12 +468,12 @@ export default function AdminPage() {
                 exit={{ opacity: 0, height: 0 }}
                 className="space-y-3 pb-4 border-t border-slate-200 pt-4"
               >
-                {/* <Link href="/">
+                <Link href="/">
                   <Button variant="ghost" size="sm" className="w-full justify-start text-slate-600 hover:text-slate-800">
                     <ArrowLeft className="h-4 w-4 mr-2" />
                     出席管理画面に戻る
                   </Button>
-                </Link> */}
+                </Link>
                 
                 <div className="flex items-center space-x-3 px-3 py-2 bg-slate-50 rounded-lg">
                   <User className="h-4 w-4 text-slate-600" />
@@ -623,7 +561,7 @@ export default function AdminPage() {
 
       <div className="container mx-auto px-3 py-4 sm:px-4 sm:py-6 lg:px-6 lg:py-8">
         <Tabs defaultValue="courses" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 h-auto mb-6 sm:mb-8 bg-slate-100 p-1 rounded-lg gap-1">
+          <TabsList className="grid w-full grid-cols-3 h-auto mb-6 sm:mb-8 bg-slate-100 p-1 rounded-lg gap-1">
             <TabsTrigger 
               value="courses" 
               className="flex flex-col items-center justify-center p-2 sm:p-3 data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all duration-200 text-xs sm:text-base min-h-[60px] sm:min-h-[48px]"
@@ -644,13 +582,6 @@ export default function AdminPage() {
             >
               <MapPin className="w-4 h-4 mb-1 sm:mb-0 sm:mr-2" />
               <span className="leading-tight text-center">位置情報</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="form-fields" 
-              className="flex flex-col items-center justify-center p-2 sm:p-3 data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all duration-200 text-xs sm:text-base min-h-[60px] sm:min-h-[48px]"
-            >
-              <Settings className="w-4 h-4 mb-1 sm:mb-0 sm:mr-2" />
-              <span className="leading-tight text-center">フォーム</span>
             </TabsTrigger>
           </TabsList>
 
@@ -1260,101 +1191,6 @@ export default function AdminPage() {
                 </CardContent>
               </Card>
             </motion.div>
-          </TabsContent>
-
-          {/* フォーム項目設定タブ */}
-          <TabsContent value="form-fields">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-indigo-700">フォーム項目設定</CardTitle>
-                <CardDescription>
-                  講義ごとにカスタムフォーム項目を設定できます
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* 講義選択 */}
-                <div className="space-y-2">
-                  <Label>講義を選択</Label>
-                  <Select 
-                    value={selectedCourseForForm} 
-                    onValueChange={(value) => {
-                      setSelectedCourseForForm(value);
-                      if (value) {
-                        fetchFormFields(value);
-                      }
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="講義を選択してください" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {courses.map((course) => (
-                        <SelectItem key={course.id} value={course.id}>
-                          {course.courseName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                {selectedCourseForForm && (
-                  <>
-                    {/* デフォルトフォーム使用フラグ */}
-                    <div className="flex items-center space-x-2 p-4 bg-blue-50 rounded-lg">
-                      <Switch
-                        id="use-default-form"
-                        checked={useDefaultForm}
-                        onCheckedChange={setUseDefaultForm}
-                      />
-                      <div className="space-y-1">
-                        <Label htmlFor="use-default-form" className="font-medium">
-                          デフォルトフォームを使用する
-                        </Label>
-                        <p className="text-sm text-gray-600">
-                          オフにすると、カスタムフォーム項目を設定できます
-                        </p>
-                      </div>
-                    </div>
-                    
-                    {!useDefaultForm && (
-                      <FormFieldEditor
-                        fields={formFields}
-                        onChange={setFormFields}
-                      />
-                    )}
-                    
-                    <div className="flex gap-4">
-                      <Button 
-                        onClick={saveFormFields} 
-                        disabled={isSavingFormFields}
-                        className="flex-1 bg-gradient-to-r from-indigo-600 to-blue-700 hover:from-indigo-700 hover:to-blue-800"
-                      >
-                        {isSavingFormFields ? (
-                          <>
-                            <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-                            保存中...
-                          </>
-                        ) : (
-                          <>
-                            <Save className="h-4 w-4 mr-2" />
-                            設定を保存
-                          </>
-                        )}
-                      </Button>
-                      {!useDefaultForm && (
-                        <Button 
-                          variant="outline" 
-                          onClick={() => setFormFields(DEFAULT_FORM_FIELDS)}
-                          className="border-slate-300 text-slate-700 hover:bg-slate-50"
-                        >
-                          デフォルトに戻す
-                        </Button>
-                      )}
-                    </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
           </TabsContent>
         </Tabs>
       </div>

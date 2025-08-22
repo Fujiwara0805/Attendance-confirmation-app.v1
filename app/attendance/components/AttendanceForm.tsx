@@ -9,6 +9,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Form,
   FormControl,
+  FormField,
   FormItem,
   FormLabel,
   FormMessage,
@@ -26,8 +27,6 @@ import {
 import { toast } from 'sonner';
 import { MapPin, AlertTriangle, CheckCircle, GraduationCap } from 'lucide-react';
 import Image from 'next/image';
-import { FormField, DEFAULT_FORM_FIELDS } from '@/app/types';
-import DynamicFormFields from './DynamicFormFields';
 
 // 講義情報の型定義
 interface Course {
@@ -46,15 +45,15 @@ interface Course {
 }
 
 // フォームのバリデーションスキーマ
-// const formSchema = z.object({
-//   date: z.string().min(1, { message: '日付を入力してください' }),
-//   class_name: z.string().optional(), // 特定講義の場合は自動設定されるため任意
-//   student_id: z.string().min(1, { message: '学籍番号を入力してください' }),
-//   grade: z.string().min(1, { message: '学年を選択してください' }),
-//   name: z.string().min(1, { message: '名前を入力してください' }),
-//   department: z.string().min(1, { message: '学科・コースを入力してください' }),
-//   feedback: z.string().min(1, { message: '講義レポートを入力してください' }),
-// });
+const formSchema = z.object({
+  date: z.string().min(1, { message: '日付を入力してください' }),
+  class_name: z.string().optional(), // 特定講義の場合は自動設定されるため任意
+  student_id: z.string().min(1, { message: '学籍番号を入力してください' }),
+  grade: z.string().min(1, { message: '学年を選択してください' }),
+  name: z.string().min(1, { message: '名前を入力してください' }),
+  department: z.string().min(1, { message: '学科・コースを入力してください' }),
+  feedback: z.string().min(1, { message: '講義レポートを入力してください' }),
+});
 
 export interface GlobalSettings {
   defaultLocationSettings: {
@@ -70,156 +69,6 @@ const CAMPUS_CENTER = {
   latitude: 33.1751332,
   longitude: 131.6138803,
   radius: 0.5,
-};
-
-// 動的フォームスキーマ生成
-export const createDynamicFormSchema = (formFields: FormField[]) => {
-  const schemaObject: any = {};
-  
-  formFields.forEach(field => {
-    let fieldSchema: any;
-    
-    switch (field.type) {
-      case 'text':
-      case 'textarea':
-        // 文字列型の場合
-        if (field.required) {
-          fieldSchema = z.string().min(1, { message: `${field.label}を入力してください` });
-        } else {
-          fieldSchema = z.string().optional();
-        }
-        
-        // バリデーション追加
-        if (field.validation) {
-          if (field.validation.minLength && field.required) {
-            fieldSchema = z.string().min(field.validation.minLength, {
-              message: `${field.label}は${field.validation.minLength}文字以上で入力してください`
-            });
-          }
-          if (field.validation.maxLength) {
-            const baseSchema = field.required ? z.string().min(1) : z.string();
-            fieldSchema = baseSchema.max(field.validation.maxLength, {
-              message: `${field.label}は${field.validation.maxLength}文字以下で入力してください`
-            });
-            if (!field.required) {
-              fieldSchema = fieldSchema.optional();
-            }
-          }
-        }
-        break;
-        
-      case 'number':
-        if (field.required) {
-          fieldSchema = z.string().min(1, { message: `${field.label}を入力してください` })
-            .refine((val) => !isNaN(Number(val)), {
-              message: '数値を入力してください'
-            });
-        } else {
-          fieldSchema = z.string().optional()
-            .refine((val) => !val || !isNaN(Number(val)), {
-              message: '数値を入力してください'
-            });
-        }
-        break;
-        
-      case 'date':
-        if (field.required) {
-          fieldSchema = z.string().min(1, { message: `${field.label}を入力してください` })
-            .refine((val) => !isNaN(Date.parse(val)), {
-              message: '有効な日付を入力してください'
-            });
-        } else {
-          fieldSchema = z.string().optional()
-            .refine((val) => !val || !isNaN(Date.parse(val)), {
-              message: '有効な日付を入力してください'
-            });
-        }
-        break;
-        
-      case 'select':
-        if (field.required) {
-          fieldSchema = z.string().min(1, { message: `${field.label}を選択してください` });
-        } else {
-          fieldSchema = z.string().optional();
-        }
-        break;
-        
-      default:
-        if (field.required) {
-          fieldSchema = z.string().min(1, { message: `${field.label}を入力してください` });
-        } else {
-          fieldSchema = z.string().optional();
-        }
-    }
-    
-    schemaObject[field.name] = fieldSchema;
-  });
-  
-  return z.object(schemaObject);
-};
-
-// フォームのデフォルト値生成
-export const createDefaultValues = (formFields: FormField[]) => {
-  const defaultValues: any = {};
-  
-  formFields.forEach(field => {
-    switch (field.type) {
-      case 'date':
-        defaultValues[field.name] = field.name === 'date' ? new Date().toISOString().split('T')[0] : '';
-        break;
-      default:
-        defaultValues[field.name] = '';
-    }
-  });
-  
-  return defaultValues;
-};
-
-// フォームデータをスプレッドシート用に変換
-export const formatFormDataForSpreadsheet = (
-  formData: any, 
-  formFields: FormField[],
-  additionalData: any = {}
-) => {
-  const formattedData: any[] = [];
-  
-  // 基本データ
-  formattedData.push(
-    additionalData.id || '',
-    additionalData.createdAt || new Date().toISOString()
-  );
-  
-  // カスタムフィールドのデータ
-  formFields
-    .sort((a, b) => a.order - b.order)
-    .forEach(field => {
-      formattedData.push(formData[field.name] || '');
-    });
-  
-  // 位置情報
-  formattedData.push(
-    additionalData.latitude || '',
-    additionalData.longitude || ''
-  );
-  
-  return formattedData;
-};
-
-// スプレッドシートヘッダー生成
-export const generateSpreadsheetHeaders = (formFields: FormField[]) => {
-  const headers = ['ID', 'CreatedAt'];
-  
-  // カスタムフィールドのヘッダー
-  formFields
-    .sort((a, b) => a.order - b.order)
-    .forEach(field => {
-      headers.push(field.label);
-    });
-  
-  // 位置情報
-  headers.push('Latitude', 'Longitude');
-  
-  return headers;
 };
 
 export default function DynamicAttendanceForm() {
@@ -255,36 +104,20 @@ export default function DynamicAttendanceForm() {
     locationName?: string;
   } | null>(null);
 
-  // フォームの初期化を動的に
-  const [customFormFields, setCustomFormFields] = useState<FormField[]>([]);
-  const [useDefaultForm, setUseDefaultForm] = useState(true);
-  const [formSchema, setFormSchema] = useState(createDynamicFormSchema(DEFAULT_FORM_FIELDS));
-
   // フォームの初期化
-  const form = useForm({
+  const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: createDefaultValues(DEFAULT_FORM_FIELDS), // 初期値を明確に設定
+    defaultValues: {
+      date: new Date().toISOString().split('T')[0],
+      class_name: '',
+      student_id: '',
+      grade: '',
+      name: '',
+      department: '',
+      feedback: '',
+    },
     mode: 'onChange',
   });
-
-  // フォームスキーマが変更されたときにリゾルバーを更新
-  useEffect(() => {
-    const fieldsToUse = useDefaultForm ? DEFAULT_FORM_FIELDS : customFormFields;
-    if (fieldsToUse.length > 0) {
-      const newSchema = createDynamicFormSchema(fieldsToUse);
-      setFormSchema(newSchema);
-      
-      form.clearErrors();
-      const defaultValues = createDefaultValues(fieldsToUse);
-      
-      // 講義名を設定（特定講義の場合）
-      if (courseId && targetCourse && fieldsToUse.some((f: any) => f.name === 'class_name')) {
-        defaultValues.class_name = targetCourse.courseName;
-      }
-      
-      form.reset(defaultValues);
-    }
-  }, [useDefaultForm, customFormFields, courseId, targetCourse]); // formを依存配列から削除
 
   // 全講義一覧を取得
   const fetchCourses = async () => {
@@ -314,11 +147,8 @@ export default function DynamicAttendanceForm() {
       if (response.ok) {
         const data = await response.json();
         setTargetCourse(data.course);
-        // フォームに講義名を自動設定（class_nameフィールドが存在する場合のみ）
-        const fieldsToUse = useDefaultForm ? DEFAULT_FORM_FIELDS : customFormFields;
-        if (fieldsToUse.some((f: any) => f.name === 'class_name')) {
-          (form.setValue as any)('class_name', data.course.courseName);
-        }
+        // フォームに講義名を自動設定
+        form.setValue('class_name', data.course.courseName);
       } else {
         console.error('Target course not found');
         toast.error('指定された講義が見つかりません');
@@ -373,77 +203,16 @@ export default function DynamicAttendanceForm() {
     }
   };
 
-  // カスタムフォーム設定を取得
-  const fetchCustomFormFields = async (courseId: string) => {
-    try {
-      console.log('=== フォーム設定取得開始 ===');
-      console.log('講義ID:', courseId);
-      
-      const response = await fetch(`/api/admin/courses/${courseId}/form-fields`);
-      console.log('API応答ステータス:', response.status);
-      
-      if (response.ok) {
-        const data = await response.json();
-        console.log('取得したフォーム設定:', data);
-        
-        const customFields = data.customFormFields || [];
-        const useDefault = data.useDefaultForm;
-        
-        console.log('カスタムフィールド:', customFields);
-        console.log('デフォルト使用:', useDefault);
-        
-        // 状態を即座に更新
-        setCustomFormFields(customFields);
-        setUseDefaultForm(useDefault);
-        
-        // フォームスキーマを更新
-        const fieldsToUse = useDefault ? DEFAULT_FORM_FIELDS : customFields;
-        console.log('使用するフィールド:', fieldsToUse);
-        
-        if (fieldsToUse.length > 0) {
-          const newSchema = createDynamicFormSchema(fieldsToUse);
-          setFormSchema(newSchema);
-          
-          // フォームをリセット
-          const defaultValues = createDefaultValues(fieldsToUse);
-          console.log('デフォルト値:', defaultValues);
-          
-          // 講義名を自動設定（特定講義の場合）
-          if (targetCourse && fieldsToUse.find((f: any) => f.name === 'class_name')) {
-            defaultValues.class_name = targetCourse.courseName;
-          }
-          
-          form.reset(defaultValues);
-        }
-      } else {
-        console.error('フォーム設定取得失敗:', response.status, response.statusText);
-        const errorText = await response.text();
-        console.error('エラー内容:', errorText);
-      }
-    } catch (error) {
-      console.error('カスタムフォーム設定の取得に失敗:', error);
-      // デフォルト設定を使用
-      setUseDefaultForm(true);
-      setCustomFormFields([]);
-    }
-  };
-
   // コンポーネントマウント時の処理を修正
   useEffect(() => {
-    console.log('=== コンポーネント初期化開始 ===');
-    
     // 全講義一覧を取得
     fetchCourses();
     
     // 特定の講義情報を取得（courseIdがある場合）
     if (courseId) {
-      console.log('特定講義の情報を取得:', courseId);
       fetchTargetCourse().then(() => {
-        console.log('講義情報取得完了、位置情報とフォーム設定を取得');
         // 講義情報取得後に位置情報設定を取得
         fetchLocationSettings();
-        // カスタムフォーム設定を取得
-        fetchCustomFormFields(courseId);
       });
     } else {
       // 講義指定がない場合はすぐに位置情報設定を取得
@@ -466,16 +235,6 @@ export default function DynamicAttendanceForm() {
       }
     }
   }, [courseId]);
-
-  // フォーム設定が変更されたときに強制的に再レンダリング
-  useEffect(() => {
-    console.log('=== フォーム設定変更検知 ===');
-    console.log('useDefaultForm:', useDefaultForm);
-    console.log('customFormFields:', customFormFields);
-    
-    const fieldsToUse = useDefaultForm ? DEFAULT_FORM_FIELDS : customFormFields;
-    console.log('現在使用中のフィールド:', fieldsToUse);
-  }, [useDefaultForm, customFormFields]);
 
   // 残り時間のカウントダウン処理
   useEffect(() => {
@@ -581,8 +340,8 @@ export default function DynamicAttendanceForm() {
     return R * c;
   }
 
-  // フォーム送信処理を修正
-  const onSubmit = async (values: any) => {
+  // フォーム送信処理
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setSubmitError(null);
     
     // 講義名の確認を条件付きに変更
@@ -613,31 +372,22 @@ export default function DynamicAttendanceForm() {
       let latitude = locationInfo.latitude || campusCenter?.latitude || 33.1751332;
       let longitude = locationInfo.longitude || campusCenter?.longitude || 131.6138803;
 
-      // 動的フォームデータを整形
-      const fieldsToUse = useDefaultForm ? DEFAULT_FORM_FIELDS : customFormFields;
-      const formattedData = formatFormDataForSpreadsheet(
-        values,
-        fieldsToUse,
-        {
-          id: `attendance_${Date.now()}`,
-          createdAt: new Date().toISOString(),
-          latitude,
-          longitude
-        }
-      );
-
       const response = await fetch('/api/attendance', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          formData: values,
-          formFields: fieldsToUse,
+          date: values.date,
+          class_name: values.class_name,
+          student_id: values.student_id,
+          grade: parseInt(values.grade),
+          name: values.name,
+          department: values.department,
+          feedback: values.feedback,
           latitude,
           longitude,
-          courseId: targetCourse?.id,
-          useDefaultForm
+          courseId: targetCourse?.id, // 講義IDも送信（ある場合）
         }),
       });
 
@@ -671,28 +421,6 @@ export default function DynamicAttendanceForm() {
       ? isFormValid
       : isFormValid && (locationInfo.isOnCampus === true))
     && timeUntilNextSubmission === 0;
-
-  // 使用するフィールドを決定
-  let currentFormFields = useDefaultForm ? DEFAULT_FORM_FIELDS : customFormFields;
-  
-  // 特定講義の場合は講義名フィールドを追加
-  if (courseId && targetCourse) {
-    const hasClassNameField = currentFormFields.some(f => f.name === 'class_name');
-    if (!hasClassNameField) {
-      currentFormFields = [
-        {
-          id: 'class_name_display',
-          name: 'class_name',
-          label: '講義名',
-          type: 'text',
-          required: false,
-          placeholder: targetCourse.courseName,
-          order: 0
-        },
-        ...currentFormFields
-      ];
-    }
-  }
 
   return (
     <div className="w-full max-w-md mx-auto p-4 sm:p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg shadow-md border border-blue-100">
@@ -798,10 +526,170 @@ export default function DynamicAttendanceForm() {
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          {/* 動的フォームフィールドを表示 */}
-          <DynamicFormFields
-            formFields={currentFormFields}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="date"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-indigo-700">日付</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="date"
+                      className="border-indigo-200 focus:border-indigo-400"
+                      style={{ fontSize: '16px' }}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="class_name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-indigo-700">講義名</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value}
+                    disabled={targetCourse !== null} // 特定講義の場合は無効化
+                  >
+                    <FormControl>
+                      <SelectTrigger className="border-indigo-200 focus:border-indigo-400" style={{ fontSize: '16px' }}>
+                        <SelectValue placeholder={
+                          loadingCourses ? "読み込み中..." : 
+                          targetCourse ? targetCourse.courseName : ""
+                        } />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {loadingCourses ? (
+                        <SelectItem value="loading" disabled>講義を読み込み中...</SelectItem>
+                      ) : courses.length === 0 ? (
+                        <SelectItem value="no-courses" disabled>登録されている講義がありません</SelectItem>
+                      ) : (
+                        courses.map((course) => (
+                          <SelectItem key={course.id} value={course.courseName}>
+                            {course.courseName}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="student_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-indigo-700">学籍番号</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="例: A12345"
+                      className="border-indigo-200 focus:border-indigo-400"
+                      style={{ fontSize: '16px' }}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="grade"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-indigo-700">学年</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger className="border-indigo-200 focus:border-indigo-400" style={{ fontSize: '16px' }}>
+                        <SelectValue placeholder="学年を選択してください" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="1">1年</SelectItem>
+                      <SelectItem value="2">2年</SelectItem>
+                      <SelectItem value="3">3年</SelectItem>
+                      <SelectItem value="4">4年</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-indigo-700">名前</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="例: 山田太郎"
+                      className="border-indigo-200 focus:border-indigo-400"
+                      style={{ fontSize: '16px' }}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="department"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-indigo-700">学科・コース</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="例: 経済学部"
+                      className="border-indigo-200 focus:border-indigo-400"
+                      style={{ fontSize: '16px' }}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <FormField
             control={form.control}
+            name="feedback"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-indigo-700">講義レポート</FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder="出題された問いに対してのレポートを入力してください"
+                    className="resize-none border-indigo-200 focus:border-indigo-400"
+                    style={{ fontSize: '16px', minHeight: 'calc(1.5em * 4 + 1rem + 32px)' }}
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
           />
 
           <div className="pt-2">
@@ -815,8 +703,26 @@ export default function DynamicAttendanceForm() {
             </Button>
           </div>
           
-          {/* 既存のエラーメッセージ部分はそのまま */}
+          {!isFormValid ? (
+            <p className="text-sm text-amber-600 text-center">
+              全ての必須項目を入力してください
+            </p>
+          ) : timeUntilNextSubmission > 0 ? (
+            <p className="text-sm text-amber-600 text-center">同一端末からの連続登録には15分の間隔が必要です</p>
+          ) : (!locationInfo.isOnCampus && process.env.NODE_ENV === 'production') ? (
+            <p className="text-sm text-red-600 text-center">
+              {campusCenter?.locationName || 'キャンパス'}内（半径{campusCenter?.radius || 0.5}km以内）からのみ出席登録が可能です
+            </p>
+          ) : null}
           
+          <div className="mt-4 text-xs text-gray-500 flex items-center justify-center">
+            <MapPin size={12} className="mr-1" />
+            <span>
+              {locationInfo.distance !== undefined 
+                ? `キャンパスから約${(locationInfo.distance).toFixed(1)}km離れた場所から出席登録をしています`
+                : '位置情報の取得中...'}
+            </span>
+          </div>
         </form>
       </Form>
     </div>

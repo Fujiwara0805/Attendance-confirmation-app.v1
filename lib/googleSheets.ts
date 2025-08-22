@@ -138,9 +138,7 @@ export const appendSheetData = async (spreadsheetId: string, sheetName: string, 
  * @param values 更新するデータの配列 (例: [[newValue1, newValue2]])
  */
 export const updateSheetData = async (spreadsheetId: string, sheetName: string, rowNumber: number, values: any[][]) => {
-  // シート名をクォートで囲んで日本語対応
-  const encodedSheetName = `'${sheetName}'`;
-  const range = `${encodedSheetName}!A${rowNumber}`;
+  const range = `${sheetName}!A${rowNumber}`; // 指定された行のA列から更新
 
   await sheets.spreadsheets.values.update({
     spreadsheetId,
@@ -254,22 +252,4 @@ export const createSheetIfEmpty = async (spreadsheetId: string, sheetName: strin
       throw error;
     }
   }
-};
-
-/**
- * 指定されたスプレッドシートの指定されたシートのすべてのデータを削除します。
- * @param spreadsheetId 対象のスプレッドシートID
- * @param sheetName シート名
- */
-export const clearSheetData = async (spreadsheetId: string, sheetName: string) => {
-  // シート名をクォートで囲んで日本語対応
-  const encodedSheetName = `'${sheetName}'`;
-  const range = `${encodedSheetName}!A:Z`; // A列からZ列まで全て削除
-
-  await sheets.spreadsheets.values.clear({
-    spreadsheetId,
-    range,
-  });
-  
-  console.log(`シート '${sheetName}' のデータを削除しました`);
 };

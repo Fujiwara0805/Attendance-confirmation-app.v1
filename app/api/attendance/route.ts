@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import { getAdminConfigSpreadsheetId, getSheetData, createSheetIfEmpty, appendSheetData } from '@/lib/googleSheets';
-import { FormField } from '@/app/types';
-import { generateSpreadsheetHeaders, formatFormDataForSpreadsheet } from '@/lib/formUtils';
+
+// 出席データのヘッダー
+const ATTENDANCE_HEADERS = [
+  'ID', 'Date', 'ClassName', 'StudentID', 'Grade', 'Name', 'Department', 'Feedback', 'Latitude', 'Longitude', 'CreatedAt'
+];
 
 // 講義IDから対応するスプレッドシートIDを取得（新機能）
 const getCourseSpreadsheetIdById = async (courseId: string) => {
@@ -20,9 +23,7 @@ const getCourseSpreadsheetIdById = async (courseId: string) => {
       return {
         spreadsheetId: courseRow[3],
         defaultSheetName: courseRow[4] || 'Attendance',
-        courseName: courseRow[1], // 講義名も返却
-        customFormFields: courseRow[6] ? JSON.parse(courseRow[6]) : null,
-        useDefaultForm: courseRow[7] !== 'false' // デフォルトはtrue
+        courseName: courseRow[1] // 講義名も返却
       };
     }
     
@@ -48,9 +49,7 @@ const getCourseSpreadsheetId = async (className: string) => {
     if (courseRow && courseRow[3]) {
       return {
         spreadsheetId: courseRow[3],
-        defaultSheetName: courseRow[4] || 'Attendance',
-        customFormFields: courseRow[6] ? JSON.parse(courseRow[6]) : null,
-        useDefaultForm: courseRow[7] !== 'false'
+        defaultSheetName: courseRow[4] || 'Attendance'
       };
     }
     
@@ -75,9 +74,7 @@ const getGlobalSpreadsheetId = async () => {
     
     return {
       spreadsheetId: globalSpreadsheetIdRow?.[1],
-      defaultSheetName: globalDefaultSheetNameRow?.[1] || 'Attendance',
-      useDefaultForm: true,
-      customFormFields: null
+      defaultSheetName: globalDefaultSheetNameRow?.[1] || 'Attendance'
     };
   } catch (error) {
     console.error('Error getting global spreadsheet settings:', error);
@@ -88,37 +85,40 @@ const getGlobalSpreadsheetId = async () => {
 export async function POST(req: NextRequest) {
   try {
     const { 
-      formData,
-      formFields,
+      date, 
+      class_name, 
+      student_id, 
+      grade, 
+      name, 
+      department, 
+      feedback, 
       latitude, 
       longitude,
-      courseId,
-      useDefaultForm
+      courseId // 🆕 新しいパラメータ（オプショナル）
     } = await req.json();
 
     // 必須フィールドの検証
-    if (!formData || !formFields || latitude === undefined || longitude === undefined) {
+    if (!date || !student_id || !grade || !name || !department || !latitude || !longitude) {
       return NextResponse.json({ message: 'Missing required fields' }, { status: 400 });
     }
 
     let spreadsheetConfig = null;
-    let finalCourseName = '';
+    let finalClassName = class_name;
 
-    // courseId が提供された場合はIDベースで検索
+    // 🆕 新方式：courseId が提供された場合はIDベースで検索
     if (courseId) {
       spreadsheetConfig = await getCourseSpreadsheetIdById(courseId);
       if (spreadsheetConfig) {
-        finalCourseName = spreadsheetConfig.courseName;
+        finalClassName = spreadsheetConfig.courseName; // IDから講義名を取得
       }
     } 
-    // 従来方式：講義名ベースで検索（後方互換性のため残す）
-    else if (formData.class_name) {
-      spreadsheetConfig = await getCourseSpreadsheetId(formData.class_name);
-      finalCourseName = formData.class_name;
+    // 🔄 従来方式：講義名ベースで検索（後方互換性のため残す）
+    else if (class_name) {
+      spreadsheetConfig = await getCourseSpreadsheetId(class_name);
     }
     
     // どちらでも見つからない場合はclass_nameが必須
-    if (!spreadsheetConfig && !formData.class_name) {
+    if (!spreadsheetConfig && !class_name) {
       return NextResponse.json({ 
         message: 'Either courseId or class_name is required' 
       }, { status: 400 });
@@ -127,7 +127,6 @@ export async function POST(req: NextRequest) {
     // 講義が見つからない場合はグローバル設定を使用
     if (!spreadsheetConfig) {
       spreadsheetConfig = await getGlobalSpreadsheetId();
-      finalCourseName = formData.class_name || 'Unknown Course';
     }
     
     if (!spreadsheetConfig || !spreadsheetConfig.spreadsheetId) {
@@ -139,39 +138,29 @@ export async function POST(req: NextRequest) {
     // シート名を決定
     const attendanceSheetName = `${spreadsheetConfig.defaultSheetName}`;
 
-    // 使用するフォームフィールドを決定
-    const fieldsToUse = spreadsheetConfig.useDefaultForm || useDefaultForm 
-      ? formFields  // フロントエンドから送信されたデフォルトフィールド
-      : spreadsheetConfig.customFormFields || formFields;
-
-    // ヘッダーを生成
-    const headers = generateSpreadsheetHeaders(fieldsToUse);
-
     // シートが存在しない、または空の場合はヘッダーを作成
-    await createSheetIfEmpty(spreadsheetConfig.spreadsheetId, attendanceSheetName, headers);
+    await createSheetIfEmpty(spreadsheetConfig.spreadsheetId, attendanceSheetName, ATTENDANCE_HEADERS);
 
     // サーバーサイドでIDとタイムスタンプを生成
     const id = uuidv4();
     const createdAt = new Date().toISOString();
 
     // スプレッドシートに書き込むデータの形式
-    const values = [formatFormDataForSpreadsheet(
-      formData,
-      fieldsToUse,
-      {
+    const values = [
+      [
         id,
-        createdAt,
+        date,
+        finalClassName, // 確定した講義名を使用
+        student_id,
+        grade,
+        name,
+        department,
+        feedback || '',
         latitude,
-        longitude
-      }
-    )];
-
-    console.log('Writing data to spreadsheet:', {
-      spreadsheetId: spreadsheetConfig.spreadsheetId,
-      sheetName: attendanceSheetName,
-      headers,
-      values
-    });
+        longitude,
+        createdAt,
+      ],
+    ];
 
     await appendSheetData(spreadsheetConfig.spreadsheetId, attendanceSheetName, values);
 
@@ -179,12 +168,9 @@ export async function POST(req: NextRequest) {
       message: 'Attendance recorded successfully!',
       spreadsheetId: spreadsheetConfig.spreadsheetId,
       sheetName: attendanceSheetName,
-      courseName: finalCourseName,
-      method: courseId ? 'courseId' : 'className',
-      formFieldsCount: fieldsToUse.length,
-      useDefaultForm: spreadsheetConfig.useDefaultForm || useDefaultForm
+      courseName: finalClassName,
+      method: courseId ? 'courseId' : 'className' // デバッグ用
     }, { status: 200 });
-    
   } catch (error) {
     console.error('Error recording attendance:', error);
     return NextResponse.json({ 
