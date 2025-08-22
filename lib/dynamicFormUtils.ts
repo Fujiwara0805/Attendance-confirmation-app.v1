@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { CustomFormField, FieldType } from '@/app/types';
+import { CustomFormField, CustomFieldType } from '@/app/types';
 
 // 動的Zodスキーマ生成
 export function createDynamicSchema(fields: CustomFormField[], enabledDefaultFields: string[] = []) {
@@ -116,7 +116,7 @@ export function createDefaultValues(fields: CustomFormField[], enabledDefaultFie
         defaultValues[field.name] = field.defaultValue || '';
         break;
       case 'checkbox':
-        defaultValues[field.name] = field.defaultValue === 'true' || field.defaultValue === true;
+        defaultValues[field.name] = field.defaultValue === 'true' || field.defaultValue === 'true';
         break;
       default:
         defaultValues[field.name] = '';
@@ -127,7 +127,7 @@ export function createDefaultValues(fields: CustomFormField[], enabledDefaultFie
 }
 
 // フィールドタイプの日本語ラベル
-export const fieldTypeLabels: Record<FieldType, string> = {
+export const fieldTypeLabels: Record<CustomFieldType, string> = {
   text: 'テキスト',
   textarea: 'テキストエリア',
   number: '数値',
@@ -139,11 +139,11 @@ export const fieldTypeLabels: Record<FieldType, string> = {
 
 // デフォルトフィールドの定義
 export const defaultFields = [
-  { key: 'date', label: '日付', type: 'date' as FieldType },
-  { key: 'class_name', label: '講義名', type: 'select' as FieldType },
-  { key: 'student_id', label: '学籍番号', type: 'text' as FieldType },
-  { key: 'grade', label: '学年', type: 'select' as FieldType },
-  { key: 'name', label: '名前', type: 'text' as FieldType },
-  { key: 'department', label: '学科・コース', type: 'text' as FieldType },
-  { key: 'feedback', label: '講義レポート', type: 'textarea' as FieldType }
+  { key: 'date', label: '日付', type: 'date' as CustomFieldType },
+  { key: 'class_name', label: '講義名', type: 'select' as CustomFieldType },
+  { key: 'student_id', label: '学籍番号', type: 'text' as CustomFieldType },
+  { key: 'grade', label: '学年', type: 'select' as CustomFieldType },
+  { key: 'name', label: '名前', type: 'text' as CustomFieldType },
+  { key: 'department', label: '学科・コース', type: 'text' as CustomFieldType },
+  { key: 'feedback', label: '講義レポート', type: 'textarea' as CustomFieldType }
 ];
