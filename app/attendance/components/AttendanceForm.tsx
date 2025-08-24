@@ -25,7 +25,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { MapPin, AlertTriangle, CheckCircle, GraduationCap } from 'lucide-react';
+import { MapPin, AlertTriangle, CheckCircle, GraduationCap, Settings } from 'lucide-react';
 import Image from 'next/image';
 import { CustomFormField, CourseFormConfig } from '@/app/types';
 import { createDynamicSchema, createDefaultValues, defaultFields } from '@/lib/dynamicFormUtils';
@@ -520,9 +520,20 @@ export default function DynamicAttendanceForm() {
           className="rounded-lg shadow-sm mb-3"
         />
         <h2 className="text-2xl font-bold text-indigo-700 text-center mb-1">出席管理システム</h2>
-        <p className="text-gray-600 text-center text-sm max-w-sm">
+        <p className="text-gray-600 text-center text-sm max-w-sm mb-4">
           レポートを提出して、出席登録をしましょう。
         </p>
+        
+        {/* 管理画面へのボタンを追加 - デザイン改善 */}
+        <Button
+          onClick={() => router.push('/admin')}
+          variant="outline"
+          size="sm"
+          className="flex items-center space-x-2 bg-gradient-to-r from-indigo-50 to-blue-50 border-indigo-200 text-indigo-700 hover:from-indigo-100 hover:to-blue-100 hover:border-indigo-300 hover:text-indigo-800 transition-all duration-300 shadow-sm hover:shadow-md"
+        >
+          <Settings className="h-4 w-4" />
+          <span className="text-sm font-medium">管理者の方はこちら</span>
+        </Button>
       </div>
       
       {timeUntilNextSubmission > 0 && (

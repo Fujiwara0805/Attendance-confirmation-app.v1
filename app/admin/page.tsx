@@ -33,15 +33,20 @@ import {
   MapPin,
   Search,
   Loader2,
-  FormInput
+  FormInput,
+  Sparkles,
+  Star,
+  Crown,
+  Palette
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+// 元のDialogインポートを削除し、CustomModalをインポート
+import { CustomModal } from '@/components/ui/custom-modal';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import LocationSettingsForm from './components/LocationSettingsForm'; // 追加
-import CustomFormManager from './components/CustomFormManager'; // 追加
+import LocationSettingsForm from './components/LocationSettingsForm';
+import CustomFormManager from './components/CustomFormManager';
 
 interface Course {
   id: string;
@@ -52,6 +57,7 @@ interface Course {
   createdBy: string;
   createdAt: string;
   lastUpdated: string;
+  isCustomForm?: boolean; // カスタムフォームかどうかのフラグを追加
 }
 
 export default function AdminPage() {
@@ -74,6 +80,7 @@ export default function AdminPage() {
 
   // カスタムフォーム設定用の状態を追加
   const [isCustomFormDialogOpen, setIsCustomFormDialogOpen] = useState<boolean>(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState<boolean>(false);
 
   // 編集用の状態
   const [isEditDialogOpen, setIsEditDialogOpen] = useState<boolean>(false);
@@ -96,11 +103,6 @@ export default function AdminPage() {
     locationName: ''
   });
   const [loadingLocationSettings, setLoadingLocationSettings] = useState(false);
-  const [addressSearch, setAddressSearch] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchError, setSearchError] = useState<string | null>(null);
-  const [isGettingLocation, setIsGettingLocation] = useState(false);
-  const [isSaving, setIsSaving] = useState(false); // 保存中の状態を追加
 
   const SERVICE_ACCOUNT_EMAIL = 'id-791@attendance-management-467501.iam.gserviceaccount.com';
 
@@ -127,6 +129,55 @@ export default function AdminPage() {
       showToast("コピー完了", "サービスアカウントのメールアドレスをクリップボードにコピーしました。");
     } catch (error) {
       showToast("コピー失敗", "クリップボードへのコピーに失敗しました。手動でコピーしてください。", "destructive");
+    }
+  };
+
+  // Stripe決済処理
+  const handleCustomFormPayment = async () => {
+    setIsProcessingPayment(true);
+    try {
+      // Stripe Checkoutセッションを作成
+      const response = await fetch('/api/stripe/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productType: 'custom_form',
+          successUrl: `${window.location.origin}/admin?payment=success&type=custom_form`,
+          cancelUrl: `${window.location.origin}/admin?payment=cancelled`
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('決済セッションの作成に失敗しました');
+      }
+
+      const { url } = await response.json();
+      
+      // Stripe Checkoutページにリダイレクト
+      window.location.href = url;
+    } catch (error) {
+      console.error('Payment error:', error);
+      showToast('決済エラー', '決済処理中にエラーが発生しました', 'destructive');
+    } finally {
+      setIsProcessingPayment(false);
+    }
+  };
+
+  // カスタムフォーム設定ダイアログを開く処理
+  const handleCustomFormDialog = () => {
+    // URLパラメータで決済成功をチェック
+    const urlParams = new URLSearchParams(window.location.search);
+    const paymentStatus = urlParams.get('payment');
+    const paymentType = urlParams.get('type');
+
+    if (paymentStatus === 'success' && paymentType === 'custom_form') {
+      // 決済成功後はカスタムフォーム作成画面を直接開く
+      setIsCustomFormDialogOpen(true);
+      // URLパラメータをクリア
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else {
+      // 決済が必要な場合は決済画面を表示
+      handleCustomFormPayment();
     }
   };
 
@@ -168,7 +219,7 @@ export default function AdminPage() {
     }
   }, [showToast]);
 
-  // 位置情報設定を保存 - async/awaitに変更
+  // 位置情報設定を保存
   const saveLocationSettings = async (settings: typeof locationSettings): Promise<void> => {
     try {
       const response = await fetch('/api/admin/location-settings', {
@@ -186,7 +237,7 @@ export default function AdminPage() {
     } catch (error) {
       console.error('位置情報設定の保存に失敗:', error);
       showToast('エラー', '位置情報設定の保存に失敗しました', 'destructive');
-      throw error; // エラーを再スローしてLocationSettingsFormでキャッチできるようにする
+      throw error;
     }
   };
 
@@ -198,13 +249,29 @@ export default function AdminPage() {
     }
   }, [session, status, router]);
 
-  // 初期データ取得時に位置情報設定も読み込むように変更
+  // 初期データ取得
   useEffect(() => {
     if (status === 'authenticated') {
       fetchCourses();
-      fetchLocationSettings(); // 位置情報設定を初期読み込みに戻す
+      fetchLocationSettings();
     }
   }, [status, fetchCourses, fetchLocationSettings]);
+
+  // 決済結果の処理
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const paymentStatus = urlParams.get('payment');
+    
+    if (paymentStatus === 'success') {
+      showToast('決済完了', 'カスタムフォームの購入が完了しました！', 'default');
+      // URLパラメータをクリア
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (paymentStatus === 'cancelled') {
+      showToast('決済キャンセル', '決済がキャンセルされました', 'destructive');
+      // URLパラメータをクリア
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [showToast]);
 
   // ローディング表示
   if (status === 'loading') {
@@ -337,7 +404,7 @@ export default function AdminPage() {
     }
   };
 
-  // コースカードコンポーネント（モバイル用）
+  // コースカードコンポーネント（モバイル用）- カスタムフォーム対応
   const CourseCard = ({ course, index }: { course: Course; index: number }) => {
     const formUrl = `${window.location.origin}/attendance/${course.id}`;
     
@@ -355,13 +422,37 @@ export default function AdminPage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: index * 0.1 }}
-        className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow"
+        className={`
+          border rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-300
+          ${course.isCustomForm 
+            ? 'bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200 shadow-purple-100' 
+            : 'bg-white border-slate-200'
+          }
+        `}
       >
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <BookOpen className="h-4 w-4 text-slate-400" />
-              <h3 className="font-medium text-slate-900 text-sm">{course.courseName}</h3>
+              {course.isCustomForm ? (
+                <div className="flex items-center space-x-2">
+                  <div className="relative">
+                    <BookOpen className="h-4 w-4 text-purple-600" />
+                    <Crown className="h-3 w-3 text-yellow-500 absolute -top-1 -right-1" />
+                  </div>
+                  <h3 className="font-semibold text-slate-900 text-sm">{course.courseName}</h3>
+                  <div className="flex items-center space-x-1">
+                    <Sparkles className="h-3 w-3 text-purple-500" />
+                    <span className="text-xs font-medium text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full">
+                      カスタム
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <BookOpen className="h-4 w-4 text-slate-400" />
+                  <h3 className="font-medium text-slate-900 text-sm">{course.courseName}</h3>
+                </>
+              )}
             </div>
             <span className="text-xs text-slate-500">
               {new Date(course.lastUpdated).toLocaleDateString('ja-JP')}
@@ -383,15 +474,30 @@ export default function AdminPage() {
           {/* フォームURL表示 */}
           <div className="space-y-2 pt-2 border-t border-slate-100">
             <p className="text-xs text-slate-500 font-medium">専用フォームURL</p>
-            <div className="flex items-center space-x-2 p-2 bg-blue-50 rounded border">
-              <code className="flex-1 text-xs text-blue-800 break-all">
+            <div className={`
+              flex items-center space-x-2 p-2 rounded border
+              ${course.isCustomForm 
+                ? 'bg-purple-50 border-purple-200' 
+                : 'bg-blue-50 border-blue-200'
+              }
+            `}>
+              <code className={`
+                flex-1 text-xs break-all
+                ${course.isCustomForm ? 'text-purple-800' : 'text-blue-800'}
+              `}>
                 {formUrl}
               </code>
               <Button
                 size="sm"
                 variant="outline"
                 onClick={() => copyFormUrl(formUrl, course.courseName)}
-                className="flex-shrink-0 h-6 px-2 border-blue-300 text-blue-700 hover:bg-blue-100"
+                className={`
+                  flex-shrink-0 h-6 px-2
+                  ${course.isCustomForm 
+                    ? 'border-purple-300 text-purple-700 hover:bg-purple-100' 
+                    : 'border-blue-300 text-blue-700 hover:bg-blue-100'
+                  }
+                `}
               >
                 <Copy className="h-3 w-3" />
               </Button>
@@ -400,7 +506,13 @@ export default function AdminPage() {
               size="sm"
               variant="outline"
               onClick={() => window.open(formUrl, '_blank')}
-              className="w-full text-blue-600 border-blue-300 hover:bg-blue-50"
+              className={`
+                w-full
+                ${course.isCustomForm 
+                  ? 'text-purple-600 border-purple-300 hover:bg-purple-50' 
+                  : 'text-blue-600 border-blue-300 hover:bg-blue-50'
+                }
+              `}
             >
               <ExternalLink className="h-3 w-3 mr-2" />
               フォームを開く
@@ -412,7 +524,7 @@ export default function AdminPage() {
               size="sm"
               variant="outline"
               onClick={() => handleEditCourse(course)}
-              className="flex-1 text-indigo-600 border-indigo-300 hover:bg-indigo-50"
+              className="flex-1 text-indigo-600 border-indigo-300 hover:bg-indigo-50 modern-button-secondary"
             >
               <Edit className="h-3 w-3 mr-1" />
               編集
@@ -421,7 +533,7 @@ export default function AdminPage() {
               size="sm"
               variant="outline"
               onClick={() => handleDeleteCourse(course.id, course.courseName)}
-              className="flex-1 text-red-600 border-red-300 hover:bg-red-50"
+              className="flex-1 text-red-600 border-red-300 hover:bg-red-50 modern-button-secondary"
             >
               <Trash2 className="h-3 w-3 mr-1" />
               削除
@@ -506,12 +618,6 @@ export default function AdminPage() {
           {/* デスクトップ用ヘッダー */}
           <div className="hidden lg:flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              {/* <Link href="/">
-                <Button variant="ghost" size="sm" className="text-slate-600 hover:text-slate-800">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  出席管理画面に戻る
-                </Button>
-              </Link> */}
               <div className="p-3 bg-gradient-to-br rounded-xl shadow-lg">
                 <Image
                   src="https://res.cloudinary.com/dz9trbwma/image/upload/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png"
@@ -593,47 +699,56 @@ export default function AdminPage() {
                   <p className="text-slate-600 mt-1 text-sm sm:text-base">各講義のスプレッドシート設定を管理します</p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                  <Dialog open={isCustomFormDialogOpen} onOpenChange={setIsCustomFormDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button 
-                        variant="outline" 
-                        className="w-full sm:w-auto border-indigo-600 text-indigo-600 hover:bg-indigo-50"
-                      >
-                        <FormInput className="h-4 w-4 mr-2" />
-                        <span className="sm:hidden">カスタムフォーム</span>
-                        <span className="hidden sm:inline">カスタムフォーム設定</span>
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="mx-4 sm:mx-auto sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
-                      <DialogHeader>
-                        <DialogTitle className="text-lg sm:text-xl">カスタムフォーム設定</DialogTitle>
-                        <DialogDescription className="text-sm sm:text-base">
-                          出席フォームの項目をカスタマイズできます。<br />デフォルト項目の有効/無効化や、独自の項目を追加できます。
-                        </DialogDescription>
-                      </DialogHeader>
-                      <CustomFormManager 
-                        onCourseAdded={fetchCourses} 
-                        onClose={() => setIsCustomFormDialogOpen(false)} 
-                      />
-                    </DialogContent>
-                  </Dialog>
+                  <Button 
+                    onClick={handleCustomFormDialog}
+                    disabled={isProcessingPayment}
+                    variant="outline" 
+                    className="w-full sm:w-auto border-purple-600 text-purple-600 hover:bg-purple-50 modern-button-secondary"
+                  >
+                    {isProcessingPayment ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <div className="flex items-center">
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        <Crown className="h-3 w-3 mr-1 text-yellow-500" />
+                      </div>
+                    )}
+                    <span className="sm:hidden">カスタムフォーム</span>
+                    <span className="hidden sm:inline">
+                      {isProcessingPayment ? '決済処理中...' : 'カスタムフォーム設定（有料）'}
+                    </span>
+                  </Button>
                   
-                  <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button className="w-full sm:w-auto bg-gradient-to-r from-indigo-600 to-blue-700 hover:from-indigo-700 hover:to-blue-800 text-white">
-                        <Plus className="h-4 w-4 mr-2" />
-                        <span className="sm:hidden">講義追加</span>
-                        <span className="hidden sm:inline">新規講義追加</span>
-                      </Button>
-                    </DialogTrigger>
-                  <DialogContent className="mx-4 sm:mx-auto sm:max-w-[500px]">
-                    <DialogHeader>
-                      <DialogTitle className="text-lg sm:text-xl">新規講義追加</DialogTitle>
-                      <DialogDescription className="text-sm sm:text-base">
-                        新しい講義とそのスプレッドシート設定を追加します。講義名がシート名として使用されます。
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
+                  <CustomModal
+                    isOpen={isCustomFormDialogOpen}
+                    onClose={() => setIsCustomFormDialogOpen(false)}
+                    title="カスタムフォーム設定"
+                    description="出席フォームの項目をカスタマイズできます。デフォルト項目の有効/無効化や、独自の項目を追加できます。"
+                    className="sm:max-w-[800px] max-h-[90vh]"
+                  >
+                    <CustomFormManager 
+                      onCourseAdded={fetchCourses} 
+                      onClose={() => setIsCustomFormDialogOpen(false)} 
+                    />
+                  </CustomModal>
+                  
+                  <Button 
+                    className="w-full sm:w-auto modern-button-primary"
+                    onClick={() => setIsAddDialogOpen(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    <span className="sm:hidden">講義追加</span>
+                    <span className="hidden sm:inline">新規講義追加</span>
+                  </Button>
+                  
+                  <CustomModal
+                    isOpen={isAddDialogOpen}
+                    onClose={() => setIsAddDialogOpen(false)}
+                    title="新規講義追加"
+                    description="新しい講義とそのスプレッドシート設定を追加します。講義名がシート名として使用されます。"
+                    className="sm:max-w-[500px]"
+                  >
+                    <div className="space-y-4">
                       <div className="space-y-2">
                         <Label htmlFor="course-name" className="text-sm font-medium">講義名 *</Label>
                         <Input
@@ -641,8 +756,7 @@ export default function AdminPage() {
                           placeholder="例: 経済学1"
                           value={newCourse.courseName}
                           onChange={(e) => setNewCourse({...newCourse, courseName: e.target.value})}
-                          className="w-full prevent-zoom ios-input"
-                          style={{ fontSize: '16px' }}
+                          className="modern-input"
                         />
                         <p className="text-xs text-slate-500">この名前がスプレッドシートのシート名としても使用されます</p>
                       </div>
@@ -653,8 +767,7 @@ export default function AdminPage() {
                           placeholder="例: 田中太郎"
                           value={newCourse.teacherName}
                           onChange={(e) => setNewCourse({...newCourse, teacherName: e.target.value})}
-                          className="w-full prevent-zoom ios-input"
-                          style={{ fontSize: '16px' }}
+                          className="modern-input"
                         />
                       </div>
                       <div className="space-y-2">
@@ -664,84 +777,77 @@ export default function AdminPage() {
                           placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
                           value={newCourse.spreadsheetId}
                           onChange={(e) => setNewCourse({...newCourse, spreadsheetId: e.target.value})}
-                          className="w-full prevent-zoom ios-input"
-                          style={{ fontSize: '16px' }}
+                          className="modern-input"
                         />
                       </div>
+                      <div className="flex flex-col-reverse space-y-2 space-y-reverse sm:flex-row sm:justify-end sm:space-y-0 sm:space-x-2 pt-4">
+                        <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} className="modern-button-secondary w-full sm:w-auto">
+                          キャンセル
+                        </Button>
+                        <Button onClick={handleAddCourse} disabled={savingNewCourse} className="modern-button-primary w-full sm:w-auto">
+                          {savingNewCourse ? (
+                            <>
+                              <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                              追加中...
+                            </>
+                          ) : (
+                            <>
+                              <Save className="h-4 w-4 mr-2" />
+                              追加
+                            </>
+                          )}
+                        </Button>
+                      </div>
                     </div>
-                    <DialogFooter className="flex flex-col-reverse space-y-2 space-y-reverse sm:flex-row sm:justify-end sm:space-y-0 sm:space-x-2">
-                      <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} className="w-full sm:w-auto min-h-[44px] touch-friendly">
-                        キャンセル
-                      </Button>
-                      <Button onClick={handleAddCourse} disabled={savingNewCourse} className="w-full sm:w-auto min-h-[44px] touch-friendly">
-                        {savingNewCourse ? (
-                          <>
-                            <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-                            追加中...
-                          </>
-                        ) : (
-                          <>
-                            <Save className="h-4 w-4 mr-2" />
-                            追加
-                          </>
-                        )}
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
+                  </CustomModal>
                 </div>
               </div>
 
               {/* 編集ダイアログ */}
-              <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-                <DialogContent className="mx-4 sm:mx-auto sm:max-w-[500px]">
-                  <DialogHeader>
-                    <DialogTitle className="text-lg sm:text-xl">講義編集</DialogTitle>
-                    <DialogDescription className="text-sm sm:text-base">
-                      講義情報を編集します。講義名がシート名として使用されます。
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4 py-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="edit-course-name" className="text-sm font-medium">講義名 *</Label>
-                      <Input
-                        id="edit-course-name"
-                        placeholder="例: 経済学1"
-                        value={editCourse.courseName}
-                        onChange={(e) => setEditCourse({...editCourse, courseName: e.target.value})}
-                        className="w-full prevent-zoom ios-input"
-                        style={{ fontSize: '16px' }}
-                      />
-                      <p className="text-xs text-slate-500">この名前がスプレッドシートのシート名としても使用されます</p>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="edit-teacher-name" className="text-sm font-medium">担当教員名 *</Label>
-                      <Input
-                        id="edit-teacher-name"
-                        placeholder="例: 田中太郎"
-                        value={editCourse.teacherName}
-                        onChange={(e) => setEditCourse({...editCourse, teacherName: e.target.value})}
-                        className="w-full prevent-zoom ios-input"
-                        style={{ fontSize: '16px' }}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="edit-spreadsheet-id" className="text-sm font-medium">スプレッドシートID *</Label>
-                      <Input
-                        id="edit-spreadsheet-id"
-                        placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
-                        value={editCourse.spreadsheetId}
-                        onChange={(e) => setEditCourse({...editCourse, spreadsheetId: e.target.value})}
-                        className="w-full prevent-zoom ios-input"
-                        style={{ fontSize: '16px' }}
-                      />
-                    </div>
+              <CustomModal
+                isOpen={isEditDialogOpen}
+                onClose={() => setIsEditDialogOpen(false)}
+                title="講義編集"
+                description="講義情報を編集します。講義名がシート名として使用されます。"
+                className="sm:max-w-[500px]"
+              >
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-course-name" className="text-sm font-medium">講義名 *</Label>
+                    <Input
+                      id="edit-course-name"
+                      placeholder="例: 経済学1"
+                      value={editCourse.courseName}
+                      onChange={(e) => setEditCourse({...editCourse, courseName: e.target.value})}
+                      className="modern-input"
+                    />
+                    <p className="text-xs text-slate-500">この名前がスプレッドシートのシート名としても使用されます</p>
                   </div>
-                  <DialogFooter className="flex flex-col-reverse space-y-2 space-y-reverse sm:flex-row sm:justify-end sm:space-y-0 sm:space-x-2">
-                    <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} className="w-full sm:w-auto min-h-[44px] touch-friendly">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-teacher-name" className="text-sm font-medium">担当教員名 *</Label>
+                    <Input
+                      id="edit-teacher-name"
+                      placeholder="例: 田中太郎"
+                      value={editCourse.teacherName}
+                      onChange={(e) => setEditCourse({...editCourse, teacherName: e.target.value})}
+                      className="modern-input"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-spreadsheet-id" className="text-sm font-medium">スプレッドシートID *</Label>
+                    <Input
+                      id="edit-spreadsheet-id"
+                      placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
+                      value={editCourse.spreadsheetId}
+                      onChange={(e) => setEditCourse({...editCourse, spreadsheetId: e.target.value})}
+                      className="modern-input"
+                    />
+                  </div>
+                  <div className="flex flex-col-reverse space-y-2 space-y-reverse sm:flex-row sm:justify-end sm:space-y-0 sm:space-x-2 pt-4">
+                    <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} className="modern-button-secondary w-full sm:w-auto">
                       キャンセル
                     </Button>
-                    <Button onClick={handleUpdateCourse} disabled={savingEditCourse} className="w-full sm:w-auto min-h-[44px] touch-friendly">
+                    <Button onClick={handleUpdateCourse} disabled={savingEditCourse} className="modern-button-primary w-full sm:w-auto">
                       {savingEditCourse ? (
                         <>
                           <RefreshCw className="h-4 w-4 animate-spin mr-2" />
@@ -754,13 +860,13 @@ export default function AdminPage() {
                         </>
                       )}
                     </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+                  </div>
+                </div>
+              </CustomModal>
 
               {/* 統計カード */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 card-hover">
                   <CardContent className="p-4 sm:p-6">
                     <div className="flex items-center space-x-3">
                       <div className="p-2 bg-blue-100 rounded-lg">
@@ -773,7 +879,7 @@ export default function AdminPage() {
                     </div>
                   </CardContent>
                 </Card>
-                <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
+                <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 card-hover">
                   <CardContent className="p-4 sm:p-6">
                     <div className="flex items-center space-x-3">
                       <div className="p-2 bg-green-100 rounded-lg">
@@ -788,17 +894,32 @@ export default function AdminPage() {
                     </div>
                   </CardContent>
                 </Card>
-                <Card className="bg-gradient-to-r from-purple-50 to-violet-50 border-purple-200 sm:col-span-2 lg:col-span-1">
+                <Card className="bg-gradient-to-r from-purple-50 to-violet-50 border-purple-200 card-hover">
                   <CardContent className="p-4 sm:p-6">
                     <div className="flex items-center space-x-3">
                       <div className="p-2 bg-purple-100 rounded-lg">
-                        <BookOpen className="h-5 w-5 sm:h-6 sm:w-6" />
+                        <Sparkles className="h-5 w-5 sm:h-6 sm:w-6" />
                       </div>
                       <div>
                         <p className="text-2xl sm:text-3xl font-bold text-purple-900">
+                          {courses.filter(c => c.isCustomForm).length}
+                        </p>
+                        <p className="text-sm text-purple-700">カスタムフォーム</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="bg-gradient-to-r from-orange-50 to-amber-50 border-orange-200 card-hover">
+                  <CardContent className="p-4 sm:p-6">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 bg-orange-100 rounded-lg">
+                        <BookOpen className="h-5 w-5 sm:h-6 sm:w-6" />
+                      </div>
+                      <div>
+                        <p className="text-2xl sm:text-3xl font-bold text-orange-900">
                           {new Set(courses.map(c => c.spreadsheetId)).size}
                         </p>
-                        <p className="text-sm text-purple-700">連携スプレッドシート数</p>
+                        <p className="text-sm text-orange-700">連携スプレッドシート数</p>
                       </div>
                     </div>
                   </CardContent>
@@ -806,7 +927,7 @@ export default function AdminPage() {
               </div>
 
               {/* 講義一覧 */}
-              <Card className="bg-white shadow-lg border-0">
+              <Card className="bg-white shadow-lg border-0 card-hover">
                 <CardHeader className="bg-gradient-to-r from-indigo-600 to-blue-700 text-white p-4 sm:p-6">
                   <div className="flex flex-col space-y-3 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
                     <div className="flex items-center space-x-3">
@@ -822,7 +943,7 @@ export default function AdminPage() {
                       onClick={fetchCourses}
                       disabled={loadingCourses}
                       variant="secondary"
-                      className="w-full sm:w-auto bg-white/10 hover:bg-white/20 text-white border-white/20"
+                      className="w-full sm:w-auto bg-white/10 hover:bg-white/20 text-white border-white/20 modern-button-secondary"
                     >
                       {loadingCourses ? (
                         <RefreshCw className="h-4 w-4 animate-spin mr-2" />
@@ -888,12 +1009,36 @@ export default function AdminPage() {
                                   initial={{ opacity: 0, y: 20 }}
                                   animate={{ opacity: 1, y: 0 }}
                                   transition={{ delay: index * 0.1 }}
-                                  className={`border-b border-slate-100 ${index % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}`}
+                                  className={`
+                                    border-b border-slate-100 transition-colors
+                                    ${course.isCustomForm 
+                                      ? 'bg-gradient-to-r from-purple-50 to-pink-50 hover:from-purple-100 hover:to-pink-100' 
+                                      : index % 2 === 0 ? 'bg-white hover:bg-slate-50' : 'bg-slate-50/50 hover:bg-slate-100'
+                                    }
+                                  `}
                                 >
                                   <td className="p-4">
                                     <div className="flex items-center space-x-2">
-                                      <BookOpen className="h-4 w-4 text-slate-400" />
-                                      <span className="font-medium text-slate-900">{course.courseName}</span>
+                                      {course.isCustomForm ? (
+                                        <div className="flex items-center space-x-2">
+                                          <div className="relative">
+                                            <BookOpen className="h-4 w-4 text-purple-600" />
+                                            <Crown className="h-3 w-3 text-yellow-500 absolute -top-1 -right-1" />
+                                          </div>
+                                          <span className="font-semibold text-slate-900">{course.courseName}</span>
+                                          <div className="flex items-center space-x-1">
+                                            <Sparkles className="h-3 w-3 text-purple-500" />
+                                            <span className="text-xs font-medium text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full">
+                                              カスタム
+                                            </span>
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        <>
+                                          <BookOpen className="h-4 w-4 text-slate-400" />
+                                          <span className="font-medium text-slate-900">{course.courseName}</span>
+                                        </>
+                                      )}
                                     </div>
                                   </td>
                                   <td className="p-4">
@@ -904,15 +1049,30 @@ export default function AdminPage() {
                                   </td>
                                   <td className="p-4">
                                     <div className="space-y-2 max-w-xs">
-                                      <div className="flex items-center space-x-2 p-2 bg-blue-50 rounded border border-blue-200">
-                                        <code className="flex-1 text-xs text-blue-800 break-all">
+                                      <div className={`
+                                        flex items-center space-x-2 p-2 rounded border
+                                        ${course.isCustomForm 
+                                          ? 'bg-purple-50 border-purple-200' 
+                                          : 'bg-blue-50 border-blue-200'
+                                        }
+                                      `}>
+                                        <code className={`
+                                          flex-1 text-xs break-all
+                                          ${course.isCustomForm ? 'text-purple-800' : 'text-blue-800'}
+                                        `}>
                                           {formUrl.length > 40 ? `${formUrl.substring(0, 40)}...` : formUrl}
                                         </code>
                                         <Button
                                           size="sm"
                                           variant="outline"
                                           onClick={copyFormUrl}
-                                          className="flex-shrink-0 h-6 px-2 border-blue-300 text-blue-700 hover:bg-blue-100"
+                                          className={`
+                                            flex-shrink-0 h-6 px-2
+                                            ${course.isCustomForm 
+                                              ? 'border-purple-300 text-purple-700 hover:bg-purple-100' 
+                                              : 'border-blue-300 text-blue-700 hover:bg-blue-100'
+                                            }
+                                          `}
                                         >
                                           <Copy className="h-3 w-3" />
                                         </Button>
@@ -921,7 +1081,13 @@ export default function AdminPage() {
                                         size="sm"
                                         variant="outline"
                                         onClick={() => window.open(formUrl, '_blank')}
-                                        className="w-full text-xs text-blue-600 border-blue-300 hover:bg-blue-50 h-7"
+                                        className={`
+                                          w-full text-xs h-7
+                                          ${course.isCustomForm 
+                                            ? 'text-purple-600 border-purple-300 hover:bg-purple-50' 
+                                            : 'text-blue-600 border-blue-300 hover:bg-blue-50'
+                                          }
+                                        `}
                                       >
                                         <ExternalLink className="h-3 w-3 mr-1" />
                                         フォームを開く
@@ -939,7 +1105,7 @@ export default function AdminPage() {
                                         size="sm"
                                         variant="outline"
                                         onClick={() => handleEditCourse(course)}
-                                        className="text-indigo-600 border-indigo-300 hover:bg-indigo-50"
+                                        className="text-indigo-600 border-indigo-300 hover:bg-indigo-50 modern-button-secondary"
                                       >
                                         <Edit className="h-3 w-3 mr-1" />
                                         編集
@@ -948,7 +1114,7 @@ export default function AdminPage() {
                                         size="sm"
                                         variant="outline"
                                         onClick={() => handleDeleteCourse(course.id, course.courseName)}
-                                        className="text-red-600 border-red-300 hover:bg-red-50"
+                                        className="text-red-600 border-red-300 hover:bg-red-50 modern-button-secondary"
                                       >
                                         <Trash2 className="h-3 w-3 mr-1" />
                                         削除
@@ -970,7 +1136,7 @@ export default function AdminPage() {
 
           {/* セットアップガイドタブ */}
           <TabsContent value="guide">
-            <Card className="bg-white shadow-lg border-0">
+            <Card className="bg-white shadow-lg border-0 card-hover">
               <CardHeader className="bg-gradient-to-r from-emerald-600 to-green-700 text-white p-4 sm:p-6">
                 <div className="flex items-center space-x-3">
                   <HelpCircle className="h-5 w-5 sm:h-6 sm:w-6" />
@@ -1058,7 +1224,7 @@ export default function AdminPage() {
                               size="sm"
                               variant="outline"
                               onClick={copyServiceAccountEmail}
-                              className="w-full sm:w-auto flex items-center justify-center space-x-2 border-blue-300 text-blue-700 hover:bg-blue-50"
+                              className="w-full sm:w-auto flex items-center justify-center space-x-2 border-blue-300 text-blue-700 hover:bg-blue-50 modern-button-secondary"
                             >
                               <Copy className="h-4 w-4" />
                               <span>コピー</span>
@@ -1162,16 +1328,16 @@ export default function AdminPage() {
             </Card>
           </TabsContent>
 
-          {/* 位置情報設定タブを改善 */}
+          {/* 位置情報設定タブ */}
           <TabsContent value="location" className="space-y-4 sm:space-y-6">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
             >
-              <Card>
+              <Card className="card-hover">
                 <CardHeader className="p-4 sm:p-6">
-                  <CardTitle className="text-xl sm:text-2xl font-bold text-indigo-700 flex items-center">
+                  <CardTitle className="text-xl sm:text-2xl font-bold text-gradient flex items-center">
                     <MapPin className="w-5 h-5 sm:w-6 sm:h-6 mr-2" />
                     位置情報設定
                   </CardTitle>
@@ -1187,7 +1353,7 @@ export default function AdminPage() {
                     </div>
                   ) : (
                     <div className="space-y-4 sm:space-y-6">
-                      {/* 現在の設定表示 - レスポンシブ対応 */}
+                      {/* 現在の設定表示 */}
                       <div className="p-3 sm:p-4 bg-blue-50 rounded-lg border border-blue-200">
                         <h3 className="font-semibold text-blue-900 mb-2 text-sm sm:text-base">現在の設定</h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm">

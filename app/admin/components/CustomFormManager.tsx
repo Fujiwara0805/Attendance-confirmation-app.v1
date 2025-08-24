@@ -10,7 +10,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+// 元のDialogインポートを削除し、CustomModalをインポート
+import { CustomModal } from '@/components/ui/custom-modal';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -596,57 +597,52 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
                 デフォルトフィールドの編集・削除と、<br />カスタムフィールドの追加・並び替えができます
               </CardDescription>
             </div>
-            <Dialog open={isFieldDialogOpen} onOpenChange={setIsFieldDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="modern-button-primary w-full sm:w-auto">
-                  <Plus className="h-4 w-4 mr-2" />
-                  フィールド追加
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="mx-4 sm:mx-auto sm:max-w-2xl max-h-[90vh] overflow-y-auto custom-scrollbar">
-                <DialogHeader>
-                  <DialogTitle className="text-xl text-gradient flex items-center">
-                    <Settings className="h-5 w-5 mr-2" />
-                    {editingField ? 'フィールドを編集' : '新しいフィールドを追加'}
-                  </DialogTitle>
-                  <DialogDescription className="text-slate-600">
-                    フォームで使用するフィールドの詳細を設定してください
-                  </DialogDescription>
-                </DialogHeader>
-                
-                <form onSubmit={fieldForm.handleSubmit(editingField ? handleUpdateField : handleAddField)} className="space-y-6 form-field-enter">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    <FloatingLabelInput
-                      {...fieldForm.register('name')}
-                      label="フィールド名"
-                      placeholder="field_name"
-                      disabled={editingField?.isDefault}
-                      error={fieldForm.formState.errors.name?.message}
-                      icon={Type}
-                      required
-                    />
-                    
-                    <FloatingLabelInput
-                      {...fieldForm.register('label')}
-                      label="表示ラベル"
-                      placeholder="フィールドラベル"
-                      error={fieldForm.formState.errors.label?.message}
-                      icon={FileText}
-                      required
-                    />
-                  </div>
+            <Button 
+              className="modern-button-primary w-full sm:w-auto"
+              onClick={() => setIsFieldDialogOpen(true)}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              フィールド追加
+            </Button>
+            
+            <CustomModal
+              isOpen={isFieldDialogOpen}
+              onClose={() => setIsFieldDialogOpen(false)}
+              title={editingField ? 'フィールドを編集' : '新しいフィールドを追加'}
+              description="フォームで使用するフィールドの詳細を設定してください"
+              className="sm:max-w-2xl max-h-[90vh]"
+            >
+              <form onSubmit={fieldForm.handleSubmit(editingField ? handleUpdateField : handleAddField)} className="space-y-6 form-field-enter">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <FloatingLabelInput
+                    {...fieldForm.register('name')}
+                    label="フィールド名"
+                    placeholder="例: student_id"
+                    error={fieldForm.formState.errors.name?.message}
+                    disabled={editingField?.isDefault}
+                  />
+                  <FloatingLabelInput
+                    {...fieldForm.register('label')}
+                    label="表示ラベル"
+                    placeholder="例: 学生ID"
+                    error={fieldForm.formState.errors.label?.message}
+                  />
+                </div>
 
-                  <div>
-                    <Label className="text-sm font-medium text-slate-700 mb-2 block">
-                      フィールドタイプ <span className="text-red-500">*</span>
-                    </Label>
-                    <Select onValueChange={handleFieldTypeChange} defaultValue={fieldForm.watch('type')}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-700">フィールドタイプ</Label>
+                    <Select
+                      value={fieldForm.watch('type')}
+                      onValueChange={(value) => fieldForm.setValue('type', value as any)}
+                      disabled={editingField?.isDefault}
+                    >
                       <SelectTrigger className="modern-select">
-                        <SelectValue placeholder="フィールドタイプを選択" />
+                        <SelectValue placeholder="タイプを選択" />
                       </SelectTrigger>
                       <SelectContent>
                         {Object.entries(fieldTypeLabels).map(([key, label]) => (
-                          <SelectItem key={key} value={key} className="text-base">
+                          <SelectItem key={key} value={key}>
                             <div className="flex items-center space-x-2">
                               {React.createElement(fieldTypeIcons[key as keyof typeof fieldTypeIcons], { 
                                 className: "h-4 w-4" 
@@ -657,116 +653,95 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
                         ))}
                       </SelectContent>
                     </Select>
+                    {fieldForm.formState.errors.type && (
+                      <p className="text-sm text-red-500">{fieldForm.formState.errors.type.message}</p>
+                    )}
                   </div>
 
-                  <FloatingLabelInput
-                    {...fieldForm.register('placeholder')}
-                    label="プレースホルダー"
-                    placeholder="入力例を表示"
-                    icon={Info}
-                  />
-
-                  <FloatingLabelTextarea
-                    {...fieldForm.register('description')}
-                    label="説明"
-                    placeholder="フィールドの説明"
-                    icon={FileText}
-                    rows={3}
-                  />
-
-                  {/* セレクト・ラジオボタン用のオプション設定 */}
-                  {(fieldForm.watch('type') === 'select' || fieldForm.watch('type') === 'radio') && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="space-y-4"
-                    >
-                      <Label className="text-sm font-medium text-slate-700">選択肢</Label>
-                      <div className="space-y-3">
-                        <AnimatePresence>
-                          {fieldOptions.map((option, index) => (
-                            <motion.div
-                              key={index}
-                              initial={{ opacity: 0, x: -20 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              exit={{ opacity: 0, x: 20 }}
-                              className="flex items-center gap-3"
-                            >
-                              <div className="flex-1">
-                                <FloatingLabelInput
-                                  value={option}
-                                  onChange={(e) => updateOption(index, e.target.value)}
-                                  label={`選択肢 ${index + 1}`}
-                                  placeholder={`選択肢 ${index + 1}`}
-                                />
-                              </div>
-                              {fieldOptions.length > 1 && (
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => removeOption(index)}
-                                  className="modern-button-secondary min-h-[48px] min-w-[48px]"
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
-                              )}
-                            </motion.div>
-                          ))}
-                        </AnimatePresence>
-                        
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={addOption}
-                          className="modern-button-secondary w-full"
-                        >
-                          <Plus className="h-4 w-4 mr-2" />
-                          選択肢を追加
-                        </Button>
-                      </div>
-                    </motion.div>
-                  )}
-
-                  <div className="flex items-center space-x-3 p-4 bg-slate-50 rounded-xl">
-                    <input 
-                      type="checkbox" 
-                      {...fieldForm.register('required')} 
-                      className="modern-checkbox"
-                    />
-                    <Label className="text-sm font-medium text-slate-700">必須項目にする</Label>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-700">必須フィールド</Label>
+                    <div className="flex items-center space-x-2 p-3 border rounded-lg bg-slate-50">
+                      <Switch
+                        checked={fieldForm.watch('required')}
+                        onCheckedChange={(checked) => fieldForm.setValue('required', checked)}
+                      />
+                      <Label className="text-sm">必須入力にする</Label>
+                    </div>
                   </div>
+                </div>
 
-                  <DialogFooter className="flex flex-col-reverse space-y-2 space-y-reverse sm:flex-row sm:justify-end sm:space-y-0 sm:space-x-3 pt-6">
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      onClick={handleCloseDialog}
-                      className="modern-button-secondary w-full sm:w-auto"
-                    >
-                      キャンセル
-                    </Button>
-                    <Button 
-                      type="submit" 
-                      className="modern-button-primary w-full sm:w-auto"
-                    >
-                      {editingField ? (
-                        <>
-                          <Edit className="h-4 w-4 mr-2" />
-                          更新
-                        </>
-                      ) : (
-                        <>
-                          <Plus className="h-4 w-4 mr-2" />
-                          追加
-                        </>
-                      )}
-                    </Button>
-                  </DialogFooter>
-                </form>
-              </DialogContent>
-            </Dialog>
+                <FloatingLabelTextarea
+                  {...fieldForm.register('placeholder')}
+                  label="プレースホルダー"
+                  placeholder="例: 学生IDを入力してください"
+                  error={fieldForm.formState.errors.placeholder?.message}
+                />
+
+                {(fieldForm.watch('type') === 'select' || fieldForm.watch('type') === 'radio' || fieldForm.watch('type') === 'checkbox') && (
+                  <div className="space-y-3">
+                    <Label className="text-sm font-medium text-slate-700">選択肢</Label>
+                    <div className="space-y-2">
+                      {fieldOptions.map((option, index) => (
+                        <div key={index} className="flex items-center space-x-2">
+                          <Input
+                            value={fieldOptions[index] || ''}
+                            onChange={(e) => updateOption(index, e.target.value)}
+                            placeholder={`選択肢 ${index + 1}`}
+                            className="modern-input"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => removeOption(index)}
+                            disabled={fieldOptions.length <= 1}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => addOption()}
+                        className="w-full"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        選択肢を追加
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex flex-col-reverse space-y-2 space-y-reverse sm:flex-row sm:justify-end sm:space-y-0 sm:space-x-2 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsFieldDialogOpen(false)}
+                    className="modern-button-secondary w-full sm:w-auto"
+                  >
+                    キャンセル
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={fieldForm.formState.isSubmitting}
+                    className="modern-button-primary w-full sm:w-auto"
+                  >
+                    {fieldForm.formState.isSubmitting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        {editingField ? '更新中...' : '追加中...'}
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4 mr-2" />
+                        {editingField ? '更新' : '追加'}
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </CustomModal>
           </div>
         </CardHeader>
         
