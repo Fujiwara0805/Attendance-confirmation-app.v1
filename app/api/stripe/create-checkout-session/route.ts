@@ -41,7 +41,20 @@ export async function POST(request: NextRequest) {
           unit_amount: 200, // 200円
         };
         break;
-      // ... rest of the code
+      default:
+        // デフォルトケースを追加
+        return NextResponse.json(
+          { error: 'サポートされていない商品タイプです' },
+          { status: 400 }
+        );
+    }
+
+    // priceDataが未定義でないことを確認
+    if (!priceData) {
+      return NextResponse.json(
+        { error: '商品情報の設定に失敗しました' },
+        { status: 400 }
+      );
     }
 
     // Stripe Checkoutセッションを作成
