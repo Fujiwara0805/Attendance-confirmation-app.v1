@@ -719,6 +719,19 @@ export default function AdminPage() {
                     </span>
                   </Button>
                   
+                  {/* 特定商取引法リンクを追加 */}
+                  <Link href="/legal/tokusho" target="_blank">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full sm:w-auto text-xs border-slate-300 text-slate-600 hover:bg-slate-50 modern-button-secondary"
+                    >
+                      <BookOpen className="h-3 w-3 mr-1" />
+                      <span className="sm:hidden">特定商取引法</span>
+                      <span className="hidden sm:inline">特定商取引法に基づく表記</span>
+                    </Button>
+                  </Link>
+                  
                   <CustomModal
                     isOpen={isCustomFormDialogOpen}
                     onClose={() => setIsCustomFormDialogOpen(false)}
