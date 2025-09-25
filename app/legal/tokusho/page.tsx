@@ -3,7 +3,7 @@
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Mail, Phone, Globe, MapPin, Clock, CreditCard, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, Globe, MapPin, Clock, CreditCard, AlertTriangle, Package, DollarSign } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export default function TokushoPage() {
@@ -30,7 +30,7 @@ export default function TokushoPage() {
             <CardHeader className="bg-indigo-600 text-white">
               <CardTitle className="text-2xl">特定商取引法に基づく表記</CardTitle>
               <p className="text-indigo-100 mt-2">
-                通信販売に関する表示事項 - 株式会社Nobody
+                通信販売に関する表示事項
               </p>
             </CardHeader>
             <CardContent className="p-8 space-y-8">
@@ -62,7 +62,10 @@ export default function TokushoPage() {
                     所在地
                   </h3>
                   <p className="text-slate-700">
-                    大分県大分市
+                    〒870-0xxx 大分県大分市<br />
+                    <span className="text-sm text-slate-500">
+                      （詳細住所についてはご請求があり次第遅滞なく開示いたします）
+                    </span>
                   </p>
                 </div>
 
@@ -73,9 +76,9 @@ export default function TokushoPage() {
                     電話番号
                   </h3>
                   <p className="text-slate-700">
-                    お問い合わせはメールにて承ります<br />
+                    ご請求があり次第遅滞なく開示いたします<br />
                     <span className="text-sm text-slate-500">
-                      （電話対応は行っておりません）
+                      （通常のお問い合わせはメールにて承ります）
                     </span>
                   </p>
                 </div>
@@ -100,7 +103,7 @@ export default function TokushoPage() {
                 <div className="space-y-2">
                   <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
                     <Globe className="h-5 w-5 text-indigo-600" />
-                    ウェブサイト
+                    ホームページURL
                   </h3>
                   <p className="text-slate-700">
                     <a 
@@ -114,29 +117,31 @@ export default function TokushoPage() {
                   </p>
                 </div>
 
-                {/* 商品の種類 */}
+                {/* 販売価格（Price） - 消費税込み */}
                 <div className="space-y-2">
                   <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-                    <MapPin className="h-5 w-5 text-indigo-600" />
-                    商品の種類
+                    <DollarSign className="h-5 w-5 text-indigo-600" />
+                    販売価格（消費税込み）
                   </h3>
                   <p className="text-slate-700">
-                    デジタルコンテンツ（ソフトウェアライセンス）<br />
-                    出席管理システム「ざせきくん」<br />
-                    カスタムフォーム作成機能
+                    カスタムフォーム作成機能: <span className="font-bold text-lg">¥200</span><br />
+                    <span className="text-sm text-slate-500">
+                      各商品ページに詳細価格を表示
+                    </span>
                   </p>
                 </div>
 
-                {/* 販売価格（Price） */}
+                {/* 商品代金以外の必要料金（Additional fees） */}
                 <div className="space-y-2">
                   <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-                    <MapPin className="h-5 w-5 text-indigo-600" />
-                    販売価格
+                    <CreditCard className="h-5 w-5 text-indigo-600" />
+                    商品代金以外の必要料金
                   </h3>
                   <p className="text-slate-700">
-                    カスタムフォーム作成機能: <span className="font-bold text-lg">¥200</span>（税込）<br />
+                    送料: なし（デジタル商品のため）<br />
+                    決済手数料: なし<br />
                     <span className="text-sm text-slate-500">
-                      各商品ページに詳細価格を表示
+                      表示価格以外の追加料金は一切発生いたしません
                     </span>
                   </p>
                 </div>
@@ -148,9 +153,9 @@ export default function TokushoPage() {
                     支払方法
                   </h3>
                   <p className="text-slate-700">
-                    クレジットカード決済<br />
+                    クレジットカード決済（Visa、Mastercard、American Express、JCB）<br />
                     <span className="text-sm text-slate-500">
-                      （Stripe決済システムを利用）
+                      Stripe決済システムを利用
                     </span>
                   </p>
                 </div>
@@ -172,28 +177,14 @@ export default function TokushoPage() {
                 {/* 商品の引渡し時期（Delivery times） */}
                 <div className="space-y-2">
                   <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-                    <Clock className="h-5 w-5 text-indigo-600" />
+                    <Package className="h-5 w-5 text-indigo-600" />
                     商品の引渡し時期
                   </h3>
                   <p className="text-slate-700">
                     決済完了後、即座にアクセス権限を付与<br />
                     <span className="text-sm text-slate-500">
-                      （デジタル商品のため物理的な配送はありません）
-                    </span>
-                  </p>
-                </div>
-
-                {/* 追加料金（Additional fees） */}
-                <div className="space-y-2">
-                  <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-                    <MapPin className="h-5 w-5 text-indigo-600" />
-                    追加料金
-                  </h3>
-                  <p className="text-slate-700">
-                    決済手数料: 無料<br />
-                    送料: なし（デジタル商品のため）<br />
-                    <span className="text-sm text-slate-500">
-                      表示価格以外の追加料金は一切発生いたしません
+                      デジタル商品のため物理的な配送はありません。<br />
+                      決済確認後、すぐにサービスをご利用いただけます。
                     </span>
                   </p>
                 </div>
@@ -212,7 +203,8 @@ export default function TokushoPage() {
                     </h4>
                     <p className="text-slate-700 text-sm leading-relaxed">
                       デジタル商品の性質上、お客様都合による返品・返金は原則として承っておりません。<br />
-                      決済完了後のキャンセルはできませんので、ご購入前に十分ご検討ください。
+                      決済完了後のキャンセルはできませんので、ご購入前に十分ご検討ください。<br />
+                      サービス内容について不明な点がございましたら、購入前にお気軽にお問い合わせください。
                     </p>
                   </div>
                   <div>
@@ -222,7 +214,7 @@ export default function TokushoPage() {
                     <p className="text-slate-700 text-sm leading-relaxed">
                       商品に重大な欠陥がある場合や、サービスが正常に提供されない場合は、<br />
                       購入日から30日以内にメール（sobota@nobody-info.com）にてご連絡ください。<br />
-                      確認後、全額返金または同等のサービス提供を行います。
+                      確認後、当社負担にて全額返金または同等のサービス提供を行います。
                     </p>
                   </div>
                 </div>
@@ -233,7 +225,10 @@ export default function TokushoPage() {
                 <h3 className="text-lg font-semibold text-slate-900 mb-4">サービス内容詳細</h3>
                 <div className="bg-slate-50 p-6 rounded-lg">
                   <h4 className="font-semibold text-slate-800 mb-3">ざせきくん - 出席管理システム</h4>
-                  <ul className="space-y-2 text-slate-700">
+                  <p className="text-slate-700 mb-3 text-sm">
+                    教育機関向けの位置情報ベース出席管理システムです。管理者は講義ごとに位置情報と範囲を設定、学生はフォームから簡単に出席登録できます。
+                  </p>
+                  <ul className="space-y-2 text-slate-700 text-sm">
                     <li>• 位置情報ベースの出席管理機能</li>
                     <li>• カスタマイズ可能なフォーム作成機能（有料オプション）</li>
                     <li>• Googleスプレッドシート連携機能</li>
@@ -264,6 +259,7 @@ export default function TokushoPage() {
                         <li>• iOS 12以上 / Android 8.0以上</li>
                         <li>• Chrome / Safari（最新版推奨）</li>
                         <li>• GPS機能対応端末</li>
+                        <li>• インターネット接続環境</li>
                       </ul>
                     </div>
                   </div>
@@ -275,12 +271,15 @@ export default function TokushoPage() {
                 <h3 className="text-lg font-semibold text-slate-900 mb-4">お問い合わせ</h3>
                 <div className="bg-green-50 p-6 rounded-lg">
                   <p className="text-slate-700 mb-4">
-                    商品やサービスに関するご質問は、下記連絡先までお気軽にお問い合わせください。
+                    商品やサービスに関するご質問、返品・交換のご相談は、下記連絡先までお気軽にお問い合わせください。
                   </p>
                   <div className="space-y-2 text-sm">
-                    <p><strong>メール:</strong> sobota@nobody-info.com</p>
+                    <p><strong>メールアドレス:</strong> sobota@nobody-info.com</p>
                     <p><strong>対応時間:</strong> 平日 9:00-18:00（土日祝日を除く）</p>
                     <p><strong>回答期間:</strong> 通常2営業日以内に回答いたします</p>
+                    <p className="text-slate-600">
+                      ※お急ぎの場合や重要なお問い合わせの場合は、メールの件名に【緊急】とご記載ください
+                    </p>
                   </div>
                 </div>
               </div>
@@ -292,7 +291,7 @@ export default function TokushoPage() {
                   <p className="text-slate-700 text-sm leading-relaxed">
                     本サービスは教育機関向けの出席管理システムです。サービス利用により生じた損害について、
                     当社は一切の責任を負いません。また、Googleスプレッドシートの仕様変更等により、
-                    一部機能が制限される場合があります。
+                    一部機能が制限される場合があります。サービス内容は予告なく変更される場合があります。
                   </p>
                 </div>
               </div>
