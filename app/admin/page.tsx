@@ -699,7 +699,7 @@ export default function AdminPage() {
                   <p className="text-slate-600 mt-1 text-sm sm:text-base">各講義のスプレッドシート設定を管理します</p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                  <Button 
+                  {/* <Button 
                     onClick={handleCustomFormDialog}
                     disabled={isProcessingPayment}
                     variant="outline" 
@@ -717,7 +717,7 @@ export default function AdminPage() {
                     <span className="hidden sm:inline">
                       {isProcessingPayment ? '決済処理中...' : 'カスタムフォーム設定（有料）'}
                     </span>
-                  </Button>
+                  </Button> */}
                   
                   {/* 特定商取引法リンクを追加 */}
                   <Link href="/legal/tokusho" target="_blank">
@@ -1182,10 +1182,9 @@ export default function AdminPage() {
                                 href="https://sheets.google.com" 
                                 target="_blank" 
                                 rel="noopener noreferrer"
-                                className="text-indigo-600 hover:text-indigo-800 underline font-medium inline-flex items-center space-x-1"
+                                className="text-emerald-600 hover:text-emerald-700 font-medium underline"
                               >
-                                <span>Google Sheets</span>
-                                <ExternalLink className="h-3 w-3" />
+                                Google Sheets
                               </a>
                               で新しいスプレッドシートを作成
                             </span>
@@ -1194,17 +1193,6 @@ export default function AdminPage() {
                             <ArrowRight className="h-4 w-4 text-slate-400 flex-shrink-0 mt-1" />
                             <span className="text-sm sm:text-base text-slate-700">わかりやすい名前を設定（例：「出席管理データ」）</span>
                           </div>
-                          <div className="flex items-start space-x-3">
-                            <ArrowRight className="h-4 w-4 text-slate-400 flex-shrink-0 mt-1" />
-                            <span className="text-sm sm:text-base text-slate-700">URLからスプレッドシートIDを抽出</span>
-                          </div>
-                        </div>
-                        <div className="mt-4 p-3 sm:p-4 bg-slate-50 rounded-lg border border-slate-200">
-                          <p className="text-sm font-medium text-slate-700 mb-2">URL例:</p>
-                          <div className="font-mono text-xs sm:text-sm text-slate-600 bg-white p-2 sm:p-3 rounded border break-all">
-                            https://docs.google.com/spreadsheets/d/<span className="bg-yellow-200 px-1 rounded font-semibold">1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms</span>/edit
-                          </div>
-                          <p className="text-xs text-slate-500 mt-2">ハイライト部分がスプレッドシートIDです</p>
                         </div>
                       </div>
                     </div>
@@ -1295,8 +1283,15 @@ export default function AdminPage() {
                           </div>
                           <div className="flex items-start space-x-3">
                             <ArrowRight className="h-4 w-4 text-slate-400 flex-shrink-0 mt-1" />
-                            <span className="text-sm sm:text-base text-slate-700">スプレッドシートIDは他の教員から見えないよう保護</span>
+                            <span className="text-sm sm:text-base text-slate-700">URLからスプレッドシートIDを抽出</span>
                           </div>
+                        </div>
+                        <div className="mt-4 p-3 sm:p-4 bg-slate-50 rounded-lg border border-slate-200">
+                          <p className="text-sm font-medium text-slate-700 mb-2">URL例:</p>
+                          <div className="font-mono text-xs sm:text-sm text-slate-600 bg-white p-2 sm:p-3 rounded border break-all">
+                            https://docs.google.com/spreadsheets/d/<span className="bg-yellow-200 px-1 rounded font-semibold">1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms</span>/edit
+                          </div>
+                          <p className="text-xs text-slate-500 mt-2">ハイライト部分がスプレッドシートIDです</p>
                         </div>
                       </div>
                     </div>
