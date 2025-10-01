@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 const COMPANY_NAME = '株式会社Nobody';
 // 連絡先は必要に応じて置き換えてください
 const CONTACT_EMAIL = 'sobota@nobody-info.com';
-const WEBSITE_URL = 'https://labo-info.vercel.app/';
+const INSTAGRAM_URL = 'https://www.instagram.com/sobota0101?igsh=NDV5NmhocG16aGN5';
 
 export default function ThanksShowcase() {
   return (
@@ -47,9 +47,16 @@ export default function ThanksShowcase() {
               <h2 className="text-xl font-semibold text-slate-900">トクドク<br />（掲示板アプリ）</h2>
             </div>
             <p className="mt-3 text-sm text-slate-600 leading-relaxed">
-            🚀 学生生活をもっと楽しく、もっと便利に！
-            利用者の周辺5km圏内の投稿だけを表示する掲示板「おとく板」なら、アルバイトやサークル、講義情報やテスト対策情報までリアルタイムで共有が可能です。また、投稿は 最大12時間で自動削除されるから、いつ見ても“いま欲しい”最新情報だけが集まります。さらに投稿に「おすそわけ機能」を追加することで、投稿を見た人から応援金を受け取れる仕組みもあります。
-               <br />
+            『トクドク』で“今だけ”のお得情報をゲットしよう！<br />
+            『トクドク』は、あなたの半径5km圏内の情報だけが表示される、地域限定の掲示板アプリです📱<br />
+              投稿された情報は最長12時間で自動削除されるので、常に新鮮な「今だけ」の情報がチェックできます👀<br />
+              たとえば…<br /> 
+              🍽 飲食店の空席（残席）情報<br />
+              🥐 パン屋さん・ケーキ屋さんの限定商品の在庫状況<br />
+              🛍 スーパーのタイムセール情報など<br />
+              さらに💡<br />
+              「お裾分け機能（投げ銭）」を使えば、お得な情報を投稿することでちょっとしたお小遣いがもらえるかも…⁉<br />
+              まずはアプリにログインして、お気に入りのお店を登録してみよう🙌<br />
                <span className="font-medium text-blue-600">
                  今すぐアクセス → 
                  <a href="https://tokudoku.com" target="_blank" rel="noreferrer" className="underline hover:text-blue-800">
@@ -57,13 +64,6 @@ export default function ThanksShowcase() {
                  </a>
                </span>
              </p>
-             <ul className="mt-4 text-xs text-slate-700 list-disc pl-5 space-y-1.5">
-               <li>利用者の周辺5km圏内の投稿のみを表示する「おとく板」</li>
-               <li>投稿に「おすそわけ機能」を追加で、生活資金の足しになる</li>
-               <li>投稿は、最大12時間で自動削除されるので常に情報が新しい</li>
-               <li>学生生活の中で必要な情報をキャンパスメイトと共有できる</li>
-               <li>メモ機能は、サークル活動の際のTODO管理にも最適</li>
-             </ul>
           </motion.div>
           <motion.div
             initial={{ opacity: 0, y: 16 }}
@@ -113,9 +113,9 @@ export default function ThanksShowcase() {
               </a>
             </div>
             <div className="rounded-lg border border-slate-200 p-4 bg-slate-50">
-              <div className="text-slate-500">ウェブサイト</div>
-              <a className="text-slate-900 font-medium underline" href={WEBSITE_URL} target="_blank" rel="noreferrer">
-                {WEBSITE_URL}
+              <div className="text-slate-500">SNSアカウント</div>
+              <a className="text-slate-900 font-medium underline" href={INSTAGRAM_URL} target="_blank" rel="noreferrer">
+                {INSTAGRAM_URL}
               </a>
             </div>
           </div>
