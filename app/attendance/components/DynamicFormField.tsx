@@ -42,6 +42,23 @@ export default function DynamicFormField<T extends FieldValues>({
   const renderField = (fieldValue: any, onChange: (value: any) => void) => {
     switch (field.type) {
       case 'text':
+        // 学籍番号フィールドの特別処理（英数字のみ許可）
+        if (field.name === 'student_id') {
+          return (
+            <Input
+              placeholder={field.placeholder || `${field.label}を入力してください`}
+              className="border-indigo-200 focus:border-indigo-400"
+              style={{ fontSize: '16px' }}
+              value={fieldValue || ''}
+              onChange={(e) => {
+                // 英数字のみを許可（大文字小文字、数字）
+                const value = e.target.value.replace(/[^a-zA-Z0-9]/g, '');
+                onChange(value);
+              }}
+            />
+          );
+        }
+        
         return (
           <Input
             placeholder={field.placeholder || `${field.label}を入力してください`}

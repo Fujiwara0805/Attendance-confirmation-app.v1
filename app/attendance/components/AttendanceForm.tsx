@@ -25,11 +25,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { MapPin, AlertTriangle, CheckCircle, GraduationCap, Settings } from 'lucide-react';
+import { MapPin, AlertTriangle, CheckCircle, GraduationCap, Settings, HelpCircle } from 'lucide-react';
 import Image from 'next/image';
 import { CustomFormField, CourseFormConfig } from '@/app/types';
 import { createDynamicSchema, createDefaultValues, defaultFields } from '@/lib/dynamicFormUtils';
 import DynamicFormField from './DynamicFormField';
+import LocationPermissionModal from './LocationPermissionModal';
 
 // 講義情報の型定義
 interface Course {
@@ -105,6 +106,7 @@ export default function DynamicAttendanceForm() {
     message: '位置情報を取得中...',
   });
   const [showLocationModal, setShowLocationModal] = useState(true);
+  const [showLocationPermissionModal, setShowLocationPermissionModal] = useState(false);
   const [lastSubmissionTime, setLastSubmissionTime] = useState<number | null>(null);
   const [timeUntilNextSubmission, setTimeUntilNextSubmission] = useState<number>(0);
 
@@ -195,7 +197,7 @@ export default function DynamicAttendanceForm() {
   }, [courseId]);
 
   // 特定の講義情報を取得
-  const fetchTargetCourse = async () => {
+  const fetchTargetCourse = useCallback(async () => {
     if (!courseId) return;
 
     try {
@@ -215,10 +217,10 @@ export default function DynamicAttendanceForm() {
       console.error('Error fetching target course:', error);
       toast.error('講義情報の取得中にエラーが発生しました');
     }
-  };
+  }, [courseId, form]);
 
   // 位置情報設定を取得する関数を修正
-  const fetchLocationSettings = async () => {
+  const fetchLocationSettings = useCallback(async () => {
     try {
       let locationSettings = null;
 
@@ -259,7 +261,7 @@ export default function DynamicAttendanceForm() {
         locationName: 'デフォルトキャンパス'
       });
     }
-  };
+  }, [targetCourse]);
 
   // コンポーネントマウント時の処理を修正
   useEffect(() => {
@@ -296,7 +298,7 @@ export default function DynamicAttendanceForm() {
         setTimeUntilNextSubmission(Math.ceil((cooldownPeriod - elapsedTime) / 1000 / 60));
       }
     }
-  }, [courseId, fetchFormConfig]);
+  }, [courseId, fetchFormConfig, fetchTargetCourse, fetchLocationSettings]);
 
   // 残り時間のカウントダウン処理
   useEffect(() => {
@@ -534,6 +536,15 @@ export default function DynamicAttendanceForm() {
           <Settings className="h-4 w-4" />
           <span className="text-sm font-medium">管理者の方はこちら</span>
         </Button>
+        
+        {/* 位置情報許可の説明テキスト */}
+        <button
+          onClick={() => setShowLocationPermissionModal(true)}
+          className="flex items-center space-x-2 text-sm text-red-400 hover:text-red-500 transition-colors duration-200 mt-2"
+        >
+          <HelpCircle className="h-4 w-4" />
+          <span>位置情報を許可するには？</span>
+        </button>
       </div>
       
       {timeUntilNextSubmission > 0 && (
@@ -685,6 +696,12 @@ export default function DynamicAttendanceForm() {
           </div>
         </form>
       </Form>
+      
+      {/* 位置情報許可説明モーダル */}
+      <LocationPermissionModal
+        isOpen={showLocationPermissionModal}
+        onClose={() => setShowLocationPermissionModal(false)}
+      />
     </div>
   );
 }
