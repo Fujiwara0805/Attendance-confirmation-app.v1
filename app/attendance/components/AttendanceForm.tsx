@@ -540,7 +540,7 @@ export default function DynamicAttendanceForm() {
         {/* 位置情報許可の説明テキスト */}
         <button
           onClick={() => setShowLocationPermissionModal(true)}
-          className="flex items-center space-x-2 text-sm text-red-400 hover:text-red-500 transition-colors duration-200 mt-2"
+          className="flex items-center space-x-2 text-base text-red-400 font-bold border-2 border-red-400 rounded-md px-2 py-1 hover:text-red-500 transition-colors duration-200 mt-2"
         >
           <HelpCircle className="h-4 w-4" />
           <span>位置情報を許可するには？</span>

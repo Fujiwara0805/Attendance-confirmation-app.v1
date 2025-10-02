@@ -96,7 +96,7 @@ export default function DynamicFormField<T extends FieldValues>({
         return (
           <Input
             type="date"
-            className="border-indigo-200 focus:border-indigo-400"
+            className="border-indigo-200 focus:border-indigo-300"
             style={{ fontSize: '16px' }}
             value={fieldValue || ''}
             onChange={(e) => onChange(e.target.value)}
