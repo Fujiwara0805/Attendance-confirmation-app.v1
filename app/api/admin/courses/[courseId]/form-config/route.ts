@@ -1,6 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { getAdminConfigSpreadsheetId, getSheetData, createSheetIfEmpty, appendSheetData, updateSheetData } from '@/lib/googleSheets';
 import { getCurrentUser } from '@/lib/auth';
+import { cache, generateCacheKey } from '@/lib/cache';
 
 // CourseFormConfigs シートの構造  
 const COURSE_FORM_CONFIGS_HEADERS = [
@@ -19,6 +20,16 @@ export async function GET(
     }
 
     const courseId = params.courseId;
+    
+    // キャッシュから取得を試行
+    const cacheKey = generateCacheKey('form-config', courseId);
+    const cachedData = cache.get(cacheKey);
+    
+    if (cachedData) {
+      console.log('Returning cached form config for courseId:', courseId);
+      return NextResponse.json(cachedData);
+    }
+    
     const adminConfigSpreadsheetId = getAdminConfigSpreadsheetId();
     const configsSheetName = 'CourseFormConfigs';
     
@@ -64,7 +75,12 @@ export async function GET(
       enabledDefaultFields
     };
 
-    return NextResponse.json({ config }, { status: 200 });
+    const responseData = { config };
+    
+    // キャッシュに保存（5分間）
+    cache.set(cacheKey, responseData, 300);
+
+    return NextResponse.json(responseData, { status: 200 });
   } catch (error) {
     console.error('Error fetching course form config:', error);
     return NextResponse.json({ 

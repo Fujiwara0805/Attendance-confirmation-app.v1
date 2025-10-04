@@ -31,6 +31,7 @@ import { CustomFormField, CourseFormConfig } from '@/app/types';
 import { createDynamicSchema, createDefaultValues, defaultFields } from '@/lib/dynamicFormUtils';
 import DynamicFormField from './DynamicFormField';
 import LocationPermissionModal from './LocationPermissionModal';
+import { fetchJsonWithRetry } from '@/lib/fetchWithRetry';
 
 // 講義情報の型定義
 interface Course {
@@ -140,17 +141,14 @@ export default function DynamicAttendanceForm() {
   // 全講義一覧を取得
   const fetchCourses = async () => {
     try {
-      const response = await fetch('/api/admin/courses');
-      if (response.ok) {
-        const data = await response.json();
-        setCourses(data.courses || []);
-      } else {
-        console.error('Failed to fetch courses');
-        toast.error('講義一覧の取得に失敗しました');
-      }
+      const data = await fetchJsonWithRetry('/api/admin/courses', {}, {
+        maxRetries: 2,
+        baseDelay: 500
+      });
+      setCourses(data.courses || []);
     } catch (error) {
-      console.error('Error fetching courses:', error);
-      toast.error('講義一覧の取得中にエラーが発生しました');
+      console.error('Failed to fetch courses:', error);
+      toast.error('講義一覧の取得に失敗しました');
     } finally {
       setLoadingCourses(false);
     }
@@ -162,33 +160,26 @@ export default function DynamicAttendanceForm() {
 
     try {
       console.log('Fetching form config for courseId:', courseId);
-      const response = await fetch(`/api/admin/courses/${courseId}/form-config`);
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Form config response:', data);
-        
-        setFormConfig(data.config);
-        const customFields = data.config.customFields || [];
-        const enabledDefaultFields = data.config.enabledDefaultFields || [
-          'date', 'class_name', 'student_id', 'grade', 'name', 'department', 'feedback'
-        ];
-        
-        console.log('Setting customFields:', customFields);
-        console.log('Setting enabledDefaultFields:', enabledDefaultFields);
-        
-        setCustomFields(customFields);
-        setEnabledDefaultFields(enabledDefaultFields);
-      } else {
-        console.log('フォーム設定が見つかりません。デフォルト設定を使用します。');
-        // デフォルト設定を使用
-        setCustomFields([]);
-        setEnabledDefaultFields([
-          'date', 'class_name', 'student_id', 'grade', 'name', 'department', 'feedback'
-        ]);
-      }
+      const data = await fetchJsonWithRetry(`/api/admin/courses/${courseId}/form-config`, {}, {
+        maxRetries: 2,
+        baseDelay: 500
+      });
+      console.log('Form config response:', data);
+      
+      setFormConfig(data.config);
+      const customFields = data.config.customFields || [];
+      const enabledDefaultFields = data.config.enabledDefaultFields || [
+        'date', 'class_name', 'student_id', 'grade', 'name', 'department', 'feedback'
+      ];
+      
+      console.log('Setting customFields:', customFields);
+      console.log('Setting enabledDefaultFields:', enabledDefaultFields);
+      
+      setCustomFields(customFields);
+      setEnabledDefaultFields(enabledDefaultFields);
     } catch (error) {
-      console.error('フォーム設定の取得中にエラーが発生しました:', error);
-      // エラー時はデフォルト設定を使用
+      console.log('フォーム設定が見つかりません。デフォルト設定を使用します。');
+      // デフォルト設定を使用
       setCustomFields([]);
       setEnabledDefaultFields([
         'date', 'class_name', 'student_id', 'grade', 'name', 'department', 'feedback'
@@ -198,26 +189,26 @@ export default function DynamicAttendanceForm() {
 
   // 特定の講義情報を取得
   const fetchTargetCourse = useCallback(async () => {
-    if (!courseId) return;
+    if (!courseId || courses.length === 0) return;
 
     try {
-      const response = await fetch(`/api/courses/${courseId}`);
-      if (response.ok) {
-        const data = await response.json();
-        setTargetCourse(data.course);
+      // 既に取得済みのcoursesから該当する講義を検索
+      const course = courses.find((c: any) => c.id === courseId);
+      if (course) {
+        setTargetCourse(course);
         // フォームに講義名を自動設定
         setTimeout(() => {
-          form.setValue('class_name', data.course.courseName);
+          form.setValue('class_name', course.courseName);
         }, 100);
       } else {
         console.error('Target course not found');
         toast.error('指定された講義が見つかりません');
       }
     } catch (error) {
-      console.error('Error fetching target course:', error);
-      toast.error('講義情報の取得中にエラーが発生しました');
+      console.error('Error setting target course:', error);
+      toast.error('講義情報の設定中にエラーが発生しました');
     }
-  }, [courseId, form]);
+  }, [courseId, courses, form]);
 
   // 位置情報設定を取得する関数を修正
   const fetchLocationSettings = useCallback(async () => {
@@ -229,13 +220,11 @@ export default function DynamicAttendanceForm() {
         locationSettings = targetCourse.locationSettings;
       } else {
         // グローバル設定を取得 - 正しいAPIエンドポイントを使用
-        const response = await fetch('/api/admin/location-settings');
-        if (response.ok) {
-          const data = await response.json();
-          locationSettings = data.defaultLocationSettings;
-        } else {
-          console.error('位置情報設定の取得に失敗:', response.status, response.statusText);
-        }
+        const data = await fetchJsonWithRetry('/api/admin/location-settings', {}, {
+          maxRetries: 2,
+          baseDelay: 500
+        });
+        locationSettings = data.defaultLocationSettings;
       }
 
       if (locationSettings) {
@@ -265,23 +254,51 @@ export default function DynamicAttendanceForm() {
 
   // コンポーネントマウント時の処理を修正
   useEffect(() => {
-    // 全講義一覧を取得
-    fetchCourses();
-    
-    // 特定の講義情報を取得（courseIdがある場合）
-    if (courseId) {
-      // フォーム設定を最初に取得
-      fetchFormConfig().then(() => {
-        // フォーム設定取得後に講義情報を取得
-        return fetchTargetCourse();
-      }).then(() => {
-        // 講義情報取得後に位置情報設定を取得
-        fetchLocationSettings();
-      });
-    } else {
-      // 講義指定がない場合はすぐに位置情報設定を取得
-      fetchLocationSettings();
-    }
+    // 並列でデータを取得
+    const initializeData = async () => {
+      if (courseId) {
+        // 特定の講義の場合は、まず講義一覧を取得してから他のデータを取得
+        try {
+          // 講義一覧を最初に取得
+          await fetchCourses();
+          
+          // その後、フォーム設定と位置情報設定を並列取得
+          const [formConfigResult, locationResult] = await Promise.allSettled([
+            fetchFormConfig(),
+            fetchLocationSettings()
+          ]);
+          
+          // エラーログ出力（必要に応じて）
+          if (formConfigResult.status === 'rejected') {
+            console.warn('フォーム設定の取得に失敗:', formConfigResult.reason);
+          }
+          if (locationResult.status === 'rejected') {
+            console.warn('位置情報設定の取得に失敗:', locationResult.reason);
+          }
+        } catch (error) {
+          console.error('データ初期化エラー:', error);
+        }
+      } else {
+        // 講義指定がない場合は講義一覧と位置情報設定を並列取得
+        try {
+          const [coursesResult, locationResult] = await Promise.allSettled([
+            fetchCourses(),
+            fetchLocationSettings()
+          ]);
+          
+          if (coursesResult.status === 'rejected') {
+            console.warn('講義一覧の取得に失敗:', coursesResult.reason);
+          }
+          if (locationResult.status === 'rejected') {
+            console.warn('位置情報設定の取得に失敗:', locationResult.reason);
+          }
+        } catch (error) {
+          console.error('データ初期化エラー:', error);
+        }
+      }
+    };
+
+    initializeData();
 
     // 前回の登録時刻を取得
     const storageKey = courseId ? `lastAttendanceSubmission_${courseId}` : 'lastAttendanceSubmission';
@@ -299,6 +316,13 @@ export default function DynamicAttendanceForm() {
       }
     }
   }, [courseId, fetchFormConfig, fetchTargetCourse, fetchLocationSettings]);
+
+  // coursesが取得された後に講義情報を設定
+  useEffect(() => {
+    if (courseId && courses.length > 0) {
+      fetchTargetCourse();
+    }
+  }, [courseId, courses, fetchTargetCourse]);
 
   // 残り時間のカウントダウン処理
   useEffect(() => {
@@ -329,6 +353,13 @@ export default function DynamicAttendanceForm() {
   }, [timeUntilNextSubmission, courseId]);
 
   // 位置情報を取得
+  useEffect(() => {
+    // campusCenterが設定されたら自動的に位置情報取得を開始
+    if (campusCenter && showLocationModal) {
+      setShowLocationModal(false); // モーダルを閉じて位置情報取得を開始
+    }
+  }, [campusCenter, showLocationModal]);
+
   useEffect(() => {
     if (!showLocationModal && campusCenter) {
       const getLocation = async () => {
@@ -365,6 +396,7 @@ export default function DynamicAttendanceForm() {
                   status: 'error',
                   message: `位置情報を取得できませんでした: ${error.message}`,
                 });
+                setShowLocationPermissionModal(true);
               },
               {
                 enableHighAccuracy: true,

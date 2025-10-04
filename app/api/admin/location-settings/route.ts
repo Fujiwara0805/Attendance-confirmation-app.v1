@@ -1,8 +1,18 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { getAdminConfigSpreadsheetId, getSheetData, updateSheetData, createSheetIfEmpty, appendSheetData } from '@/lib/googleSheets';
+import { cache, generateCacheKey } from '@/lib/cache';
 
 export async function GET() {
   try {
+    // キャッシュから取得を試行
+    const cacheKey = generateCacheKey('location-settings');
+    const cachedData = cache.get(cacheKey);
+    
+    if (cachedData) {
+      console.log('Returning cached location settings');
+      return NextResponse.json(cachedData);
+    }
+    
     const adminConfigSpreadsheetId = getAdminConfigSpreadsheetId();
     const settingsSheetName = 'LocationSettings';
     
@@ -19,7 +29,12 @@ export async function GET() {
       locationName: settingsData.find(row => row[0] === 'DEFAULT_LOCATION_NAME')?.[1] || ''
     };
     
-    return NextResponse.json({ defaultLocationSettings });
+    const responseData = { defaultLocationSettings };
+    
+    // キャッシュに保存（10分間）
+    cache.set(cacheKey, responseData, 600);
+    
+    return NextResponse.json(responseData);
   } catch (error) {
     console.error('Error fetching location settings:', error);
     return NextResponse.json({ error: 'Failed to fetch location settings' }, { status: 500 });
@@ -52,6 +67,10 @@ export async function POST(req: NextRequest) {
         await appendSheetData(adminConfigSpreadsheetId, settingsSheetName, [[key, value, description]]);
       }
     }
+    
+    // キャッシュを無効化
+    const cacheKey = generateCacheKey('location-settings');
+    cache.delete(cacheKey);
     
     return NextResponse.json({ success: true });
   } catch (error) {

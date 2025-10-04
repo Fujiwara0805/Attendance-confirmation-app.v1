@@ -2,6 +2,7 @@ import { NextResponse, NextRequest } from 'next/server';
 import { getAdminConfigSpreadsheetId, getSheetData, appendSheetData, createSheetIfEmpty } from '@/lib/googleSheets';
 import { v4 as uuidv4 } from 'uuid';
 import { getCurrentUser } from '@/lib/auth';
+import { cache, generateCacheKey } from '@/lib/cache';
 
 // 講義管理シートの構造（IsCustomFormを追加）
 const COURSES_HEADERS = ['ID', 'CourseName', 'TeacherName', 'SpreadsheetId', 'DefaultSheetName', 'CreatedBy', 'CreatedAt', 'LastUpdated', 'IsCustomForm'];
@@ -16,6 +17,15 @@ export async function GET() {
     }
 
     console.log('GET request received for courses');
+    
+    // キャッシュキーを生成（ユーザーごとにキャッシュ）
+    const cacheKey = generateCacheKey('courses', user.email || 'anonymous');
+    const cachedData = cache.get(cacheKey);
+    
+    if (cachedData) {
+      console.log('Returning cached courses data');
+      return NextResponse.json(cachedData, { status: 200 });
+    }
     
     const adminConfigSpreadsheetId = getAdminConfigSpreadsheetId();
     const coursesSheetName = 'Courses';
@@ -41,10 +51,15 @@ export async function GET() {
     
     console.log('Courses read from spreadsheet:', courses.length);
     
-    return NextResponse.json({
+    const responseData = {
       courses,
       total: courses.length
-    }, { status: 200 });
+    };
+    
+    // キャッシュに保存（5分間）
+    cache.set(cacheKey, responseData, 300);
+    
+    return NextResponse.json(responseData, { status: 200 });
   } catch (error) {
     console.error('Error fetching courses:', error);
     
