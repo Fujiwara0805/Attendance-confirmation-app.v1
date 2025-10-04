@@ -32,6 +32,7 @@ import { createDynamicSchema, createDefaultValues, defaultFields } from '@/lib/d
 import DynamicFormField from './DynamicFormField';
 import LocationPermissionModal from './LocationPermissionModal';
 import { fetchJsonWithRetry } from '@/lib/fetchWithRetry';
+import { LocationCacheManager } from '@/lib/locationCache';
 
 // 講義情報の型定義
 interface Course {
@@ -213,6 +214,13 @@ export default function DynamicAttendanceForm() {
   // 位置情報設定を取得する関数を修正
   const fetchLocationSettings = useCallback(async () => {
     try {
+      // まずキャッシュから取得を試行
+      const cachedSettings = LocationCacheManager.getCachedLocationSettings();
+      if (cachedSettings) {
+        setCampusCenter(cachedSettings);
+        return;
+      }
+
       let locationSettings = null;
 
       // 特定講義の位置情報設定を優先
@@ -228,27 +236,31 @@ export default function DynamicAttendanceForm() {
       }
 
       if (locationSettings) {
-        console.log('取得した位置情報設定:', locationSettings);
         setCampusCenter(locationSettings);
+        // 設定をキャッシュに保存
+        LocationCacheManager.saveLocationSettings(locationSettings);
       } else {
         // フォールバック: デフォルト値
-        console.log('位置情報設定が見つからないため、デフォルト値を使用');
-        setCampusCenter({
+        const defaultSettings = {
           latitude: 33.1751332,
           longitude: 131.6138803,
           radius: 0.5,
           locationName: 'デフォルトキャンパス'
-        });
+        };
+        setCampusCenter(defaultSettings);
+        LocationCacheManager.saveLocationSettings(defaultSettings);
       }
     } catch (error) {
       console.error('位置情報設定の取得に失敗:', error);
       // フォールバック値を設定
-      setCampusCenter({
+      const defaultSettings = {
         latitude: 33.1751332,
         longitude: 131.6138803,
         radius: 0.5,
         locationName: 'デフォルトキャンパス'
-      });
+      };
+      setCampusCenter(defaultSettings);
+      LocationCacheManager.saveLocationSettings(defaultSettings);
     }
   }, [targetCourse]);
 
@@ -362,62 +374,34 @@ export default function DynamicAttendanceForm() {
 
   useEffect(() => {
     if (!showLocationModal && campusCenter) {
-      const getLocation = async () => {
+      const getLocationWithCache = async () => {
         try {
-          if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-              (position) => {
-                const lat = position.coords.latitude;
-                const lng = position.coords.longitude;
-                
-                const distance = calculateDistance(
-                  lat, lng,
-                  campusCenter.latitude, campusCenter.longitude
-                );
-                
-                const isOnCampus = distance <= campusCenter.radius;
-                
-                setLocationInfo({
-                  status: isOnCampus ? 'success' : 'outside',
-                  message: isOnCampus 
-                    ? `${campusCenter.locationName || 'キャンパス'}内から出席登録を行っています` 
-                    : `${campusCenter.locationName || 'キャンパス'}の外から出席登録を行っています`,
-                  latitude: lat,
-                  longitude: lng,
-                  distance,
-                  isOnCampus
-                });
-              },
-              (error) => {
-                console.error('位置情報エラー:', error);
-                setLocationInfo({
-                  status: 'error',
-                  message: `位置情報を取得できませんでした: ${error.message}`,
-                });
-                setShowLocationPermissionModal(true);
-              },
-              {
-                enableHighAccuracy: true,
-                maximumAge: 0,
-                timeout: 10000
-              }
-            );
-          } else {
-            setLocationInfo({
-              status: 'error',
-              message: 'お使いのブラウザは位置情報をサポートしていません',
-            });
-          }
+          // キャッシュ優先で位置情報を取得
+          const location = await LocationCacheManager.getCurrentLocation();
+          
+          const validation = LocationCacheManager.isLocationValid(location, campusCenter);
+          
+          setLocationInfo({
+            status: validation.isValid ? 'success' : 'outside',
+            message: validation.isValid 
+              ? `${campusCenter.locationName || 'キャンパス'}内から出席登録を行っています` 
+              : `${campusCenter.locationName || 'キャンパス'}の外から出席登録を行っています`,
+            latitude: location.latitude,
+            longitude: location.longitude,
+            distance: validation.distance,
+            isOnCampus: validation.isValid
+          });
         } catch (error) {
-          console.error('位置情報例外:', error);
+          console.error('位置情報エラー:', error);
           setLocationInfo({
             status: 'error',
-            message: '位置情報の取得中にエラーが発生しました',
+            message: `位置情報を取得できませんでした: ${error instanceof Error ? error.message : '不明なエラー'}`,
           });
+          setShowLocationPermissionModal(true);
         }
       };
       
-      getLocation();
+      getLocationWithCache();
     }
   }, [showLocationModal, campusCenter]);
 
@@ -443,6 +427,35 @@ export default function DynamicAttendanceForm() {
       setSubmitError('講義が選択されていません。');
       toast.error('講義を選択してください');
       return;
+    }
+    
+    // 位置情報の再検証（送信直前に最新の位置情報でチェック）
+    if (process.env.NODE_ENV !== 'development' && campusCenter) {
+      try {
+        // 最新の位置情報を取得して検証
+        const currentLocation = await LocationCacheManager.getCurrentLocation();
+        const validation = LocationCacheManager.isLocationValid(currentLocation, campusCenter);
+        
+        if (!validation.isValid) {
+          setSubmitError(`${campusCenter.locationName || 'キャンパス'}の許可範囲外からは出席登録できません（距離: ${validation.distance.toFixed(2)}km）`);
+          toast.error('許可範囲外からの出席登録は拒否されます');
+          return;
+        }
+        
+        // 位置情報を更新
+        setLocationInfo(prev => ({
+          ...prev,
+          latitude: currentLocation.latitude,
+          longitude: currentLocation.longitude,
+          distance: validation.distance,
+          isOnCampus: validation.isValid
+        }));
+      } catch (error) {
+        console.error('位置情報の再検証に失敗:', error);
+        setSubmitError('位置情報の確認に失敗しました。再度お試しください。');
+        toast.error('位置情報エラー');
+        return;
+      }
     }
     
     // 前回の登録から15分経過していないかチェック
