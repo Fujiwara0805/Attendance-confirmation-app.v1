@@ -180,7 +180,10 @@ async function handleBatchSubmissions(requestBody: any) {
     }, { status: 400 });
   }
   
-  const attendanceSheetName = `${spreadsheetConfig.defaultSheetName}`;
+  // TypeScript用の型アサーション（上記でnullチェック済み）
+  const safeSpreadsheetConfig = spreadsheetConfig as SpreadsheetConfig;
+  
+  const attendanceSheetName = `${safeSpreadsheetConfig.defaultSheetName}`;
   
   // 動的ヘッダーを生成（最初の提出データから）
   const firstSubmission = submissions[0];
@@ -190,7 +193,7 @@ async function handleBatchSubmissions(requestBody: any) {
   const dynamicHeaders = generateDynamicHeaders(customFields, enabledDefaultFields);
   
   // シートが存在しない、または空の場合はヘッダーを作成
-  await createSheetIfEmpty(spreadsheetConfig.spreadsheetId, attendanceSheetName, dynamicHeaders);
+  await createSheetIfEmpty(safeSpreadsheetConfig.spreadsheetId, attendanceSheetName, dynamicHeaders);
   
   // バッチデータを準備
   const batchData = submissions.map((submission: any) => {
@@ -214,8 +217,8 @@ async function handleBatchSubmissions(requestBody: any) {
       if (defaultFieldMap[fieldKey]) {
         let value = submission[fieldKey] || '';
         // 講義名の特別処理
-        if (fieldKey === 'class_name') {
-          value = spreadsheetConfig.courseName || value;
+        if (fieldKey === 'class_name' && safeSpreadsheetConfig) {
+          value = safeSpreadsheetConfig.courseName || value;
         }
         rowData.push(value);
       }
@@ -233,11 +236,11 @@ async function handleBatchSubmissions(requestBody: any) {
   });
   
   // バッチでデータを追加
-  await appendSheetData(spreadsheetConfig.spreadsheetId, attendanceSheetName, batchData);
+  await appendSheetData(safeSpreadsheetConfig.spreadsheetId, attendanceSheetName, batchData);
   
   return NextResponse.json({ 
     message: `${submissions.length} attendance records submitted successfully!`,
-    spreadsheetId: spreadsheetConfig.spreadsheetId,
+    spreadsheetId: safeSpreadsheetConfig.spreadsheetId,
     sheetName: attendanceSheetName,
     count: submissions.length
   }, { status: 200 });
