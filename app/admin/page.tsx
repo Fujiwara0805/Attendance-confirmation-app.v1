@@ -230,7 +230,17 @@ export default function AdminPage() {
 
       if (response.ok) {
         setLocationSettings(settings);
-        showToast('成功', '位置情報設定を保存しました');
+        showToast('成功', '位置情報設定を保存しました。出席フォームに反映されるまで数分かかる場合があります。');
+        
+        // ローカルストレージからキャッシュをクリア（ユーザー向け）
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.removeItem('attendance_location_settings');
+            console.log('位置情報設定のキャッシュをクリアしました');
+          } catch (error) {
+            console.warn('キャッシュクリアに失敗:', error);
+          }
+        }
       } else {
         throw new Error('保存に失敗しました');
       }

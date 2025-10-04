@@ -191,6 +191,44 @@ export class LocationCacheManager {
   }
 
   /**
+   * 位置情報設定を強制的に再取得（キャッシュを無視）
+   */
+  static async forceRefreshLocationSettings(): Promise<LocationSettings | null> {
+    try {
+      // キャッシュをクリア
+      this.clearSettingsCache();
+      
+      // APIから最新データを取得
+      const response = await fetch('/api/admin/location-settings', {
+        cache: 'no-store', // キャッシュを無効化
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      const settings = data.defaultLocationSettings;
+      
+      if (settings) {
+        // 新しい設定をキャッシュに保存
+        this.saveLocationSettings(settings);
+        return settings;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('位置情報設定の強制更新に失敗:', error);
+      return null;
+    }
+  }
+
+  /**
    * 全キャッシュをクリア
    */
   static clearAllCache(): void {

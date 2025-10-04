@@ -67,9 +67,13 @@ export async function POST(req: NextRequest) {
       }
     }
     
-    // キャッシュを無効化
+    // キャッシュを無効化（複数のキーパターンをクリア）
     const cacheKey = generateCacheKey('location-settings');
     cache.delete(cacheKey);
+    
+    // 他の可能性のあるキャッシュキーも削除
+    cache.delete('location-settings:');
+    cache.delete('location-settings:anonymous');
     
     return NextResponse.json({ success: true });
   } catch (error) {

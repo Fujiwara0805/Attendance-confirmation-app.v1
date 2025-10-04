@@ -214,25 +214,44 @@ export default function DynamicAttendanceForm() {
   // 位置情報設定を取得する関数を修正
   const fetchLocationSettings = useCallback(async () => {
     try {
-      // まずキャッシュから取得を試行
-      const cachedSettings = LocationCacheManager.getCachedLocationSettings();
-      if (cachedSettings) {
-        setCampusCenter(cachedSettings);
-        return;
-      }
-
       let locationSettings = null;
 
       // 特定講義の位置情報設定を優先
       if (targetCourse?.locationSettings) {
         locationSettings = targetCourse.locationSettings;
       } else {
-        // グローバル設定を取得 - 正しいAPIエンドポイントを使用
-        const data = await fetchJsonWithRetry('/api/admin/location-settings', {}, {
-          maxRetries: 2,
-          baseDelay: 500
-        });
-        locationSettings = data.defaultLocationSettings;
+        // 初回読み込み時は必ず最新の設定を取得
+        console.log('最新の位置情報設定を取得中...');
+        
+        try {
+          // キャッシュを一旦クリアして最新データを取得
+          LocationCacheManager.clearSettingsCache();
+          
+          const data = await fetchJsonWithRetry('/api/admin/location-settings', {
+            cache: 'no-store',
+            headers: {
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache'
+            }
+          }, {
+            maxRetries: 3,
+            baseDelay: 1000
+          });
+          
+          locationSettings = data.defaultLocationSettings;
+          
+          if (locationSettings) {
+            console.log('管理画面から最新の位置情報設定を取得:', locationSettings);
+          }
+        } catch (apiError) {
+          console.warn('API取得に失敗、キャッシュを確認:', apiError);
+          // APIが失敗した場合のみキャッシュを確認
+          const cachedSettings = LocationCacheManager.getCachedLocationSettings();
+          if (cachedSettings) {
+            locationSettings = cachedSettings;
+            console.log('キャッシュから位置情報設定を取得:', locationSettings);
+          }
+        }
       }
 
       if (locationSettings) {
@@ -241,6 +260,7 @@ export default function DynamicAttendanceForm() {
         LocationCacheManager.saveLocationSettings(locationSettings);
       } else {
         // フォールバック: デフォルト値
+        console.log('デフォルト位置情報設定を使用');
         const defaultSettings = {
           latitude: 33.1751332,
           longitude: 131.6138803,
