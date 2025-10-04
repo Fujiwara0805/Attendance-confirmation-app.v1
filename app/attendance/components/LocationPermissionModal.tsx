@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, HelpCircle } from 'lucide-react';
 import Image from 'next/image';
 
 interface LocationPermissionModalProps {
@@ -41,36 +41,42 @@ export default function LocationPermissionModal({ isOpen, onClose }: LocationPer
           exit={{ opacity: 0 }}
           className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
         >
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
-            className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-hidden shadow-xl"
-          >
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0, y: 20 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.9, opacity: 0, y: 20 }}
+          transition={{ type: "spring", damping: 25, stiffness: 300 }}
+          className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden shadow-2xl border border-gray-100"
+        >
             {/* ヘッダー */}
-            <div className="flex items-center justify-between p-4 border-b">
-              <h3 className="text-xl font-bold text-indigo-700">
-                位置情報の許可方法
-              </h3>
+            <div className="flex items-center justify-between p-6 bg-indigo-600 text-white">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-white/20 rounded-full">
+                  <HelpCircle className="h-6 w-6" />
+                </div>
+                <h3 className="text-xl font-bold">
+                  位置情報の許可方法
+                </h3>
+              </div>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={handleClose}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-white hover:bg-white/20 hover:text-white"
               >
                 <X className="h-5 w-5" />
               </Button>
             </div>
 
             {/* コンテンツ */}
-            <div className="p-6">
+            <div className="p-8 bg-gray-50">
               <AnimatePresence mode="wait">
                 <motion.div
                   key={currentPage}
-                  initial={{ x: 50, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  exit={{ x: -50, opacity: 0 }}
-                  transition={{ duration: 0.3 }}
+                  initial={{ x: 50, opacity: 0, scale: 0.95 }}
+                  animate={{ x: 0, opacity: 1, scale: 1 }}
+                  exit={{ x: -50, opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.4, ease: "easeInOut" }}
                   className="text-center"
                 >
                   {currentPage === 1 && (
@@ -89,7 +95,7 @@ export default function LocationPermissionModal({ isOpen, onClose }: LocationPer
                         </h4>
                         <ul className="text-gray-600 leading-relaxed space-y-2 list-disc list-inside">
                           <li>デバイスの設定画面へ</li>
-                          <li>プライバシーとセキュリティをクリック</li>
+                          <li>「プライバシーとセキュリティ」をタップ</li>
                         </ul>
                       </div>
                     </div>
@@ -122,12 +128,12 @@ export default function LocationPermissionModal({ isOpen, onClose }: LocationPer
               </AnimatePresence>
 
               {/* ページネーション */}
-              <div className="flex items-center justify-center mt-6 space-x-4">
+              <div className="flex items-center justify-center mt-8 space-x-6 bg-white rounded-xl p-4 shadow-md border border-gray-100">
                 <Button
                   variant="outline"
                   onClick={handlePrev}
                   disabled={currentPage === 1}
-                  className="flex items-center space-x-2"
+                  className="flex items-center space-x-2 bg-gray-50 border-gray-300 text-gray-700 hover:bg-gray-100 hover:border-gray-400 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md transition-all duration-200"
                 >
                   <ChevronLeft className="h-4 w-4" />
                   <span>前へ</span>
@@ -136,7 +142,7 @@ export default function LocationPermissionModal({ isOpen, onClose }: LocationPer
                 {currentPage < totalPages ? (
                   <Button
                     onClick={handleNext}
-                    className="flex items-center space-x-2 bg-indigo-600 hover:bg-indigo-700"
+                    className="flex items-center space-x-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
                   >
                     <span>次へ</span>
                     <ChevronRight className="h-4 w-4" />
@@ -144,7 +150,7 @@ export default function LocationPermissionModal({ isOpen, onClose }: LocationPer
                 ) : (
                   <Button
                     onClick={handleClose}
-                    className="bg-green-600 hover:bg-green-700 text-white"
+                    className="bg-green-600 hover:bg-green-700 text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
                   >
                     理解しました
                   </Button>
