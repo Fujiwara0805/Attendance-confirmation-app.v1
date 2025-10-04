@@ -26,11 +26,12 @@ export async function GET(
     const cachedData = cache.get(cacheKey);
     
     if (cachedData) {
-      console.log('Returning cached form config for courseId:', courseId);
       return NextResponse.json(cachedData);
     }
     
+    // 環境変数の確認
     const adminConfigSpreadsheetId = getAdminConfigSpreadsheetId();
+    
     const configsSheetName = 'CourseFormConfigs';
     
     // CourseFormConfigsシートが存在しない場合は作成
@@ -42,14 +43,19 @@ export async function GET(
     
     if (!courseConfig) {
       // デフォルト設定を返す
-      return NextResponse.json({
+      const defaultConfig = {
         config: {
           courseId,
           templateId: null,
           customFields: [],
           enabledDefaultFields: ['date', 'class_name', 'student_id', 'grade', 'name', 'department', 'feedback']
         }
-      }, { status: 200 });
+      };
+      
+      // キャッシュに保存（5分間）
+      cache.set(cacheKey, defaultConfig, 300);
+      
+      return NextResponse.json(defaultConfig, { status: 200 });
     }
 
     let customFields = [];
@@ -83,6 +89,31 @@ export async function GET(
     return NextResponse.json(responseData, { status: 200 });
   } catch (error) {
     console.error('Error fetching course form config:', error);
+    
+    // より詳細なエラー情報をログに出力
+    if (error instanceof Error) {
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+    }
+    
+    // 環境変数関連のエラーの場合
+    if (error instanceof Error && error.message.includes('ADMIN_CONFIG_SPREADSHEET_ID')) {
+      return NextResponse.json({ 
+        message: '管理設定が正しく設定されていません。環境変数を確認してください。',
+        error: 'Configuration error',
+        details: error.message
+      }, { status: 500 });
+    }
+    
+    // Google Sheets API関連のエラーの場合
+    if (error instanceof Error && (error.message.includes('403') || error.message.includes('401'))) {
+      return NextResponse.json({ 
+        message: 'Google Sheets APIの認証に失敗しました。',
+        error: 'Authentication error',
+        details: error.message
+      }, { status: 500 });
+    }
+    
     return NextResponse.json({ 
       message: '講義のフォーム設定の取得に失敗しました',
       error: error instanceof Error ? error.message : 'Unknown error'

@@ -42,7 +42,9 @@ export const sheets = google.sheets({ version: 'v4', auth });
  */
 export const getAdminConfigSpreadsheetId = () => {
   const spreadsheetId = process.env.ADMIN_CONFIG_SPREADSHEET_ID;
+  
   if (!spreadsheetId) {
+    console.error('ADMIN_CONFIG_SPREADSHEET_ID environment variable is missing');
     throw new Error('ADMIN_CONFIG_SPREADSHEET_ID is not set in environment variables.');
   }
   return spreadsheetId;

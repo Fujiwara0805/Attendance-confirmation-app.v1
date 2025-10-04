@@ -16,14 +16,11 @@ export async function GET() {
       return NextResponse.json({ message: '認証が必要です' }, { status: 401 });
     }
 
-    console.log('GET request received for courses');
-    
     // キャッシュキーを生成（ユーザーごとにキャッシュ）
     const cacheKey = generateCacheKey('courses', user.email || 'anonymous');
     const cachedData = cache.get(cacheKey);
     
     if (cachedData) {
-      console.log('Returning cached courses data');
       return NextResponse.json(cachedData, { status: 200 });
     }
     
@@ -48,8 +45,6 @@ export async function GET() {
         isCustomForm: row[8] === 'true' // IsCustomFormフラグを追加
       }))
       .filter(course => course.id); // IDが存在するもののみ
-    
-    console.log('Courses read from spreadsheet:', courses.length);
     
     const responseData = {
       courses,

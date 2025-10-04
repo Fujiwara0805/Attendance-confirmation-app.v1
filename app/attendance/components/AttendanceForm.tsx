@@ -387,8 +387,6 @@ export default function DynamicAttendanceForm() {
                   distance,
                   isOnCampus
                 });
-                
-                console.log('位置情報:', { latitude: lat, longitude: lng, distance, isOnCampus });
               },
               (error) => {
                 console.error('位置情報エラー:', error);
@@ -488,18 +486,38 @@ export default function DynamicAttendanceForm() {
         throw new Error(errorData.message || '出席登録に失敗しました');
       }
 
-      console.log('登録成功');
-      
+      // 即座に完了画面に遷移
       localStorage.setItem(storageKey, Date.now().toString());
       setLastSubmissionTime(Date.now());
       setTimeUntilNextSubmission(15);
       
+      // トースト表示と同時に遷移
       toast.success('出席を登録しました');
-      router.push('/attendance/complete');
+      router.replace('/attendance/complete'); // pushではなくreplaceで即座遷移
     } catch (error: any) {
       console.error('出席登録エラー:', error);
-      setSubmitError(error?.message || '出席登録に失敗しました');
-      toast.error('出席登録に失敗しました。もう一度お試しください。');
+      
+      // より詳細なエラー情報をログに出力
+      if (error.response) {
+        console.error('Response status:', error.response.status);
+        console.error('Response data:', error.response.data);
+      }
+      
+      // エラーメッセージを分類
+      let errorMessage = '出席登録に失敗しました。もう一度お試しください。';
+      
+      if (error?.message?.includes('Configuration error')) {
+        errorMessage = 'システム設定エラーです。管理者にお問い合わせください。';
+      } else if (error?.message?.includes('Authentication error')) {
+        errorMessage = 'システム認証エラーです。管理者にお問い合わせください。';
+      } else if (error?.message?.includes('500')) {
+        errorMessage = 'サーバーエラーが発生しました。しばらく待ってから再試行してください。';
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
+      setSubmitError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }

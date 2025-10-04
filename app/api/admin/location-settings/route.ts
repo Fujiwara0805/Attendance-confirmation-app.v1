@@ -9,7 +9,6 @@ export async function GET() {
     const cachedData = cache.get(cacheKey);
     
     if (cachedData) {
-      console.log('Returning cached location settings');
       return NextResponse.json(cachedData);
     }
     

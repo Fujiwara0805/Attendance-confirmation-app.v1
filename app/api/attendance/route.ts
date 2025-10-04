@@ -41,8 +41,15 @@ const generateDynamicHeaders = (customFields: CustomFormField[], enabledDefaultF
   return headers;
 };
 
+// 講義設定の型定義
+interface SpreadsheetConfig {
+  spreadsheetId: string;
+  defaultSheetName: string;
+  courseName?: string;
+}
+
 // 講義IDから対応するスプレッドシートIDを取得（新機能）
-const getCourseSpreadsheetIdById = async (courseId: string) => {
+const getCourseSpreadsheetIdById = async (courseId: string): Promise<SpreadsheetConfig | null> => {
   try {
     // キャッシュから取得を試行
     const cacheKey = generateCacheKey('course-spreadsheet', courseId);
@@ -82,7 +89,7 @@ const getCourseSpreadsheetIdById = async (courseId: string) => {
 };
 
 // 講義名に対応するスプレッドシートIDを取得（既存機能）
-const getCourseSpreadsheetId = async (className: string) => {
+const getCourseSpreadsheetId = async (className: string): Promise<SpreadsheetConfig | null> => {
   try {
     const adminConfigSpreadsheetId = getAdminConfigSpreadsheetId();
     const coursesSheetName = 'Courses';
@@ -110,7 +117,7 @@ const getCourseSpreadsheetId = async (className: string) => {
 };
 
 // デフォルトスプレッドシート設定を取得（既存機能）
-const getGlobalSpreadsheetId = async () => {
+const getGlobalSpreadsheetId = async (): Promise<SpreadsheetConfig | null> => {
   try {
     const adminConfigSpreadsheetId = getAdminConfigSpreadsheetId();
     const appSettingsSheetName = 'AppSettings';
@@ -158,7 +165,7 @@ async function handleBatchSubmissions(requestBody: any) {
   }
   
   // 講義設定を取得
-  let spreadsheetConfig = null;
+  let spreadsheetConfig: SpreadsheetConfig | null = null;
   if (courseId) {
     spreadsheetConfig = await getCourseSpreadsheetIdById(courseId);
   }
@@ -276,7 +283,7 @@ async function handleSingleSubmission(requestBody: any) {
     }
   }
 
-  let spreadsheetConfig = null;
+  let spreadsheetConfig: SpreadsheetConfig | null = null;
   let finalClassName = formData.class_name;
 
   // 🆕 新方式：courseId が提供された場合はIDベースで検索
