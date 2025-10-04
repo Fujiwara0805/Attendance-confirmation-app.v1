@@ -112,6 +112,7 @@ export default function DynamicAttendanceForm() {
   const [lastSubmissionTime, setLastSubmissionTime] = useState<number | null>(null);
   const [timeUntilNextSubmission, setTimeUntilNextSubmission] = useState<number>(0);
   const [locationFetched, setLocationFetched] = useState(false); // 位置情報取得済みフラグ
+  const [isSubmittingForm, setIsSubmittingForm] = useState(false); // フォーム送信中フラグ
 
   const [campusCenter, setCampusCenter] = useState<{
     latitude: number;
@@ -158,13 +159,13 @@ export default function DynamicAttendanceForm() {
 
   // フォーム設定を取得
   const fetchFormConfig = useCallback(async () => {
-    if (!courseId) return;
+    if (!courseId || isSubmittingForm) return; // フォーム送信中はスキップ
 
     try {
       // フォーム設定を取得（ログ削除）
       const data = await fetchJsonWithRetry(`/api/admin/courses/${courseId}/form-config`, {}, {
-        maxRetries: 2,
-        baseDelay: 500
+        maxRetries: 1, // リトライ回数を2→1に削減
+        baseDelay: 1000
       });
       // フォーム設定レスポンス取得（ログ削除）
       
@@ -186,7 +187,7 @@ export default function DynamicAttendanceForm() {
         'date', 'class_name', 'student_id', 'grade', 'name', 'department', 'feedback'
       ]);
     }
-  }, [courseId]);
+  }, [courseId, isSubmittingForm]); // isSubmittingFormを依存配列に追加
 
   // 特定の講義情報を取得
   const fetchTargetCourse = useCallback(async () => {
@@ -213,6 +214,9 @@ export default function DynamicAttendanceForm() {
 
   // 位置情報設定を取得する関数を修正
   const fetchLocationSettings = useCallback(async () => {
+    // フォーム送信中は処理をスキップ
+    if (isSubmittingForm) return;
+    
     try {
       let locationSettings = null;
 
@@ -220,12 +224,8 @@ export default function DynamicAttendanceForm() {
       if (targetCourse?.locationSettings) {
         locationSettings = targetCourse.locationSettings;
       } else {
-        // 初回読み込み時は必ず最新の設定を取得（ログ削減）
-        
+        // リトライ回数を削減してリソース消費を抑制
         try {
-          // キャッシュを一旦クリアして最新データを取得
-          LocationCacheManager.clearSettingsCache();
-          
           const data = await fetchJsonWithRetry('/api/admin/location-settings', {
             cache: 'no-store',
             headers: {
@@ -233,8 +233,8 @@ export default function DynamicAttendanceForm() {
               'Pragma': 'no-cache'
             }
           }, {
-            maxRetries: 3,
-            baseDelay: 1000
+            maxRetries: 1, // リトライ回数を3→1に削減
+            baseDelay: 2000 // 遅延を1000→2000に増加
           });
           
           locationSettings = data.defaultLocationSettings;
@@ -281,7 +281,7 @@ export default function DynamicAttendanceForm() {
       setCampusCenter(defaultSettings);
       LocationCacheManager.saveLocationSettings(defaultSettings);
     }
-  }, [targetCourse]);
+  }, [targetCourse, isSubmittingForm]); // isSubmittingFormを依存配列に追加
 
   // コンポーネントマウント時の処理を修正
   useEffect(() => {
@@ -443,11 +443,13 @@ export default function DynamicAttendanceForm() {
   // フォーム送信処理
   const onSubmit = async (values: any) => {
     setSubmitError(null);
+    setIsSubmittingForm(true); // フォーム送信開始
     
     // 講義名の確認を条件付きに変更
     if (!courseId && !values.class_name) {
       setSubmitError('講義が選択されていません。');
       toast.error('講義を選択してください');
+      setIsSubmittingForm(false);
       return;
     }
     
@@ -455,6 +457,7 @@ export default function DynamicAttendanceForm() {
     if (process.env.NODE_ENV !== 'development' && campusCenter && locationInfo.status !== 'success') {
       setSubmitError(`${campusCenter.locationName || 'キャンパス'}の許可範囲外からは出席登録できません`);
       toast.error('許可範囲外からの出席登録は拒否されます');
+      setIsSubmittingForm(false);
       return;
     }
     
@@ -469,6 +472,7 @@ export default function DynamicAttendanceForm() {
       if (elapsedMinutes < 15) {
         setSubmitError(`同一端末からの出席登録は15分間隔を空ける必要があります。あと約${Math.ceil(15 - elapsedMinutes)}分お待ちください。`);
         toast.error('出席登録の間隔が短すぎます');
+        setIsSubmittingForm(false);
         return;
       }
     }
@@ -507,8 +511,11 @@ export default function DynamicAttendanceForm() {
       // 成功メッセージと即座の遷移
       toast.success('出席を登録しました');
       
-      // 遷移を即座に実行（awaitを使わない）
-      router.replace('/attendance/complete');
+      // 少し遅延してから遷移（ローディング画面を表示）
+      setTimeout(() => {
+        router.replace('/attendance/complete');
+      }, 1500);
+      
     } catch (error: any) {
       // 出席登録エラー（ログ削除）
       
@@ -532,6 +539,7 @@ export default function DynamicAttendanceForm() {
       
       setSubmitError(errorMessage);
       toast.error(errorMessage);
+      setIsSubmittingForm(false);
     } finally {
       setIsSubmitting(false);
     }
@@ -547,7 +555,32 @@ export default function DynamicAttendanceForm() {
     && timeUntilNextSubmission === 0;
 
   return (
-    <div className="w-full max-w-md mx-auto p-4 sm:p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg shadow-md border border-blue-100">
+    <>
+      {/* フォーム送信中のローディング画面 */}
+      {isSubmittingForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl">
+            <div className="text-center">
+              <div className="mb-6">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-indigo-100 rounded-full mb-4">
+                  <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                </div>
+                <h3 className="text-xl font-bold text-indigo-700 mb-2">出席を登録中...</h3>
+                <p className="text-gray-600 text-sm">
+                  データを処理しています。<br />
+                  しばらくお待ちください。
+                </p>
+              </div>
+              <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
+                <CheckCircle className="h-4 w-4 text-green-500" />
+                <span>出席データを送信中</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      <div className="w-full max-w-md mx-auto p-4 sm:p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg shadow-md border border-blue-100">
       {showLocationModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg p-6 max-w-md w-full shadow-xl">
@@ -774,6 +807,7 @@ export default function DynamicAttendanceForm() {
         isOpen={showLocationPermissionModal}
         onClose={() => setShowLocationPermissionModal(false)}
       />
-    </div>
+      </div>
+    </>
   );
 }
