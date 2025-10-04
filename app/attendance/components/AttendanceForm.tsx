@@ -111,6 +111,7 @@ export default function DynamicAttendanceForm() {
   const [showLocationPermissionModal, setShowLocationPermissionModal] = useState(false);
   const [lastSubmissionTime, setLastSubmissionTime] = useState<number | null>(null);
   const [timeUntilNextSubmission, setTimeUntilNextSubmission] = useState<number>(0);
+  const [locationFetched, setLocationFetched] = useState(false); // 位置情報取得済みフラグ
 
   const [campusCenter, setCampusCenter] = useState<{
     latitude: number;
@@ -148,7 +149,7 @@ export default function DynamicAttendanceForm() {
       });
       setCourses(data.courses || []);
     } catch (error) {
-      console.error('Failed to fetch courses:', error);
+      // 講義一覧の取得に失敗（ログ削除）
       toast.error('講義一覧の取得に失敗しました');
     } finally {
       setLoadingCourses(false);
@@ -160,12 +161,12 @@ export default function DynamicAttendanceForm() {
     if (!courseId) return;
 
     try {
-      console.log('Fetching form config for courseId:', courseId);
+      // フォーム設定を取得（ログ削除）
       const data = await fetchJsonWithRetry(`/api/admin/courses/${courseId}/form-config`, {}, {
         maxRetries: 2,
         baseDelay: 500
       });
-      console.log('Form config response:', data);
+      // フォーム設定レスポンス取得（ログ削除）
       
       setFormConfig(data.config);
       const customFields = data.config.customFields || [];
@@ -173,13 +174,12 @@ export default function DynamicAttendanceForm() {
         'date', 'class_name', 'student_id', 'grade', 'name', 'department', 'feedback'
       ];
       
-      console.log('Setting customFields:', customFields);
-      console.log('Setting enabledDefaultFields:', enabledDefaultFields);
+      // カスタムフィールドと有効フィールドを設定（ログ削除）
       
       setCustomFields(customFields);
       setEnabledDefaultFields(enabledDefaultFields);
     } catch (error) {
-      console.log('フォーム設定が見つかりません。デフォルト設定を使用します。');
+      // フォーム設定が見つかりません。デフォルト設定を使用します（ログ削除）
       // デフォルト設定を使用
       setCustomFields([]);
       setEnabledDefaultFields([
@@ -202,11 +202,11 @@ export default function DynamicAttendanceForm() {
           form.setValue('class_name', course.courseName);
         }, 100);
       } else {
-        console.error('Target course not found');
+        // 対象講義が見つかりません（ログ削除）
         toast.error('指定された講義が見つかりません');
       }
     } catch (error) {
-      console.error('Error setting target course:', error);
+      // 講義情報の設定中にエラーが発生しました（ログ削除）
       toast.error('講義情報の設定中にエラーが発生しました');
     }
   }, [courseId, courses, form]);
@@ -220,8 +220,7 @@ export default function DynamicAttendanceForm() {
       if (targetCourse?.locationSettings) {
         locationSettings = targetCourse.locationSettings;
       } else {
-        // 初回読み込み時は必ず最新の設定を取得
-        console.log('最新の位置情報設定を取得中...');
+        // 初回読み込み時は必ず最新の設定を取得（ログ削減）
         
         try {
           // キャッシュを一旦クリアして最新データを取得
@@ -241,16 +240,16 @@ export default function DynamicAttendanceForm() {
           locationSettings = data.defaultLocationSettings;
           
           if (locationSettings) {
-            console.log('管理画面から最新の位置情報設定を取得:', locationSettings);
+            // 管理画面から位置情報設定を取得（ログを削減）
           }
         } catch (apiError) {
-          console.warn('API取得に失敗、キャッシュを確認:', apiError);
-          // APIが失敗した場合のみキャッシュを確認
-          const cachedSettings = LocationCacheManager.getCachedLocationSettings();
-          if (cachedSettings) {
-            locationSettings = cachedSettings;
-            console.log('キャッシュから位置情報設定を取得:', locationSettings);
-          }
+          // API取得に失敗、キャッシュを確認（ログ削減）
+            // APIが失敗した場合のみキャッシュを確認
+            const cachedSettings = LocationCacheManager.getCachedLocationSettings();
+            if (cachedSettings) {
+              locationSettings = cachedSettings;
+              // キャッシュから位置情報設定を取得（ログを削減）
+            }
         }
       }
 
@@ -260,7 +259,7 @@ export default function DynamicAttendanceForm() {
         LocationCacheManager.saveLocationSettings(locationSettings);
       } else {
         // フォールバック: デフォルト値
-        console.log('デフォルト位置情報設定を使用');
+        // デフォルト位置情報設定を使用（ログを削減）
         const defaultSettings = {
           latitude: 33.1751332,
           longitude: 131.6138803,
@@ -271,7 +270,7 @@ export default function DynamicAttendanceForm() {
         LocationCacheManager.saveLocationSettings(defaultSettings);
       }
     } catch (error) {
-      console.error('位置情報設定の取得に失敗:', error);
+      // 位置情報設定の取得に失敗（ログ削減）
       // フォールバック値を設定
       const defaultSettings = {
         latitude: 33.1751332,
@@ -300,15 +299,15 @@ export default function DynamicAttendanceForm() {
             fetchLocationSettings()
           ]);
           
-          // エラーログ出力（必要に応じて）
+          // エラーログ出力を削除（必要に応じて）
           if (formConfigResult.status === 'rejected') {
-            console.warn('フォーム設定の取得に失敗:', formConfigResult.reason);
+            // フォーム設定の取得に失敗（ログ削除）
           }
           if (locationResult.status === 'rejected') {
-            console.warn('位置情報設定の取得に失敗:', locationResult.reason);
+            // 位置情報設定の取得に失敗（ログ削除）
           }
         } catch (error) {
-          console.error('データ初期化エラー:', error);
+          // データ初期化エラー（ログ削除）
         }
       } else {
         // 講義指定がない場合は講義一覧と位置情報設定を並列取得
@@ -319,13 +318,13 @@ export default function DynamicAttendanceForm() {
           ]);
           
           if (coursesResult.status === 'rejected') {
-            console.warn('講義一覧の取得に失敗:', coursesResult.reason);
+            // 講義一覧の取得に失敗（ログ削除）
           }
           if (locationResult.status === 'rejected') {
-            console.warn('位置情報設定の取得に失敗:', locationResult.reason);
+            // 位置情報設定の取得に失敗（ログ削除）
           }
         } catch (error) {
-          console.error('データ初期化エラー:', error);
+          // データ初期化エラー（ログ削除）
         }
       }
     };
@@ -392,11 +391,12 @@ export default function DynamicAttendanceForm() {
     }
   }, [campusCenter, showLocationModal]);
 
+  // 位置情報を一度だけ取得
   useEffect(() => {
-    if (!showLocationModal && campusCenter) {
-      const getLocationWithCache = async () => {
+    if (!showLocationModal && campusCenter && !locationFetched) {
+      const getLocationOnce = async () => {
         try {
-          // キャッシュ優先で位置情報を取得
+          // 位置情報を一度だけ取得
           const location = await LocationCacheManager.getCurrentLocation();
           
           const validation = LocationCacheManager.isLocationValid(location, campusCenter);
@@ -411,19 +411,21 @@ export default function DynamicAttendanceForm() {
             distance: validation.distance,
             isOnCampus: validation.isValid
           });
+          
+          setLocationFetched(true); // 取得完了フラグを設定
         } catch (error) {
-          console.error('位置情報エラー:', error);
           setLocationInfo({
             status: 'error',
             message: `位置情報を取得できませんでした: ${error instanceof Error ? error.message : '不明なエラー'}`,
           });
           setShowLocationPermissionModal(true);
+          setLocationFetched(true); // エラーでも再試行を防ぐ
         }
       };
       
-      getLocationWithCache();
+      getLocationOnce();
     }
-  }, [showLocationModal, campusCenter]);
+  }, [showLocationModal, campusCenter, locationFetched]);
 
   // 2点間の距離を計算（Haversine公式）
   function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -449,33 +451,11 @@ export default function DynamicAttendanceForm() {
       return;
     }
     
-    // 位置情報の再検証（送信直前に最新の位置情報でチェック）
-    if (process.env.NODE_ENV !== 'development' && campusCenter) {
-      try {
-        // 最新の位置情報を取得して検証
-        const currentLocation = await LocationCacheManager.getCurrentLocation();
-        const validation = LocationCacheManager.isLocationValid(currentLocation, campusCenter);
-        
-        if (!validation.isValid) {
-          setSubmitError(`${campusCenter.locationName || 'キャンパス'}の許可範囲外からは出席登録できません（距離: ${validation.distance.toFixed(2)}km）`);
-          toast.error('許可範囲外からの出席登録は拒否されます');
-          return;
-        }
-        
-        // 位置情報を更新
-        setLocationInfo(prev => ({
-          ...prev,
-          latitude: currentLocation.latitude,
-          longitude: currentLocation.longitude,
-          distance: validation.distance,
-          isOnCampus: validation.isValid
-        }));
-      } catch (error) {
-        console.error('位置情報の再検証に失敗:', error);
-        setSubmitError('位置情報の確認に失敗しました。再度お試しください。');
-        toast.error('位置情報エラー');
-        return;
-      }
+    // 位置情報の検証（既に取得済みの情報を使用）
+    if (process.env.NODE_ENV !== 'development' && campusCenter && locationInfo.status !== 'success') {
+      setSubmitError(`${campusCenter.locationName || 'キャンパス'}の許可範囲外からは出席登録できません`);
+      toast.error('許可範囲外からの出席登録は拒否されます');
+      return;
     }
     
     // 前回の登録から15分経過していないかチェック
@@ -524,16 +504,17 @@ export default function DynamicAttendanceForm() {
       setLastSubmissionTime(Date.now());
       setTimeUntilNextSubmission(15);
       
-      // トースト表示と同時に遷移
+      // 成功メッセージと即座の遷移
       toast.success('出席を登録しました');
-      router.replace('/attendance/complete'); // pushではなくreplaceで即座遷移
-    } catch (error: any) {
-      console.error('出席登録エラー:', error);
       
-      // より詳細なエラー情報をログに出力
+      // 遷移を即座に実行（awaitを使わない）
+      router.replace('/attendance/complete');
+    } catch (error: any) {
+      // 出席登録エラー（ログ削除）
+      
+      // より詳細なエラー情報をログに出力（削除）
       if (error.response) {
-        console.error('Response status:', error.response.status);
-        console.error('Response data:', error.response.data);
+        // レスポンスステータスとデータ（ログ削除）
       }
       
       // エラーメッセージを分類
@@ -693,9 +674,12 @@ export default function DynamicAttendanceForm() {
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           {/* 動的フィールドレンダリング */}
           {(() => {
-            console.log('Rendering dynamic fields...');
-            console.log('enabledDefaultFields:', enabledDefaultFields);
-            console.log('customFields:', customFields);
+            // 開発環境でのみデバッグログを表示
+            if (process.env.NODE_ENV === 'development') {
+              // console.log('Rendering dynamic fields...');
+              // console.log('enabledDefaultFields:', enabledDefaultFields);
+              // console.log('customFields:', customFields);
+            }
 
             const allFields: CustomFormField[] = [
               // デフォルトフィールドを追加
@@ -714,7 +698,10 @@ export default function DynamicAttendanceForm() {
               ...customFields.sort((a, b) => (a.order || 0) - (b.order || 0))
             ];
 
-            console.log('allFields:', allFields);
+            // 開発環境でのみデバッグログを表示
+            if (process.env.NODE_ENV === 'development') {
+              // console.log('allFields:', allFields);
+            }
 
             if (allFields.length === 0) {
               return (

@@ -194,7 +194,7 @@ export default function LocationSettingsForm({ initialSettings, onSave }: Locati
           ...prev,
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
-          locationName: `現在地 (精度: ${Math.round(position.coords.accuracy)}m)`
+          locationName: `設定位置 (精度: ${Math.round(position.coords.accuracy)}m)`
         }));
 
         setIsGettingLocation(false);

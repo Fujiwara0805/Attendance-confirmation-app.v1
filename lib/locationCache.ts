@@ -25,7 +25,7 @@ export class LocationCacheManager {
     try {
       localStorage.setItem(this.CACHE_KEY, JSON.stringify(location));
     } catch (error) {
-      console.warn('位置情報のキャッシュ保存に失敗:', error);
+      // キャッシュ保存に失敗（ログ削減）
     }
   }
 
@@ -48,7 +48,7 @@ export class LocationCacheManager {
 
       return location;
     } catch (error) {
-      console.warn('位置情報キャッシュの取得に失敗:', error);
+      // 位置情報キャッシュの取得に失敗（ログ削減）
       return null;
     }
   }
@@ -64,7 +64,7 @@ export class LocationCacheManager {
       };
       localStorage.setItem(this.SETTINGS_KEY, JSON.stringify(settingsWithTimestamp));
     } catch (error) {
-      console.warn('位置情報設定のキャッシュ保存に失敗:', error);
+      // 位置情報設定のキャッシュ保存に失敗（ログ削減）
     }
   }
 
@@ -134,7 +134,7 @@ export class LocationCacheManager {
     // まずキャッシュをチェック
     const cached = this.getCachedLocation();
     if (cached) {
-      console.log('キャッシュから位置情報を取得');
+      // キャッシュから位置情報を取得（ログを削減）
       return cached;
     }
 
@@ -156,7 +156,7 @@ export class LocationCacheManager {
           
           // キャッシュに保存
           this.saveLocation(location);
-          console.log('新しい位置情報を取得してキャッシュに保存');
+          // 新しい位置情報を取得してキャッシュに保存（ログを削減）
           resolve(location);
         },
         (error) => {
