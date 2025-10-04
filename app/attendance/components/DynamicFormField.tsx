@@ -49,6 +49,10 @@ export default function DynamicFormField<T extends FieldValues>({
               placeholder={field.placeholder || `${field.label}を入力してください`}
               className="border-indigo-200 focus:border-indigo-400"
               style={{ fontSize: '16px' }}
+              pattern="[a-zA-Z0-9]*"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck="false"
               value={fieldValue || ''}
               onChange={(e) => {
                 // 英数字のみを許可（大文字小文字、数字）
@@ -74,7 +78,11 @@ export default function DynamicFormField<T extends FieldValues>({
           <Textarea
             placeholder={field.placeholder || `${field.label}を入力してください`}
             className="resize-none border-indigo-200 focus:border-indigo-400"
-            style={{ fontSize: '16px', minHeight: 'calc(1.5em * 4 + 1rem + 32px)' }}
+            style={{ 
+              fontSize: '16px', 
+              minHeight: 'calc(1.5em * 4 + 1rem + 32px)',
+              WebkitAppearance: 'none'
+            }}
             value={fieldValue || ''}
             onChange={(e) => onChange(e.target.value)}
           />
@@ -87,6 +95,8 @@ export default function DynamicFormField<T extends FieldValues>({
             placeholder={field.placeholder || `${field.label}を入力してください`}
             className="border-indigo-200 focus:border-indigo-400"
             style={{ fontSize: '16px' }}
+            inputMode="numeric"
+            pattern="[0-9]*"
             value={fieldValue || ''}
             onChange={(e) => onChange(e.target.value)}
           />
@@ -96,8 +106,12 @@ export default function DynamicFormField<T extends FieldValues>({
         return (
           <Input
             type="date"
-            className="border-indigo-200 focus:border-indigo-300"
-            style={{ fontSize: '16px' }}
+            className="border-indigo-200 focus:border-indigo-300 w-full max-w-[180px] sm:max-w-[200px]"
+            style={{ 
+              fontSize: '16px',
+              WebkitAppearance: 'none',
+              MozAppearance: 'textfield'
+            }}
             value={fieldValue || ''}
             onChange={(e) => onChange(e.target.value)}
           />
