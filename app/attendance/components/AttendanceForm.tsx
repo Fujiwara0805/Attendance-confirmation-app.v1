@@ -149,10 +149,11 @@ export default function DynamicAttendanceForm() {
     form.reset(mergedValues);
   }, [customFields, enabledDefaultFields, form, targetCourse]);
 
-  // 全講義一覧を取得
+  // 全講義一覧を取得（出席フォーム用：認証なし）
   const fetchCourses = async () => {
     try {
-      const data = await fetchJsonWithRetry('/api/admin/courses', {}, {
+      // 認証なしのパブリックAPIを使用
+      const data = await fetchJsonWithRetry('/api/courses', {}, {
         maxRetries: 2,
         baseDelay: 500
       });
@@ -199,22 +200,39 @@ export default function DynamicAttendanceForm() {
 
   // 特定の講義情報を取得
   const fetchTargetCourse = useCallback(async () => {
-    if (!courseId || courses.length === 0) return;
+    if (!courseId) return;
 
     try {
-      // 既に取得済みのcoursesから該当する講義を検索
-      const course = courses.find((c: any) => c.id === courseId);
-      if (course) {
+      // 認証なしのパブリックAPIを使用して特定の講義情報を取得
+      const response = await fetchJsonWithRetry(`/api/courses/${courseId}`, {}, {
+        maxRetries: 2,
+        baseDelay: 500
+      });
+      
+      if (response.course) {
+        const course = response.course;
         setTargetCourse(course);
         // フォームに講義名を直接設定（setTimeoutを削除）
         form.setValue('class_name', course.courseName);
       } else {
-        // 対象講義が見つかりません（ログ削除）
-        toast.error('指定された講義が見つかりません');
+        // coursesから検索（フォールバック）
+        const course = courses.find((c: any) => c.id === courseId);
+        if (course) {
+          setTargetCourse(course);
+          form.setValue('class_name', course.courseName);
+        } else {
+          toast.error('指定された講義が見つかりません');
+        }
       }
     } catch (error) {
-      // 講義情報の設定中にエラーが発生しました（ログ削除）
-      toast.error('講義情報の設定中にエラーが発生しました');
+      // API呼び出しが失敗した場合、coursesから検索
+      const course = courses.find((c: any) => c.id === courseId);
+      if (course) {
+        setTargetCourse(course);
+        form.setValue('class_name', course.courseName);
+      } else {
+        toast.error('講義情報の取得中にエラーが発生しました');
+      }
     }
   }, [courseId, courses, form]);
 
@@ -400,10 +418,10 @@ export default function DynamicAttendanceForm() {
   // coursesが取得された後に講義情報を設定
   // フォーム設定の初期化が完了してから実行する
   useEffect(() => {
-    if (courseId && courses.length > 0 && isInitialized) {
+    if (courseId && isInitialized) {
       fetchTargetCourse();
     }
-  }, [courseId, courses, fetchTargetCourse, isInitialized]);
+  }, [courseId, fetchTargetCourse, isInitialized]);
 
   // 残り時間のカウントダウン処理
   useEffect(() => {
