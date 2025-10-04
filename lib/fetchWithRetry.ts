@@ -8,12 +8,17 @@ export interface RetryOptions {
 }
 
 const defaultRetryOptions: Required<RetryOptions> = {
-  maxRetries: 1, // 3→1に削減（クォータ超過対策）
-  baseDelay: 3000, // 1000→3000に延長（API負荷軽減）
-  maxDelay: 15000, // 10000→15000に延長
+  maxRetries: 0, // ローカル環境ではリトライを無効化
+  baseDelay: 5000, // 遅延を更に延長
+  maxDelay: 20000,
   backoffMultiplier: 2,
   retryCondition: (error: Error, response?: Response) => {
-    // クォータ超過エラー（429）の場合はリトライしない
+    // ローカル環境では基本的にリトライしない
+    if (process.env.NODE_ENV === 'development') {
+      return false;
+    }
+    
+    // 本番環境でも429エラーはリトライしない
     if (!response) return true; // ネットワークエラー
     if (response.status === 429) return false; // クォータ超過はリトライしない
     return response.status >= 500; // サーバーエラーのみリトライ

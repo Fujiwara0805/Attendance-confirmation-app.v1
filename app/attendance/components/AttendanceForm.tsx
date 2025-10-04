@@ -25,7 +25,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { MapPin, AlertTriangle, CheckCircle, GraduationCap, Settings, HelpCircle } from 'lucide-react';
+import { MapPin, AlertTriangle, CheckCircle, GraduationCap, Settings, HelpCircle, AlertCircle } from 'lucide-react';
 import Image from 'next/image';
 import { CustomFormField, CourseFormConfig } from '@/app/types';
 import { createDynamicSchema, createDefaultValues, defaultFields } from '@/lib/dynamicFormUtils';
@@ -283,70 +283,113 @@ export default function DynamicAttendanceForm() {
     }
   }, [targetCourse, isSubmittingForm]); // isSubmittingFormを依存配列に追加
 
-  // コンポーネントマウント時の処理を修正
+  // 初期化状態を管理
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [initializationError, setInitializationError] = useState<string | null>(null);
+
+  // コンポーネントマウント時の処理を修正（無限ループ防止）
   useEffect(() => {
-    // 並列でデータを取得
+    // 既に初期化済み、またはフォーム送信中の場合はスキップ
+    if (isInitialized || isSubmittingForm) {
+      return;
+    }
+
+    let isMounted = true; // クリーンアップ用フラグ
+
     const initializeData = async () => {
-      if (courseId) {
-        // 特定の講義の場合は、まず講義一覧を取得してから他のデータを取得
-        try {
-          // 講義一覧を最初に取得
-          await fetchCourses();
-          
-          // その後、フォーム設定と位置情報設定を並列取得
-          const [formConfigResult, locationResult] = await Promise.allSettled([
-            fetchFormConfig(),
-            fetchLocationSettings()
-          ]);
-          
-          // エラーログ出力を削除（必要に応じて）
-          if (formConfigResult.status === 'rejected') {
-            // フォーム設定の取得に失敗（ログ削除）
+      try {
+        setInitializationError(null);
+        
+        if (courseId) {
+          // 特定の講義の場合：順次実行でリソース消費を抑制
+          if (isMounted) await fetchCourses();
+          if (isMounted) await fetchFormConfig();
+          if (isMounted) await fetchLocationSettings();
+        } else {
+          // 講義指定がない場合：最小限の並列実行
+          if (isMounted) {
+            const [coursesResult, locationResult] = await Promise.allSettled([
+              fetchCourses(),
+              fetchLocationSettings()
+            ]);
+            
+            // エラーハンドリング（開発環境でのみログ出力）
+            if (process.env.NODE_ENV === 'development') {
+              if (coursesResult.status === 'rejected') {
+                console.warn('講義一覧の取得に失敗:', coursesResult.reason);
+              }
+              if (locationResult.status === 'rejected') {
+                console.warn('位置情報設定の取得に失敗:', locationResult.reason);
+              }
+            }
           }
-          if (locationResult.status === 'rejected') {
-            // 位置情報設定の取得に失敗（ログ削除）
-          }
-        } catch (error) {
-          // データ初期化エラー（ログ削除）
         }
-      } else {
-        // 講義指定がない場合は講義一覧と位置情報設定を並列取得
-        try {
-          const [coursesResult, locationResult] = await Promise.allSettled([
-            fetchCourses(),
-            fetchLocationSettings()
-          ]);
+        
+        if (isMounted) {
+          setIsInitialized(true);
+        }
+      } catch (error) {
+        if (isMounted) {
+          const errorMessage = error instanceof Error ? error.message : '初期化に失敗しました';
+          setInitializationError(errorMessage);
           
-          if (coursesResult.status === 'rejected') {
-            // 講義一覧の取得に失敗（ログ削除）
+          // 開発環境でのみエラーログ
+          if (process.env.NODE_ENV === 'development') {
+            console.error('データ初期化エラー:', error);
           }
-          if (locationResult.status === 'rejected') {
-            // 位置情報設定の取得に失敗（ログ削除）
-          }
-        } catch (error) {
-          // データ初期化エラー（ログ削除）
         }
       }
     };
 
-    initializeData();
+    // 少し遅延してから初期化（リソース競合を避ける）
+    const timeoutId = setTimeout(() => {
+      if (isMounted) {
+        initializeData();
+      }
+    }, 100);
 
-    // 前回の登録時刻を取得
+    // クリーンアップ関数
+    return () => {
+      isMounted = false;
+      clearTimeout(timeoutId);
+    };
+  }, []); // 依存配列を空にして一度だけ実行
+
+  // 前回の登録時刻チェック（別のuseEffectに分離）
+  useEffect(() => {
+    if (!isInitialized) return;
+    
     const storageKey = courseId ? `lastAttendanceSubmission_${courseId}` : 'lastAttendanceSubmission';
-    const storedTime = localStorage.getItem(storageKey);
-    if (storedTime) {
-      const parsedTime = parseInt(storedTime, 10);
-      setLastSubmissionTime(parsedTime);
+    const lastSubmissionTimeStored = localStorage.getItem(storageKey);
+    
+    if (lastSubmissionTimeStored) {
+      const lastTime = parseInt(lastSubmissionTimeStored, 10);
+      setLastSubmissionTime(lastTime);
       
-      const cooldownPeriod = 15 * 60 * 1000;
       const currentTime = Date.now();
-      const elapsedTime = currentTime - parsedTime;
+      const elapsedMinutes = (currentTime - lastTime) / (1000 * 60);
+      const remainingTime = Math.max(0, 15 - elapsedMinutes);
       
-      if (elapsedTime < cooldownPeriod) {
-        setTimeUntilNextSubmission(Math.ceil((cooldownPeriod - elapsedTime) / 1000 / 60));
+      if (remainingTime > 0) {
+        setTimeUntilNextSubmission(remainingTime);
+        
+        // タイマーを設定
+        const timer = setInterval(() => {
+          const now = Date.now();
+          const elapsed = (now - lastTime) / (1000 * 60);
+          const remaining = Math.max(0, 15 - elapsed);
+          
+          setTimeUntilNextSubmission(remaining);
+          
+          if (remaining === 0) {
+            clearInterval(timer);
+          }
+        }, 1000);
+        
+        return () => clearInterval(timer);
       }
     }
-  }, [courseId, fetchFormConfig, fetchTargetCourse, fetchLocationSettings]);
+  }, [isInitialized, courseId]);
 
   // coursesが取得された後に講義情報を設定
   useEffect(() => {
@@ -580,7 +623,49 @@ export default function DynamicAttendanceForm() {
         </div>
       )}
       
+      {/* 初期化エラー表示 */}
+      {initializationError && (
+        <div className="w-full max-w-md mx-auto p-4 mb-4">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex items-center">
+              <AlertCircle className="h-5 w-5 text-red-500 mr-2" />
+              <div>
+                <h3 className="text-sm font-medium text-red-800">初期化エラー</h3>
+                <p className="text-sm text-red-700 mt-1">{initializationError}</p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                setInitializationError(null);
+                setIsInitialized(false);
+              }}
+              className="mt-3 text-sm text-red-600 hover:text-red-800 underline"
+            >
+              再試行
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {/* 初期化中のローディング表示 */}
+      {!isInitialized && !initializationError && (
+        <div className="w-full max-w-md mx-auto p-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-center">
+              <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-3"></div>
+              <div>
+                <h3 className="text-sm font-medium text-blue-800">データを読み込み中...</h3>
+                <p className="text-sm text-blue-700 mt-1">しばらくお待ちください</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <div className="w-full max-w-md mx-auto p-4 sm:p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg shadow-md border border-blue-100">
+      {/* 初期化完了後のみフォームを表示 */}
+      {isInitialized && (
+        <>
       {showLocationModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg p-6 max-w-md w-full shadow-xl">
@@ -807,6 +892,8 @@ export default function DynamicAttendanceForm() {
         isOpen={showLocationPermissionModal}
         onClose={() => setShowLocationPermissionModal(false)}
       />
+        </>
+      )}
       </div>
     </>
   );
