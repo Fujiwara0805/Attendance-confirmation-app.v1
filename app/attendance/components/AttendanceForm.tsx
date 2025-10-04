@@ -138,8 +138,16 @@ export default function DynamicAttendanceForm() {
     const currentValues = form.getValues();
     const mergedValues = { ...newDefaultValues, ...currentValues };
     
+    // 講義名が既に設定されている場合は保持する
+    if (targetCourse && currentValues.class_name) {
+      mergedValues.class_name = currentValues.class_name;
+    } else if (targetCourse && !currentValues.class_name) {
+      // targetCourseがあるが、フォームに講義名が設定されていない場合は設定
+      mergedValues.class_name = targetCourse.courseName;
+    }
+    
     form.reset(mergedValues);
-  }, [customFields, enabledDefaultFields, form]);
+  }, [customFields, enabledDefaultFields, form, targetCourse]);
 
   // 全講義一覧を取得
   const fetchCourses = async () => {
@@ -198,10 +206,8 @@ export default function DynamicAttendanceForm() {
       const course = courses.find((c: any) => c.id === courseId);
       if (course) {
         setTargetCourse(course);
-        // フォームに講義名を自動設定
-        setTimeout(() => {
-          form.setValue('class_name', course.courseName);
-        }, 100);
+        // フォームに講義名を直接設定（setTimeoutを削除）
+        form.setValue('class_name', course.courseName);
       } else {
         // 対象講義が見つかりません（ログ削除）
         toast.error('指定された講義が見つかりません');
@@ -392,11 +398,12 @@ export default function DynamicAttendanceForm() {
   }, [isInitialized, courseId]);
 
   // coursesが取得された後に講義情報を設定
+  // フォーム設定の初期化が完了してから実行する
   useEffect(() => {
-    if (courseId && courses.length > 0) {
+    if (courseId && courses.length > 0 && isInitialized) {
       fetchTargetCourse();
     }
-  }, [courseId, courses, fetchTargetCourse]);
+  }, [courseId, courses, fetchTargetCourse, isInitialized]);
 
   // 残り時間のカウントダウン処理
   useEffect(() => {
