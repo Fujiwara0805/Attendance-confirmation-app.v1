@@ -8,14 +8,15 @@ export interface RetryOptions {
 }
 
 const defaultRetryOptions: Required<RetryOptions> = {
-  maxRetries: 3,
-  baseDelay: 1000,
-  maxDelay: 10000,
+  maxRetries: 1, // 3→1に削減（クォータ超過対策）
+  baseDelay: 3000, // 1000→3000に延長（API負荷軽減）
+  maxDelay: 15000, // 10000→15000に延長
   backoffMultiplier: 2,
   retryCondition: (error: Error, response?: Response) => {
-    // 5xx エラーまたはネットワークエラーの場合にリトライ
+    // クォータ超過エラー（429）の場合はリトライしない
     if (!response) return true; // ネットワークエラー
-    return response.status >= 500; // サーバーエラー
+    if (response.status === 429) return false; // クォータ超過はリトライしない
+    return response.status >= 500; // サーバーエラーのみリトライ
   }
 };
 
@@ -44,7 +45,7 @@ export const fetchWithRetry = async (
           config.baseDelay * Math.pow(config.backoffMultiplier, attempt),
           config.maxDelay
         );
-        console.log(`Request failed, retrying in ${delay}ms... (attempt ${attempt + 1}/${config.maxRetries + 1})`);
+        // ログ出力を削除（本番環境での大量ログ防止）
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     } catch (error) {
@@ -61,7 +62,7 @@ export const fetchWithRetry = async (
           config.baseDelay * Math.pow(config.backoffMultiplier, attempt),
           config.maxDelay
         );
-        console.log(`Request failed, retrying in ${delay}ms... (attempt ${attempt + 1}/${config.maxRetries + 1})`);
+        // ログ出力を削除（本番環境での大量ログ防止）
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }

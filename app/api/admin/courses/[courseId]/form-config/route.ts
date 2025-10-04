@@ -34,15 +34,59 @@ export async function GET(
     
     const configsSheetName = 'CourseFormConfigs';
     
-    // CourseFormConfigsシートが存在しない場合は作成
-    await createSheetIfEmpty(adminConfigSpreadsheetId, configsSheetName, COURSE_FORM_CONFIGS_HEADERS);
+    // タイムアウト対策を追加
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Form config request timeout after 8 seconds')), 8000);
+    });
     
-    // 講義のフォーム設定データを取得
-    const configsData = await getSheetData(adminConfigSpreadsheetId, configsSheetName);
-    const courseConfig = configsData.find(row => row[0] === courseId);
-    
-    if (!courseConfig) {
-      // デフォルト設定を返す
+    try {
+      // createSheetIfEmptyを削除してAPI呼び出しを削減
+      const dataPromise = getSheetData(adminConfigSpreadsheetId, configsSheetName);
+      const configsData = await Promise.race([dataPromise, timeoutPromise]) as any[][];
+      
+      const courseConfig = configsData.find(row => row[0] === courseId);
+      
+      if (!courseConfig) {
+        // デフォルト設定を返す
+        const defaultConfig = {
+          config: {
+            courseId,
+            templateId: null,
+            customFields: [],
+            enabledDefaultFields: ['date', 'class_name', 'student_id', 'grade', 'name', 'department', 'feedback']
+          }
+        };
+        
+        // キャッシュに保存（15分間に延長）
+        cache.set(cacheKey, defaultConfig, 900);
+        
+        return NextResponse.json(defaultConfig, { status: 200 });
+      }
+      
+      // 設定データをパース
+      const templateId = courseConfig[1] || null;
+      const customFieldsJson = courseConfig[2] || '[]';
+      const enabledDefaultFieldsJson = courseConfig[3] || '["date", "class_name", "student_id", "grade", "name", "department", "feedback"]';
+      
+      const customFields = JSON.parse(customFieldsJson);
+      const enabledDefaultFields = JSON.parse(enabledDefaultFieldsJson);
+      
+      const responseData = {
+        config: {
+          courseId,
+          templateId,
+          customFields,
+          enabledDefaultFields
+        }
+      };
+      
+      // キャッシュに保存（15分間に延長）
+      cache.set(cacheKey, responseData, 900);
+      
+      return NextResponse.json(responseData, { status: 200 });
+      
+    } catch (sheetError) {
+      // シートが存在しない場合はデフォルト設定を返す
       const defaultConfig = {
         config: {
           courseId,
@@ -52,41 +96,13 @@ export async function GET(
         }
       };
       
-      // キャッシュに保存（5分間）
-      cache.set(cacheKey, defaultConfig, 300);
+      // デフォルト設定もキャッシュ（15分間）
+      cache.set(cacheKey, defaultConfig, 900);
       
       return NextResponse.json(defaultConfig, { status: 200 });
     }
 
-    let customFields = [];
-    let enabledDefaultFields = ['date', 'class_name', 'student_id', 'grade', 'name', 'department', 'feedback'];
-
-    try {
-      // JSONパースを安全に実行
-      if (courseConfig[2] && courseConfig[2].trim() !== '' && courseConfig[2] !== 'CustomFields') {
-        customFields = JSON.parse(courseConfig[2]);
-      }
-      if (courseConfig[3] && courseConfig[3].trim() !== '' && courseConfig[3] !== 'EnabledDefaultFields') {
-        enabledDefaultFields = JSON.parse(courseConfig[3]);
-      }
-    } catch (parseError) {
-      console.warn(`Failed to parse form config for course ${courseId}:`, parseError);
-      // パースに失敗した場合はデフォルト値を使用
-    }
-
-    const config = {
-      courseId: courseConfig[0],
-      templateId: courseConfig[1] || null,
-      customFields,
-      enabledDefaultFields
-    };
-
-    const responseData = { config };
-    
-    // キャッシュに保存（5分間）
-    cache.set(cacheKey, responseData, 300);
-
-    return NextResponse.json(responseData, { status: 200 });
+    // 削除：重複したコードを削除
   } catch (error) {
     console.error('Error fetching course form config:', error);
     

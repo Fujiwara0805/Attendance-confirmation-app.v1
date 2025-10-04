@@ -27,14 +27,21 @@ export async function GET() {
     const adminConfigSpreadsheetId = getAdminConfigSpreadsheetId();
     const coursesSheetName = 'Courses';
     
-    // 講義データを取得（createSheetIfEmptyを削除してAPI呼び出しを削減）
-    const coursesData = await getSheetData(adminConfigSpreadsheetId, coursesSheetName);
+    // タイムアウト対策：Promise.raceでタイムアウトを設定
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Request timeout after 8 seconds')), 8000);
+    });
     
-    // 作成者でフィルタリング
+    const dataPromise = getSheetData(adminConfigSpreadsheetId, coursesSheetName);
+    
+    // 8秒でタイムアウト（Vercelの10秒制限より短く設定）
+    const coursesData = await Promise.race([dataPromise, timeoutPromise]) as any[][];
+    
+    // 作成者でフィルタリング（処理を最適化）
     const courses = coursesData.slice(1)
-      .filter(row => row[5] === user.email) // CreatedByでフィルタ（メールアドレスで管理）
+      .filter(row => row[5] === user.email && row[0]) // CreatedByでフィルタ + IDが存在するもののみ
       .map(row => ({
-        id: row[0] || '',
+        id: row[0],
         courseName: row[1] || '',
         teacherName: row[2] || '',
         spreadsheetId: row[3] || '',
@@ -43,16 +50,15 @@ export async function GET() {
         createdAt: row[6] || '',
         lastUpdated: row[7] || '',
         isCustomForm: row[8] === 'true' // IsCustomFormフラグを追加
-      }))
-      .filter(course => course.id); // IDが存在するもののみ
+      }));
     
     const responseData = {
       courses,
       total: courses.length
     };
     
-    // キャッシュに保存（5分間）
-    cache.set(cacheKey, responseData, 300);
+    // キャッシュに保存（10分間に延長してAPI呼び出しを削減）
+    cache.set(cacheKey, responseData, 600);
     
     return NextResponse.json(responseData, { status: 200 });
   } catch (error) {

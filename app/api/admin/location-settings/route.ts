@@ -15,28 +15,57 @@ export async function GET() {
     const adminConfigSpreadsheetId = getAdminConfigSpreadsheetId();
     const settingsSheetName = 'LocationSettings';
     
-    await createSheetIfEmpty(adminConfigSpreadsheetId, settingsSheetName, [
-      'Key', 'Value', 'Description'
-    ]);
+    // タイムアウト対策を追加
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Location settings request timeout after 8 seconds')), 8000);
+    });
     
-    const settingsData = await getSheetData(adminConfigSpreadsheetId, settingsSheetName);
-    
-    const defaultLocationSettings = {
-      latitude: parseFloat(settingsData.find(row => row[0] === 'DEFAULT_LATITUDE')?.[1] || '33.1751332'),
-      longitude: parseFloat(settingsData.find(row => row[0] === 'DEFAULT_LONGITUDE')?.[1] || '131.6138803'),
-      radius: parseFloat(settingsData.find(row => row[0] === 'DEFAULT_RADIUS')?.[1] || '0.5'),
-      locationName: settingsData.find(row => row[0] === 'DEFAULT_LOCATION_NAME')?.[1] || ''
-    };
-    
-    const responseData = { defaultLocationSettings };
-    
-    // キャッシュに保存（10分間）
-    cache.set(cacheKey, responseData, 600);
-    
-    return NextResponse.json(responseData);
+    try {
+      // createSheetIfEmptyを削除してAPI呼び出しを削減
+      const dataPromise = getSheetData(adminConfigSpreadsheetId, settingsSheetName);
+      const settingsData = await Promise.race([dataPromise, timeoutPromise]) as any[][];
+      
+      const defaultLocationSettings = {
+        latitude: parseFloat(settingsData.find(row => row[0] === 'DEFAULT_LATITUDE')?.[1] || '33.1751332'),
+        longitude: parseFloat(settingsData.find(row => row[0] === 'DEFAULT_LONGITUDE')?.[1] || '131.6138803'),
+        radius: parseFloat(settingsData.find(row => row[0] === 'DEFAULT_RADIUS')?.[1] || '0.5'),
+        locationName: settingsData.find(row => row[0] === 'DEFAULT_LOCATION_NAME')?.[1] || ''
+      };
+      
+      const responseData = { defaultLocationSettings };
+      
+      // キャッシュに保存（30分間に延長してAPI呼び出しを大幅削減）
+      cache.set(cacheKey, responseData, 1800);
+      
+      return NextResponse.json(responseData);
+    } catch (sheetError) {
+      // シートが存在しない場合はデフォルト値を返す
+      const defaultLocationSettings = {
+        latitude: 33.1751332,
+        longitude: 131.6138803,
+        radius: 0.5,
+        locationName: '大分大学旦野原キャンパス'
+      };
+      
+      const responseData = { defaultLocationSettings };
+      
+      // デフォルト値もキャッシュ（30分間）
+      cache.set(cacheKey, responseData, 1800);
+      
+      return NextResponse.json(responseData);
+    }
   } catch (error) {
     console.error('Error fetching location settings:', error);
-    return NextResponse.json({ error: 'Failed to fetch location settings' }, { status: 500 });
+    
+    // エラー時もデフォルト値を返してサービス継続
+    const defaultLocationSettings = {
+      latitude: 33.1751332,
+      longitude: 131.6138803,
+      radius: 0.5,
+      locationName: '大分大学旦野原キャンパス'
+    };
+    
+    return NextResponse.json({ defaultLocationSettings });
   }
 }
 
