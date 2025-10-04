@@ -95,7 +95,7 @@ export default function LocationPermissionModal({ isOpen, onClose }: LocationPer
                         </h4>
                         <ul className="text-gray-600 leading-relaxed space-y-2 list-disc list-inside">
                           <li>デバイスの設定画面へ</li>
-                          <li>「プライバシーとセキュリティ」をタップ</li>
+                          <li>プライバシーとセキュリティをクリック</li>
                         </ul>
                       </div>
                     </div>
