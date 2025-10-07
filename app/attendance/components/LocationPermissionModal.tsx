@@ -119,7 +119,6 @@ export default function LocationPermissionModal({ isOpen, onClose }: LocationPer
                           <li>位置情報サービスをクリック</li>
                           <li>使用しているブラウザの設定を変更</li>
                           <li>「次回または共有時に確認」を選択</li>
-                          <li>もしくは、「使用中」を選択</li>
                         </ul>
                       </div>
                     </div>
