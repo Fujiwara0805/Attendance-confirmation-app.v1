@@ -131,7 +131,7 @@ export default function ThanksShowcase() {
             className="bg-indigo-600 hover:bg-indigo-700 text-white px-6"
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
           >
-            ページ上部に戻る
+            ページ上部に戻るよ
           </Button>
         </motion.div>
       </div>
