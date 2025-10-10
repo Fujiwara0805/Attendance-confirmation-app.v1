@@ -149,6 +149,18 @@ export async function POST(req: NextRequest) {
     return await handleSingleSubmission(requestBody);
   } catch (error) {
     console.error('Error in attendance API:', error);
+    
+    // Google Sheets APIクォータ制限エラーの処理
+    if (error instanceof Error && 
+        (error.message.includes('Quota exceeded') || 
+         error.message.includes('Too Many Requests') ||
+         error.message.includes('rateLimitExceeded'))) {
+      return NextResponse.json({ 
+        message: 'アクセスが集中しているため、しばらく時間をおいてから再度お試しください。',
+        error: 'Quota limit exceeded'
+      }, { status: 429 });
+    }
+    
     return NextResponse.json({ 
       message: 'Failed to process attendance',
       error: error instanceof Error ? error.message : 'Unknown error'
@@ -158,30 +170,31 @@ export async function POST(req: NextRequest) {
 
 // バッチ処理用の関数
 async function handleBatchSubmissions(requestBody: any) {
-  const { submissions, courseId, customFields = [] } = requestBody;
-  
-  if (!Array.isArray(submissions) || submissions.length === 0) {
-    return NextResponse.json({ message: 'No submissions provided' }, { status: 400 });
-  }
-  
-  // 講義設定を取得
-  let spreadsheetConfig: SpreadsheetConfig | null = null;
-  if (courseId) {
-    spreadsheetConfig = await getCourseSpreadsheetIdById(courseId);
-  }
-  
-  if (!spreadsheetConfig) {
-    spreadsheetConfig = await getGlobalSpreadsheetId();
-  }
-  
-  if (!spreadsheetConfig || !spreadsheetConfig.spreadsheetId) {
-    return NextResponse.json({ 
-      message: 'Spreadsheet not configured for this course. Please contact administrator.' 
-    }, { status: 400 });
-  }
-  
-  // TypeScript用の型アサーション（上記でnullチェック済み）
-  const safeSpreadsheetConfig = spreadsheetConfig as SpreadsheetConfig;
+  try {
+    const { submissions, courseId, customFields = [] } = requestBody;
+    
+    if (!Array.isArray(submissions) || submissions.length === 0) {
+      return NextResponse.json({ message: 'No submissions provided' }, { status: 400 });
+    }
+    
+    // 講義設定を取得
+    let spreadsheetConfig: SpreadsheetConfig | null = null;
+    if (courseId) {
+      spreadsheetConfig = await getCourseSpreadsheetIdById(courseId);
+    }
+    
+    if (!spreadsheetConfig) {
+      spreadsheetConfig = await getGlobalSpreadsheetId();
+    }
+    
+    if (!spreadsheetConfig || !spreadsheetConfig.spreadsheetId) {
+      return NextResponse.json({ 
+        message: 'Spreadsheet not configured for this course. Please contact administrator.' 
+      }, { status: 400 });
+    }
+    
+    // TypeScript用の型アサーション（上記でnullチェック済み）
+    const safeSpreadsheetConfig = spreadsheetConfig as SpreadsheetConfig;
   
   const attendanceSheetName = `${safeSpreadsheetConfig.defaultSheetName}`;
   
@@ -244,16 +257,37 @@ async function handleBatchSubmissions(requestBody: any) {
     sheetName: attendanceSheetName,
     count: submissions.length
   }, { status: 200 });
+  
+  } catch (error) {
+    console.error('Error in batch submissions:', error);
+    
+    // Google Sheets APIクォータ制限エラーの処理
+    if (error instanceof Error && 
+        (error.message.includes('Quota exceeded') || 
+         error.message.includes('Too Many Requests') ||
+         error.message.includes('rateLimitExceeded'))) {
+      return NextResponse.json({ 
+        message: 'アクセスが集中しているため、しばらく時間をおいてから再度お試しください。',
+        error: 'Quota limit exceeded'
+      }, { status: 429 });
+    }
+    
+    return NextResponse.json({ 
+      message: 'Failed to process batch submissions',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
+  }
 }
 
 // 単一提出処理用の関数（既存の処理をリファクタリング）
 async function handleSingleSubmission(requestBody: any) {
-  const { 
-    latitude, 
-    longitude,
-    courseId,
-    customFields = [] // カスタムフィールド定義
-  } = requestBody;
+  try {
+    const { 
+      latitude, 
+      longitude,
+      courseId,
+      customFields = [] // カスタムフィールド定義
+    } = requestBody;
 
   // customFieldsとrequestBodyから動的にデータを抽出
   const formData: { [key: string]: any } = {};
@@ -379,4 +413,24 @@ async function handleSingleSubmission(requestBody: any) {
     courseName: finalClassName,
     method: courseId ? 'courseId' : 'className' // デバッグ用
   }, { status: 200 });
+  
+  } catch (error) {
+    console.error('Error in single submission:', error);
+    
+    // Google Sheets APIクォータ制限エラーの処理
+    if (error instanceof Error && 
+        (error.message.includes('Quota exceeded') || 
+         error.message.includes('Too Many Requests') ||
+         error.message.includes('rateLimitExceeded'))) {
+      return NextResponse.json({ 
+        message: 'アクセスが集中しているため、しばらく時間をおいてから再度お試しください。',
+        error: 'Quota limit exceeded'
+      }, { status: 429 });
+    }
+    
+    return NextResponse.json({ 
+      message: 'Failed to process single submission',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
+  }
 }

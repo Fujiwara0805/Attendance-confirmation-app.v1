@@ -595,7 +595,13 @@ export default function DynamicAttendanceForm() {
       // エラーメッセージを分類
       let errorMessage = '出席登録に失敗しました。もう一度お試しください。';
       
-      if (error?.message?.includes('Configuration error')) {
+      // Google Sheets APIクォータ制限エラーの処理を追加
+      if (error?.message?.includes('Quota exceeded') || 
+          error?.message?.includes('Too Many Requests') || 
+          error?.message?.includes('rateLimitExceeded') ||
+          error?.response?.status === 429) {
+        errorMessage = 'アクセスが集中しているため、しばらく時間をおいてから再度お試しください。（数分後に再試行してください）';
+      } else if (error?.message?.includes('Configuration error')) {
         errorMessage = 'システム設定エラーです。管理者にお問い合わせください。';
       } else if (error?.message?.includes('Authentication error')) {
         errorMessage = 'システム認証エラーです。管理者にお問い合わせください。';
