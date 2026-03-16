@@ -1,45 +1,47 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+// Card components available if needed by sub-components
+// import { Card, CardContent } from '@/components/ui/card';
 import Image from 'next/image'
 import { useToast } from '@/hooks/use-toast';
-import { 
-  Copy, 
-  HelpCircle, 
-  ExternalLink, 
-  Settings, 
-  RefreshCw, 
-  CheckCircle, 
-  AlertCircle,
-  ArrowRight,
-  Shield,
+import {
+  Copy,
+  ExternalLink,
+  RefreshCw,
   Plus,
   Trash2,
   Edit,
   BookOpen,
-  User,
-  GraduationCap,
   Save,
   LogOut,
-  ArrowLeft,
   Menu,
   X,
-  MapPin,
-  Search,
   Loader2,
-  FormInput,
   Sparkles,
-  Star,
-  Crown,
-  Palette
+  BarChart3,
+  Inbox,
+  MapPin,
+  ChevronDown,
+  ChevronUp,
+  Navigation,
+  Search,
+  CheckCircle,
+  Settings,
+  MessageSquare,
+  FileText,
+  Zap,
+  Globe,
+  Users,
+  Link2,
+  ArrowRight,
 } from 'lucide-react';
-import { Separator } from '@/components/ui/separator';
+// Separator kept for potential sub-component use
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 // 元のDialogインポートを削除し、CustomModalをインポート
 import { CustomModal } from '@/components/ui/custom-modal';
@@ -47,17 +49,23 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import LocationSettingsForm from './components/LocationSettingsForm';
 import CustomFormManager from './components/CustomFormManager';
+import AttendanceExport from './components/AttendanceExport';
 
 interface Course {
   id: string;
+  code: string;
   courseName: string;
   teacherName: string;
-  spreadsheetId: string;
-  defaultSheetName: string;
   createdBy: string;
   createdAt: string;
   lastUpdated: string;
-  isCustomForm?: boolean; // カスタムフォームかどうかのフラグを追加
+  isCustomForm?: boolean;
+  locationSettings?: {
+    latitude: number;
+    longitude: number;
+    radius: number;
+    locationName?: string;
+  };
 }
 
 export default function AdminPage() {
@@ -65,7 +73,7 @@ export default function AdminPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   
-  // 講義管理用の状態
+  // フォーム管理用の状態
   const [courses, setCourses] = useState<Course[]>([]);
   const [loadingCourses, setLoadingCourses] = useState<boolean>(false);
   
@@ -74,9 +82,127 @@ export default function AdminPage() {
   const [newCourse, setNewCourse] = useState({
     courseName: '',
     teacherName: '',
-    spreadsheetId: ''
+    enableLocation: false,
+    locationName: '',
+    latitude: 33.1751332,
+    longitude: 131.6138803,
+    radius: 0.5,
   });
   const [savingNewCourse, setSavingNewCourse] = useState<boolean>(false);
+  const [isGettingCurrentLocation, setIsGettingCurrentLocation] = useState<boolean>(false);
+  const [locationResolved, setLocationResolved] = useState<boolean>(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [locationMode, setLocationMode] = useState<'search' | 'gps'>('search');
+  const [placeSuggestions, setPlaceSuggestions] = useState<Array<{ description: string; place_id: string }>>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Google Places Autocomplete でサジェスト取得
+  const fetchPlaceSuggestions = useCallback(async (input: string) => {
+    if (!input.trim() || input.length < 2) {
+      setPlaceSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    try {
+      const response = await fetch(
+        `/api/places/autocomplete?input=${encodeURIComponent(input)}`
+      );
+      if (!response.ok) return;
+      const data = await response.json();
+      if (data.predictions && data.predictions.length > 0) {
+        setPlaceSuggestions(data.predictions.map((p: { description: string; place_id: string }) => ({
+          description: p.description,
+          place_id: p.place_id,
+        })));
+        setShowSuggestions(true);
+      } else {
+        setPlaceSuggestions([]);
+        setShowSuggestions(false);
+      }
+    } catch {
+      setPlaceSuggestions([]);
+    }
+  }, []);
+
+  // 場所を選択して緯度経度を取得
+  const selectPlace = useCallback(async (placeId: string, description: string, target: 'new' | 'edit') => {
+    setShowSuggestions(false);
+    setEditShowSuggestions(false);
+    setLocationError(null);
+    setEditLocationError(null);
+    try {
+      const response = await fetch(
+        `/api/places/details?place_id=${encodeURIComponent(placeId)}`
+      );
+      if (!response.ok) throw new Error('詳細取得に失敗');
+      const data = await response.json();
+      if (data.result?.geometry?.location) {
+        const loc = data.result.geometry.location;
+        if (target === 'new') {
+          setNewCourse(prev => ({ ...prev, locationName: description, latitude: loc.lat, longitude: loc.lng }));
+          setLocationResolved(true);
+        } else {
+          setEditCourse(prev => ({ ...prev, locationName: description, latitude: loc.lat, longitude: loc.lng }));
+          setEditLocationResolved(true);
+        }
+      }
+    } catch {
+      if (target === 'new') setLocationError('場所の詳細取得に失敗しました。');
+      else setEditLocationError('場所の詳細取得に失敗しました。');
+    }
+  }, []);
+
+  // 現在地から緯度経度を自動取得
+  const getCurrentLocationForCourse = (target: 'new' | 'edit') => {
+    if (!navigator.geolocation) {
+      const msg = 'このブラウザは位置情報をサポートしていません。';
+      if (target === 'new') setLocationError(msg);
+      else setEditLocationError(msg);
+      return;
+    }
+    if (target === 'new') {
+      setIsGettingCurrentLocation(true);
+      setLocationError(null);
+      setLocationResolved(false);
+    } else {
+      setIsEditGettingLocation(true);
+      setEditLocationError(null);
+      setEditLocationResolved(false);
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        if (target === 'new') {
+          setNewCourse(prev => ({
+            ...prev,
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          }));
+          setLocationResolved(true);
+          setIsGettingCurrentLocation(false);
+        } else {
+          setEditCourse(prev => ({
+            ...prev,
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          }));
+          setEditLocationResolved(true);
+          setIsEditGettingLocation(false);
+        }
+      },
+      (error) => {
+        const messages: Record<number, string> = {
+          1: '位置情報の使用が拒否されました。ブラウザの設定を確認してください。',
+          2: '位置情報が利用できません。',
+          3: '位置情報の取得がタイムアウトしました。',
+        };
+        const msg = messages[error.code] || '位置情報の取得に失敗しました。';
+        if (target === 'new') { setIsGettingCurrentLocation(false); setLocationError(msg); }
+        else { setIsEditGettingLocation(false); setEditLocationError(msg); }
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
 
   // カスタムフォーム設定用の状態を追加
   const [isCustomFormDialogOpen, setIsCustomFormDialogOpen] = useState<boolean>(false);
@@ -88,12 +214,38 @@ export default function AdminPage() {
   const [editCourse, setEditCourse] = useState({
     courseName: '',
     teacherName: '',
-    spreadsheetId: ''
+    enableLocation: false,
+    locationName: '',
+    latitude: 0,
+    longitude: 0,
+    radius: 0.5,
   });
   const [savingEditCourse, setSavingEditCourse] = useState<boolean>(false);
+  const [editLocationResolved, setEditLocationResolved] = useState<boolean>(false);
+  const [editLocationError, setEditLocationError] = useState<string | null>(null);
+  const [isEditGettingLocation, setIsEditGettingLocation] = useState<boolean>(false);
+  const [editLocationMode, setEditLocationMode] = useState<'search' | 'gps'>('search');
+  const [editPlaceSuggestions, setEditPlaceSuggestions] = useState<Array<{ description: string; place_id: string }>>([]);
+  const [editShowSuggestions, setEditShowSuggestions] = useState(false);
+  const editSearchDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // モバイルメニュー用の状態
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
+
+  // 作成タイプ選択モーダル
+  const [isCreateTypeDialogOpen, setIsCreateTypeDialogOpen] = useState<boolean>(false);
+
+  // ルーム管理用の状態
+  interface Room { id: string; code: string; title: string; status: string; host_id: string; created_at: string; }
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [loadingRooms, setLoadingRooms] = useState<boolean>(false);
+  const [isCreateRoomDialogOpen, setIsCreateRoomDialogOpen] = useState<boolean>(false);
+  const [newRoomTitle, setNewRoomTitle] = useState<string>('');
+  const [creatingRoom, setCreatingRoom] = useState<boolean>(false);
+  const [isEditRoomDialogOpen, setIsEditRoomDialogOpen] = useState<boolean>(false);
+  const [editingRoom, setEditingRoom] = useState<Room | null>(null);
+  const [editRoomTitle, setEditRoomTitle] = useState<string>('');
+  const [savingEditRoom, setSavingEditRoom] = useState<boolean>(false);
 
   // 位置情報設定用の状態を追加
   const [locationSettings, setLocationSettings] = useState({
@@ -103,8 +255,6 @@ export default function AdminPage() {
     locationName: ''
   });
   const [loadingLocationSettings, setLoadingLocationSettings] = useState(false);
-
-  const SERVICE_ACCOUNT_EMAIL = 'id-791@attendance-management-467501.iam.gserviceaccount.com';
 
   // トースト表示を1秒間に設定
   const showToast = useCallback((title: string, description: string, variant: 'default' | 'destructive' = 'default') => {
@@ -116,83 +266,103 @@ export default function AdminPage() {
     });
   }, [toast]);
 
-  // スプレッドシートIDをマスクする関数
-  const maskSpreadsheetId = (id: string) => {
-    if (id.length <= 8) return id;
-    return id.substring(0, 4) + '*'.repeat(id.length - 8) + id.substring(id.length - 4);
-  };
+  // サブスクリプション情報の状態
+  const [planInfo, setPlanInfo] = useState<{
+    subscription: { plan: 'free' | 'paid'; status: string };
+    usage: { formCount: number; roomCount: number };
+    limits: { maxForms: number; maxRooms: number };
+    canCreateForm: boolean;
+    canCreateRoom: boolean;
+  } | null>(null);
 
-  // サービスアカウントのメールアドレスをクリップボードにコピーする関数
-  const copyServiceAccountEmail = async () => {
+  // サブスクリプション情報を取得
+  const fetchPlanInfo = useCallback(async () => {
     try {
-      await navigator.clipboard.writeText(SERVICE_ACCOUNT_EMAIL);
-      showToast("コピー完了", "サービスアカウントのメールアドレスをクリップボードにコピーしました。");
+      const response = await fetch('/api/v2/subscription');
+      if (response.ok) {
+        const data = await response.json();
+        setPlanInfo(data);
+      }
     } catch (error) {
-      showToast("コピー失敗", "クリップボードへのコピーに失敗しました。手動でコピーしてください。", "destructive");
+      console.error('Failed to fetch plan info:', error);
     }
-  };
+  }, []);
 
-  // Stripe決済処理
-  const handleCustomFormPayment = async () => {
+  // Proプランにアップグレード
+  const handleUpgrade = async () => {
     setIsProcessingPayment(true);
     try {
-      // Stripe Checkoutセッションを作成
       const response = await fetch('/api/stripe/create-checkout-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          productType: 'custom_form',
-          successUrl: `${window.location.origin}/admin?payment=success&type=custom_form`,
-          cancelUrl: `${window.location.origin}/admin?payment=cancelled`
+          productType: 'pro_subscription',
+          successUrl: `${window.location.origin}/admin?payment=success`,
+          cancelUrl: `${window.location.origin}/admin?payment=cancelled`,
         }),
       });
 
-      if (!response.ok) {
-        throw new Error('決済セッションの作成に失敗しました');
-      }
+      if (!response.ok) throw new Error('決済セッションの作成に失敗しました');
 
       const { url } = await response.json();
-      
-      // Stripe Checkoutページにリダイレクト
       window.location.href = url;
     } catch (error) {
-      console.error('Payment error:', error);
-      showToast('決済エラー', '決済処理中にエラーが発生しました', 'destructive');
+      console.error('Upgrade error:', error);
+      showToast('エラー', '決済処理中にエラーが発生しました', 'destructive');
     } finally {
       setIsProcessingPayment(false);
     }
   };
 
-  // カスタムフォーム設定ダイアログを開く処理
+  // カスタムフォームダイアログを開く（上限チェック付き）
   const handleCustomFormDialog = () => {
-    // URLパラメータで決済成功をチェック
-    const urlParams = new URLSearchParams(window.location.search);
-    const paymentStatus = urlParams.get('payment');
-    const paymentType = urlParams.get('type');
-
-    if (paymentStatus === 'success' && paymentType === 'custom_form') {
-      // 決済成功後はカスタムフォーム作成画面を直接開く
-      setIsCustomFormDialogOpen(true);
-      // URLパラメータをクリア
-      window.history.replaceState({}, document.title, window.location.pathname);
-    } else {
-      // 決済が必要な場合は決済画面を表示
-      handleCustomFormPayment();
+    if (planInfo && !planInfo.canCreateForm) {
+      showToast('上限に達しています', `無料プランではフォーム${planInfo.limits.maxForms}個まで作成できます。Proプランにアップグレードしてください。`, 'destructive');
+      return;
     }
+    setIsCustomFormDialogOpen(true);
   };
 
-  // 講義一覧の取得
+  // ルーム一覧取得
+  const fetchRooms = useCallback(async () => {
+    setLoadingRooms(true);
+    try {
+      const response = await fetch('/api/rooms');
+      if (response.ok) {
+        const data = await response.json();
+        setRooms(Array.isArray(data) ? data : data.rooms || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch rooms:', error);
+    } finally {
+      setLoadingRooms(false);
+    }
+  }, []);
+
+  // 講義一覧の取得（Supabase v2 API）
   const fetchCourses = useCallback(async () => {
     setLoadingCourses(true);
     try {
-      const response = await fetch('/api/admin/courses');
+      const response = await fetch('/api/v2/courses?teacher_email=self');
       if (response.ok) {
         const data = await response.json();
-        setCourses(data.courses || []);
-        showToast("講義情報更新", `${data.courses?.length || 0}件の講義を読み込みました。`);
+        // Supabase v2 APIのレスポンスをフロントエンドの形式にマッピング
+        const mappedCourses: Course[] = (data.courses || []).map((c: any) => ({
+          id: c.id,
+          code: c.code,
+          courseName: c.name,
+          teacherName: c.teacher_name,
+          createdBy: '',
+          createdAt: c.created_at || '',
+          lastUpdated: c.created_at || '',
+          isCustomForm: (c.custom_fields && c.custom_fields.length > 0) || false,
+          locationSettings: c.location_settings || undefined,
+        }));
+        setCourses(mappedCourses);
+        showToast("データ更新", `${mappedCourses.length}件の出席フォームを読み込みました。`);
       } else {
         const errorData = await response.json();
-        showToast("読み込みエラー", errorData.message || "講義情報の読み込みに失敗しました。", "destructive");
+        showToast("読み込みエラー", errorData.message || "フォーム情報の読み込みに失敗しました。", "destructive");
       }
     } catch (error) {
       console.error('Failed to fetch courses:', error);
@@ -263,9 +433,11 @@ export default function AdminPage() {
   useEffect(() => {
     if (status === 'authenticated') {
       fetchCourses();
+      fetchRooms();
       fetchLocationSettings();
+      fetchPlanInfo();
     }
-  }, [status, fetchCourses, fetchLocationSettings]);
+  }, [status, fetchCourses, fetchRooms, fetchLocationSettings, fetchPlanInfo]);
 
   // 決済結果の処理
   useEffect(() => {
@@ -273,7 +445,8 @@ export default function AdminPage() {
     const paymentStatus = urlParams.get('payment');
     
     if (paymentStatus === 'success') {
-      showToast('決済完了', 'カスタムフォームの購入が完了しました！', 'default');
+      showToast('決済完了', 'Proプランへのアップグレードが完了しました！', 'default');
+      fetchPlanInfo(); // プラン情報を更新
       // URLパラメータをクリア
       window.history.replaceState({}, document.title, window.location.pathname);
     } else if (paymentStatus === 'cancelled') {
@@ -306,33 +479,42 @@ export default function AdminPage() {
     signOut({ callbackUrl: '/admin/login' });
   };
 
-  // 新規講義の追加
+  // 新規講義の追加（Supabase v2 API）
   const handleAddCourse = async () => {
-    if (!newCourse.courseName.trim() || !newCourse.teacherName.trim() || !newCourse.spreadsheetId.trim()) {
+    if (!newCourse.courseName.trim() || !newCourse.teacherName.trim()) {
       showToast("入力エラー", "すべての必須項目を入力してください。", "destructive");
       return;
     }
 
     setSavingNewCourse(true);
     try {
-      const response = await fetch('/api/admin/courses', {
+      const response = await fetch('/api/v2/courses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          courseName: newCourse.courseName.trim(),
+          name: newCourse.courseName.trim(),
           teacherName: newCourse.teacherName.trim(),
-          spreadsheetId: newCourse.spreadsheetId.trim()
+          ...(newCourse.enableLocation ? {
+            locationSettings: {
+              latitude: newCourse.latitude,
+              longitude: newCourse.longitude,
+              radius: newCourse.radius,
+              locationName: newCourse.locationName.trim() || undefined,
+            }
+          } : {}),
         }),
       });
-      
+
       if (response.ok) {
-        showToast("講義追加完了", "新しい講義を正常に追加しました。");
+        showToast("作成完了", "新しい出席フォームを作成しました。");
         setIsAddDialogOpen(false);
-        setNewCourse({ courseName: '', teacherName: '', spreadsheetId: '' });
-        await fetchCourses();
+        setNewCourse({ courseName: '', teacherName: '', enableLocation: false, locationName: '', latitude: 33.1751332, longitude: 131.6138803, radius: 0.5 });
+        setLocationResolved(false);
+        setLocationError(null);
+        await fetchCourses(); fetchPlanInfo();
       } else {
         const errorData = await response.json();
-        showToast("追加失敗", errorData.message || "講義の追加に失敗しました。", "destructive");
+        showToast("追加失敗", errorData.message || "フォームの作成に失敗しました。", "destructive");
       }
     } catch (error) {
       console.error('Failed to add course:', error);
@@ -345,42 +527,56 @@ export default function AdminPage() {
   // 編集ダイアログを開く
   const handleEditCourse = (course: Course) => {
     setEditingCourse(course);
+    const hasLocation = !!course.locationSettings;
     setEditCourse({
       courseName: course.courseName,
       teacherName: course.teacherName,
-      spreadsheetId: course.spreadsheetId
+      enableLocation: hasLocation,
+      locationName: course.locationSettings?.locationName || '',
+      latitude: course.locationSettings?.latitude || 0,
+      longitude: course.locationSettings?.longitude || 0,
+      radius: course.locationSettings?.radius || 0.5,
     });
+    setEditLocationResolved(hasLocation);
+    setEditLocationError(null);
     setIsEditDialogOpen(true);
   };
 
-  // 講義の編集
+  // 講義の編集（Supabase v2 API）
   const handleUpdateCourse = async () => {
-    if (!editingCourse || !editCourse.courseName.trim() || !editCourse.teacherName.trim() || !editCourse.spreadsheetId.trim()) {
+    if (!editingCourse || !editCourse.courseName.trim() || !editCourse.teacherName.trim()) {
       showToast("入力エラー", "すべての必須項目を入力してください。", "destructive");
       return;
     }
 
     setSavingEditCourse(true);
     try {
-      const response = await fetch(`/api/admin/courses/${editingCourse.id}`, {
-        method: 'PUT',
+      const response = await fetch(`/api/v2/courses/${editingCourse.code}`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          courseName: editCourse.courseName.trim(),
-          teacherName: editCourse.teacherName.trim(),
-          spreadsheetId: editCourse.spreadsheetId.trim()
+          name: editCourse.courseName.trim(),
+          teacher_name: editCourse.teacherName.trim(),
+          location_settings: editCourse.enableLocation ? {
+            latitude: editCourse.latitude,
+            longitude: editCourse.longitude,
+            radius: editCourse.radius,
+            locationName: editCourse.locationName.trim() || undefined,
+          } : null,
         }),
       });
-      
+
       if (response.ok) {
-        showToast("講義更新完了", "講義情報を正常に更新しました。");
+        showToast("更新完了", "フォーム情報を更新しました。");
         setIsEditDialogOpen(false);
         setEditingCourse(null);
-        setEditCourse({ courseName: '', teacherName: '', spreadsheetId: '' });
-        await fetchCourses();
+        setEditCourse({ courseName: '', teacherName: '', enableLocation: false, locationName: '', latitude: 0, longitude: 0, radius: 0.5 });
+        setEditLocationResolved(false);
+        setEditLocationError(null);
+        await fetchCourses(); fetchPlanInfo();
       } else {
         const errorData = await response.json();
-        showToast("更新失敗", errorData.message || "講義の更新に失敗しました。", "destructive");
+        showToast("更新失敗", errorData.message || "フォームの更新に失敗しました。", "destructive");
       }
     } catch (error) {
       console.error('Failed to update course:', error);
@@ -390,23 +586,23 @@ export default function AdminPage() {
     }
   };
 
-  // 講義の削除
-  const handleDeleteCourse = async (courseId: string, courseName: string) => {
-    if (!confirm(`講義「${courseName}」を削除してもよろしいですか？`)) {
+  // 講義の削除（Supabase v2 API - ソフトデリート）
+  const handleDeleteCourse = async (courseCode: string, courseName: string) => {
+    if (!confirm(`「${courseName}」を削除してもよろしいですか？`)) {
       return;
     }
 
     try {
-      const response = await fetch(`/api/admin/courses/${courseId}`, {
+      const response = await fetch(`/api/v2/courses/${courseCode}`, {
         method: 'DELETE',
       });
-      
+
       if (response.ok) {
-        showToast("削除完了", "講義を正常に削除しました。");
-        await fetchCourses();
+        showToast("削除完了", "フォームを削除しました。");
+        await fetchCourses(); fetchPlanInfo();
       } else {
         const errorData = await response.json();
-        showToast("削除失敗", errorData.message || "講義の削除に失敗しました。", "destructive");
+        showToast("削除失敗", errorData.message || "フォームの削除に失敗しました。", "destructive");
       }
     } catch (error) {
       console.error('Failed to delete course:', error);
@@ -414,1001 +610,1216 @@ export default function AdminPage() {
     }
   };
 
-  // コースカードコンポーネント（モバイル用）- カスタムフォーム対応
-  const CourseCard = ({ course, index }: { course: Course; index: number }) => {
-    const formUrl = `${window.location.origin}/attendance/${course.id}`;
-    
-    const copyFormUrl = async (url: string, courseName: string) => {
-      try {
-        await navigator.clipboard.writeText(url);
-        showToast("URL コピー完了", `${courseName}のフォームURLをコピーしました。`);
-      } catch (error) {
-        showToast("コピー失敗", "URLのコピーに失敗しました。", "destructive");
+  // ルーム作成
+  const handleCreateRoom = async () => {
+    if (!newRoomTitle.trim()) return;
+    setCreatingRoom(true);
+    try {
+      const response = await fetch('/api/rooms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: newRoomTitle.trim() }),
+      });
+      if (response.ok) {
+        showToast("作成完了", "ルームを作成しました。");
+        setNewRoomTitle('');
+        setIsCreateRoomDialogOpen(false);
+        await fetchRooms(); fetchPlanInfo();
+      } else {
+        const err = await response.json();
+        if (err.code === 'PLAN_LIMIT_EXCEEDED') {
+          showToast("上限に達しています", err.error, "destructive");
+        } else {
+          showToast("作成失敗", err.error || "ルームの作成に失敗しました。", "destructive");
+        }
       }
-    };
-    
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: index * 0.1 }}
-        className={`
-          border rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-300
-          ${course.isCustomForm 
-            ? 'bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200 shadow-purple-100' 
-            : 'bg-white border-slate-200'
-          }
-        `}
-      >
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              {course.isCustomForm ? (
-                <div className="flex items-center space-x-2">
-                  <div className="relative">
-                    <BookOpen className="h-4 w-4 text-purple-600" />
-                    <Crown className="h-3 w-3 text-yellow-500 absolute -top-1 -right-1" />
-                  </div>
-                  <h3 className="font-semibold text-slate-900 text-sm">{course.courseName}</h3>
-                  <div className="flex items-center space-x-1">
-                    <Sparkles className="h-3 w-3 text-purple-500" />
-                    <span className="text-xs font-medium text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full">
-                      カスタム
-                    </span>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <BookOpen className="h-4 w-4 text-slate-400" />
-                  <h3 className="font-medium text-slate-900 text-sm">{course.courseName}</h3>
-                </>
-              )}
-            </div>
-            <span className="text-xs text-slate-500">
-              {new Date(course.lastUpdated).toLocaleDateString('ja-JP')}
-            </span>
-          </div>
-          
-          <div className="flex items-center space-x-2">
-            <User className="h-4 w-4 text-slate-400" />
-            <span className="text-sm text-slate-700">{course.teacherName}</span>
-          </div>
-          
-          <div className="space-y-1">
-            <p className="text-xs text-slate-500">スプレッドシートID</p>
-            <code className="text-xs bg-slate-100 px-2 py-1 rounded text-slate-700 break-all block">
-              {maskSpreadsheetId(course.spreadsheetId)}
-            </code>
-          </div>
-          
-          {/* フォームURL表示 */}
-          <div className="space-y-2 pt-2 border-t border-slate-100">
-            <p className="text-xs text-slate-500 font-medium">専用フォームURL</p>
-            <div className={`
-              flex items-center space-x-2 p-2 rounded border
-              ${course.isCustomForm 
-                ? 'bg-purple-50 border-purple-200' 
-                : 'bg-blue-50 border-blue-200'
-              }
-            `}>
-              <code className={`
-                flex-1 text-xs break-all
-                ${course.isCustomForm ? 'text-purple-800' : 'text-blue-800'}
-              `}>
-                {formUrl}
-              </code>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => copyFormUrl(formUrl, course.courseName)}
-                className={`
-                  flex-shrink-0 h-6 px-2
-                  ${course.isCustomForm 
-                    ? 'border-purple-300 text-purple-700 hover:bg-purple-100' 
-                    : 'border-blue-300 text-blue-700 hover:bg-blue-100'
-                  }
-                `}
-              >
-                <Copy className="h-3 w-3" />
-              </Button>
-            </div>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => window.open(formUrl, '_blank')}
-              className={`
-                w-full
-                ${course.isCustomForm 
-                  ? 'text-purple-600 border-purple-300 hover:bg-purple-50' 
-                  : 'text-blue-600 border-blue-300 hover:bg-blue-50'
-                }
-              `}
-            >
-              <ExternalLink className="h-3 w-3 mr-2" />
-              フォームを開く
-            </Button>
-          </div>
-          
-          <div className="flex space-x-2 pt-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => handleEditCourse(course)}
-              className="flex-1 text-indigo-600 border-indigo-300 hover:bg-indigo-50 modern-button-secondary"
-            >
-              <Edit className="h-3 w-3 mr-1" />
-              編集
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => handleDeleteCourse(course.id, course.courseName)}
-              className="flex-1 text-red-600 border-red-300 hover:bg-red-50 modern-button-secondary"
-            >
-              <Trash2 className="h-3 w-3 mr-1" />
-              削除
-            </Button>
-          </div>
-        </div>
-      </motion.div>
-    );
+    } catch {
+      showToast("通信エラー", "サーバーとの通信中にエラーが発生しました。", "destructive");
+    } finally {
+      setCreatingRoom(false);
+    }
+  };
+
+  // ルームURLをコピー
+  const copyRoomUrl = async (code: string, title: string) => {
+    try {
+      const url = `${window.location.origin}/rooms/${code}`;
+      await navigator.clipboard.writeText(url);
+      showToast("コピー完了", `${title}のルームURLをコピーしました。`);
+    } catch {
+      showToast("コピー失敗", "URLのコピーに失敗しました。", "destructive");
+    }
+  };
+
+  // ルーム編集ダイアログを開く
+  const handleEditRoom = (room: Room) => {
+    setEditingRoom(room);
+    setEditRoomTitle(room.title);
+    setIsEditRoomDialogOpen(true);
+  };
+
+  // ルーム更新
+  const handleUpdateRoom = async () => {
+    if (!editingRoom || !editRoomTitle.trim()) return;
+    setSavingEditRoom(true);
+    try {
+      const response = await fetch(`/api/rooms/${editingRoom.code}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: editRoomTitle.trim() }),
+      });
+      if (response.ok) {
+        showToast("更新完了", "ルーム情報を更新しました。");
+        setIsEditRoomDialogOpen(false);
+        setEditingRoom(null);
+        await fetchRooms();
+      } else {
+        showToast("更新失敗", "ルームの更新に失敗しました。", "destructive");
+      }
+    } catch {
+      showToast("通信エラー", "サーバーとの通信中にエラーが発生しました。", "destructive");
+    } finally {
+      setSavingEditRoom(false);
+    }
+  };
+
+  // ルーム削除
+  const handleDeleteRoom = async (room: Room) => {
+    if (!confirm(`「${room.title}」を削除してもよろしいですか？\n関連するQ&Aデータ・投票データもすべて削除されます。`)) {
+      return;
+    }
+    try {
+      const response = await fetch(`/api/rooms/${room.code}`, {
+        method: 'DELETE',
+      });
+      if (response.ok) {
+        showToast("削除完了", "ルームを削除しました。");
+        await fetchRooms();
+        fetchPlanInfo();
+      } else {
+        showToast("削除失敗", "ルームの削除に失敗しました。", "destructive");
+      }
+    } catch {
+      showToast("通信エラー", "サーバーとの通信中にエラーが発生しました。", "destructive");
+    }
+  };
+
+  // Copy URL helper
+  const copyFormUrl = async (url: string, courseName: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast("コピー完了", `${courseName}のフォームURLをコピーしました。`);
+    } catch (error) {
+      showToast("コピー失敗", "URLのコピーに失敗しました。", "destructive");
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-      {/* ヘッダーセクション */}
-      <div className="bg-white border-b border-slate-200 shadow-sm">
-        <div className="container mx-auto px-3 py-4 sm:px-4 sm:py-5 lg:px-6 lg:py-6">
-          {/* モバイル用ヘッダー */}
-          <div className="block lg:hidden">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-gradient-to-br rounded-xl shadow-lg">
-                  <Image
-                    src="https://res.cloudinary.com/dz9trbwma/image/upload/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png"
-                    alt="ざせきくん"
-                    width={50}
-                    height={50}
-                    className="rounded"
-                  />
-                </div>
-                <div>
-                  <h1 className="text-lg font-bold text-slate-900 tracking-tight">講義管理システム</h1>
-                  <p className="text-xs text-slate-600">講義別スプレッドシート設定</p>
-                </div>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="lg:hidden"
-              >
-                {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-              </Button>
-            </div>
-            
-            {/* モバイルメニュー */}
-            {isMobileMenuOpen && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="space-y-3 pb-4 border-t border-slate-200 pt-4"
-              > 
-                <div className="flex items-center space-x-3 px-3 py-2 bg-slate-50 rounded-lg">
-                  <User className="h-4 w-4 text-slate-600" />
-                  <div className="text-sm flex-1">
-                    <p className="font-medium text-slate-900">{session.user?.name}</p>
-                    <p className="text-slate-600 text-xs">{session.user?.email}</p>
-                  </div>
-                </div>
-                
-                <div className="flex space-x-2">
-                  <Button
-                    onClick={handleSignOut}
-                    variant="outline"
-                    size="sm"
-                    className="flex-1 flex items-center justify-center space-x-2"
-                  >
-                    <LogOut className="h-4 w-4" />
-                    <span>ログアウト</span>
-                  </Button>
-                  
-                  <div className="flex-1 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
-                    <div className="flex items-center justify-center space-x-2">
-                      <CheckCircle className="h-4 w-4 text-green-600" />
-                      <span className="text-xs font-medium text-green-800">稼働中</span>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            )}
+    <div className="min-h-screen bg-slate-50">
+      {/* Minimal top nav */}
+      <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200/60">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+          {/* Left: Logo + title */}
+          <div className="flex items-center gap-3">
+            <Image
+              src="https://res.cloudinary.com/dz9trbwma/image/upload/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png"
+              alt="ざせきくん"
+              width={32}
+              height={32}
+              className="rounded-lg"
+            />
+            <span className="text-base font-semibold text-slate-900 tracking-tight hidden sm:block">
+              ざせきくん
+            </span>
           </div>
 
-          {/* デスクトップ用ヘッダー */}
-          <div className="hidden lg:flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="p-3 bg-gradient-to-br rounded-xl shadow-lg">
-                <Image
-                  src="https://res.cloudinary.com/dz9trbwma/image/upload/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png"
-                  alt="ざせきくん"
-                  width={50}
-                  height={50}
-                  className="rounded"
-                />
+          {/* Right: user + logout */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Desktop user info */}
+            <div className="hidden sm:flex items-center gap-2 text-sm text-slate-600">
+              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white text-xs font-medium">
+                {session.user?.name?.charAt(0) || 'U'}
               </div>
-              <div>
-                <h1 className="text-3xl font-bold text-slate-900 tracking-tight">講義管理システム</h1>
-                <p className="text-slate-600 mt-1">講義別スプレッドシート設定とデータ管理</p>
-              </div>
+              <span className="max-w-[160px] truncate">{session.user?.email}</span>
             </div>
-            
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-3 px-4 py-2 bg-slate-50 rounded-lg">
-                <User className="h-4 w-4 text-slate-600" />
-                <div className="text-sm">
-                  <p className="font-medium text-slate-900">{session.user?.name}</p>
-                  <p className="text-slate-600">{session.user?.email}</p>
-                </div>
-              </div>
-              
-              <Button
-                onClick={handleSignOut}
-                variant="outline"
-                size="sm"
-                className="flex items-center space-x-2"
-              >
-                <LogOut className="h-4 w-4" />
-                <span>ログアウト</span>
-              </Button>
-              
-              <div className="px-4 py-2 bg-green-50 border border-green-200 rounded-lg">
-                <div className="flex items-center space-x-2">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                  <span className="text-sm font-medium text-green-800">システム稼働中</span>
-                </div>
-              </div>
-            </div>
+            {/* Mobile menu toggle */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="sm:hidden h-8 w-8 p-0"
+            >
+              {isMobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+            </Button>
+            <Button
+              onClick={handleSignOut}
+              variant="ghost"
+              size="sm"
+              className="hidden sm:flex text-slate-500 hover:text-slate-900 h-8 gap-1.5"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              <span className="text-sm">ログアウト</span>
+            </Button>
           </div>
         </div>
-      </div>
 
-      <div className="container mx-auto px-3 py-4 sm:px-4 sm:py-6 lg:px-6 lg:py-8">
-        <Tabs defaultValue="courses" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 h-auto mb-6 sm:mb-8 bg-slate-100 p-1 rounded-lg gap-1">
-            <TabsTrigger 
-              value="courses" 
-              className="flex flex-col items-center justify-center p-2 sm:p-3 data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all duration-200 text-xs sm:text-base min-h-[60px] sm:min-h-[48px]"
-            >
-              <BookOpen className="w-4 h-4 mb-1 sm:mb-0 sm:mr-2" />
-              <span className="leading-tight text-center">講義</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="guide" 
-              className="flex flex-col items-center justify-center p-2 sm:p-3 data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all duration-200 text-xs sm:text-base min-h-[60px] sm:min-h-[48px]"
-            >
-              <HelpCircle className="w-4 h-4 mb-1 sm:mb-0 sm:mr-2" />
-              <span className="leading-tight text-center">ガイド</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="location" 
-              className="flex flex-col items-center justify-center p-2 sm:p-3 data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all duration-200 text-xs sm:text-base min-h-[60px] sm:min-h-[48px]"
-            >
-              <MapPin className="w-4 h-4 mb-1 sm:mb-0 sm:mr-2" />
-              <span className="leading-tight text-center">位置情報</span>
-            </TabsTrigger>
-          </TabsList>
-
-          {/* 講義管理タブ */}
-          <TabsContent value="courses" className="mt-6">
-            <div className="space-y-4 sm:space-y-6">
-              {/* 講義管理ヘッダー */}
-              <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
-                <div className="text-center sm:text-left">
-                  <h2 className="text-xl sm:text-2xl font-bold text-slate-900">講義管理</h2>
-                  <p className="text-slate-600 mt-1 text-sm sm:text-base">各講義のスプレッドシート設定を管理します</p>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                  {/* <Button 
-                    onClick={handleCustomFormDialog}
-                    disabled={isProcessingPayment}
-                    variant="outline" 
-                    className="w-full sm:w-auto border-purple-600 text-purple-600 hover:bg-purple-50 modern-button-secondary"
-                  >
-                    {isProcessingPayment ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <div className="flex items-center">
-                        <Sparkles className="h-4 w-4 mr-2" />
-                        <Crown className="h-3 w-3 mr-1 text-yellow-500" />
-                      </div>
-                    )}
-                    <span className="sm:hidden">カスタムフォーム</span>
-                    <span className="hidden sm:inline">
-                      {isProcessingPayment ? '決済処理中...' : 'カスタムフォーム設定（有料）'}
-                    </span>
-                  </Button> */}
-                  
-                  {/* 特定商取引法リンクを追加 */}
-                  <Link href="/legal/tokusho" target="_blank">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full sm:w-auto text-xs border-slate-300 text-slate-600 hover:bg-slate-50 modern-button-secondary"
-                    >
-                      <BookOpen className="h-3 w-3 mr-1" />
-                      <span className="sm:hidden">特定商取引法</span>
-                      <span className="hidden sm:inline">特定商取引法に基づく表記</span>
-                    </Button>
-                  </Link>
-                  
-                  <CustomModal
-                    isOpen={isCustomFormDialogOpen}
-                    onClose={() => setIsCustomFormDialogOpen(false)}
-                    title="カスタムフォーム設定"
-                    description="出席フォームの項目をカスタマイズできます。デフォルト項目の有効/無効化や、独自の項目を追加できます。"
-                    className="sm:max-w-[800px] max-h-[90vh]"
-                  >
-                    <CustomFormManager 
-                      onCourseAdded={fetchCourses} 
-                      onClose={() => setIsCustomFormDialogOpen(false)} 
-                    />
-                  </CustomModal>
-                  
-                  <Button 
-                    className="w-full sm:w-auto modern-button-primary"
-                    onClick={() => setIsAddDialogOpen(true)}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    <span className="sm:hidden">講義追加</span>
-                    <span className="hidden sm:inline">新規講義追加</span>
-                  </Button>
-                  
-                  <CustomModal
-                    isOpen={isAddDialogOpen}
-                    onClose={() => setIsAddDialogOpen(false)}
-                    title="新規講義追加"
-                    description="新しい講義とそのスプレッドシート設定を追加します。講義名がシート名として使用されます。"
-                    className="sm:max-w-[500px]"
-                  >
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="course-name" className="text-sm font-medium">講義名 *</Label>
-                        <Input
-                          id="course-name"
-                          placeholder="例: 経済学1"
-                          value={newCourse.courseName}
-                          onChange={(e) => setNewCourse({...newCourse, courseName: e.target.value})}
-                          className="modern-input"
-                        />
-                        <p className="text-xs text-slate-500">この名前がスプレッドシートのシート名としても使用されます</p>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="teacher-name" className="text-sm font-medium">担当教員名 *</Label>
-                        <Input
-                          id="teacher-name"
-                          placeholder="例: 田中太郎"
-                          value={newCourse.teacherName}
-                          onChange={(e) => setNewCourse({...newCourse, teacherName: e.target.value})}
-                          className="modern-input"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="new-spreadsheet-id" className="text-sm font-medium">スプレッドシートID *</Label>
-                        <Input
-                          id="new-spreadsheet-id"
-                          placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
-                          value={newCourse.spreadsheetId}
-                          onChange={(e) => setNewCourse({...newCourse, spreadsheetId: e.target.value})}
-                          className="modern-input"
-                        />
-                      </div>
-                      <div className="flex flex-col-reverse space-y-2 space-y-reverse sm:flex-row sm:justify-end sm:space-y-0 sm:space-x-2 pt-4">
-                        <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} className="modern-button-secondary w-full sm:w-auto">
-                          キャンセル
-                        </Button>
-                        <Button onClick={handleAddCourse} disabled={savingNewCourse} className="modern-button-primary w-full sm:w-auto">
-                          {savingNewCourse ? (
-                            <>
-                              <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-                              追加中...
-                            </>
-                          ) : (
-                            <>
-                              <Save className="h-4 w-4 mr-2" />
-                              追加
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  </CustomModal>
-                </div>
+        {/* Mobile dropdown menu */}
+        {isMobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.15 }}
+            className="sm:hidden border-t border-slate-100 bg-white px-4 py-3 space-y-3"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white text-xs font-medium">
+                {session.user?.name?.charAt(0) || 'U'}
               </div>
-
-              {/* 編集ダイアログ */}
-              <CustomModal
-                isOpen={isEditDialogOpen}
-                onClose={() => setIsEditDialogOpen(false)}
-                title="講義編集"
-                description="講義情報を編集します。講義名がシート名として使用されます。"
-                className="sm:max-w-[500px]"
-              >
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-course-name" className="text-sm font-medium">講義名 *</Label>
-                    <Input
-                      id="edit-course-name"
-                      placeholder="例: 経済学1"
-                      value={editCourse.courseName}
-                      onChange={(e) => setEditCourse({...editCourse, courseName: e.target.value})}
-                      className="modern-input"
-                    />
-                    <p className="text-xs text-slate-500">この名前がスプレッドシートのシート名としても使用されます</p>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-teacher-name" className="text-sm font-medium">担当教員名 *</Label>
-                    <Input
-                      id="edit-teacher-name"
-                      placeholder="例: 田中太郎"
-                      value={editCourse.teacherName}
-                      onChange={(e) => setEditCourse({...editCourse, teacherName: e.target.value})}
-                      className="modern-input"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-spreadsheet-id" className="text-sm font-medium">スプレッドシートID *</Label>
-                    <Input
-                      id="edit-spreadsheet-id"
-                      placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
-                      value={editCourse.spreadsheetId}
-                      onChange={(e) => setEditCourse({...editCourse, spreadsheetId: e.target.value})}
-                      className="modern-input"
-                    />
-                  </div>
-                  <div className="flex flex-col-reverse space-y-2 space-y-reverse sm:flex-row sm:justify-end sm:space-y-0 sm:space-x-2 pt-4">
-                    <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} className="modern-button-secondary w-full sm:w-auto">
-                      キャンセル
-                    </Button>
-                    <Button onClick={handleUpdateCourse} disabled={savingEditCourse} className="modern-button-primary w-full sm:w-auto">
-                      {savingEditCourse ? (
-                        <>
-                          <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-                          更新中...
-                        </>
-                      ) : (
-                        <>
-                          <Save className="h-4 w-4 mr-2" />
-                          更新
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              </CustomModal>
-
-              {/* 統計カード */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 card-hover">
-                  <CardContent className="p-4 sm:p-6">
-                    <div className="flex items-center space-x-3">
-                      <div className="p-2 bg-blue-100 rounded-lg">
-                        <BookOpen className="h-5 w-5 sm:h-6 sm:w-6" />
-                      </div>
-                      <div>
-                        <p className="text-2xl sm:text-3xl font-bold text-blue-900">{courses.length}</p>
-                        <p className="text-sm text-blue-700">登録講義数</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 card-hover">
-                  <CardContent className="p-4 sm:p-6">
-                    <div className="flex items-center space-x-3">
-                      <div className="p-2 bg-green-100 rounded-lg">
-                        <User className="h-5 w-5 sm:h-6 sm:w-6" />
-                      </div>
-                      <div>
-                        <p className="text-2xl sm:text-3xl font-bold text-green-900">
-                          {new Set(courses.map(c => c.teacherName)).size}
-                        </p>
-                        <p className="text-sm text-green-700">担当教員数</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="bg-gradient-to-r from-purple-50 to-violet-50 border-purple-200 card-hover">
-                  <CardContent className="p-4 sm:p-6">
-                    <div className="flex items-center space-x-3">
-                      <div className="p-2 bg-purple-100 rounded-lg">
-                        <Sparkles className="h-5 w-5 sm:h-6 sm:w-6" />
-                      </div>
-                      <div>
-                        <p className="text-2xl sm:text-3xl font-bold text-purple-900">
-                          {courses.filter(c => c.isCustomForm).length}
-                        </p>
-                        <p className="text-sm text-purple-700">カスタムフォーム</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="bg-gradient-to-r from-orange-50 to-amber-50 border-orange-200 card-hover">
-                  <CardContent className="p-4 sm:p-6">
-                    <div className="flex items-center space-x-3">
-                      <div className="p-2 bg-orange-100 rounded-lg">
-                        <BookOpen className="h-5 w-5 sm:h-6 sm:w-6" />
-                      </div>
-                      <div>
-                        <p className="text-2xl sm:text-3xl font-bold text-orange-900">
-                          {new Set(courses.map(c => c.spreadsheetId)).size}
-                        </p>
-                        <p className="text-sm text-orange-700">連携スプレッドシート数</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-slate-900 truncate">{session.user?.name}</p>
+                <p className="text-xs text-slate-500 truncate">{session.user?.email}</p>
               </div>
-
-              {/* 講義一覧 */}
-              <Card className="bg-white shadow-lg border-0 card-hover">
-                <CardHeader className="bg-gradient-to-r from-indigo-600 to-blue-700 text-white p-4 sm:p-6">
-                  <div className="flex flex-col space-y-3 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
-                    <div className="flex items-center space-x-3">
-                      <GraduationCap className="h-5 w-5 sm:h-6 sm:w-6" />
-                      <div>
-                        <CardTitle className="text-lg sm:text-xl font-semibold">講義一覧</CardTitle>
-                        <CardDescription className="text-indigo-100 mt-1 text-sm sm:text-base">
-                          登録されている講義とその設定 - 各講義専用のフォームURL付き
-                        </CardDescription>
-                      </div>
-                    </div>
-                    <Button
-                      onClick={fetchCourses}
-                      disabled={loadingCourses}
-                      variant="secondary"
-                      className="w-full sm:w-auto bg-white/10 hover:bg-white/20 text-white border-white/20 modern-button-secondary"
-                    >
-                      {loadingCourses ? (
-                        <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-                      ) : (
-                        <RefreshCw className="h-4 w-4 mr-2" />
-                      )}
-                      更新
-                    </Button>
-                  </div>
-                </CardHeader>
-                
-                <CardContent className="p-4 sm:p-6">
-                  {loadingCourses ? (
-                    <div className="flex items-center justify-center py-12">
-                      <div className="text-center space-y-3">
-                        <RefreshCw className="h-8 w-8 animate-spin text-indigo-500 mx-auto" />
-                        <p className="text-slate-600 font-medium">講義情報を読み込み中</p>
-                      </div>
-                    </div>
-                  ) : courses.length === 0 ? (
-                    <div className="text-center py-12">
-                      <BookOpen className="h-12 w-12 text-slate-400 mx-auto mb-4" />
-                      <p className="text-slate-600 font-medium">登録されている講義がありません</p>
-                      <p className="text-sm text-slate-500 mt-1">「新規講義追加」ボタンから講義を追加してください</p>
-                    </div>
-                  ) : (
-                    <>
-                      {/* モバイル用カード表示 */}
-                      <div className="block lg:hidden space-y-4">
-                        {courses.map((course, index) => (
-                          <CourseCard key={course.id} course={course} index={index} />
-                        ))}
-                      </div>
-
-                      {/* デスクトップ用テーブル表示 */}
-                      <div className="hidden lg:block overflow-x-auto">
-                        <table className="min-w-full border-collapse">
-                          <thead>
-                            <tr className="bg-slate-50 border-b border-slate-200">
-                              <th className="text-left p-4 font-semibold text-slate-700">講義名</th>
-                              <th className="text-left p-4 font-semibold text-slate-700">担当教員</th>
-                              <th className="text-left p-4 font-semibold text-slate-700">専用フォームURL</th>
-                              <th className="text-left p-4 font-semibold text-slate-700">最終更新</th>
-                              <th className="text-left p-4 font-semibold text-slate-700">操作</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {courses.map((course, index) => {
-                              const formUrl = `${window.location.origin}/attendance/${course.id}`;
-                              
-                              const copyFormUrl = async () => {
-                                try {
-                                  await navigator.clipboard.writeText(formUrl);
-                                  showToast("URL コピー完了", `${course.courseName}のフォームURLをコピーしました。`);
-                                } catch (error) {
-                                  showToast("コピー失敗", "URLのコピーに失敗しました。", "destructive");
-                                }
-                              };
-                              
-                              return (
-                                <motion.tr
-                                  key={course.id}
-                                  initial={{ opacity: 0, y: 20 }}
-                                  animate={{ opacity: 1, y: 0 }}
-                                  transition={{ delay: index * 0.1 }}
-                                  className={`
-                                    border-b border-slate-100 transition-colors
-                                    ${course.isCustomForm 
-                                      ? 'bg-gradient-to-r from-purple-50 to-pink-50 hover:from-purple-100 hover:to-pink-100' 
-                                      : index % 2 === 0 ? 'bg-white hover:bg-slate-50' : 'bg-slate-50/50 hover:bg-slate-100'
-                                    }
-                                  `}
-                                >
-                                  <td className="p-4">
-                                    <div className="flex items-center space-x-2">
-                                      {course.isCustomForm ? (
-                                        <div className="flex items-center space-x-2">
-                                          <div className="relative">
-                                            <BookOpen className="h-4 w-4 text-purple-600" />
-                                            <Crown className="h-3 w-3 text-yellow-500 absolute -top-1 -right-1" />
-                                          </div>
-                                          <span className="font-semibold text-slate-900">{course.courseName}</span>
-                                          <div className="flex items-center space-x-1">
-                                            <Sparkles className="h-3 w-3 text-purple-500" />
-                                            <span className="text-xs font-medium text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full">
-                                              カスタム
-                                            </span>
-                                          </div>
-                                        </div>
-                                      ) : (
-                                        <>
-                                          <BookOpen className="h-4 w-4 text-slate-400" />
-                                          <span className="font-medium text-slate-900">{course.courseName}</span>
-                                        </>
-                                      )}
-                                    </div>
-                                  </td>
-                                  <td className="p-4">
-                                    <div className="flex items-center space-x-2">
-                                      <User className="h-4 w-4 text-slate-400" />
-                                      <span className="text-slate-700">{course.teacherName}</span>
-                                    </div>
-                                  </td>
-                                  <td className="p-4">
-                                    <div className="space-y-2 max-w-xs">
-                                      <div className={`
-                                        flex items-center space-x-2 p-2 rounded border
-                                        ${course.isCustomForm 
-                                          ? 'bg-purple-50 border-purple-200' 
-                                          : 'bg-blue-50 border-blue-200'
-                                        }
-                                      `}>
-                                        <code className={`
-                                          flex-1 text-xs break-all
-                                          ${course.isCustomForm ? 'text-purple-800' : 'text-blue-800'}
-                                        `}>
-                                          {formUrl.length > 40 ? `${formUrl.substring(0, 40)}...` : formUrl}
-                                        </code>
-                                        <Button
-                                          size="sm"
-                                          variant="outline"
-                                          onClick={copyFormUrl}
-                                          className={`
-                                            flex-shrink-0 h-6 px-2
-                                            ${course.isCustomForm 
-                                              ? 'border-purple-300 text-purple-700 hover:bg-purple-100' 
-                                              : 'border-blue-300 text-blue-700 hover:bg-blue-100'
-                                            }
-                                          `}
-                                        >
-                                          <Copy className="h-3 w-3" />
-                                        </Button>
-                                      </div>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => window.open(formUrl, '_blank')}
-                                        className={`
-                                          w-full text-xs h-7
-                                          ${course.isCustomForm 
-                                            ? 'text-purple-600 border-purple-300 hover:bg-purple-50' 
-                                            : 'text-blue-600 border-blue-300 hover:bg-blue-50'
-                                          }
-                                        `}
-                                      >
-                                        <ExternalLink className="h-3 w-3 mr-1" />
-                                        フォームを開く
-                                      </Button>
-                                    </div>
-                                  </td>
-                                  <td className="p-4">
-                                    <span className="text-sm text-slate-600">
-                                      {new Date(course.lastUpdated).toLocaleDateString('ja-JP')}
-                                    </span>
-                                  </td>
-                                  <td className="p-4">
-                                    <div className="flex items-center space-x-2">
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => handleEditCourse(course)}
-                                        className="text-indigo-600 border-indigo-300 hover:bg-indigo-50 modern-button-secondary"
-                                      >
-                                        <Edit className="h-3 w-3 mr-1" />
-                                        編集
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => handleDeleteCourse(course.id, course.courseName)}
-                                        className="text-red-600 border-red-300 hover:bg-red-50 modern-button-secondary"
-                                      >
-                                        <Trash2 className="h-3 w-3 mr-1" />
-                                        削除
-                                      </Button>
-                                    </div>
-                                  </td>
-                                </motion.tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </>
-                  )}
-                </CardContent>
-              </Card>
             </div>
-          </TabsContent>
+            <Button
+              onClick={handleSignOut}
+              variant="outline"
+              size="sm"
+              className="w-full h-8 text-sm"
+            >
+              <LogOut className="h-3.5 w-3.5 mr-1.5" />
+              ログアウト
+            </Button>
+          </motion.div>
+        )}
+      </header>
 
-          {/* セットアップガイドタブ */}
-          <TabsContent value="guide">
-            <Card className="bg-white shadow-lg border-0 card-hover">
-              <CardHeader className="bg-gradient-to-r from-emerald-600 to-green-700 text-white p-4 sm:p-6">
-                <div className="flex items-center space-x-3">
-                  <HelpCircle className="h-5 w-5 sm:h-6 sm:w-6" />
-                  <div>
-                    <CardTitle className="text-lg sm:text-xl font-semibold">実装ガイド</CardTitle>
-                    <CardDescription className="text-emerald-100 mt-1 text-sm sm:text-base">
-                      段階的なセットアップ手順
-                    </CardDescription>
+      {/* Main content */}
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        <Tabs defaultValue="courses" className="w-full">
+          {/* Clean pill tabs -- 2 tabs only */}
+          <div className="flex items-center justify-between mb-6">
+            <TabsList className="bg-slate-100/80 p-0.5 rounded-lg h-9">
+              <TabsTrigger
+                value="courses"
+                className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 h-8 text-sm font-medium transition-all gap-1.5"
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                出席管理
+              </TabsTrigger>
+              <TabsTrigger
+                value="rooms"
+                className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 h-8 text-sm font-medium transition-all gap-1.5"
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                ルーム
+              </TabsTrigger>
+              <TabsTrigger
+                value="export"
+                className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 h-8 text-sm font-medium transition-all gap-1.5"
+              >
+                <BarChart3 className="w-3.5 h-3.5" />
+                出席データ
+              </TabsTrigger>
+            </TabsList>
+          </div>
+
+          {/* ===== COURSES TAB ===== */}
+          <TabsContent value="courses" className="mt-0">
+            {/* Section header */}
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">出席管理</h1>
+                <p className="text-sm text-slate-500 mt-0.5">
+                  {courses.length > 0
+                    ? `${courses.length} 件の出席フォームを管理中`
+                    : '出席フォームを作成して始めましょう'}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* プランバッジ */}
+                {planInfo && (
+                  <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
+                    planInfo.subscription.plan === 'paid'
+                      ? 'bg-indigo-100 text-indigo-700'
+                      : 'bg-slate-100 text-slate-600'
+                  }`}>
+                    {planInfo.subscription.plan === 'paid' ? '✦ Pro' : 'Free'}
+                    <span className="text-[10px] opacity-70">
+                      {planInfo.usage.formCount}/{planInfo.limits.maxForms === Infinity ? '∞' : planInfo.limits.maxForms}
+                    </span>
                   </div>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={fetchCourses}
+                  disabled={loadingCourses}
+                  className="h-9 px-3 text-slate-600 border-slate-200"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loadingCourses ? 'animate-spin' : ''}`} />
+                  更新
+                </Button>
+                <Button
+                  onClick={() => setIsCreateTypeDialogOpen(true)}
+                  className="h-9 px-4 bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1.5" />
+                  新規作成
+                </Button>
+                {/* 無料プランの場合のアップグレードボタン */}
+                {planInfo && planInfo.subscription.plan === 'free' && !planInfo.canCreateForm && (
+                  <Button
+                    onClick={handleUpgrade}
+                    disabled={isProcessingPayment}
+                    className="h-9 px-4 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white shadow-sm"
+                  >
+                    Proにアップグレード
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Add Course Modal */}
+            <CustomModal
+              isOpen={isAddDialogOpen}
+              onClose={() => setIsAddDialogOpen(false)}
+              title="デフォルトフォーム作成"
+              description="標準の項目が含まれたフォームを作成します。位置情報制限も設定できます。"
+              className="sm:max-w-[520px]"
+            >
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="course-name" className="text-sm font-medium text-slate-700">フォーム名 <span className="text-red-500">*</span></Label>
+                  <Input
+                    id="course-name"
+                    placeholder="例: 経済学1"
+                    value={newCourse.courseName}
+                    onChange={(e) => setNewCourse({...newCourse, courseName: e.target.value})}
+                    className="h-10"
+                  />
                 </div>
-              </CardHeader>
-              
-              <CardContent className="p-4 sm:p-6">
-                <div className="space-y-6 sm:space-y-8">
-                  {/* ステップ1 */}
-                  <div className="relative">
-                    <div className="flex flex-col space-y-4 sm:flex-row sm:items-start sm:space-y-0 sm:space-x-4">
-                      <div className="flex-shrink-0 self-center sm:self-start">
-                        <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-bold shadow-lg">
-                          1
-                        </div>
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-slate-900 mb-3">スプレッドシート作成</h3>
-                        <div className="space-y-3">
-                          <div className="flex items-start space-x-3">
-                            <ArrowRight className="h-4 w-4 text-slate-400 flex-shrink-0 mt-1" />
-                            <span className="text-sm sm:text-base text-slate-700">
-                              <a 
-                                href="https://sheets.google.com" 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="text-emerald-600 hover:text-emerald-700 font-medium underline"
-                              >
-                                Google Sheets
-                              </a>
-                              で新しいスプレッドシートを作成
-                            </span>
-                          </div>
-                          <div className="flex items-start space-x-3">
-                            <ArrowRight className="h-4 w-4 text-slate-400 flex-shrink-0 mt-1" />
-                            <span className="text-sm sm:text-base text-slate-700">わかりやすい名前を設定（例：「出席管理データ」）</span>
-                          </div>
-                        </div>
-                      </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="teacher-name" className="text-sm font-medium text-slate-700">担当教員名 <span className="text-red-500">*</span></Label>
+                  <Input
+                    id="teacher-name"
+                    placeholder="例: 田中太郎"
+                    value={newCourse.teacherName}
+                    onChange={(e) => setNewCourse({...newCourse, teacherName: e.target.value})}
+                    className="h-10"
+                  />
+                </div>
+
+                {/* 位置情報設定トグル */}
+                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = !newCourse.enableLocation;
+                      setNewCourse({...newCourse, enableLocation: next});
+                      if (!next) {
+                        setLocationResolved(false);
+                        setLocationError(null);
+                      }
+                    }}
+                    className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-indigo-500" />
+                      <span className="text-sm font-medium text-slate-700">位置情報制限を設定</span>
+                      <span className="text-xs text-slate-400">（任意）</span>
                     </div>
-                  </div>
+                    {newCourse.enableLocation ? (
+                      <ChevronUp className="h-4 w-4 text-slate-400" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 text-slate-400" />
+                    )}
+                  </button>
 
-                  <Separator className="bg-slate-200" />
-
-                  {/* ステップ2 */}
-                  <div className="relative">
-                    <div className="flex flex-col space-y-4 sm:flex-row sm:items-start sm:space-y-0 sm:space-x-4">
-                      <div className="flex-shrink-0 self-center sm:self-start">
-                        <div className="w-10 h-10 bg-emerald-600 rounded-full flex items-center justify-center text-white font-bold shadow-lg">
-                          2
-                        </div>
+                  {newCourse.enableLocation && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="px-4 py-3 space-y-3 border-t border-slate-200"
+                    >
+                      {/* モード切替タブ */}
+                      <div className="flex rounded-lg bg-slate-100 p-0.5">
+                        <button
+                          type="button"
+                          onClick={() => { setLocationMode('search'); setLocationResolved(false); setLocationError(null); setNewCourse(prev => ({...prev, locationName: '', latitude: 0, longitude: 0})); }}
+                          className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium transition-all ${locationMode === 'search' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                        >
+                          <Search className="h-3.5 w-3.5" />
+                          場所を検索
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setLocationMode('gps'); setLocationResolved(false); setLocationError(null); setPlaceSuggestions([]); setShowSuggestions(false); setNewCourse(prev => ({...prev, locationName: '', latitude: 0, longitude: 0})); }}
+                          className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium transition-all ${locationMode === 'gps' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                        >
+                          <Navigation className="h-3.5 w-3.5" />
+                          端末の現在地
+                        </button>
                       </div>
-                      <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-slate-900 mb-3">アクセス権限設定</h3>
-                        
-                        {/* サービスアカウント表示 */}
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4 mb-4">
-                          <div className="flex items-center space-x-2 mb-3">
-                            <Shield className="h-5 w-5 text-blue-600" />
-                            <p className="font-medium text-blue-900">サービスアカウント</p>
+
+                      {/* 場所検索モード */}
+                      {locationMode === 'search' && (
+                        <div className="space-y-1.5 relative">
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                            <Input
+                              placeholder="場所を検索（例: 大分大学）"
+                              value={newCourse.locationName}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setNewCourse({...newCourse, locationName: val});
+                                setLocationResolved(false);
+                                if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+                                searchDebounceRef.current = setTimeout(() => fetchPlaceSuggestions(val), 300);
+                              }}
+                              onFocus={() => { if (placeSuggestions.length > 0) setShowSuggestions(true); }}
+                              onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                              className="h-9 text-sm pl-9"
+                            />
                           </div>
-                          <div className="flex flex-col space-y-2 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-3 p-3 bg-white border border-blue-200 rounded-lg">
-                            <code className="flex-1 text-xs sm:text-sm font-mono text-slate-800 break-all select-all">
-                              {SERVICE_ACCOUNT_EMAIL}
-                            </code>
+                          {showSuggestions && placeSuggestions.length > 0 && (
+                            <div className="absolute z-50 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
+                              {placeSuggestions.map((s) => (
+                                <button
+                                  key={s.place_id}
+                                  type="button"
+                                  className="w-full text-left px-3 py-2.5 text-sm hover:bg-indigo-50 flex items-start gap-2 border-b border-slate-100 last:border-0 transition-colors"
+                                  onMouseDown={(e) => e.preventDefault()}
+                                  onClick={() => selectPlace(s.place_id, s.description, 'new')}
+                                >
+                                  <MapPin className="h-4 w-4 text-indigo-400 mt-0.5 shrink-0" />
+                                  <span className="text-slate-700">{s.description}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* 現在地モード */}
+                      {locationMode === 'gps' && (
+                        <div className="space-y-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => getCurrentLocationForCourse('new')}
+                            disabled={isGettingCurrentLocation || locationResolved}
+                            className="w-full h-10 text-sm border-dashed"
+                          >
+                            {isGettingCurrentLocation ? (
+                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            ) : locationResolved ? (
+                              <CheckCircle className="h-4 w-4 text-emerald-500 mr-2" />
+                            ) : (
+                              <Navigation className="h-4 w-4 mr-2" />
+                            )}
+                            {isGettingCurrentLocation ? '位置情報を取得中...' : locationResolved ? '現在地を取得しました' : '現在地を取得する'}
+                          </Button>
+                          {!locationResolved && !isGettingCurrentLocation && (
+                            <p className="text-xs text-slate-400 text-center">ブラウザの位置情報許可が必要です</p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* ステータス表示 */}
+                      {locationResolved && (
+                        <div className="flex items-center gap-1.5 text-xs text-emerald-600 bg-emerald-50 rounded-lg px-3 py-2">
+                          <CheckCircle className="h-3.5 w-3.5" />
+                          <span>位置情報を設定しました{locationMode === 'search' && newCourse.locationName ? `（${newCourse.locationName}）` : ''}</span>
+                        </div>
+                      )}
+                      {locationError && (
+                        <p className="text-xs text-red-500 bg-red-50 rounded-lg px-3 py-2">{locationError}</p>
+                      )}
+
+                      {/* 許可範囲 */}
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-medium text-slate-600">許可範囲（km）</Label>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          min="0.1"
+                          max="10"
+                          value={newCourse.radius}
+                          onChange={(e) => setNewCourse({...newCourse, radius: parseFloat(e.target.value) || 0.5})}
+                          className="h-9 text-sm"
+                        />
+                        <p className="text-xs text-slate-400">指定場所から半径{newCourse.radius}km以内で出席可能</p>
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
+
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end pt-2">
+                  <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} className="h-9 w-full sm:w-auto">
+                    キャンセル
+                  </Button>
+                  <Button onClick={handleAddCourse} disabled={savingNewCourse} className="h-9 w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white">
+                    {savingNewCourse ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                        追加中...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="h-3.5 w-3.5 mr-1.5" />
+                        追加する
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </CustomModal>
+
+            {/* Edit Course Modal */}
+            <CustomModal
+              isOpen={isEditDialogOpen}
+              onClose={() => setIsEditDialogOpen(false)}
+              title="フォームを編集"
+              description="フォーム情報と位置情報制限を更新します。"
+              className="sm:max-w-[520px]"
+            >
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-course-name" className="text-sm font-medium text-slate-700">フォーム名 <span className="text-red-500">*</span></Label>
+                  <Input
+                    id="edit-course-name"
+                    placeholder="例: 経済学1"
+                    value={editCourse.courseName}
+                    onChange={(e) => setEditCourse({...editCourse, courseName: e.target.value})}
+                    className="h-10"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-teacher-name" className="text-sm font-medium text-slate-700">担当教員名 <span className="text-red-500">*</span></Label>
+                  <Input
+                    id="edit-teacher-name"
+                    placeholder="例: 田中太郎"
+                    value={editCourse.teacherName}
+                    onChange={(e) => setEditCourse({...editCourse, teacherName: e.target.value})}
+                    className="h-10"
+                  />
+                </div>
+
+                {/* 位置情報設定トグル（編集用） */}
+                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = !editCourse.enableLocation;
+                      setEditCourse({...editCourse, enableLocation: next});
+                      if (!next) {
+                        setEditLocationResolved(false);
+                        setEditLocationError(null);
+                      }
+                    }}
+                    className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-indigo-500" />
+                      <span className="text-sm font-medium text-slate-700">位置情報制限を設定</span>
+                      {editCourse.enableLocation && editLocationResolved && (
+                        <span className="text-xs text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">設定済み</span>
+                      )}
+                    </div>
+                    {editCourse.enableLocation ? (
+                      <ChevronUp className="h-4 w-4 text-slate-400" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 text-slate-400" />
+                    )}
+                  </button>
+
+                  {editCourse.enableLocation && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="px-4 py-3 space-y-3 border-t border-slate-200"
+                    >
+                      {/* モード切替タブ */}
+                      <div className="flex rounded-lg bg-slate-100 p-0.5">
+                        <button
+                          type="button"
+                          onClick={() => { setEditLocationMode('search'); setEditLocationResolved(false); setEditLocationError(null); setEditCourse(prev => ({...prev, locationName: '', latitude: 0, longitude: 0})); }}
+                          className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium transition-all ${editLocationMode === 'search' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                        >
+                          <Search className="h-3.5 w-3.5" />
+                          場所を検索
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setEditLocationMode('gps'); setEditLocationResolved(false); setEditLocationError(null); setEditPlaceSuggestions([]); setEditShowSuggestions(false); setEditCourse(prev => ({...prev, locationName: '', latitude: 0, longitude: 0})); }}
+                          className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium transition-all ${editLocationMode === 'gps' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                        >
+                          <Navigation className="h-3.5 w-3.5" />
+                          端末の現在地
+                        </button>
+                      </div>
+
+                      {/* 場所検索モード */}
+                      {editLocationMode === 'search' && (
+                        <div className="space-y-1.5 relative">
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                            <Input
+                              placeholder="場所を検索（例: 大分大学）"
+                              value={editCourse.locationName}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setEditCourse({...editCourse, locationName: val});
+                                setEditLocationResolved(false);
+                                if (editSearchDebounceRef.current) clearTimeout(editSearchDebounceRef.current);
+                                editSearchDebounceRef.current = setTimeout(() => {
+                                  if (!val.trim() || val.length < 2) { setEditPlaceSuggestions([]); setEditShowSuggestions(false); return; }
+                                  fetch(`/api/places/autocomplete?input=${encodeURIComponent(val)}`)
+                                    .then(r => r.json())
+                                    .then(data => {
+                                      if (data.predictions?.length > 0) {
+                                        setEditPlaceSuggestions(data.predictions.map((p: { description: string; place_id: string }) => ({ description: p.description, place_id: p.place_id })));
+                                        setEditShowSuggestions(true);
+                                      } else { setEditPlaceSuggestions([]); setEditShowSuggestions(false); }
+                                    })
+                                    .catch(() => setEditPlaceSuggestions([]));
+                                }, 300);
+                              }}
+                              onFocus={() => { if (editPlaceSuggestions.length > 0) setEditShowSuggestions(true); }}
+                              onBlur={() => setTimeout(() => setEditShowSuggestions(false), 200)}
+                              className="h-9 text-sm pl-9"
+                            />
+                          </div>
+                          {editShowSuggestions && editPlaceSuggestions.length > 0 && (
+                            <div className="absolute z-50 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
+                              {editPlaceSuggestions.map((s) => (
+                                <button
+                                  key={s.place_id}
+                                  type="button"
+                                  className="w-full text-left px-3 py-2.5 text-sm hover:bg-indigo-50 flex items-start gap-2 border-b border-slate-100 last:border-0 transition-colors"
+                                  onMouseDown={(e) => e.preventDefault()}
+                                  onClick={() => selectPlace(s.place_id, s.description, 'edit')}
+                                >
+                                  <MapPin className="h-4 w-4 text-indigo-400 mt-0.5 shrink-0" />
+                                  <span className="text-slate-700">{s.description}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* 現在地モード */}
+                      {editLocationMode === 'gps' && (
+                        <div className="space-y-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => getCurrentLocationForCourse('edit')}
+                            disabled={isEditGettingLocation || editLocationResolved}
+                            className="w-full h-10 text-sm border-dashed"
+                          >
+                            {isEditGettingLocation ? (
+                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            ) : editLocationResolved ? (
+                              <CheckCircle className="h-4 w-4 text-emerald-500 mr-2" />
+                            ) : (
+                              <Navigation className="h-4 w-4 mr-2" />
+                            )}
+                            {isEditGettingLocation ? '位置情報を取得中...' : editLocationResolved ? '現在地を取得しました' : '現在地を取得する'}
+                          </Button>
+                          {!editLocationResolved && !isEditGettingLocation && (
+                            <p className="text-xs text-slate-400 text-center">ブラウザの位置情報許可が必要です</p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* ステータス表示 */}
+                      {editLocationResolved && (
+                        <div className="flex items-center gap-1.5 text-xs text-emerald-600 bg-emerald-50 rounded-lg px-3 py-2">
+                          <CheckCircle className="h-3.5 w-3.5" />
+                          <span>位置情報を設定しました{editLocationMode === 'search' && editCourse.locationName ? `（${editCourse.locationName}）` : ''}</span>
+                        </div>
+                      )}
+                      {editLocationError && (
+                        <p className="text-xs text-red-500 bg-red-50 rounded-lg px-3 py-2">{editLocationError}</p>
+                      )}
+
+                      {/* 許可範囲 */}
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-medium text-slate-600">許可範囲（km）</Label>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          min="0.1"
+                          max="10"
+                          value={editCourse.radius}
+                          onChange={(e) => setEditCourse({...editCourse, radius: parseFloat(e.target.value) || 0.5})}
+                          className="h-9 text-sm"
+                        />
+                        <p className="text-xs text-slate-400">指定場所から半径{editCourse.radius}km以内で出席可能</p>
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
+
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end pt-2">
+                  <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} className="h-9 w-full sm:w-auto">
+                    キャンセル
+                  </Button>
+                  <Button onClick={handleUpdateCourse} disabled={savingEditCourse} className="h-9 w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white">
+                    {savingEditCourse ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                        更新中...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-3.5 w-3.5 mr-1.5" />
+                        更新する
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </CustomModal>
+
+            {/* Custom Form Modal (kept for future use) */}
+            <CustomModal
+              isOpen={isCustomFormDialogOpen}
+              onClose={() => setIsCustomFormDialogOpen(false)}
+              title="カスタムフォーム設定"
+              description="出席フォームの項目をカスタマイズできます。デフォルト項目の有効/無効化や、独自の項目を追加できます。"
+              className="sm:max-w-[800px] max-h-[90vh]"
+            >
+              <CustomFormManager
+                onCourseAdded={fetchCourses}
+                onClose={() => setIsCustomFormDialogOpen(false)}
+              />
+            </CustomModal>
+
+            {/* Create Type Choice Modal */}
+            <CustomModal
+              isOpen={isCreateTypeDialogOpen}
+              onClose={() => setIsCreateTypeDialogOpen(false)}
+              title="出席フォームのタイプを選択"
+              description="作成するフォームのタイプを選んでください。"
+              className="sm:max-w-[480px]"
+            >
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* デフォルトフォーム */}
+                <button
+                  onClick={() => {
+                    setIsCreateTypeDialogOpen(false);
+                    if (planInfo && !planInfo.canCreateForm) {
+                      showToast('上限に達しています', `無料プランではフォーム${planInfo.limits.maxForms}個まで作成できます。Proプランにアップグレードしてください。`, 'destructive');
+                      return;
+                    }
+                    setIsAddDialogOpen(true);
+                  }}
+                  className="group relative flex flex-col items-start gap-3 p-5 rounded-xl border-2 border-slate-200 bg-white hover:border-indigo-400 hover:shadow-md transition-all duration-200 text-left"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center group-hover:bg-indigo-200 transition-colors">
+                    <FileText className="h-5 w-5 text-indigo-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-900">デフォルトフォーム</h3>
+                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                      標準の出席項目が含まれたフォーム。すぐに使い始められます。
+                    </p>
+                  </div>
+                  <ArrowRight className="absolute top-5 right-4 h-4 w-4 text-slate-300 group-hover:text-indigo-500 transition-colors" />
+                </button>
+
+                {/* カスタムフォーム */}
+                <button
+                  onClick={() => {
+                    setIsCreateTypeDialogOpen(false);
+                    handleCustomFormDialog();
+                  }}
+                  className="group relative flex flex-col items-start gap-3 p-5 rounded-xl border-2 border-slate-200 bg-white hover:border-purple-400 hover:shadow-md transition-all duration-200 text-left"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center group-hover:bg-purple-200 transition-colors">
+                    <Sparkles className="h-5 w-5 text-purple-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-900">カスタムフォーム</h3>
+                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                      項目を自由にカスタマイズ。独自のフォームを作成できます。
+                    </p>
+                  </div>
+                  <ArrowRight className="absolute top-5 right-4 h-4 w-4 text-slate-300 group-hover:text-purple-500 transition-colors" />
+                </button>
+              </div>
+            </CustomModal>
+
+            {/* Course list */}
+            {loadingCourses ? (
+              <div className="flex items-center justify-center py-20">
+                <div className="flex flex-col items-center gap-3">
+                  <Loader2 className="h-6 w-6 animate-spin text-indigo-500" />
+                  <p className="text-sm text-slate-500">出席フォーム情報を読み込み中...</p>
+                </div>
+              </div>
+            ) : courses.length === 0 ? (
+              /* Empty state */
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="flex flex-col items-center justify-center py-20 px-4"
+              >
+                <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
+                  <Inbox className="h-8 w-8 text-slate-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-slate-900 mb-1">出席フォームがまだありません</h3>
+                <p className="text-sm text-slate-500 text-center max-w-sm mb-6">
+                  出席フォームを作成すると、専用のURLが自動生成されます。共有してすぐに出席管理を始められます。
+                </p>
+                <Button
+                  onClick={() => setIsCreateTypeDialogOpen(true)}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm h-10 px-5"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  最初の出席フォームを作成する
+                </Button>
+              </motion.div>
+            ) : (
+              /* Course cards grid */
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {courses.map((course, index) => {
+                  const formUrl = typeof window !== 'undefined'
+                    ? `${window.location.origin}/attendance/${course.code}`
+                    : `/attendance/${course.code}`;
+
+                  return (
+                    <motion.div
+                      key={course.id}
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05, duration: 0.25 }}
+                      className={`
+                        group relative bg-white rounded-xl border transition-all duration-200
+                        hover:shadow-md hover:border-slate-300
+                        ${course.isCustomForm
+                          ? 'border-purple-200/80 shadow-sm shadow-purple-100/50'
+                          : 'border-slate-200 shadow-sm'
+                        }
+                      `}
+                    >
+                      <div className="p-4 sm:p-5">
+                        {/* Top row: name + actions */}
+                        <div className="flex items-start justify-between gap-3 mb-3">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className={`
+                              flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center
+                              ${course.isCustomForm
+                                ? 'bg-purple-100 text-purple-600'
+                                : 'bg-indigo-50 text-indigo-600'
+                              }
+                            `}>
+                              <BookOpen className="h-4 w-4" />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <h3 className="font-semibold text-slate-900 text-sm truncate">
+                                  {course.courseName}
+                                </h3>
+                                {course.isCustomForm && (
+                                  <span className="flex-shrink-0 inline-flex items-center gap-0.5 text-[10px] font-medium text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded-full">
+                                    <Sparkles className="h-2.5 w-2.5" />
+                                    カスタム
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-slate-500 truncate">
+                                {course.teacherName}
+                              </p>
+                            </div>
+                          </div>
+                          {/* Action buttons */}
+                          <div className="flex items-center gap-1 flex-shrink-0 opacity-60 group-hover:opacity-100 transition-opacity">
                             <Button
+                              variant="ghost"
                               size="sm"
-                              variant="outline"
-                              onClick={copyServiceAccountEmail}
-                              className="w-full sm:w-auto flex items-center justify-center space-x-2 border-blue-300 text-blue-700 hover:bg-blue-50 modern-button-secondary"
+                              onClick={() => handleEditCourse(course)}
+                              className="h-7 w-7 p-0 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50"
                             >
-                              <Copy className="h-4 w-4" />
-                              <span>コピー</span>
+                              <Edit className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteCourse(course.code, course.courseName)}
+                              className="h-7 w-7 p-0 text-slate-500 hover:text-red-600 hover:bg-red-50"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                           </div>
                         </div>
 
-                        <div className="space-y-3">
-                          <div className="flex items-start space-x-3">
-                            <ArrowRight className="h-4 w-4 text-slate-400 flex-shrink-0 mt-1" />
-                            <span className="text-sm sm:text-base text-slate-700">スプレッドシートの「共有」ボタンをクリック</span>
-                          </div>
-                          <div className="flex items-start space-x-3">
-                            <ArrowRight className="h-4 w-4 text-slate-400 flex-shrink-0 mt-1" />
-                            <span className="text-sm sm:text-base text-slate-700">上記サービスアカウントを追加</span>
-                          </div>
-                          <div className="flex items-start space-x-3">
-                            <ArrowRight className="h-4 w-4 text-slate-400 flex-shrink-0 mt-1" />
-                            <span className="text-sm sm:text-base text-slate-700">権限を<strong>「編集者」</strong>に設定</span>
+                        {/* Form URL section */}
+                        <div className="mt-3 pt-3 border-t border-slate-100">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 min-w-0 bg-slate-50 rounded-lg px-3 py-2 border border-slate-200/60">
+                              <code className="text-xs text-slate-600 block truncate">
+                                {formUrl}
+                              </code>
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => copyFormUrl(formUrl, course.courseName)}
+                              className="h-8 w-8 p-0 flex-shrink-0 border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-300"
+                            >
+                              <Copy className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => window.open(formUrl, '_blank')}
+                              className="h-8 w-8 p-0 flex-shrink-0 border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-300"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </Button>
                           </div>
                         </div>
 
-                        <div className="mt-4 p-3 sm:p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                          <div className="flex items-start space-x-2">
-                            <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                            <p className="text-sm text-amber-800">
-                              <strong>重要:</strong> 「閲覧者」権限では正常に動作しません。必ず「編集者」権限を設定してください。
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <Separator className="bg-slate-200" />
-
-                  {/* ステップ3 */}
-                  <div className="relative">
-                    <div className="flex flex-col space-y-4 sm:flex-row sm:items-start sm:space-y-0 sm:space-x-4">
-                      <div className="flex-shrink-0 self-center sm:self-start">
-                        <div className="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold shadow-lg">
-                          3
+                        {/* Date */}
+                        <div className="mt-2.5 flex items-center justify-end">
+                          <span className="text-[11px] text-slate-400">
+                            更新: {new Date(course.lastUpdated).toLocaleDateString('ja-JP')}
+                          </span>
                         </div>
                       </div>
-                      <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-slate-900 mb-3">システム設定</h3>
-                        <div className="space-y-3">
-                          <div className="flex items-start space-x-3">
-                            <ArrowRight className="h-4 w-4 text-slate-400 flex-shrink-0 mt-1" />
-                            <span className="text-sm sm:text-base text-slate-700">「新規講義追加」ボタンから講義を登録</span>
-                          </div>
-                          <div className="flex items-start space-x-3">
-                            <ArrowRight className="h-4 w-4 text-slate-400 flex-shrink-0 mt-1" />
-                            <span className="text-sm sm:text-base text-slate-700">講義名がスプレッドシートのシート名として自動設定</span>
-                          </div>
-                          <div className="flex items-start space-x-3">
-                            <ArrowRight className="h-4 w-4 text-slate-400 flex-shrink-0 mt-1" />
-                            <span className="text-sm sm:text-base text-slate-700">URLからスプレッドシートIDを抽出</span>
-                          </div>
-                        </div>
-                        <div className="mt-4 p-3 sm:p-4 bg-slate-50 rounded-lg border border-slate-200">
-                          <p className="text-sm font-medium text-slate-700 mb-2">URL例:</p>
-                          <div className="font-mono text-xs sm:text-sm text-slate-600 bg-white p-2 sm:p-3 rounded border break-all">
-                            https://docs.google.com/spreadsheets/d/<span className="bg-yellow-200 px-1 rounded font-semibold">1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms</span>/edit
-                          </div>
-                          <p className="text-xs text-slate-500 mt-2">ハイライト部分がスプレッドシートIDです</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <Separator className="bg-slate-200" />
-
-                  {/* データ構造 */}
-                  <div className="bg-slate-50 rounded-lg p-4 sm:p-6 border border-slate-200">
-                    <h3 className="text-lg font-semibold text-slate-900 mb-4">データ構造</h3>
-                    <p className="text-sm sm:text-base text-slate-600 mb-4">学生の出席登録時に以下の形式で記録されます:</p>
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full text-sm border-collapse">
-                        <thead>
-                          <tr className="bg-white border border-slate-200">
-                            <th className="border border-slate-200 px-2 py-2 sm:px-3 sm:py-2 text-left font-semibold text-slate-700 whitespace-nowrap">ID</th>
-                            <th className="border border-slate-200 px-2 py-2 sm:px-3 sm:py-2 text-left font-semibold text-slate-700 whitespace-nowrap">Date</th>
-                            <th className="border border-slate-200 px-2 py-2 sm:px-3 sm:py-2 text-left font-semibold text-slate-700 whitespace-nowrap">ClassName</th>
-                            <th className="border border-slate-200 px-2 py-2 sm:px-3 sm:py-2 text-left font-semibold text-slate-700 whitespace-nowrap">StudentID</th>
-                            <th className="border border-slate-200 px-2 py-2 sm:px-3 sm:py-2 text-left font-semibold text-slate-700 whitespace-nowrap">Name</th>
-                            <th className="border border-slate-200 px-2 py-2 sm:px-3 sm:py-2 text-left font-semibold text-slate-700 whitespace-nowrap">Department</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr className="bg-white">
-                            <td className="border border-slate-200 px-2 py-2 sm:px-3 sm:py-2 text-slate-600 whitespace-nowrap">UUID</td>
-                            <td className="border border-slate-200 px-2 py-2 sm:px-3 sm:py-2 text-slate-600 whitespace-nowrap">日付</td>
-                            <td className="border border-slate-200 px-2 py-2 sm:px-3 sm:py-2 text-slate-600 whitespace-nowrap">講義名</td>
-                            <td className="border border-slate-200 px-2 py-2 sm:px-3 sm:py-2 text-slate-600 whitespace-nowrap">学籍番号</td>
-                            <td className="border border-slate-200 px-2 py-2 sm:px-3 sm:py-2 text-slate-600 whitespace-nowrap">氏名</td>
-                            <td className="border border-slate-200 px-2 py-2 sm:px-3 sm:py-2 text-slate-600 whitespace-nowrap">学科</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                    <p className="text-xs sm:text-sm text-slate-500 mt-3">
-                      各講義ごとに講義名の形式でシートが自動作成されます
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
           </TabsContent>
 
-          {/* 位置情報設定タブ */}
-          <TabsContent value="location" className="space-y-4 sm:space-y-6">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
+          {/* ===== ROOMS TAB ===== */}
+          <TabsContent value="rooms" className="mt-0">
+            {/* Section header */}
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">ルーム管理</h1>
+                <p className="text-sm text-slate-500 mt-0.5">
+                  {rooms.length > 0
+                    ? `${rooms.length} 件のルームを管理中`
+                    : 'ルームを作成してインタラクティブなQ&Aや投票を始めましょう'}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* ルーム数バッジ */}
+                {planInfo && (
+                  <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
+                    planInfo.subscription.plan === 'paid'
+                      ? 'bg-indigo-100 text-indigo-700'
+                      : 'bg-slate-100 text-slate-600'
+                  }`}>
+                    {planInfo.subscription.plan === 'paid' ? '✦ Pro' : 'Free'}
+                    <span className="text-[10px] opacity-70">
+                      {planInfo.usage.roomCount}/{planInfo.limits.maxRooms === Infinity ? '∞' : planInfo.limits.maxRooms}
+                    </span>
+                  </div>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={fetchRooms}
+                  disabled={loadingRooms}
+                  className="h-9 px-3 text-slate-600 border-slate-200"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loadingRooms ? 'animate-spin' : ''}`} />
+                  更新
+                </Button>
+                <Button
+                  onClick={() => {
+                    if (planInfo && !planInfo.canCreateRoom) {
+                      showToast('上限に達しています', `無料プランではルーム${planInfo.limits.maxRooms}個まで作成できます。Proプランにアップグレードしてください。`, 'destructive');
+                      return;
+                    }
+                    setIsCreateRoomDialogOpen(true);
+                  }}
+                  className="h-9 px-4 bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1.5" />
+                  ルーム作成
+                </Button>
+                {/* 無料プランの場合のアップグレードボタン */}
+                {planInfo && planInfo.subscription.plan === 'free' && !planInfo.canCreateRoom && (
+                  <Button
+                    onClick={handleUpgrade}
+                    disabled={isProcessingPayment}
+                    className="h-9 px-4 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white shadow-sm"
+                  >
+                    Proにアップグレード
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Room Creation Modal */}
+            <CustomModal
+              isOpen={isCreateRoomDialogOpen}
+              onClose={() => setIsCreateRoomDialogOpen(false)}
+              title="新しいルームを作成"
+              description="参加者がリアルタイムでQ&Aや投票に参加できるルームを作成します。"
+              className="sm:max-w-[440px]"
             >
-              <Card className="card-hover">
-                <CardHeader className="p-4 sm:p-6">
-                  <CardTitle className="text-xl sm:text-2xl font-bold text-gradient flex items-center">
-                    <MapPin className="w-5 h-5 sm:w-6 sm:h-6 mr-2" />
-                    位置情報設定
-                  </CardTitle>
-                  <CardDescription className="text-sm sm:text-base">
-                    出席登録で使用するキャンパスの位置情報を設定します。この設定は全ての講義に適用されます。
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="p-4 sm:p-6">
-                  {loadingLocationSettings ? (
-                    <div className="flex items-center justify-center p-8">
-                      <RefreshCw className="w-6 h-6 animate-spin mr-2" />
-                      <span className="text-sm sm:text-base">設定を読み込み中...</span>
-                    </div>
-                  ) : (
-                    <div className="space-y-4 sm:space-y-6">
-                      {/* 現在の設定表示 */}
-                      <div className="p-3 sm:p-4 bg-blue-50 rounded-lg border border-blue-200">
-                        <h3 className="font-semibold text-blue-900 mb-2 text-sm sm:text-base">現在の設定</h3>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm">
-                          <div className="flex flex-col sm:flex-row sm:items-center">
-                            <span className="text-blue-700 font-medium mb-1 sm:mb-0 sm:mr-2">キャンパス名:</span>
-                            <span className="font-medium break-words">
-                              {locationSettings.locationName || '大分大学旦野原キャンパス'}
-                            </span>
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="room-title" className="text-sm font-medium text-slate-700">
+                    ルーム名 <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="room-title"
+                    placeholder="例: 経済学入門 Q&Aセッション"
+                    value={newRoomTitle}
+                    onChange={(e) => setNewRoomTitle(e.target.value)}
+                    className="h-10"
+                    onKeyDown={(e) => { if (e.key === 'Enter' && newRoomTitle.trim()) handleCreateRoom(); }}
+                  />
+                </div>
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end pt-2">
+                  <Button variant="outline" onClick={() => setIsCreateRoomDialogOpen(false)} className="h-9 w-full sm:w-auto">
+                    キャンセル
+                  </Button>
+                  <Button
+                    onClick={handleCreateRoom}
+                    disabled={creatingRoom || !newRoomTitle.trim()}
+                    className="h-9 w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white"
+                  >
+                    {creatingRoom ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                        作成中...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="h-3.5 w-3.5 mr-1.5" />
+                        作成する
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </CustomModal>
+
+            {/* Room Edit Modal */}
+            <CustomModal
+              isOpen={isEditRoomDialogOpen}
+              onClose={() => setIsEditRoomDialogOpen(false)}
+              title="ルームを編集"
+              description="ルーム名を変更できます。"
+              className="sm:max-w-[440px]"
+            >
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-room-title" className="text-sm font-medium text-slate-700">
+                    ルーム名 <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="edit-room-title"
+                    value={editRoomTitle}
+                    onChange={(e) => setEditRoomTitle(e.target.value)}
+                    className="h-10"
+                    onKeyDown={(e) => { if (e.key === 'Enter' && editRoomTitle.trim()) handleUpdateRoom(); }}
+                  />
+                </div>
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end pt-2">
+                  <Button variant="outline" onClick={() => setIsEditRoomDialogOpen(false)} className="h-9 w-full sm:w-auto">
+                    キャンセル
+                  </Button>
+                  <Button
+                    onClick={handleUpdateRoom}
+                    disabled={savingEditRoom || !editRoomTitle.trim()}
+                    className="h-9 w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white"
+                  >
+                    {savingEditRoom ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                        更新中...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-3.5 w-3.5 mr-1.5" />
+                        更新する
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </CustomModal>
+
+            {/* Room list */}
+            {loadingRooms ? (
+              <div className="flex items-center justify-center py-20">
+                <div className="flex flex-col items-center gap-3">
+                  <Loader2 className="h-6 w-6 animate-spin text-indigo-500" />
+                  <p className="text-sm text-slate-500">ルーム情報を読み込み中...</p>
+                </div>
+              </div>
+            ) : rooms.length === 0 ? (
+              /* Empty state */
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="flex flex-col items-center justify-center py-20 px-4"
+              >
+                <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
+                  <MessageSquare className="h-8 w-8 text-slate-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-slate-900 mb-1">ルームがまだありません</h3>
+                <p className="text-sm text-slate-500 text-center max-w-sm mb-6">
+                  ルームを作成すると、参加者とリアルタイムでQ&Aや投票ができます。共有コードで誰でも簡単に参加可能。
+                </p>
+                <Button
+                  onClick={() => setIsCreateRoomDialogOpen(true)}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm h-10 px-5"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  最初のルームを作成する
+                </Button>
+              </motion.div>
+            ) : (
+              /* Room cards grid */
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {rooms.map((room, index) => {
+                  const roomUrl = typeof window !== 'undefined'
+                    ? `${window.location.origin}/rooms/${room.code}`
+                    : `/rooms/${room.code}`;
+                  const hostUrl = typeof window !== 'undefined'
+                    ? `${window.location.origin}/rooms/${room.code}/host`
+                    : `/rooms/${room.code}/host`;
+
+                  return (
+                    <motion.div
+                      key={room.id}
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05, duration: 0.25 }}
+                      className="group relative bg-white rounded-xl border border-slate-200 shadow-sm transition-all duration-200 hover:shadow-md hover:border-slate-300"
+                    >
+                      <div className="p-4 sm:p-5">
+                        {/* Top row: title + status */}
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
+                              <MessageSquare className="h-4 w-4 text-indigo-600" />
+                            </div>
+                            <h3 className="text-sm font-semibold text-slate-900 truncate">{room.title}</h3>
                           </div>
-                          <div className="flex flex-col sm:flex-row sm:items-center">
-                            <span className="text-blue-700 font-medium mb-1 sm:mb-0 sm:mr-2">許可範囲:</span>
-                            <span className="font-medium">{locationSettings.radius}km</span>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium shrink-0 ${
+                            room.status === 'active'
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : room.status === 'closed'
+                              ? 'bg-slate-100 text-slate-500'
+                              : 'bg-amber-100 text-amber-700'
+                          }`}>
+                            {room.status === 'active' ? '公開中' : room.status === 'closed' ? '終了' : room.status}
+                          </span>
+                        </div>
+
+                        {/* Room code */}
+                        <div className="flex items-center gap-1.5 mb-3">
+                          <span className="text-xs text-slate-400">コード:</span>
+                          <code className="text-xs font-mono bg-slate-100 px-2 py-0.5 rounded text-slate-600">{room.code}</code>
+                        </div>
+
+                        {/* Actions row 1: main actions */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => copyRoomUrl(room.code, room.title)}
+                            className="h-8 px-3 text-xs border-slate-200 text-slate-600 hover:text-indigo-600 hover:border-indigo-300"
+                          >
+                            <Copy className="h-3 w-3 mr-1.5" />
+                            URLコピー
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open(roomUrl, '_blank')}
+                            className="h-8 px-3 text-xs border-slate-200 text-slate-600 hover:text-indigo-600 hover:border-indigo-300"
+                          >
+                            <Globe className="h-3 w-3 mr-1.5" />
+                            参加者ビュー
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => window.open(hostUrl, '_blank')}
+                            className="h-8 px-3 text-xs bg-indigo-600 hover:bg-indigo-700 text-white"
+                          >
+                            <Settings className="h-3 w-3 mr-1.5" />
+                            ホスト管理
+                          </Button>
+                        </div>
+
+                        {/* Actions row 2: edit / delete */}
+                        <div className="mt-2.5 flex items-center justify-between">
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditRoom(room)}
+                              className="h-7 px-2 text-xs text-slate-400 hover:text-indigo-600"
+                            >
+                              <Edit className="h-3 w-3 mr-1" />
+                              編集
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteRoom(room)}
+                              className="h-7 px-2 text-xs text-slate-400 hover:text-red-600"
+                            >
+                              <Trash2 className="h-3 w-3 mr-1" />
+                              削除
+                            </Button>
                           </div>
-                          <div className="flex flex-col sm:flex-row sm:items-center">
-                            <span className="text-blue-700 font-medium mb-1 sm:mb-0 sm:mr-2">緯度:</span>
-                            <span className="font-mono text-xs break-all">{locationSettings.latitude}</span>
-                          </div>
-                          <div className="flex flex-col sm:flex-row sm:items-center">
-                            <span className="text-blue-700 font-medium mb-1 sm:mb-0 sm:mr-2">経度:</span>
-                            <span className="font-mono text-xs break-all">{locationSettings.longitude}</span>
-                          </div>
+                          <span className="text-[11px] text-slate-400">
+                            作成: {new Date(room.created_at).toLocaleDateString('ja-JP')}
+                          </span>
                         </div>
                       </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
+          </TabsContent>
 
-                      {/* 位置情報設定フォーム */}
-                      <LocationSettingsForm
-                        initialSettings={locationSettings}
-                        onSave={saveLocationSettings}
-                      />
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </motion.div>
+          {/* ===== ATTENDANCE DATA TAB ===== */}
+          <TabsContent value="export" className="mt-0">
+            <div className="mb-6">
+              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">出席データ</h1>
+              <p className="text-sm text-slate-500 mt-0.5">
+                フォームごとの出席データをCSV形式でエクスポートできます
+              </p>
+            </div>
+            <AttendanceExport />
           </TabsContent>
         </Tabs>
-      </div>
+      </main>
+
+      {/* Subtle footer */}
+      <footer className="max-w-6xl mx-auto px-4 sm:px-6 py-6 mt-4">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-400">
+          <span>Powered by Supabase</span>
+          <Link href="/legal/tokusho" target="_blank" className="hover:text-slate-600 transition-colors">
+            特定商取引法に基づく表記
+          </Link>
+        </div>
+      </footer>
     </div>
   );
 }

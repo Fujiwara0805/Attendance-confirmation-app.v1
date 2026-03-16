@@ -4,12 +4,12 @@ import { Inter } from 'next/font/google';
 import { Providers } from './providers';
 import { Toaster } from '@/components/ui/toaster';
 
-const inter = Inter({ subsets: ['latin'] });
+const inter = Inter({ subsets: ['latin'], display: 'swap' });
 
 export const metadata: Metadata = {
   title: 'ざせきくん - 出席管理システム',
-  description: 'ざせきくんは、学生の出席管理を効率的に行うWebシステムです。リアルタイムでの出席記録、授業別の出席状況確認、Googleスプレッドシートとの連携機能を提供します。教育機関での出席管理業務を大幅に効率化します。',
-  keywords: ['出席管理', '学生管理', '教育システム', 'Webアプリ', 'Googleスプレッドシート連携', '授業管理'],
+  description: 'ざせきくんは、学生の出席管理を効率的に行うWebシステムです。リアルタイムでの出席記録、授業別の出席状況確認、Q&A・ライブ投票機能を提供します。教育機関での出席管理業務を大幅に効率化します。',
+  keywords: ['出席管理', '学生管理', '教育システム', 'Webアプリ', 'リアルタイムQ&A', '授業管理', 'ライブ投票'],
   authors: [{ name: 'ざせきくん開発チーム' }],
   creator: 'ざせきくん開発チーム',
   publisher: 'ざせきくん',
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: 'ざせきくん - 出席管理システム',
-    description: '学生の出席管理を効率的に行うWebシステム。リアルタイム出席記録とGoogleスプレッドシート連携で教育現場をサポート。',
+    description: '学生の出席管理を効率的に行うWebシステム。リアルタイム出席記録とCSVエクスポートで教育現場をサポート。',
     type: 'website',
     locale: 'ja_JP',
     images: [
@@ -34,7 +34,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'ざせきくん - 出席管理システム',
-    description: '学生の出席管理を効率的に行うWebシステム。リアルタイム出席記録とGoogleスプレッドシート連携。',
+    description: '学生の出席管理を効率的に行うWebシステム。リアルタイム出席記録とCSVエクスポート対応。',
     images: ['https://res.cloudinary.com/dz9trbwma/image/upload/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png'],
   },
   icons: {
@@ -69,7 +69,9 @@ export default function RootLayout({
     <html lang="ja">
       <body className={inter.className}>
         <Providers>
-          {children}
+          <main className="min-h-screen bg-[hsl(var(--surface,226_100%_98%))]">
+            {children}
+          </main>
           <Toaster />
         </Providers>
       </body>

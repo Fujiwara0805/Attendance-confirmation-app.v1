@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
-import { getAdminConfigSpreadsheetId, getSheetData, createSheetIfEmpty, appendSheetData } from '@/lib/googleSheets';
+import { getAdminConfigSpreadsheetId, getSheetData } from '@/lib/googleSheets';
+import { enqueueWrite, enqueueBatchWrite, ensureSheetExists } from '@/lib/writeBuffer';
 import { CustomFormField } from '@/app/types';
 import { cache, generateCacheKey } from '@/lib/cache';
 
@@ -205,9 +206,9 @@ async function handleBatchSubmissions(requestBody: any) {
   );
   const dynamicHeaders = generateDynamicHeaders(customFields, enabledDefaultFields);
   
-  // シートが存在しない、または空の場合はヘッダーを作成
-  await createSheetIfEmpty(safeSpreadsheetConfig.spreadsheetId, attendanceSheetName, dynamicHeaders);
-  
+  // シートが存在しない、または空の場合はヘッダーを作成 (Redisキャッシュ付き)
+  await ensureSheetExists(safeSpreadsheetConfig.spreadsheetId, attendanceSheetName, dynamicHeaders);
+
   // バッチデータを準備
   const batchData = submissions.map((submission: any) => {
     const id = uuidv4();
@@ -248,8 +249,8 @@ async function handleBatchSubmissions(requestBody: any) {
     return rowData;
   });
   
-  // バッチでデータを追加
-  await appendSheetData(safeSpreadsheetConfig.spreadsheetId, attendanceSheetName, batchData);
+  // バッチでデータをバッファに追加 (Redisキューイング)
+  await enqueueBatchWrite(safeSpreadsheetConfig.spreadsheetId, attendanceSheetName, batchData);
   
   return NextResponse.json({ 
     message: `${submissions.length} attendance records submitted successfully!`,
@@ -362,8 +363,8 @@ async function handleSingleSubmission(requestBody: any) {
   );
   const dynamicHeaders = generateDynamicHeaders(customFields, enabledDefaultFields);
 
-  // シートが存在しない、または空の場合はヘッダーを作成
-  await createSheetIfEmpty(spreadsheetConfig.spreadsheetId, attendanceSheetName, dynamicHeaders);
+  // シートが存在しない、または空の場合はヘッダーを作成 (Redisキャッシュ付き)
+  await ensureSheetExists(spreadsheetConfig.spreadsheetId, attendanceSheetName, dynamicHeaders);
 
   // サーバーサイドでIDとタイムスタンプを生成
   const id = uuidv4();
@@ -402,9 +403,8 @@ async function handleSingleSubmission(requestBody: any) {
   // 位置情報とタイムスタンプを最後に追加
   rowData.push(latitude, longitude, createdAt);
 
-  const values = [rowData];
-
-  await appendSheetData(spreadsheetConfig.spreadsheetId, attendanceSheetName, values);
+  // バッファに書き込みをキューイング (Redis経由で一括書き込み)
+  await enqueueWrite(spreadsheetConfig.spreadsheetId, attendanceSheetName, rowData);
 
   return NextResponse.json({ 
     message: 'Attendance recorded successfully!',

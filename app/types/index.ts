@@ -21,14 +21,11 @@ export interface Course {
   id: string;
   courseName: string;
   teacherName: string;
-  spreadsheetId: string;
-  defaultSheetName: string;
-  // 新しく追加
   locationSettings?: {
     latitude: number;
     longitude: number;
     radius: number; // km
-    locationName?: string; // キャンパス名など
+    locationName?: string;
   };
 }
 

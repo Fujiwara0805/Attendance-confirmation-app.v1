@@ -147,3 +147,212 @@ export const defaultFields = [
   { key: 'department', label: '学科・コース', type: 'text' as CustomFieldType },
   { key: 'feedback', label: '講義レポート', type: 'textarea' as CustomFieldType }
 ];
+
+// プリセットフィールド定義（ユーザーが選択して追加できる汎用項目）
+export interface PresetField {
+  id: string;
+  name: string;
+  label: string;
+  type: CustomFieldType;
+  description: string;
+  category: 'basic' | 'contact' | 'survey' | 'event';
+  icon: string; // lucide icon name
+  placeholder?: string;
+  options?: string[];
+  required: boolean;
+}
+
+export const presetFields: PresetField[] = [
+  // 基本情報カテゴリ
+  {
+    id: 'preset_email',
+    name: 'email',
+    label: 'メールアドレス',
+    type: 'text',
+    description: '連絡先メールアドレス',
+    category: 'basic',
+    icon: 'Mail',
+    placeholder: 'example@email.com',
+    required: false,
+  },
+  {
+    id: 'preset_phone',
+    name: 'phone',
+    label: '電話番号',
+    type: 'text',
+    description: '連絡先電話番号',
+    category: 'basic',
+    icon: 'Phone',
+    placeholder: '090-1234-5678',
+    required: false,
+  },
+  {
+    id: 'preset_affiliation',
+    name: 'affiliation',
+    label: '所属',
+    type: 'text',
+    description: '所属組織・団体名',
+    category: 'basic',
+    icon: 'Building',
+    placeholder: '例: 経済学部',
+    required: false,
+  },
+  {
+    id: 'preset_company',
+    name: 'company',
+    label: '会社名・団体名',
+    type: 'text',
+    description: '勤務先・所属団体',
+    category: 'basic',
+    icon: 'Briefcase',
+    placeholder: '例: 株式会社○○',
+    required: false,
+  },
+  // 連絡先・属性カテゴリ
+  {
+    id: 'preset_age_range',
+    name: 'age_range',
+    label: '年齢層',
+    type: 'select',
+    description: '回答者の年齢層',
+    category: 'contact',
+    icon: 'Users',
+    options: ['10代', '20代', '30代', '40代', '50代', '60代以上'],
+    required: false,
+  },
+  {
+    id: 'preset_gender',
+    name: 'gender',
+    label: '性別',
+    type: 'radio',
+    description: '性別を選択',
+    category: 'contact',
+    icon: 'UserCircle',
+    options: ['男性', '女性', 'その他', '回答しない'],
+    required: false,
+  },
+  {
+    id: 'preset_experience',
+    name: 'experience_level',
+    label: '経験レベル',
+    type: 'radio',
+    description: 'テーマに対する経験度',
+    category: 'contact',
+    icon: 'Award',
+    options: ['初心者', '中級者', '上級者'],
+    required: false,
+  },
+  // アンケートカテゴリ
+  {
+    id: 'preset_satisfaction',
+    name: 'satisfaction',
+    label: '満足度',
+    type: 'radio',
+    description: '5段階の満足度評価',
+    category: 'survey',
+    icon: 'Star',
+    options: ['1 - 不満', '2 - やや不満', '3 - 普通', '4 - 満足', '5 - とても満足'],
+    required: false,
+  },
+  {
+    id: 'preset_purpose',
+    name: 'purpose',
+    label: '参加目的',
+    type: 'select',
+    description: '参加の動機・目的',
+    category: 'survey',
+    icon: 'Target',
+    options: ['学習', '業務', '興味・関心', 'スキルアップ', 'その他'],
+    required: false,
+  },
+  {
+    id: 'preset_referral',
+    name: 'referral_source',
+    label: '参加経緯',
+    type: 'select',
+    description: 'イベントを知ったきっかけ',
+    category: 'survey',
+    icon: 'Share2',
+    options: ['SNS', '友人・知人', 'ウェブサイト', 'チラシ・ポスター', '教員の紹介', 'その他'],
+    required: false,
+  },
+  {
+    id: 'preset_questions',
+    name: 'questions_for_speaker',
+    label: '質問事項',
+    type: 'textarea',
+    description: '講師・発表者への質問',
+    category: 'survey',
+    icon: 'HelpCircle',
+    placeholder: '質問があればご記入ください',
+    required: false,
+  },
+  {
+    id: 'preset_improvement',
+    name: 'improvement_suggestion',
+    label: '改善提案',
+    type: 'textarea',
+    description: '改善点やリクエスト',
+    category: 'survey',
+    icon: 'Lightbulb',
+    placeholder: '改善点があればご記入ください',
+    required: false,
+  },
+  // イベント・その他カテゴリ
+  {
+    id: 'preset_dietary',
+    name: 'dietary_restrictions',
+    label: '食事制限・アレルギー',
+    type: 'text',
+    description: '対面イベント用の食事配慮',
+    category: 'event',
+    icon: 'UtensilsCrossed',
+    placeholder: '例: 卵アレルギー',
+    required: false,
+  },
+  {
+    id: 'preset_accessibility',
+    name: 'accessibility_needs',
+    label: '配慮事項',
+    type: 'textarea',
+    description: 'バリアフリー等の配慮',
+    category: 'event',
+    icon: 'Accessibility',
+    placeholder: '必要な配慮があればご記入ください',
+    required: false,
+  },
+  {
+    id: 'preset_free_comment',
+    name: 'free_comment',
+    label: '自由記述',
+    type: 'textarea',
+    description: '自由に記述できるフィールド',
+    category: 'survey',
+    icon: 'MessageSquare',
+    placeholder: 'ご自由にご記入ください',
+    required: false,
+  },
+];
+
+// カテゴリの日本語ラベル
+export const presetCategoryLabels: Record<string, string> = {
+  basic: '基本情報',
+  contact: '属性',
+  survey: 'アンケート',
+  event: 'イベント',
+};
+
+// プリセットフィールドをCustomFormFieldに変換
+export function presetToCustomField(preset: PresetField, order: number): CustomFormField {
+  return {
+    id: `custom_${preset.name}_${Date.now()}`,
+    name: preset.name,
+    label: preset.label,
+    type: preset.type,
+    required: preset.required,
+    placeholder: preset.placeholder,
+    description: preset.description,
+    options: preset.options,
+    order,
+  };
+}

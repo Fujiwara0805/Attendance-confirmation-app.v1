@@ -25,7 +25,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { MapPin, AlertTriangle, CheckCircle, GraduationCap, Settings, HelpCircle, AlertCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { MapPin, AlertTriangle, CheckCircle, GraduationCap, Settings, HelpCircle, AlertCircle, Loader2, ChevronRight, Shield, Send, RefreshCw } from 'lucide-react';
+import { fadeInUp, staggerContainer, scaleIn, slideUp } from '@/lib/animations';
 import Image from 'next/image';
 import { CustomFormField, CourseFormConfig } from '@/app/types';
 import { createDynamicSchema, createDefaultValues, defaultFields } from '@/lib/dynamicFormUtils';
@@ -39,14 +41,11 @@ interface Course {
   id: string;
   courseName: string;
   teacherName: string;
-  spreadsheetId: string;
-  defaultSheetName: string;
-  // 新しく追加
   locationSettings?: {
     latitude: number;
     longitude: number;
     radius: number; // km
-    locationName?: string; // キャンパス名など
+    locationName?: string;
   };
 }
 
@@ -150,162 +149,97 @@ export default function DynamicAttendanceForm() {
   }, [customFields, enabledDefaultFields, form, targetCourse]);
 
   // 全講義一覧を取得（出席フォーム用：認証なし）
+  // QRコード経由(courseIdあり)の場合は取得をスキップ → バグ修正
   const fetchCourses = async () => {
+    // QRコード経由のアクセスでは全講義取得不要（Rate Limit対策 + 情報漏洩防止）
+    if (courseId) {
+      setLoadingCourses(false);
+      return;
+    }
     try {
-      // 認証なしのパブリックAPIを使用
-      const data = await fetchJsonWithRetry('/api/courses', {}, {
+      // Supabase v2 APIを使用
+      const data = await fetchJsonWithRetry('/api/v2/courses', {}, {
         maxRetries: 2,
         baseDelay: 500
       });
       setCourses(data.courses || []);
     } catch (error) {
-      // 講義一覧の取得に失敗（ログ削除）
       toast.error('講義一覧の取得に失敗しました');
     } finally {
       setLoadingCourses(false);
     }
   };
 
-  // フォーム設定を取得
-  const fetchFormConfig = useCallback(async () => {
-    if (!courseId || isSubmittingForm) return; // フォーム送信中はスキップ
+  // フォーム設定は fetchTargetCourse 内で v2 API から取得済み（custom_fields, enabled_default_fields）
 
-    try {
-      // フォーム設定を取得（ログ削除）
-      const data = await fetchJsonWithRetry(`/api/admin/courses/${courseId}/form-config`, {}, {
-        maxRetries: 1, // リトライ回数を2→1に削減
-        baseDelay: 1000
-      });
-      // フォーム設定レスポンス取得（ログ削除）
-      
-      setFormConfig(data.config);
-      const customFields = data.config.customFields || [];
-      const enabledDefaultFields = data.config.enabledDefaultFields || [
-        'date', 'class_name', 'student_id', 'grade', 'name', 'department', 'feedback'
-      ];
-      
-      // カスタムフィールドと有効フィールドを設定（ログ削除）
-      
-      setCustomFields(customFields);
-      setEnabledDefaultFields(enabledDefaultFields);
-    } catch (error) {
-      // フォーム設定が見つかりません。デフォルト設定を使用します（ログ削除）
-      // デフォルト設定を使用
-      setCustomFields([]);
-      setEnabledDefaultFields([
-        'date', 'class_name', 'student_id', 'grade', 'name', 'department', 'feedback'
-      ]);
-    }
-  }, [courseId, isSubmittingForm]); // isSubmittingFormを依存配列に追加
-
-  // 特定の講義情報を取得
+  // 特定の講義情報を取得（Supabase v2 API使用）
   const fetchTargetCourse = useCallback(async () => {
     if (!courseId) return;
 
     try {
-      // 認証なしのパブリックAPIを使用して特定の講義情報を取得
-      const response = await fetchJsonWithRetry(`/api/courses/${courseId}`, {}, {
+      // Supabase v2 APIを使用（courseCode で検索）
+      const response = await fetchJsonWithRetry(`/api/v2/courses/${courseId}`, {}, {
         maxRetries: 2,
         baseDelay: 500
       });
-      
+
       if (response.course) {
         const course = response.course;
-        setTargetCourse(course);
-        // フォームに講義名を直接設定（setTimeoutを削除）
-        form.setValue('class_name', course.courseName);
-      } else {
-        // coursesから検索（フォールバック）
-        const course = courses.find((c: any) => c.id === courseId);
-        if (course) {
-          setTargetCourse(course);
-          form.setValue('class_name', course.courseName);
-        } else {
-          toast.error('指定された講義が見つかりません');
-        }
-      }
-    } catch (error) {
-      // API呼び出しが失敗した場合、coursesから検索
-      const course = courses.find((c: any) => c.id === courseId);
-      if (course) {
-        setTargetCourse(course);
-        form.setValue('class_name', course.courseName);
-      } else {
-        toast.error('講義情報の取得中にエラーが発生しました');
-      }
-    }
-  }, [courseId, courses, form]);
-
-  // 位置情報設定を取得する関数を修正
-  const fetchLocationSettings = useCallback(async () => {
-    // フォーム送信中は処理をスキップ
-    if (isSubmittingForm) return;
-    
-    try {
-      let locationSettings = null;
-
-      // 特定講義の位置情報設定を優先
-      if (targetCourse?.locationSettings) {
-        locationSettings = targetCourse.locationSettings;
-      } else {
-        // リトライ回数を削減してリソース消費を抑制
-        try {
-          const data = await fetchJsonWithRetry('/api/admin/location-settings', {
-            cache: 'no-store',
-            headers: {
-              'Cache-Control': 'no-cache, no-store, must-revalidate',
-              'Pragma': 'no-cache'
-            }
-          }, {
-            maxRetries: 1, // リトライ回数を3→1に削減
-            baseDelay: 2000 // 遅延を1000→2000に増加
-          });
-          
-          locationSettings = data.defaultLocationSettings;
-          
-          if (locationSettings) {
-            // 管理画面から位置情報設定を取得（ログを削減）
-          }
-        } catch (apiError) {
-          // API取得に失敗、キャッシュを確認（ログ削減）
-            // APIが失敗した場合のみキャッシュを確認
-            const cachedSettings = LocationCacheManager.getCachedLocationSettings();
-            if (cachedSettings) {
-              locationSettings = cachedSettings;
-              // キャッシュから位置情報設定を取得（ログを削減）
-            }
-        }
-      }
-
-      if (locationSettings) {
-        setCampusCenter(locationSettings);
-        // 設定をキャッシュに保存
-        LocationCacheManager.saveLocationSettings(locationSettings);
-      } else {
-        // フォールバック: デフォルト値
-        // デフォルト位置情報設定を使用（ログを削減）
-        const defaultSettings = {
-          latitude: 33.1751332,
-          longitude: 131.6138803,
-          radius: 0.5,
-          locationName: 'デフォルトキャンパス'
+        // Supabase版のフィールド名をフロントエンドの形式に変換
+        const mappedCourse = {
+          id: course.id,
+          courseName: course.name,
+          teacherName: course.teacher_name,
+          locationSettings: course.location_settings,
         };
-        setCampusCenter(defaultSettings);
-        LocationCacheManager.saveLocationSettings(defaultSettings);
+        setTargetCourse(mappedCourse);
+        form.setValue('class_name', course.name);
+
+        // テンプレート/カスタムフィールド情報があれば設定
+        if (course.custom_fields && Array.isArray(course.custom_fields) && course.custom_fields.length > 0) {
+          setCustomFields(course.custom_fields);
+        }
+        if (course.enabled_default_fields && Array.isArray(course.enabled_default_fields)) {
+          setEnabledDefaultFields(course.enabled_default_fields);
+        }
+
+        // テンプレートからフィールド情報を取得
+        if (response.template?.fields && Array.isArray(response.template.fields) && response.template.fields.length > 0) {
+          setCustomFields(response.template.fields);
+        }
+        if (response.template?.enabled_default_fields) {
+          setEnabledDefaultFields(response.template.enabled_default_fields);
+        }
+
+        // 位置情報設定を反映
+        if (course.location_settings) {
+          setCampusCenter(course.location_settings);
+          LocationCacheManager.saveLocationSettings(course.location_settings);
+        }
+      } else {
+        toast.error('指定された講義が見つかりません');
       }
     } catch (error) {
-      // 位置情報設定の取得に失敗（ログ削減）
-      // フォールバック値を設定
-      const defaultSettings = {
-        latitude: 33.1751332,
-        longitude: 131.6138803,
-        radius: 0.5,
-        locationName: 'デフォルトキャンパス'
-      };
-      setCampusCenter(defaultSettings);
-      LocationCacheManager.saveLocationSettings(defaultSettings);
+      toast.error('講義情報の取得中にエラーが発生しました');
     }
-  }, [targetCourse, isSubmittingForm]); // isSubmittingFormを依存配列に追加
+  }, [courseId, form]);
+
+  // 位置情報設定を取得する関数
+  // 講義にlocation_settingsが設定されている場合のみ位置情報チェックを有効化
+  const fetchLocationSettings = useCallback(async () => {
+    if (isSubmittingForm) return;
+
+    try {
+      // 講義から取得済みのlocation_settingsがある場合はそれを使用
+      if (targetCourse?.locationSettings) {
+        setCampusCenter(targetCourse.locationSettings);
+        LocationCacheManager.saveLocationSettings(targetCourse.locationSettings);
+      }
+      // location_settingsがない場合はcampusCenterをnullのままにする（位置情報チェック不要）
+    } catch {
+      // エラー時はcampusCenterをnullのままにする（位置情報チェック不要）
+    }
+  }, [targetCourse, isSubmittingForm]);
 
   // 初期化状態を管理
   const [isInitialized, setIsInitialized] = useState(false);
@@ -327,7 +261,6 @@ export default function DynamicAttendanceForm() {
         if (courseId) {
           // 特定の講義の場合：順次実行でリソース消費を抑制
           if (isMounted) await fetchCourses();
-          if (isMounted) await fetchFormConfig();
           if (isMounted) await fetchLocationSettings();
         } else {
           // 講義指定がない場合：最小限の並列実行
@@ -451,49 +384,53 @@ export default function DynamicAttendanceForm() {
     return () => clearInterval(timer);
   }, [timeUntilNextSubmission, courseId]);
 
-  // 位置情報を取得
-  useEffect(() => {
-    // campusCenterが設定されたら自動的に位置情報取得を開始
-    if (campusCenter && showLocationModal) {
-      setShowLocationModal(false); // モーダルを閉じて位置情報取得を開始
-    }
-  }, [campusCenter, showLocationModal]);
+  // 位置情報許可ボタンが押されたときに位置情報を取得
+  const requestLocationPermission = useCallback(async () => {
+    if (!campusCenter) return;
 
-  // 位置情報を一度だけ取得
-  useEffect(() => {
-    if (!showLocationModal && campusCenter && !locationFetched) {
-      const getLocationOnce = async () => {
-        try {
-          // 位置情報を一度だけ取得
-          const location = await LocationCacheManager.getCurrentLocation();
-          
-          const validation = LocationCacheManager.isLocationValid(location, campusCenter);
-          
-          setLocationInfo({
-            status: validation.isValid ? 'success' : 'outside',
-            message: validation.isValid 
-              ? `${campusCenter.locationName || 'キャンパス'}内から出席登録を行っています` 
-              : `${campusCenter.locationName || 'キャンパス'}の外から出席登録を行っています`,
-            latitude: location.latitude,
-            longitude: location.longitude,
-            distance: validation.distance,
-            isOnCampus: validation.isValid
-          });
-          
-          setLocationFetched(true); // 取得完了フラグを設定
-        } catch (error) {
-          setLocationInfo({
-            status: 'error',
-            message: `位置情報を取得できませんでした: ${error instanceof Error ? error.message : '不明なエラー'}`,
-          });
-          setShowLocationPermissionModal(true);
-          setLocationFetched(true); // エラーでも再試行を防ぐ
-        }
-      };
-      
-      getLocationOnce();
+    setShowLocationModal(false);
+    setLocationInfo({ status: 'loading', message: '位置情報を取得中...' });
+
+    try {
+      // ブラウザの位置情報APIを直接呼び出し（許可ダイアログが表示される）
+      const location = await LocationCacheManager.getCurrentLocation();
+
+      const validation = LocationCacheManager.isLocationValid(location, campusCenter);
+
+      setLocationInfo({
+        status: validation.isValid ? 'success' : 'outside',
+        message: validation.isValid
+          ? `${campusCenter.locationName || 'キャンパス'}内から出席登録を行っています`
+          : `${campusCenter.locationName || 'キャンパス'}の外から出席登録を行っています`,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        distance: validation.distance,
+        isOnCampus: validation.isValid
+      });
+
+      setLocationFetched(true);
+    } catch (error) {
+      setLocationInfo({
+        status: 'error',
+        message: `位置情報を取得できませんでした: ${error instanceof Error ? error.message : '不明なエラー'}`,
+      });
+      setShowLocationPermissionModal(true);
+      setLocationFetched(true);
     }
-  }, [showLocationModal, campusCenter, locationFetched]);
+  }, [campusCenter]);
+
+  // campusCenterが設定されていない場合（位置情報不要）はモーダルをスキップ
+  useEffect(() => {
+    if (!campusCenter && !locationFetched) {
+      setShowLocationModal(false);
+      setLocationInfo({
+        status: 'success',
+        message: '位置情報の確認は不要です',
+        isOnCampus: true,
+      });
+      setLocationFetched(true);
+    }
+  }, [campusCenter, locationFetched]);
 
   // 2点間の距離を計算（Haversine公式）
   function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -545,77 +482,57 @@ export default function DynamicAttendanceForm() {
       }
     }
     
+    const latitude = locationInfo.latitude || campusCenter?.latitude || 33.1751332;
+    const longitude = locationInfo.longitude || campusCenter?.longitude || 131.6138803;
+
+    // Supabase v2 API用のリクエストボディ
+    const requestBody = {
+      courseCode: courseId, // QRコードのコード
+      courseId: targetCourse?.id, // Supabase内部ID
+      student_id: values.student_id,
+      name: values.name,
+      grade: values.grade,
+      department: values.department,
+      feedback: values.feedback,
+      latitude,
+      longitude,
+      customFields: (() => {
+        // カスタムフィールドのデータを抽出
+        const customData: Record<string, any> = {};
+        customFields.forEach(field => {
+          if (values[field.name] !== undefined) {
+            customData[field.name] = values[field.name];
+          }
+        });
+        return customData;
+      })(),
+    };
+
+    // API送信 (Supabase v2 API) - 1回のみ送信
     try {
-      setIsSubmitting(true);
-
-      let latitude = locationInfo.latitude || campusCenter?.latitude || 33.1751332;
-      let longitude = locationInfo.longitude || campusCenter?.longitude || 131.6138803;
-
-      const response = await fetch('/api/attendance', {
+      const response = await fetch('/api/v2/attendance', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...values, // 動的フォームの全ての値を送信
-          grade: values.grade ? parseInt(values.grade) : undefined,
-          latitude,
-          longitude,
-          courseId: targetCourse?.id, // 講義IDも送信（ある場合）
-          customFields: customFields, // カスタムフィールド定義も送信
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || '出席登録に失敗しました');
-      }
-
-      // 即座に完了画面に遷移
-      localStorage.setItem(storageKey, Date.now().toString());
-      setLastSubmissionTime(Date.now());
-      setTimeUntilNextSubmission(15);
-      
-      // 成功メッセージと即座の遷移
-      toast.success('出席を登録しました');
-      
-      // 少し遅延してから遷移（ローディング画面を表示）
-      setTimeout(() => {
+      if (response.ok) {
+        // 成功時のみクールダウン設定
+        localStorage.setItem(storageKey, Date.now().toString());
+        setLastSubmissionTime(Date.now());
+        setTimeUntilNextSubmission(15);
+        toast.success('出席を登録しました');
         router.replace('/attendance/complete');
-      }, 1500);
-      
-    } catch (error: any) {
-      // 出席登録エラー（ログ削除）
-      
-      // より詳細なエラー情報をログに出力（削除）
-      if (error.response) {
-        // レスポンスステータスとデータ（ログ削除）
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        setSubmitError(errorData.message || '出席登録に失敗しました。もう一度お試しください。');
+        toast.error('出席登録に失敗しました');
+        setIsSubmittingForm(false);
       }
-      
-      // エラーメッセージを分類
-      let errorMessage = '出席登録に失敗しました。もう一度お試しください。';
-      
-      // Google Sheets APIクォータ制限エラーの処理を追加
-      if (error?.message?.includes('Quota exceeded') || 
-          error?.message?.includes('Too Many Requests') || 
-          error?.message?.includes('rateLimitExceeded') ||
-          error?.response?.status === 429) {
-        errorMessage = 'アクセスが集中しているため、しばらく時間をおいてから再度お試しください。（数分後に再試行してください）';
-      } else if (error?.message?.includes('Configuration error')) {
-        errorMessage = 'システム設定エラーです。管理者にお問い合わせください。';
-      } else if (error?.message?.includes('Authentication error')) {
-        errorMessage = 'システム認証エラーです。管理者にお問い合わせください。';
-      } else if (error?.message?.includes('500')) {
-        errorMessage = 'サーバーエラーが発生しました。しばらく待ってから再試行してください。';
-      } else if (error?.message) {
-        errorMessage = error.message;
-      }
-      
-      setSubmitError(errorMessage);
-      toast.error(errorMessage);
+    } catch {
+      setSubmitError('ネットワークエラーが発生しました。通信環境を確認してもう一度お試しください。');
+      toast.error('通信エラーが発生しました');
       setIsSubmittingForm(false);
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -630,301 +547,455 @@ export default function DynamicAttendanceForm() {
 
   return (
     <>
-      {/* フォーム送信中のローディング画面 */}
-      {isSubmittingForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl">
-            <div className="text-center">
-              <div className="mb-6">
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-indigo-100 rounded-full mb-4">
-                  <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-                </div>
-                <h3 className="text-xl font-bold text-indigo-700 mb-2">出席を登録中...</h3>
-                <p className="text-gray-600 text-sm">
-                  データを処理しています。<br />
-                  しばらくお待ちください。
-                </p>
-              </div>
-              <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
-                <CheckCircle className="h-4 w-4 text-green-500" />
-                <span>出席データを送信中</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      
       {/* 初期化エラー表示 */}
-      {initializationError && (
-        <div className="w-full max-w-md mx-auto p-4 mb-4">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-            <div className="flex items-center">
-              <AlertCircle className="h-5 w-5 text-red-500 mr-2" />
-              <div>
-                <h3 className="text-sm font-medium text-red-800">初期化エラー</h3>
-                <p className="text-sm text-red-700 mt-1">{initializationError}</p>
+      <AnimatePresence>
+        {initializationError && (
+          <motion.div
+            initial={{ opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -12 }}
+            className="w-full max-w-lg mx-auto px-4 pt-4"
+          >
+            <div className="bg-red-50/80 backdrop-blur-sm border border-red-200/60 rounded-2xl p-4">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
+                  <AlertCircle className="h-4 w-4 text-red-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-semibold text-red-800">初期化エラー</h3>
+                  <p className="text-sm text-red-600 mt-0.5 leading-relaxed">{initializationError}</p>
+                  <button
+                    onClick={() => {
+                      setInitializationError(null);
+                      setIsInitialized(false);
+                    }}
+                    className="mt-2 text-xs font-medium text-red-700 hover:text-red-900 underline underline-offset-2 transition-colors"
+                  >
+                    再試行
+                  </button>
+                </div>
               </div>
             </div>
-            <button
-              onClick={() => {
-                setInitializationError(null);
-                setIsInitialized(false);
-              }}
-              className="mt-3 text-sm text-red-600 hover:text-red-800 underline"
-            >
-              再試行
-            </button>
-          </div>
-        </div>
-      )}
-      
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* 初期化中のローディング表示 */}
       {!isInitialized && !initializationError && (
-        <div className="w-full max-w-md mx-auto p-4">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div className="flex items-center">
-              <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-3"></div>
-              <div>
-                <h3 className="text-sm font-medium text-blue-800">データを読み込み中...</h3>
-                <p className="text-sm text-blue-700 mt-1">しばらくお待ちください</p>
-              </div>
+        <div className="w-full max-w-lg mx-auto px-4 pt-16 flex flex-col items-center justify-center min-h-[60vh]">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="flex flex-col items-center gap-4"
+          >
+            <div className="relative">
+              <div className="w-12 h-12 rounded-full border-2 border-indigo-200 border-t-indigo-600 animate-spin" />
             </div>
-          </div>
+            <div className="text-center">
+              <p className="text-sm font-medium text-slate-700">読み込み中...</p>
+              <p className="text-xs text-slate-400 mt-1">しばらくお待ちください</p>
+            </div>
+          </motion.div>
         </div>
       )}
-      
-      <div className="w-full max-w-md mx-auto p-4 sm:p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg shadow-md border border-blue-100">
-      {/* 初期化完了後のみフォームを表示 */}
-      {isInitialized && (
-        <>
-      {showLocationModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full shadow-xl">
-            <h3 className="text-xl font-bold text-indigo-700 mb-4 text-center">位置情報の許可が必要です</h3>
-            <p className="mb-4">
-              ざせきくん - 出席管理システムでは、
-              {campusCenter?.locationName || 'キャンパス'}内からの出席登録を確認するために、
-              位置情報の利用許可が必要です。
-            </p>
-            <p className="mb-6 text-sm text-gray-600">
-              次の画面で「許可」を選択してください。位置情報はキャンパス内にいることの確認のみに使用され、他の目的では利用されません。
-              {campusCenter && (
-                <span className="block mt-2 font-medium">
-                  許可範囲: {campusCenter.locationName || 'キャンパス'}から半径{campusCenter.radius}km以内
-                </span>
+
+      <div className="w-full max-w-lg mx-auto min-h-screen pb-32 sm:pb-8">
+        {/* 初期化完了後のみフォームを表示 */}
+        {isInitialized && (
+          <>
+            {/* 位置情報許可モーダル（位置情報設定がある場合のみ表示） */}
+            <AnimatePresence>
+              {showLocationModal && campusCenter && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+                >
+                  <motion.div
+                    initial={{ y: 100, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: 100, opacity: 0 }}
+                    transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+                    className="bg-white rounded-t-3xl sm:rounded-2xl p-6 sm:p-8 w-full sm:max-w-md shadow-2xl"
+                  >
+                    <div className="flex flex-col items-center text-center">
+                      <div className="w-14 h-14 rounded-2xl bg-indigo-50 flex items-center justify-center mb-4">
+                        <Shield className="h-7 w-7 text-indigo-600" />
+                      </div>
+                      <h3 className="text-lg font-bold text-slate-900 mb-2">位置情報の許可が必要です</h3>
+                      <p className="text-sm text-slate-500 leading-relaxed mb-2">
+                        {campusCenter?.locationName || 'キャンパス'}内からの出席登録を確認するために、位置情報の利用許可が必要です。
+                      </p>
+                      <p className="text-xs text-slate-400 leading-relaxed mb-1">
+                        位置情報はキャンパス内にいることの確認のみに使用されます。
+                      </p>
+                      {campusCenter && (
+                        <p className="text-xs font-medium text-indigo-600 bg-indigo-50 rounded-full px-3 py-1 mt-2 mb-6">
+                          {campusCenter.locationName || 'キャンパス'}から半径{campusCenter.radius}km以内
+                        </p>
+                      )}
+                    </div>
+                    <Button
+                      onClick={requestLocationPermission}
+                      className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl h-12 shadow-lg shadow-indigo-200/50 transition-all"
+                    >
+                      位置情報を許可して続ける
+                    </Button>
+                    <div className="w-12 h-1 bg-slate-200 rounded-full mx-auto mt-4 sm:hidden" />
+                  </motion.div>
+                </motion.div>
               )}
-            </p>
-            <div className="flex justify-end">
-              <Button 
-                onClick={() => setShowLocationModal(false)}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white"
-              >
-                理解しました
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      <div className="flex flex-col items-center mb-6">
-        <Image
-          src="https://res.cloudinary.com/dz9trbwma/image/upload/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png"
-          alt="ざせきくん"
-          width={96}
-          height={96}
-          className="rounded-lg shadow-sm mb-3"
-        />
-        <h2 className="text-2xl font-bold text-indigo-700 text-center mb-1">出席管理システム</h2>
-        <p className="text-gray-600 text-center text-sm max-w-sm mb-4">
-          レポートを提出して、出席登録をしましょう。
-        </p>
-        
-        {/* 管理画面へのボタンを追加 - デザイン改善 */}
-        <Button
-          onClick={() => router.push('/admin')}
-          variant="outline"
-          size="sm"
-          className="flex items-center space-x-2 bg-gradient-to-r from-indigo-50 to-blue-50 border-indigo-200 text-indigo-700 hover:from-indigo-100 hover:to-blue-100 hover:border-indigo-300 hover:text-indigo-800 transition-all duration-300 shadow-sm hover:shadow-md"
-        >
-          <Settings className="h-4 w-4" />
-          <span className="text-sm font-medium">管理者の方はこちら</span>
-        </Button>
-        
-        {/* 位置情報許可の説明テキスト */}
-        <button
-          onClick={() => setShowLocationPermissionModal(true)}
-          className="group flex items-center space-x-3 text-sm bg-red-50 text-red-600 font-semibold border-2 border-red-300 rounded-xl px-4 py-3 hover:bg-red-100 hover:border-red-400 hover:text-red-700 transition-all duration-300 mt-3 shadow-lg hover:shadow-xl transform hover:scale-105"
-        >
-          <div className="p-1 bg-red-100 rounded-full group-hover:bg-red-200 transition-colors duration-200">
-            <HelpCircle className="h-4 w-4 group-hover:rotate-12 transition-transform duration-300" />
-          </div>
-          <span>位置情報を許可するには？</span>
-        </button>
-      </div>
-      
-      {timeUntilNextSubmission > 0 && (
-        <div className="mb-6 p-3 bg-amber-50 border border-amber-200 text-amber-700 rounded-md flex items-center gap-2">
-          <AlertTriangle size={20} />
-          <span className="text-sm">
-            同一端末からの連続登録はできません。次回登録可能まであと約{timeUntilNextSubmission}分です。
-          </span>
-        </div>
-      )}
+            </AnimatePresence>
 
-      {process.env.NODE_ENV === 'development' && (
-        <div className="mb-4 p-3 bg-gray-50 rounded-lg text-xs">
-          <p className="font-semibold mb-2">デバッグ情報:</p>
-          <div className="space-y-1">
-            <p>管理者設定位置情報: {campusCenter ? 'あり' : 'なし'}</p>
-            {campusCenter && (
-              <>
-                <p>キャンパス名: {campusCenter.locationName || '未設定'}</p>
-                <p>中心座標: {campusCenter.latitude}, {campusCenter.longitude}</p>
-                <p>許可範囲: {campusCenter.radius}km</p>
-              </>
-            )}
-            <p>現在の位置情報状態: {locationInfo.status}</p>
-            {locationInfo.distance && <p>距離: {locationInfo.distance.toFixed(3)}km</p>}
-          </div>
-        </div>
-      )}
-
-      <div className={`mb-6 p-3 rounded-md flex items-center gap-2 ${
-        locationInfo.status === 'loading' ? 'bg-gray-100 text-gray-600' :
-        locationInfo.status === 'success' ? 'bg-green-50 text-green-700 border border-green-200' :
-        locationInfo.status === 'outside' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
-        'bg-red-50 text-red-700 border border-red-200'
-      }`}>
-        {locationInfo.status === 'loading' && (
-          <div className="h-5 w-5 rounded-full border-2 border-gray-400 border-t-transparent animate-spin" />
-        )}
-        {locationInfo.status === 'success' && <CheckCircle size={20} />}
-        {locationInfo.status === 'outside' && <AlertTriangle size={20} />}
-        {locationInfo.status === 'error' && <AlertTriangle size={20} />}
-        
-        <div className="flex-1">
-          <span className="text-sm block">{locationInfo.message}</span>
-          {campusCenter && locationInfo.distance !== undefined && (
-            <span className="text-xs text-gray-500 block mt-1">
-              {campusCenter.locationName || 'キャンパス'}から約{locationInfo.distance.toFixed(1)}km
-              （許可範囲: {campusCenter.radius}km以内）
-            </span>
-          )}
-        </div>
-      </div>
-
-      {submitError && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded">
-          {submitError}
-        </div>
-      )}
-
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          {/* 動的フィールドレンダリング */}
-          {(() => {
-            // 開発環境でのみデバッグログを表示
-            if (process.env.NODE_ENV === 'development') {
-              // console.log('Rendering dynamic fields...');
-              // console.log('enabledDefaultFields:', enabledDefaultFields);
-              // console.log('customFields:', customFields);
-            }
-
-            const allFields: CustomFormField[] = [
-              // デフォルトフィールドを追加
-              ...defaultFields.filter(field => enabledDefaultFields.includes(field.key)).map((field, index) => ({
-                id: field.key,
-                name: field.key,
-                label: field.label,
-                type: field.type,
-                required: true,
-                placeholder: '',
-                description: '',
-                options: field.key === 'grade' ? ['1', '2', '3', '4'] : [],
-                order: index
-              })),
-              // カスタムフィールドを追加（orderに基づいてソート）
-              ...customFields.sort((a, b) => (a.order || 0) - (b.order || 0))
-            ];
-
-            // 開発環境でのみデバッグログを表示
-            if (process.env.NODE_ENV === 'development') {
-              // console.log('allFields:', allFields);
-            }
-
-            if (allFields.length === 0) {
-              return (
-                <div className="text-center py-8">
-                  <p className="text-gray-500">フォーム項目が設定されていません</p>
-                </div>
-              );
-            }
-
-            // フィールドをグループ化（2列レイアウト用）
-            const fieldPairs = [];
-            for (let i = 0; i < allFields.length; i += 2) {
-              fieldPairs.push(allFields.slice(i, i + 2));
-            }
-
-            return fieldPairs.map((pair, pairIndex) => (
-              <div key={pairIndex} className={`grid grid-cols-1 ${pair.length === 2 && pair[0].type !== 'textarea' && pair[1]?.type !== 'textarea' ? 'md:grid-cols-2' : ''} gap-4`}>
-                {pair.map((field) => (
-                  <div key={field.name} className={field.type === 'textarea' ? 'md:col-span-2' : ''}>
-                    <DynamicFormField
-                      control={form.control}
-                      field={field}
-                      courses={courses}
-                      isClassNameField={field.name === 'class_name'}
-                      targetCourse={targetCourse}
-                      loadingCourses={loadingCourses}
-                    />
-                  </div>
-                ))}
-              </div>
-            ));
-          })()}
-
-          <div className="pt-2">
-            <Button 
-              type="submit" 
-              className="w-full bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white font-medium"
-              disabled={isSubmitting || !isSubmitEnabled}
+            {/* Header */}
+            <motion.div
+              variants={staggerContainer}
+              initial="initial"
+              animate="animate"
+              className="px-5 pt-8 pb-2"
             >
-              {isSubmitting ? "送信中..." : 
-               timeUntilNextSubmission > 0 ? `あと${timeUntilNextSubmission}分お待ちください` : "出席を登録する"}
-            </Button>
-          </div>
-          
-          {!isFormValid ? (
-            <p className="text-sm text-amber-600 text-center">
-              全ての必須項目を入力してください
-            </p>
-          ) : timeUntilNextSubmission > 0 ? (
-            <p className="text-sm text-amber-600 text-center">同一端末からの連続登録には15分の間隔が必要です</p>
-          ) : (!locationInfo.isOnCampus && process.env.NODE_ENV === 'production') ? (
-            <p className="text-sm text-red-600 text-center">
-              {campusCenter?.locationName || 'キャンパス'}内（半径{campusCenter?.radius || 0.5}km以内）からのみ出席登録が可能です
-            </p>
-          ) : null}
-          
-          <div className="mt-4 text-xs text-gray-500 flex items-center justify-center">
-            <MapPin size={12} className="mr-1" />
-            <span>
-              {locationInfo.distance !== undefined 
-                ? `キャンパスから約${(locationInfo.distance).toFixed(1)}km離れた場所から出席登録をしています`
-                : '位置情報の取得中...'}
-            </span>
-          </div>
-        </form>
-      </Form>
-      
-      {/* 位置情報許可説明モーダル */}
-      <LocationPermissionModal
-        isOpen={showLocationPermissionModal}
-        onClose={() => setShowLocationPermissionModal(false)}
-      />
-        </>
-      )}
+              <motion.div variants={fadeInUp} className="flex flex-col items-center">
+                <Image
+                  src="https://res.cloudinary.com/dz9trbwma/image/upload/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png"
+                  alt="ざせきくん"
+                  width={72}
+                  height={72}
+                  className="rounded-2xl shadow-lg shadow-indigo-100/50 mb-4"
+                />
+                <h2 className="text-xl font-bold text-slate-900 tracking-tight text-center">出席管理システム</h2>
+                <p className="text-slate-500 text-center text-sm mt-1 mb-4 leading-relaxed">
+                  レポートを提出して、出席登録をしましょう
+                </p>
+
+                {/* Location status pill */}
+                <motion.button
+                  variants={scaleIn}
+                  onClick={() => {
+                    if (locationInfo.status === 'error') {
+                      setShowLocationPermissionModal(true);
+                    } else if (locationInfo.status === 'outside' || locationInfo.status === 'success') {
+                      // 再取得: キャッシュをクリアして再度位置情報を取得
+                      LocationCacheManager.clearLocationCache();
+                      setLocationFetched(false);
+                      setLocationInfo({ status: 'loading', message: '位置情報を再取得中...' });
+                      requestLocationPermission();
+                    }
+                  }}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                    locationInfo.status === 'loading'
+                      ? 'bg-slate-100 text-slate-500'
+                      : locationInfo.status === 'success'
+                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
+                      : locationInfo.status === 'outside'
+                      ? 'bg-amber-50 text-amber-700 border border-amber-200/60'
+                      : 'bg-red-50 text-red-700 border border-red-200/60'
+                  }`}
+                >
+                  {locationInfo.status === 'loading' && (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  )}
+                  {locationInfo.status === 'success' && (
+                    <CheckCircle className="h-3 w-3" />
+                  )}
+                  {locationInfo.status === 'outside' && (
+                    <AlertTriangle className="h-3 w-3" />
+                  )}
+                  {locationInfo.status === 'error' && (
+                    <AlertCircle className="h-3 w-3" />
+                  )}
+                  <span>
+                    {locationInfo.status === 'loading'
+                      ? '位置情報を取得中...'
+                      : locationInfo.status === 'success'
+                      ? `${campusCenter?.locationName || 'キャンパス'}内`
+                      : locationInfo.status === 'outside'
+                      ? `${campusCenter?.locationName || 'キャンパス'}外`
+                      : '位置情報エラー'}
+                  </span>
+                  {campusCenter && locationInfo.distance !== undefined && (
+                    <span className="text-[10px] opacity-70">
+                      ({locationInfo.distance.toFixed(1)}km)
+                    </span>
+                  )}
+                  {locationInfo.status !== 'loading' && (
+                    <RefreshCw className="h-3 w-3 opacity-50" />
+                  )}
+                </motion.button>
+              </motion.div>
+            </motion.div>
+
+            {/* Cooldown warning */}
+            <AnimatePresence>
+              {timeUntilNextSubmission > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="px-5 mt-3"
+                >
+                  <div className="bg-amber-50/80 backdrop-blur-sm border border-amber-200/60 rounded-xl p-3 flex items-center gap-2.5">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center">
+                      <AlertTriangle className="h-4 w-4 text-amber-600" />
+                    </div>
+                    <span className="text-xs text-amber-700 leading-relaxed">
+                      次回登録可能まであと約<span className="font-semibold">{timeUntilNextSubmission}分</span>です
+                    </span>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Debug info (development only) */}
+            {process.env.NODE_ENV === 'development' && (
+              <div className="mx-5 mt-3 p-3 bg-slate-50 rounded-xl text-xs border border-slate-200/60">
+                <p className="font-semibold text-slate-600 mb-2">Debug</p>
+                <div className="space-y-0.5 text-slate-500 font-mono">
+                  <p>location_settings: {campusCenter ? 'yes' : 'no'}</p>
+                  {campusCenter && (
+                    <>
+                      <p>name: {campusCenter.locationName || 'N/A'}</p>
+                      <p>center: {campusCenter.latitude}, {campusCenter.longitude}</p>
+                      <p>radius: {campusCenter.radius}km</p>
+                    </>
+                  )}
+                  <p>status: {locationInfo.status}</p>
+                  {locationInfo.distance && <p>distance: {locationInfo.distance.toFixed(3)}km</p>}
+                </div>
+              </div>
+            )}
+
+            {/* Error banner */}
+            <AnimatePresence>
+              {submitError && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  className="px-5 mt-3"
+                >
+                  <div className="bg-red-50/80 backdrop-blur-sm border border-red-200/60 rounded-xl p-3 flex items-start gap-2.5">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center mt-0.5">
+                      <AlertCircle className="h-4 w-4 text-red-600" />
+                    </div>
+                    <p className="text-xs text-red-700 leading-relaxed flex-1">{submitError}</p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Form card */}
+            <div className="px-4 mt-5">
+              <motion.div
+                variants={slideUp}
+                initial="initial"
+                animate="animate"
+                className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm shadow-slate-200/50 border border-slate-200/60 overflow-hidden"
+              >
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="p-5 space-y-5">
+                    {/* 動的フィールドレンダリング */}
+                    {(() => {
+                      if (process.env.NODE_ENV === 'development') {
+                        // console.log('Rendering dynamic fields...');
+                      }
+
+                      const allFields: CustomFormField[] = [
+                        ...defaultFields.filter(field => enabledDefaultFields.includes(field.key)).map((field, index) => ({
+                          id: field.key,
+                          name: field.key,
+                          label: field.label,
+                          type: field.type,
+                          required: true,
+                          placeholder: '',
+                          description: '',
+                          options: field.key === 'grade' ? ['1', '2', '3', '4'] : [],
+                          order: index
+                        })),
+                        ...customFields.sort((a, b) => (a.order || 0) - (b.order || 0))
+                      ];
+
+                      if (process.env.NODE_ENV === 'development') {
+                        // console.log('allFields:', allFields);
+                      }
+
+                      if (allFields.length === 0) {
+                        return (
+                          <div className="text-center py-12">
+                            <p className="text-sm text-slate-400">フォーム項目が設定されていません</p>
+                          </div>
+                        );
+                      }
+
+                      const fieldPairs = [];
+                      for (let i = 0; i < allFields.length; i += 2) {
+                        fieldPairs.push(allFields.slice(i, i + 2));
+                      }
+
+                      return (
+                        <motion.div
+                          variants={staggerContainer}
+                          initial="initial"
+                          animate="animate"
+                        >
+                          {fieldPairs.map((pair, pairIndex) => (
+                            <motion.div
+                              key={pairIndex}
+                              variants={fadeInUp}
+                              className={`grid grid-cols-1 ${pair.length === 2 && pair[0].type !== 'textarea' && pair[1]?.type !== 'textarea' ? 'md:grid-cols-2' : ''} gap-4 mb-4`}
+                            >
+                              {pair.map((field) => (
+                                <div key={field.name} className={field.type === 'textarea' ? 'md:col-span-2' : ''}>
+                                  <DynamicFormField
+                                    control={form.control}
+                                    field={field}
+                                    courses={courses}
+                                    isClassNameField={field.name === 'class_name'}
+                                    targetCourse={targetCourse}
+                                    loadingCourses={loadingCourses}
+                                  />
+                                </div>
+                              ))}
+                            </motion.div>
+                          ))}
+                        </motion.div>
+                      );
+                    })()}
+
+                    {/* Desktop submit button (hidden on mobile) */}
+                    <div className="hidden sm:block pt-2">
+                      <motion.div
+                        whileHover={{ scale: isSubmitEnabled ? 1.01 : 1 }}
+                        whileTap={{ scale: isSubmitEnabled ? 0.97 : 1 }}
+                      >
+                        <Button
+                          type="submit"
+                          className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-medium rounded-xl h-12 shadow-lg shadow-indigo-200/50 transition-all disabled:opacity-50 disabled:shadow-none"
+                          disabled={isSubmitting || !isSubmitEnabled}
+                        >
+                          {isSubmitting ? (
+                            <span className="flex items-center gap-2">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              送信中...
+                            </span>
+                          ) : timeUntilNextSubmission > 0 ? (
+                            `あと${timeUntilNextSubmission}分お待ちください`
+                          ) : (
+                            <span className="flex items-center gap-2">
+                              <Send className="h-4 w-4" />
+                              出席を登録する
+                            </span>
+                          )}
+                        </Button>
+                      </motion.div>
+
+                      {/* Validation hints */}
+                      {!isFormValid ? (
+                        <p className="text-xs text-slate-400 text-center mt-3">
+                          全ての必須項目を入力してください
+                        </p>
+                      ) : timeUntilNextSubmission > 0 ? (
+                        <p className="text-xs text-amber-500 text-center mt-3">
+                          同一端末からの連続登録には15分の間隔が必要です
+                        </p>
+                      ) : (!locationInfo.isOnCampus && process.env.NODE_ENV === 'production') ? (
+                        <p className="text-xs text-red-500 text-center mt-3">
+                          {campusCenter?.locationName || 'キャンパス'}内（半径{campusCenter?.radius || 0.5}km以内）からのみ登録可能
+                        </p>
+                      ) : null}
+                    </div>
+                  </form>
+                </Form>
+              </motion.div>
+            </div>
+
+            {/* Footer links */}
+            <motion.div
+              variants={fadeInUp}
+              initial="initial"
+              animate="animate"
+              className="flex flex-col items-center gap-3 px-5 mt-6 mb-4"
+            >
+              <div className="flex items-center gap-3 text-xs text-slate-400">
+                <button
+                  onClick={() => setShowLocationPermissionModal(true)}
+                  className="flex items-center gap-1 hover:text-indigo-500 transition-colors"
+                >
+                  <HelpCircle className="h-3 w-3" />
+                  <span>位置情報の設定</span>
+                </button>
+                <span className="text-slate-200">|</span>
+                <button
+                  onClick={() => router.push('/admin')}
+                  className="flex items-center gap-1 hover:text-indigo-500 transition-colors"
+                >
+                  <Settings className="h-3 w-3" />
+                  <span>管理者の方はこちら</span>
+                </button>
+              </div>
+
+              <div className="text-[10px] text-slate-300 flex items-center gap-1">
+                <MapPin className="h-2.5 w-2.5" />
+                <span>
+                  {locationInfo.distance !== undefined
+                    ? `${campusCenter?.locationName || 'キャンパス'}から約${locationInfo.distance.toFixed(1)}km`
+                    : '位置情報の取得中...'}
+                </span>
+              </div>
+            </motion.div>
+
+            {/* Sticky bottom submit bar (mobile only) */}
+            <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40">
+              <div className="bg-white/90 backdrop-blur-xl border-t border-slate-200/60 px-4 pb-[env(safe-area-inset-bottom,8px)] pt-3">
+                {/* Validation message above button */}
+                {!isFormValid ? (
+                  <p className="text-[11px] text-slate-400 text-center mb-2">
+                    全ての必須項目を入力してください
+                  </p>
+                ) : timeUntilNextSubmission > 0 ? (
+                  <p className="text-[11px] text-amber-500 text-center mb-2">
+                    連続登録には15分の間隔が必要です
+                  </p>
+                ) : (!locationInfo.isOnCampus && process.env.NODE_ENV === 'production') ? (
+                  <p className="text-[11px] text-red-500 text-center mb-2">
+                    {campusCenter?.locationName || 'キャンパス'}内からのみ登録可能
+                  </p>
+                ) : null}
+
+                <motion.div
+                  whileTap={{ scale: isSubmitEnabled ? 0.97 : 1 }}
+                >
+                  <Button
+                    type="button"
+                    onClick={form.handleSubmit(onSubmit)}
+                    className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-semibold rounded-xl h-12 shadow-lg shadow-indigo-300/30 transition-all disabled:opacity-50 disabled:shadow-none"
+                    disabled={isSubmitting || !isSubmitEnabled}
+                  >
+                    {isSubmitting ? (
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        送信中...
+                      </span>
+                    ) : timeUntilNextSubmission > 0 ? (
+                      `あと${timeUntilNextSubmission}分お待ちください`
+                    ) : (
+                      <span className="flex items-center gap-2">
+                        <Send className="h-4 w-4" />
+                        出席を登録する
+                      </span>
+                    )}
+                  </Button>
+                </motion.div>
+              </div>
+            </div>
+
+            {/* 位置情報許可説明モーダル */}
+            <LocationPermissionModal
+              isOpen={showLocationPermissionModal}
+              onClose={() => setShowLocationPermissionModal(false)}
+            />
+          </>
+        )}
       </div>
     </>
   );

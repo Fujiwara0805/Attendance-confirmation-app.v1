@@ -1,0 +1,172 @@
+// /api/v2/attendance/export - 出席データエクスポート（CSV/Excel/JSON）
+import { NextRequest, NextResponse } from 'next/server';
+import { createServerClient } from '@/lib/supabase';
+import { getCurrentUser } from '@/lib/auth';
+
+export async function GET(req: NextRequest) {
+  try {
+    const user = await getCurrentUser();
+    if (!user?.email) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const courseId = searchParams.get('course_id');
+    const courseCode = searchParams.get('course_code');
+    const date = searchParams.get('date'); // YYYY-MM-DD
+    const dateFrom = searchParams.get('date_from');
+    const dateTo = searchParams.get('date_to');
+    const format = searchParams.get('format') || 'csv'; // csv | json | excel
+
+    if (!courseId && !courseCode) {
+      return NextResponse.json({ message: 'course_id or course_code is required' }, { status: 400 });
+    }
+
+    const supabase = createServerClient();
+
+    // 講義情報を取得してオーナーチェック
+    let courseQuery = supabase.from('courses').select('id, code, name, teacher_email, category');
+    if (courseId) {
+      courseQuery = courseQuery.eq('id', courseId);
+    } else {
+      courseQuery = courseQuery.eq('code', courseCode);
+    }
+    const { data: course, error: courseError } = await courseQuery.single();
+
+    if (courseError || !course) {
+      return NextResponse.json({ message: 'Course not found' }, { status: 404 });
+    }
+
+    // オーナーチェック: 自分の講義のデータのみ取得可能
+    if (course.teacher_email !== user.email) {
+      return NextResponse.json({
+        message: 'Forbidden: この講義のデータにアクセスする権限がありません'
+      }, { status: 403 });
+    }
+
+    // 出席データ取得
+    let attendanceQuery = supabase
+      .from('attendance')
+      .select('*')
+      .eq('course_id', course.id)
+      .order('created_at', { ascending: true });
+
+    // 日付フィルタ
+    if (date) {
+      attendanceQuery = attendanceQuery.eq('attended_at', date);
+    } else {
+      if (dateFrom) {
+        attendanceQuery = attendanceQuery.gte('attended_at', dateFrom);
+      }
+      if (dateTo) {
+        attendanceQuery = attendanceQuery.lte('attended_at', dateTo);
+      }
+    }
+
+    const { data: attendanceData, error: attendanceError } = await attendanceQuery;
+
+    if (attendanceError) {
+      console.error('Error fetching attendance:', attendanceError);
+      return NextResponse.json({ message: 'Failed to fetch attendance data' }, { status: 500 });
+    }
+
+    const records = attendanceData || [];
+
+    // JSON形式
+    if (format === 'json') {
+      return NextResponse.json({
+        course: {
+          id: course.id,
+          code: course.code,
+          name: course.name,
+          category: course.category,
+        },
+        exportedAt: new Date().toISOString(),
+        totalRecords: records.length,
+        filters: { date, dateFrom, dateTo },
+        records: records.map(r => ({
+          id: r.id,
+          studentId: r.student_id,
+          studentName: r.student_name,
+          grade: r.grade,
+          department: r.department,
+          feedback: r.feedback,
+          customData: r.custom_data,
+          latitude: r.latitude,
+          longitude: r.longitude,
+          isOnCampus: r.is_on_campus,
+          attendedAt: r.attended_at,
+          createdAt: r.created_at,
+        })),
+      });
+    }
+
+    // CSV形式（Excel対応BOM付き）
+    const csvRows: string[] = [];
+
+    // ヘッダー行
+    const headers = [
+      '出席ID', '学籍番号', '氏名', '学年', '学科・コース',
+      'フィードバック', '緯度', '経度', 'キャンパス内',
+      '出席日', '登録日時'
+    ];
+
+    // カスタムデータのキーを収集
+    const customKeys = new Set<string>();
+    records.forEach(r => {
+      if (r.custom_data && typeof r.custom_data === 'object') {
+        Object.keys(r.custom_data).forEach(k => customKeys.add(k));
+      }
+    });
+    const customKeysArray = Array.from(customKeys);
+    customKeysArray.forEach(k => headers.push(k));
+
+    csvRows.push(headers.map(h => `"${h}"`).join(','));
+
+    // データ行
+    records.forEach(r => {
+      const row = [
+        r.id,
+        r.student_id || '',
+        r.student_name || '',
+        r.grade || '',
+        r.department || '',
+        (r.feedback || '').replace(/"/g, '""').replace(/\n/g, ' '),
+        r.latitude || '',
+        r.longitude || '',
+        r.is_on_campus ? 'はい' : 'いいえ',
+        r.attended_at || '',
+        r.created_at || '',
+      ];
+
+      // カスタムデータ追加
+      customKeysArray.forEach(k => {
+        const val = r.custom_data?.[k] || '';
+        row.push(String(val).replace(/"/g, '""').replace(/\n/g, ' '));
+      });
+
+      csvRows.push(row.map(v => `"${v}"`).join(','));
+    });
+
+    const csvContent = csvRows.join('\n');
+    const BOM = '\uFEFF';
+    const csvWithBom = BOM + csvContent;
+
+    // ファイル名生成
+    const dateStr = date || `${dateFrom || 'all'}_${dateTo || 'all'}`;
+    const safeName = course.name.replace(/[^a-zA-Z0-9\u3040-\u309f\u30a0-\u30ff\u4e00-\u9faf]/g, '_');
+    const fileName = `${safeName}_出席データ_${dateStr}.csv`;
+
+    return new NextResponse(csvWithBom, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`,
+      },
+    });
+
+  } catch (error) {
+    console.error('Error in export API:', error);
+    return NextResponse.json({ message: 'Internal server error' }, { status: 500 });
+  }
+}

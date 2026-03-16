@@ -120,16 +120,25 @@ export default function DynamicFormField<T extends FieldValues>({
       case 'select':
         // 講義名フィールドの特別処理
         if (isClassNameField) {
+          // QRコード経由でtargetCourseが設定されている場合:
+          // ドロップダウンではなく固定テキスト表示（全講義の漏洩を防止）
+          if (targetCourse) {
+            return (
+              <div className="flex items-center h-10 px-3 py-2 rounded-md border border-indigo-200 bg-indigo-50/50 text-sm">
+                <span className="text-indigo-800 font-medium">{targetCourse.courseName}</span>
+              </div>
+            );
+          }
+
           return (
             <Select
               onValueChange={onChange}
               value={fieldValue || ''}
-              disabled={targetCourse !== null}
             >
               <SelectTrigger className="border-indigo-200 focus:border-indigo-400" style={{ fontSize: '16px' }}>
                 <SelectValue placeholder={
-                  loadingCourses ? "読み込み中..." : 
-                  targetCourse ? targetCourse.courseName : field.placeholder || `${field.label}を選択してください`
+                  loadingCourses ? "読み込み中..." :
+                  field.placeholder || `${field.label}を選択してください`
                 } />
               </SelectTrigger>
               <SelectContent>

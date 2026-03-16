@@ -1,18 +1,14 @@
 'use client';
 
 import React from 'react';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-// 元のDialogインポートを削除し、CustomModalをインポート
-import { CustomModal } from '@/components/ui/custom-modal';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -20,7 +16,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus,
   Trash2,
-  Edit,
   Save,
   GripVertical,
   Type,
@@ -31,227 +26,75 @@ import {
   RadioIcon,
   FileText,
   Loader2,
-  RefreshCw,
   ArrowUp,
   ArrowDown,
-  X,
   Settings,
-  AlertCircle,
-  CheckCircle2,
-  Info,
   BookOpen,
-  User
+  User,
+  Mail,
+  Phone,
+  Building,
+  Briefcase,
+  Users,
+  UserCircle,
+  Award,
+  Star,
+  Target,
+  Share2,
+  HelpCircle,
+  Lightbulb,
+  UtensilsCrossed,
+  Accessibility,
+  MessageSquare,
+  Check,
+  X,
 } from 'lucide-react';
 import type { CustomFormField } from '@/app/types';
-import { defaultFields, fieldTypeLabels } from '@/lib/dynamicFormUtils';
-
-// フィールド作成用のスキーマ
-const fieldSchema = z.object({
-  name: z.string().min(1, 'フィールド名は必須です'),
-  label: z.string().min(1, 'ラベルは必須です'),
-  type: z.enum(['text', 'textarea', 'number', 'date', 'select', 'radio', 'checkbox']),
-  required: z.boolean(),
-  placeholder: z.string().optional(),
-  description: z.string().optional(),
-});
+import { defaultFields, fieldTypeLabels, presetFields, presetCategoryLabels, presetToCustomField, type PresetField } from '@/lib/dynamicFormUtils';
 
 // 講義作成用のスキーマ
 const courseSchema = z.object({
   courseName: z.string().min(1, '講義名は必須です'),
   teacherName: z.string().min(1, '担当教員名は必須です'),
-  spreadsheetId: z.string().min(1, 'スプレッドシートIDは必須です'),
 });
 
-type FieldFormData = z.infer<typeof fieldSchema>;
 type CourseFormData = z.infer<typeof courseSchema>;
 
-// 統合フィールド型（デフォルトとカスタムを統合）
+// 統合フィールド型
 interface UnifiedFormField extends CustomFormField {
   isDefault: boolean;
-  originalKey?: string; // デフォルトフィールドの場合の元のキー
-  isEnabled: boolean; // フィールドが有効かどうか
+  originalKey?: string;
+  isEnabled: boolean;
 }
 
+// プリセットフィールドのアイコンマッピング
+const presetIconMap: Record<string, React.ComponentType<{ className?: string; size?: string | number }>> = {
+  Mail, Phone, Building, Briefcase, Users, UserCircle, Award, Star,
+  Target, Share2, HelpCircle, Lightbulb, UtensilsCrossed, Accessibility, MessageSquare,
+};
+
 // フィールドタイプのアイコンマッピング
-const fieldTypeIcons = {
+const fieldTypeIcons: Record<string, React.ComponentType<{ className?: string; size?: string | number }>> = {
   text: Type,
   textarea: FileText,
   number: Hash,
   date: Calendar,
   select: List,
   radio: RadioIcon,
-  checkbox: CheckSquare
-};
-
-// フローティングラベル付き入力コンポーネント
-const FloatingLabelInput = ({ 
-  label, 
-  error, 
-  success, 
-  icon: Icon, 
-  required = false,
-  ...props 
-}: {
-  label: string;
-  error?: string;
-  success?: boolean;
-  icon?: React.ComponentType<any>;
-  required?: boolean;
-} & React.InputHTMLAttributes<HTMLInputElement>) => {
-  const [isFocused, setIsFocused] = useState(false);
-  const [hasValue, setHasValue] = useState(false);
-
-  const handleFocus = () => setIsFocused(true);
-  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    setIsFocused(false);
-    setHasValue(e.target.value !== '');
-    props.onBlur?.(e);
-  };
-
-  const isActive = isFocused || hasValue || props.value;
-
-  return (
-    <div className="floating-label-container">
-      <div className="relative">
-        {Icon && (
-          <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 z-10">
-            <Icon className="h-5 w-5" />
-          </div>
-        )}
-        <input
-          {...props}
-          onFocus={handleFocus}
-          onBlur={handleBlur}
-          onChange={(e) => {
-            setHasValue(e.target.value !== '');
-            props.onChange?.(e);
-          }}
-          className={`
-            modern-input w-full
-            ${Icon ? 'pl-12' : 'pl-4'}
-            ${error ? 'input-error' : success ? 'input-success' : ''}
-            ${isActive ? 'pt-6 pb-2' : 'py-3'}
-          `}
-          placeholder=""
-        />
-        <label 
-          className={`floating-label ${isActive ? 'active' : ''} ${Icon ? 'left-12' : 'left-4'}`}
-        >
-          {label}
-          {required && <span className="text-red-500 ml-1">*</span>}
-        </label>
-      </div>
-      
-      {error && (
-        <div className="error-message">
-          <AlertCircle className="h-4 w-4 mr-1 flex-shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
-      
-      {success && !error && (
-        <div className="text-green-600 text-sm mt-1 flex items-center">
-          <CheckCircle2 className="h-4 w-4 mr-1 flex-shrink-0" />
-          <span>入力内容が正しく設定されました</span>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// フローティングラベル付きテキストエリア
-const FloatingLabelTextarea = ({ 
-  label, 
-  error, 
-  icon: Icon, 
-  required = false,
-  ...props 
-}: {
-  label: string;
-  error?: string;
-  icon?: React.ComponentType<any>;
-  required?: boolean;
-} & React.TextareaHTMLAttributes<HTMLTextAreaElement>) => {
-  const [isFocused, setIsFocused] = useState(false);
-  const [hasValue, setHasValue] = useState(false);
-
-  const handleFocus = () => setIsFocused(true);
-  const handleBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
-    setIsFocused(false);
-    setHasValue(e.target.value !== '');
-    props.onBlur?.(e);
-  };
-
-  const isActive = isFocused || hasValue || props.value;
-
-  return (
-    <div className="floating-label-container">
-      <div className="relative">
-        {Icon && (
-          <div className="absolute left-3 top-4 text-slate-400 z-10">
-            <Icon className="h-5 w-5" />
-          </div>
-        )}
-        <textarea
-          {...props}
-          onFocus={handleFocus}
-          onBlur={handleBlur}
-          onChange={(e) => {
-            setHasValue(e.target.value !== '');
-            props.onChange?.(e);
-          }}
-          className={`
-            modern-textarea w-full
-            ${Icon ? 'pl-12' : 'pl-4'}
-            ${error ? 'input-error' : ''}
-            ${isActive ? 'pt-6 pb-4' : 'py-4'}
-          `}
-          placeholder=""
-        />
-        <label 
-          className={`floating-label ${isActive ? 'active' : ''} ${Icon ? 'left-12' : 'left-4'}`}
-        >
-          {label}
-          {required && <span className="text-red-500 ml-1">*</span>}
-        </label>
-      </div>
-      
-      {error && (
-        <div className="error-message">
-          <AlertCircle className="h-4 w-4 mr-1 flex-shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
-    </div>
-  );
+  checkbox: CheckSquare,
 };
 
 interface CustomFormManagerProps {
   onCourseAdded?: () => void;
-  onClose?: () => void; // モーダル閉じる関数を追加
+  onClose?: () => void;
 }
 
 export default function CustomFormManager({ onCourseAdded, onClose }: CustomFormManagerProps) {
   const { toast } = useToast();
-  const [loading, setLoading] = useState(false);
   const [allFields, setAllFields] = useState<UnifiedFormField[]>([]);
-  const [isFieldDialogOpen, setIsFieldDialogOpen] = useState(false);
   const [savingCourse, setSavingCourse] = useState(false);
-  const [editingField, setEditingField] = useState<UnifiedFormField | null>(null);
-  const [fieldOptions, setFieldOptions] = useState<string[]>(['']);
-
-  // フィールド作成フォーム
-  const fieldForm = useForm<FieldFormData>({
-    resolver: zodResolver(fieldSchema),
-    defaultValues: {
-      name: '',
-      label: '',
-      type: 'text',
-      required: false,
-      placeholder: '',
-      description: ''
-    }
-  });
+  const [showPresetPicker, setShowPresetPicker] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
   // 講義作成フォーム
   const courseForm = useForm<CourseFormData>({
@@ -259,11 +102,10 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
     defaultValues: {
       courseName: '',
       teacherName: '',
-      spreadsheetId: ''
-    }
+    },
   });
 
-  // 初期化時にデフォルトフィールドを統合リストに追加
+  // 初期化時にデフォルトフィールドをセット
   useEffect(() => {
     const initialFields: UnifiedFormField[] = defaultFields.map((field, index) => ({
       id: `default_${field.key}`,
@@ -277,44 +119,18 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
       order: index,
       isDefault: true,
       originalKey: field.key,
-      isEnabled: true
+      isEnabled: true,
     }));
-
     setAllFields(initialFields);
   }, []);
 
-  // フィールドタイプが変更された時の処理
-  const handleFieldTypeChange = (value: string) => {
-    fieldForm.setValue('type', value as any);
-    if (value === 'select' || value === 'radio') {
-      setFieldOptions(['']);
-    } else {
-      setFieldOptions([]);
-    }
-  };
-
-  // オプション追加
-  const addOption = () => {
-    setFieldOptions(prev => [...prev, '']);
-  };
-
-  // オプション削除
-  const removeOption = (index: number) => {
-    setFieldOptions(prev => prev.filter((_, i) => i !== index));
-  };
-
-  // オプション更新
-  const updateOption = (index: number, value: string) => {
-    setFieldOptions(prev => prev.map((opt, i) => i === index ? value : opt));
-  };
-
   // フィールドの有効/無効切り替え
   const toggleFieldEnabled = (fieldId: string) => {
-    setAllFields(prev => prev.map(field => 
-      field.id === fieldId 
-        ? { ...field, isEnabled: !field.isEnabled }
-        : field
-    ));
+    setAllFields(prev =>
+      prev.map(field =>
+        field.id === fieldId ? { ...field, isEnabled: !field.isEnabled } : field
+      )
+    );
   };
 
   // フィールドの並び替え
@@ -323,180 +139,94 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
     const newFields = [...enabledFields];
     const [movedField] = newFields.splice(fromIndex, 1);
     newFields.splice(toIndex, 0, movedField);
-    
-    // orderを再設定
-    const updatedEnabledFields = newFields.map((field, index) => ({
-      ...field,
-      order: index
-    }));
 
-    // 無効なフィールドも含めて更新
+    const updatedEnabledFields = newFields.map((field, index) => ({ ...field, order: index }));
     const disabledFields = allFields.filter(f => !f.isEnabled);
-    const allUpdatedFields = [...updatedEnabledFields, ...disabledFields];
-    
-    setAllFields(allUpdatedFields);
+    setAllFields([...updatedEnabledFields, ...disabledFields]);
   };
 
-  // 新しいカスタムフィールドの追加
-  const handleAddField = (data: FieldFormData) => {
-    const validOptions = fieldOptions.filter(opt => opt.trim() !== '');
+  // プリセットフィールドが既に追加済みか
+  const isPresetAdded = (preset: PresetField) => {
+    return allFields.some(f => f.name === preset.name);
+  };
+
+  // プリセットフィールドを追加
+  const addPresetField = (preset: PresetField) => {
+    if (isPresetAdded(preset)) return;
+
     const enabledFields = allFields.filter(f => f.isEnabled);
-    
+    const customField = presetToCustomField(preset, enabledFields.length);
+
     const newField: UnifiedFormField = {
-      id: `custom_${Date.now()}`,
-      name: data.name,
-      label: data.label,
-      type: data.type,
-      required: data.required,
-      placeholder: data.placeholder || '',
-      description: data.description || '',
-      options: validOptions,
-      order: enabledFields.length,
+      ...customField,
       isDefault: false,
-      isEnabled: true
+      isEnabled: true,
     };
 
     setAllFields(prev => [...prev, newField]);
-    setIsFieldDialogOpen(false);
-    fieldForm.reset();
-    setFieldOptions(['']);
-    
     toast({
-      title: '✨ 成功',
-      description: 'フィールドを追加しました',
+      title: '追加しました',
+      description: `「${preset.label}」をフォームに追加しました`,
     });
   };
 
-  // フィールドの編集
-  const handleEditField = (field: UnifiedFormField) => {
-    setEditingField(field);
-    fieldForm.reset({
-      name: field.name,
-      label: field.label,
-      type: field.type,
-      required: field.required,
-      placeholder: field.placeholder,
-      description: field.description
-    });
-    setFieldOptions(field.options && field.options.length > 0 ? field.options : ['']);
-    setIsFieldDialogOpen(true);
-  };
-
-  // フィールドの更新
-  const handleUpdateField = (data: FieldFormData) => {
-    if (!editingField) return;
-
-    const validOptions = fieldOptions.filter(opt => opt.trim() !== '');
-    
-    const updatedField: UnifiedFormField = {
-      ...editingField,
-      name: editingField.isDefault ? editingField.name : data.name, // デフォルトフィールドの場合はnameを変更しない
-      label: data.label,
-      type: data.type,
-      required: data.required,
-      placeholder: data.placeholder || '',
-      description: data.description || '',
-      options: validOptions
-    };
-
-    setAllFields(prev => prev.map(field => 
-      field.id === editingField.id ? updatedField : field
-    ));
-    
-    setIsFieldDialogOpen(false);
-    setEditingField(null);
-    fieldForm.reset();
-    setFieldOptions(['']);
-    
-    toast({
-      title: '✨ 成功',
-      description: 'フィールドを更新しました',
-    });
-  };
-
-  // フィールドの削除
+  // カスタムフィールドの削除
   const handleDeleteField = (fieldId: string) => {
     const field = allFields.find(f => f.id === fieldId);
-    
     if (field?.isDefault) {
-      // デフォルトフィールドの場合は無効化
       toggleFieldEnabled(fieldId);
-      toast({
-        title: '✨ 成功',
-        description: 'デフォルトフィールドを無効化しました',
-      });
     } else {
-      // カスタムフィールドの場合は削除
-      setAllFields(prev => prev.filter(field => field.id !== fieldId));
+      setAllFields(prev => prev.filter(f => f.id !== fieldId));
       toast({
-        title: '✨ 成功',
-        description: 'カスタムフィールドを削除しました',
+        title: '削除しました',
+        description: 'フィールドを削除しました',
       });
     }
   };
 
-  // ダイアログを閉じる時の処理
-  const handleCloseDialog = () => {
-    setIsFieldDialogOpen(false);
-    setEditingField(null);
-    fieldForm.reset();
-    setFieldOptions(['']);
+  // 必須フラグの切り替え
+  const toggleRequired = (fieldId: string) => {
+    setAllFields(prev =>
+      prev.map(field =>
+        field.id === fieldId ? { ...field, required: !field.required } : field
+      )
+    );
   };
 
-  // カスタムフォーム付き講義の追加
+  // 講義作成
   const handleAddCustomCourse = async (data: CourseFormData) => {
     setSavingCourse(true);
     try {
-      // 講義を追加
-      const courseResponse = await fetch('/api/admin/courses', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          courseName: data.courseName.trim(),
-          teacherName: data.teacherName.trim(),
-          spreadsheetId: data.spreadsheetId.trim(),
-          isCustomForm: true
-        }),
-      });
-
-      if (!courseResponse.ok) {
-        const errorData = await courseResponse.json();
-        throw new Error(errorData.message || '講義の追加に失敗しました');
-      }
-
-      const courseData = await courseResponse.json();
-      const courseId = courseData.course.id;
-
-      // 有効なフィールドのみを抽出
       const enabledFields = allFields.filter(f => f.isEnabled);
       const customFields = enabledFields.filter(f => !f.isDefault);
       const enabledDefaultFields = enabledFields
         .filter(f => f.isDefault)
         .map(f => f.originalKey || f.name);
 
-      // カスタムフォーム設定を保存
-      const formConfigResponse = await fetch(`/api/admin/courses/${courseId}/form-config`, {
+      const response = await fetch('/api/v2/courses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          name: data.courseName.trim(),
+          teacherName: data.teacherName.trim(),
           customFields,
-          enabledDefaultFields
+          enabledDefaultFields,
         }),
       });
 
-      if (!formConfigResponse.ok) {
-        throw new Error('フォーム設定の保存に失敗しました');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || errorData.error || '講義の追加に失敗しました');
       }
 
       toast({
-        title: '🎉 成功',
+        title: '作成しました',
         description: 'カスタムフォーム付き講義を追加しました',
       });
 
-      // フォームをリセット
       courseForm.reset();
-      
-      // フィールドをデフォルト状態に戻す
+
+      // リセット
       const resetFields: UnifiedFormField[] = defaultFields.map((field, index) => ({
         id: `default_${field.key}`,
         name: field.key,
@@ -509,25 +239,17 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
         order: index,
         isDefault: true,
         originalKey: field.key,
-        isEnabled: true
+        isEnabled: true,
       }));
       setAllFields(resetFields);
 
-      // 親コンポーネントに講義追加を通知
-      if (onCourseAdded) {
-        onCourseAdded();
-      }
-
-      // モーダルを閉じる
-      if (onClose) {
-        onClose();
-      }
-
+      onCourseAdded?.();
+      onClose?.();
     } catch (error) {
       console.error('Error adding custom course:', error);
       toast({
-        title: '❌ エラー',
-        description: error instanceof Error ? error.message : 'カスタム講義の追加に失敗しました',
+        title: 'エラー',
+        description: error instanceof Error ? error.message : '講義の追加に失敗しました',
         variant: 'destructive',
       });
     } finally {
@@ -535,458 +257,283 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
     }
   };
 
-  // フォーム設定のみを保存（講義追加なし）
-  const handleSaveFormConfig = async () => {
-    try {
-      setLoading(true);
-      
-      // 有効なフィールドのみを抽出
-      const enabledFields = allFields.filter(f => f.isEnabled);
-      const customFields = enabledFields.filter(f => !f.isDefault);
-      const enabledDefaultFields = enabledFields
-        .filter(f => f.isDefault)
-        .map(f => f.originalKey || f.name);
-
-      // テンプレートとして保存
-      const templateResponse = await fetch('/api/admin/custom-forms', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: `カスタムテンプレート_${Date.now()}`,
-          description: 'カスタムフォームテンプレート',
-          fields: customFields,
-          enabledDefaultFields,
-          isDefault: false
-        }),
-      });
-
-      if (!templateResponse.ok) {
-        throw new Error('フォーム設定の保存に失敗しました');
-      }
-
-      toast({
-        title: '✨ 成功',
-        description: 'フォーム設定を保存しました',
-      });
-
-    } catch (error) {
-      console.error('Error saving form config:', error);
-      toast({
-        title: '❌ エラー',
-        description: 'フォーム設定の保存に失敗しました',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 有効なフィールドを取得
   const enabledFields = allFields.filter(f => f.isEnabled).sort((a, b) => a.order - b.order);
   const disabledFields = allFields.filter(f => !f.isEnabled);
 
+  // フィルタされたプリセット
+  const filteredPresets = selectedCategory === 'all'
+    ? presetFields
+    : presetFields.filter(p => p.category === selectedCategory);
+
   return (
-    <div className="space-y-6">
-      {/* フィールド管理 */}
-      <Card className="border-indigo-200 card-hover">
-        <CardHeader className="bg-gradient-to-r from-indigo-50 to-blue-50 p-4 sm:p-6">
-          <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
-            <div>
-              <CardTitle className="text-lg sm:text-xl text-gradient">フォームフィールド管理</CardTitle>
-              <CardDescription className="text-sm sm:text-base text-indigo-600 mt-2">
-                デフォルトフィールドの編集・削除と、<br />カスタムフィールドの追加・並び替えができます
-              </CardDescription>
+    <div className="space-y-5">
+      {/* 現在のフォーム構成 */}
+      <Card className="border-slate-200 shadow-sm">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base font-semibold text-slate-800">フォーム項目</CardTitle>
+            <Badge variant="secondary" className="bg-indigo-50 text-indigo-700 text-xs">
+              {enabledFields.length}項目
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="space-y-2">
+            <AnimatePresence>
+              {enabledFields.map((field, index) => (
+                <motion.div
+                  key={field.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  className="flex items-center gap-2 p-2.5 rounded-lg border border-slate-200 bg-white hover:border-slate-300 transition-colors group"
+                >
+                  {/* 並び替え */}
+                  <div className="flex flex-col gap-0.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => moveField(index, Math.max(0, index - 1))}
+                      disabled={index === 0}
+                      className="p-0.5 text-slate-300 hover:text-slate-600 disabled:opacity-30"
+                    >
+                      <ArrowUp className="h-3 w-3" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveField(index, Math.min(enabledFields.length - 1, index + 1))}
+                      disabled={index === enabledFields.length - 1}
+                      className="p-0.5 text-slate-300 hover:text-slate-600 disabled:opacity-30"
+                    >
+                      <ArrowDown className="h-3 w-3" />
+                    </button>
+                  </div>
+
+                  <GripVertical className="h-4 w-4 text-slate-300 shrink-0" />
+
+                  {/* アイコン */}
+                  <div className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${
+                    field.isDefault ? 'bg-indigo-50' : 'bg-violet-50'
+                  }`}>
+                    {React.createElement(fieldTypeIcons[field.type] || Type, {
+                      size: 14,
+                      className: field.isDefault ? 'text-indigo-500' : 'text-violet-500',
+                    })}
+                  </div>
+
+                  {/* ラベル・バッジ */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-slate-700 truncate">{field.label}</span>
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 shrink-0">
+                        {field.isDefault ? 'デフォルト' : 'カスタム'}
+                      </Badge>
+                      {field.required && (
+                        <Badge className="text-[10px] px-1.5 py-0 h-4 bg-red-50 text-red-600 border-red-200 shrink-0">
+                          必須
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 必須トグル + 削除 */}
+                  <div className="flex items-center gap-1.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      type="button"
+                      onClick={() => toggleRequired(field.id)}
+                      className="p-1.5 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                      title={field.required ? '任意に変更' : '必須に変更'}
+                    >
+                      <Settings className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteField(field.id)}
+                      className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                    >
+                      {field.isDefault ? <X className="h-3.5 w-3.5" /> : <Trash2 className="h-3.5 w-3.5" />}
+                    </button>
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+
+          {/* 無効化したデフォルトフィールド */}
+          {disabledFields.length > 0 && (
+            <div className="mt-4 pt-3 border-t border-slate-100">
+              <p className="text-xs text-slate-400 mb-2">無効なフィールド</p>
+              <div className="flex flex-wrap gap-1.5">
+                {disabledFields.map(field => (
+                  <button
+                    key={field.id}
+                    type="button"
+                    onClick={() => toggleFieldEnabled(field.id)}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs bg-slate-50 text-slate-500 rounded-md border border-slate-200 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-colors"
+                  >
+                    <Plus className="h-3 w-3" />
+                    {field.label}
+                  </button>
+                ))}
+              </div>
             </div>
-            <Button 
-              className="modern-button-primary w-full sm:w-auto"
-              onClick={() => setIsFieldDialogOpen(true)}
+          )}
+
+          {/* 項目追加ボタン */}
+          <div className="mt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowPresetPicker(!showPresetPicker)}
+              className="w-full h-10 text-sm border-dashed border-slate-300 text-slate-500 hover:text-indigo-600 hover:border-indigo-300 hover:bg-indigo-50/50"
             >
               <Plus className="h-4 w-4 mr-2" />
-              フィールド追加
+              {showPresetPicker ? '項目選択を閉じる' : '項目を追加する'}
             </Button>
-            
-            <CustomModal
-              isOpen={isFieldDialogOpen}
-              onClose={() => setIsFieldDialogOpen(false)}
-              title={editingField ? 'フィールドを編集' : '新しいフィールドを追加'}
-              description="フォームで使用するフィールドの詳細を設定してください"
-              className="sm:max-w-2xl max-h-[90vh]"
-            >
-              <form onSubmit={fieldForm.handleSubmit(editingField ? handleUpdateField : handleAddField)} className="space-y-6 form-field-enter">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  <FloatingLabelInput
-                    {...fieldForm.register('name')}
-                    label="フィールド名"
-                    placeholder="例: student_id"
-                    error={fieldForm.formState.errors.name?.message}
-                    disabled={editingField?.isDefault}
-                  />
-                  <FloatingLabelInput
-                    {...fieldForm.register('label')}
-                    label="表示ラベル"
-                    placeholder="例: 学生ID"
-                    error={fieldForm.formState.errors.label?.message}
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium text-slate-700">フィールドタイプ</Label>
-                    <Select
-                      value={fieldForm.watch('type')}
-                      onValueChange={(value) => fieldForm.setValue('type', value as any)}
-                      disabled={editingField?.isDefault}
-                    >
-                      <SelectTrigger className="modern-select">
-                        <SelectValue placeholder="タイプを選択" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Object.entries(fieldTypeLabels).map(([key, label]) => (
-                          <SelectItem key={key} value={key}>
-                            <div className="flex items-center space-x-2">
-                              {React.createElement(fieldTypeIcons[key as keyof typeof fieldTypeIcons], { 
-                                className: "h-4 w-4" 
-                              })}
-                              <span>{label}</span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {fieldForm.formState.errors.type && (
-                      <p className="text-sm text-red-500">{fieldForm.formState.errors.type.message}</p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium text-slate-700">必須フィールド</Label>
-                    <div className="flex items-center space-x-2 p-3 border rounded-lg bg-slate-50">
-                      <Switch
-                        checked={fieldForm.watch('required')}
-                        onCheckedChange={(checked) => fieldForm.setValue('required', checked)}
-                      />
-                      <Label className="text-sm">必須入力にする</Label>
-                    </div>
-                  </div>
-                </div>
-
-                <FloatingLabelTextarea
-                  {...fieldForm.register('placeholder')}
-                  label="プレースホルダー"
-                  placeholder="例: 学生IDを入力してください"
-                  error={fieldForm.formState.errors.placeholder?.message}
-                />
-
-                {(fieldForm.watch('type') === 'select' || fieldForm.watch('type') === 'radio' || fieldForm.watch('type') === 'checkbox') && (
-                  <div className="space-y-3">
-                    <Label className="text-sm font-medium text-slate-700">選択肢</Label>
-                    <div className="space-y-2">
-                      {fieldOptions.map((option, index) => (
-                        <div key={index} className="flex items-center space-x-2">
-                          <Input
-                            value={fieldOptions[index] || ''}
-                            onChange={(e) => updateOption(index, e.target.value)}
-                            placeholder={`選択肢 ${index + 1}`}
-                            className="modern-input"
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => removeOption(index)}
-                            disabled={fieldOptions.length <= 1}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ))}
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => addOption()}
-                        className="w-full"
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        選択肢を追加
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex flex-col-reverse space-y-2 space-y-reverse sm:flex-row sm:justify-end sm:space-y-0 sm:space-x-2 pt-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsFieldDialogOpen(false)}
-                    className="modern-button-secondary w-full sm:w-auto"
-                  >
-                    キャンセル
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={fieldForm.formState.isSubmitting}
-                    className="modern-button-primary w-full sm:w-auto"
-                  >
-                    {fieldForm.formState.isSubmitting ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                        {editingField ? '更新中...' : '追加中...'}
-                      </>
-                    ) : (
-                      <>
-                        <Save className="h-4 w-4 mr-2" />
-                        {editingField ? '更新' : '追加'}
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </form>
-            </CustomModal>
           </div>
-        </CardHeader>
-        
-        <CardContent className="p-4 sm:p-6">
-          {/* 有効なフィールド */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base sm:text-lg font-semibold text-gray-900">有効なフィールド</h3>
-              <Badge variant="secondary" className="bg-indigo-100 text-indigo-800">
-                {enabledFields.length}個
-              </Badge>
-            </div>
-            
-            {enabledFields.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="w-20 h-20 bg-gradient-to-r from-slate-100 to-slate-200 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Settings className="h-10 w-10 text-slate-400" />
-                </div>
-                <p className="text-slate-600 font-medium">有効なフィールドがありません</p>
-                <p className="text-sm text-slate-500 mt-1">「フィールド追加」ボタンから新しいフィールドを追加してください</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <AnimatePresence>
-                  {enabledFields.map((field, index) => (
-                    <motion.div
-                      key={field.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -20 }}
-                      className={`
-                        flex flex-col sm:flex-row sm:items-center justify-between 
-                        p-4 border-2 rounded-xl transition-all duration-300 
-                        hover:shadow-lg hover:-translate-y-0.5 space-y-3 sm:space-y-0
-                        ${field.isDefault 
-                          ? 'border-indigo-200 bg-gradient-to-r from-indigo-50 to-blue-50' 
-                          : 'border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50'
-                        }
-                      `}
+        </CardContent>
+      </Card>
+
+      {/* プリセットフィールドピッカー */}
+      <AnimatePresence>
+        {showPresetPicker && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <Card className="border-indigo-200 shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-semibold text-slate-800">追加できる項目</CardTitle>
+                <p className="text-xs text-slate-500 mt-1">タップして項目をフォームに追加します</p>
+              </CardHeader>
+              <CardContent className="pt-0">
+                {/* カテゴリフィルター */}
+                <div className="flex gap-1.5 mb-4 overflow-x-auto pb-1">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCategory('all')}
+                    className={`px-3 py-1.5 text-xs rounded-full whitespace-nowrap transition-colors ${
+                      selectedCategory === 'all'
+                        ? 'bg-indigo-100 text-indigo-700 font-medium'
+                        : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
+                    }`}
+                  >
+                    すべて
+                  </button>
+                  {Object.entries(presetCategoryLabels).map(([key, label]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setSelectedCategory(key)}
+                      className={`px-3 py-1.5 text-xs rounded-full whitespace-nowrap transition-colors ${
+                        selectedCategory === key
+                          ? 'bg-indigo-100 text-indigo-700 font-medium'
+                          : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
+                      }`}
                     >
-                      <div className="flex items-center space-x-3 flex-1 min-w-0">
-                        <div className="flex flex-col space-y-1 flex-shrink-0">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => moveField(index, Math.max(0, index - 1))}
-                            disabled={index === 0}
-                            className="h-8 w-8 p-0 hover:bg-white/50 transition-colors"
-                          >
-                            <ArrowUp className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => moveField(index, Math.min(enabledFields.length - 1, index + 1))}
-                            disabled={index === enabledFields.length - 1}
-                            className="h-8 w-8 p-0 hover:bg-white/50 transition-colors"
-                          >
-                            <ArrowDown className="h-3 w-3" />
-                          </Button>
-                        </div>
-                        <GripVertical className="h-5 w-5 text-gray-400 flex-shrink-0" />
-                        <div className={`
-                          w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm
-                          ${field.isDefault ? 'bg-indigo-100' : 'bg-purple-100'}
-                        `}>
-                          {React.createElement(fieldTypeIcons[field.type as keyof typeof fieldTypeIcons], { 
-                            size: 20, 
-                            className: field.isDefault ? "text-indigo-600" : "text-purple-600"
-                          })}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-gray-900 text-sm sm:text-base truncate">{field.label}</p>
-                          <div className="flex flex-wrap items-center gap-2 mt-2">
-                            <Badge variant="secondary" className={`text-xs ${field.isDefault ? 'bg-indigo-100 text-indigo-800' : 'bg-purple-100 text-purple-800'}`}>
-                              {fieldTypeLabels[field.type]}
-                            </Badge>
-                            <Badge variant={field.isDefault ? 'default' : 'outline'} className="text-xs">
-                              {field.isDefault ? 'デフォルト' : 'カスタム'}
-                            </Badge>
-                            {field.required && <Badge variant="destructive" className="text-xs">必須</Badge>}
-                            {field.options && field.options.length > 0 && (
-                              <Badge variant="outline" className="text-xs">
-                                {field.options.length}個の選択肢
-                              </Badge>
-                            )}
-                          </div>
-                          {field.description && (
-                            <p className="text-xs text-gray-500 mt-2 line-clamp-2">{field.description}</p>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* プリセット一覧 */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {filteredPresets.map(preset => {
+                    const isAdded = isPresetAdded(preset);
+                    const IconComponent = presetIconMap[preset.icon] || MessageSquare;
+
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => !isAdded && addPresetField(preset)}
+                        disabled={isAdded}
+                        className={`flex items-center gap-3 p-3 rounded-lg border text-left transition-all ${
+                          isAdded
+                            ? 'border-emerald-200 bg-emerald-50/50 cursor-default'
+                            : 'border-slate-200 bg-white hover:border-indigo-300 hover:bg-indigo-50/30 hover:shadow-sm active:scale-[0.98]'
+                        }`}
+                      >
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
+                          isAdded ? 'bg-emerald-100' : 'bg-slate-100'
+                        }`}>
+                          {isAdded ? (
+                            <Check className="h-4 w-4 text-emerald-600" />
+                          ) : (
+                            <IconComponent className="h-4 w-4 text-slate-500" />
                           )}
                         </div>
-                      </div>
-                      <div className="flex items-center justify-end space-x-2 flex-shrink-0">
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={() => handleEditField(field)}
-                          className={`
-                            modern-button-secondary min-h-[44px] min-w-[44px]
-                            ${field.isDefault ? "text-indigo-600 hover:bg-indigo-100" : "text-purple-600 hover:bg-purple-100"}
-                          `}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={() => handleDeleteField(field.id)}
-                          className="text-red-600 hover:text-red-800 hover:bg-red-100 min-h-[44px] min-w-[44px] modern-button-secondary"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-              </div>
-            )}
-
-            {/* 無効なフィールド */}
-            {disabledFields.length > 0 && (
-              <div className="mt-8">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-base sm:text-lg font-semibold text-gray-500">無効なフィールド</h3>
-                  <Badge variant="outline">{disabledFields.length}個</Badge>
-                </div>
-                <div className="space-y-2">
-                  {disabledFields.map((field) => (
-                    <div
-                      key={field.id}
-                      className="flex items-center justify-between p-3 border border-gray-200 rounded-xl bg-gray-50/80 opacity-60"
-                    >
-                      <div className="flex items-center space-x-3 flex-1 min-w-0">
-                        <div className="w-10 h-10 bg-gray-200 rounded-xl flex items-center justify-center flex-shrink-0">
-                          {React.createElement(fieldTypeIcons[field.type as keyof typeof fieldTypeIcons], { 
-                            size: 18, 
-                            className: "text-gray-400"
-                          })}
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm font-medium ${isAdded ? 'text-emerald-700' : 'text-slate-700'}`}>
+                            {preset.label}
+                          </p>
+                          <p className="text-[11px] text-slate-400 truncate">{preset.description}</p>
                         </div>
-                        <div className="min-w-0">
-                          <p className="font-medium text-gray-600 text-sm truncate">{field.label}</p>
-                          <Badge variant="outline" className="text-xs mt-1">無効</Badge>
-                        </div>
-                      </div>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        onClick={() => toggleFieldEnabled(field.id)}
-                        className="text-green-600 hover:text-green-800 hover:bg-green-100 modern-button-secondary flex-shrink-0"
-                      >
-                        有効化
-                      </Button>
-                    </div>
-                  ))}
+                        {!isAdded && (
+                          <Plus className="h-4 w-4 text-slate-300 shrink-0" />
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-      
-      {/* フォーム設定保存 */}
-      <Card className="border-blue-200 card-hover">
-        <CardHeader className="bg-gradient-to-r from-blue-50 to-cyan-50 p-4 sm:p-6">
-          <CardTitle className="text-lg sm:text-xl text-gradient">フォーム設定を保存</CardTitle>
-          <CardDescription className="text-sm sm:text-base text-blue-600 mt-1">
-            現在のフォーム構成をテンプレートとして保存できます
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-4 sm:p-6">
-          <div className="flex justify-end">
-            <Button 
-              onClick={handleSaveFormConfig}
-              disabled={loading || enabledFields.length === 0}
-              variant="outline"
-              className="modern-button-secondary w-full sm:w-auto"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  保存中...
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4 mr-2" />
-                  フォーム設定を保存
-                </>
-              )}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* 講義作成フォーム */}
-      <Card className="border-green-200 card-hover">
-        <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 sm:p-6">
-          <CardTitle className="text-lg sm:text-xl text-gradient">カスタムフォーム付き講義を追加</CardTitle>
-          <CardDescription className="text-sm sm:text-base text-green-600 mt-1">
-            上記で設定したフォーム構成を使用する講義を作成します
-          </CardDescription>
+      <Card className="border-slate-200 shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-semibold text-slate-800">講義情報</CardTitle>
         </CardHeader>
-        <CardContent className="p-4 sm:p-6">
-          <form onSubmit={courseForm.handleSubmit(handleAddCustomCourse)} className="space-y-6">
-            <FloatingLabelInput
-              {...courseForm.register('courseName')}
-              label="講義名"
-              placeholder="例: カスタム経済学1"
-              error={courseForm.formState.errors.courseName?.message}
-              icon={BookOpen}
-              required
-            />
+        <CardContent className="pt-0">
+          <form onSubmit={courseForm.handleSubmit(handleAddCustomCourse)} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-slate-600">講義名 *</Label>
+              <Input
+                {...courseForm.register('courseName')}
+                placeholder="例: 経済学入門"
+                className="h-9 text-sm"
+              />
+              {courseForm.formState.errors.courseName && (
+                <p className="text-xs text-red-500">{courseForm.formState.errors.courseName.message}</p>
+              )}
+            </div>
 
-            <FloatingLabelInput
-              {...courseForm.register('teacherName')}
-              label="担当教員名"
-              placeholder="例: 田中太郎"
-              error={courseForm.formState.errors.teacherName?.message}
-              icon={User}
-              required
-            />
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-slate-600">担当教員名 *</Label>
+              <Input
+                {...courseForm.register('teacherName')}
+                placeholder="例: 田中太郎"
+                className="h-9 text-sm"
+              />
+              {courseForm.formState.errors.teacherName && (
+                <p className="text-xs text-red-500">{courseForm.formState.errors.teacherName.message}</p>
+              )}
+            </div>
 
-            <FloatingLabelInput
-              {...courseForm.register('spreadsheetId')}
-              label="スプレッドシートID"
-              placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
-              error={courseForm.formState.errors.spreadsheetId?.message}
-              icon={FileText}
-              required
-            />
-
-            <div className="flex justify-end pt-4">
-              <Button 
-                type="submit" 
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end pt-2">
+              {onClose && (
+                <Button type="button" variant="outline" onClick={onClose} className="h-9 w-full sm:w-auto">
+                  キャンセル
+                </Button>
+              )}
+              <Button
+                type="submit"
                 disabled={savingCourse || enabledFields.length === 0}
-                className="modern-button-primary w-full sm:w-auto"
+                className="h-9 w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white"
               >
                 {savingCourse ? (
                   <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    追加中...
+                    <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                    作成中...
                   </>
                 ) : (
                   <>
-                    <Save className="h-4 w-4 mr-2" />
-                    カスタム講義を追加
+                    <Save className="h-3.5 w-3.5 mr-1.5" />
+                    講義を作成
                   </>
                 )}
               </Button>

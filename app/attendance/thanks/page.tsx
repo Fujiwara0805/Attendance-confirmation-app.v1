@@ -1,140 +1,46 @@
 'use client';
 
-import Image from 'next/image';
 import { motion } from 'framer-motion';
-import { Button } from '@/components/ui/button';
+import { Heart } from 'lucide-react';
 
-const COMPANY_NAME = '株式会社Nobody';
-// 連絡先は必要に応じて置き換えてください
-const CONTACT_EMAIL = 'sobota@nobody-info.com';
-const INSTAGRAM_URL = 'https://www.instagram.com/sobota0101?igsh=NDV5NmhocG16aGN5';
-
-export default function ThanksShowcase() {
+export default function ThanksPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-      <div className="mx-auto max-w-4xl px-4 py-10 sm:py-14">
+    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.5, ease: 'easeOut' }}
+        className="text-center px-6"
+      >
         <motion.div
-          initial={{ opacity: 0, y: 14 }}
+          initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="text-center mb-8 sm:mb-10"
+          transition={{ delay: 0.2 }}
+          className="flex justify-center mb-6"
         >
-          <h1 className="text-2xl sm:text-3xl font-bold text-indigo-700">送信ありがとうございました</h1>
-          <p className="mt-2 text-slate-600">
-            {COMPANY_NAME} が開発したアプリをご紹介します。
-          </p>
-        </motion.div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15 }}
-            className="rounded-xl bg-white shadow-md border border-blue-100 p-6"
-          >
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-blue-50 border border-blue-100">
-                <a href="https://tokudoku.com" target="_blank" rel="noreferrer">
-                  <Image
-                    src="https://res.cloudinary.com/dz9trbwma/image/upload/v1749032362/icon_n7nsgl.png"
-                    alt="トクドク"
-                    width={60}
-                    height={60}
-                    className="rounded cursor-pointer hover:opacity-80 transition-opacity"
-                  />
-                </a>
-              </div>
-              <h2 className="text-xl font-semibold text-slate-900">トクドク<br />（掲示板アプリ）</h2>
-            </div>
-            <p className="mt-3 text-sm text-slate-600 leading-relaxed">
-            『トクドク』で“今だけ”のお得情報をゲットしよう！<br />
-            『トクドク』は、あなたの半径5km圏内の情報だけが表示される、地域限定の掲示板アプリです📱<br />
-              投稿された情報は最長12時間で自動削除されるので、常に新鮮な「今だけ」の情報がチェックできます👀<br />
-              たとえば…<br /> 
-              🍽 飲食店の空席（残席）情報<br />
-              🥐 パン屋さん・ケーキ屋さんの限定商品の在庫状況<br />
-              🛍 スーパーのタイムセール情報など<br />
-              さらに💡<br />
-              「お裾分け機能（投げ銭）」を使えば、お得な情報を投稿することでちょっとしたお小遣いがもらえるかも…⁉<br />
-              まずはアプリにログインして、お気に入りのお店を登録してみよう🙌<br />
-               <span className="font-medium text-blue-600">
-                 今すぐアクセス → 
-                 <a href="https://tokudoku.com" target="_blank" rel="noreferrer" className="underline hover:text-blue-800">
-                   https://tokudoku.com
-                 </a>
-               </span>
-             </p>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="rounded-xl bg-white shadow-md border border-indigo-100 p-6"
-          >
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-indigo-50 border border-indigo-100">
-                <Image
-                  src="https://res.cloudinary.com/dz9trbwma/image/upload/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png"
-                  alt="ざせきくん"
-                  width={60}
-                  height={60}
-                  className="rounded"
-                />
-              </div>
-              <h2 className="text-xl font-semibold text-slate-900">ざせきくん<br />（出席管理アプリ）</h2>
-            </div>
-            <p className="mt-3 text-sm text-slate-600 leading-relaxed">
-              管理者は講義ごとに位置情報と範囲を設定、学生はフォームから簡単に出席登録できます。Googleスプレッドシート連携で集計もスムーズ。
-            </p>
-            <ul className="mt-4 text-sm text-slate-700 list-disc pl-5 space-y-1.5">
-              <li>位置情報判定（半径設定）</li>
-              <li>Google Sheets 連携</li>
-              <li>スマホ最適化フォーム</li>
-            </ul>
-          </motion.div>
-
-        </div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.25 }}
-          className="mt-8 rounded-xl bg-white shadow-md border border-slate-200 p-6"
-        >
-          <h3 className="text-lg font-semibold text-slate-900">お問い合わせ</h3>
-          <p className="mt-2 text-sm text-slate-600">
-            本サービスやアプリに関するご相談は、{COMPANY_NAME} までお気軽にご連絡ください。
-          </p>
-          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-            <div className="rounded-lg border border-slate-200 p-4 bg-slate-50">
-              <div className="text-slate-500">メール</div>
-              <a className="text-slate-900 font-medium underline" href={`mailto:${CONTACT_EMAIL}`}>
-                {CONTACT_EMAIL}
-              </a>
-            </div>
-            <div className="rounded-lg border border-slate-200 p-4 bg-slate-50">
-              <div className="text-slate-500">SNSアカウント</div>
-              <a className="text-slate-900 font-medium underline" href={INSTAGRAM_URL} target="_blank" rel="noreferrer">
-                {INSTAGRAM_URL}
-              </a>
-            </div>
+          <div className="w-16 h-16 rounded-full bg-indigo-50 flex items-center justify-center ring-1 ring-indigo-100">
+            <Heart size={32} strokeWidth={1.5} className="text-indigo-500" />
           </div>
         </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
+        <motion.h1
+          initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.35 }}
-          className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3"
+          transition={{ delay: 0.3 }}
+          className="text-2xl font-bold text-gray-900 tracking-tight"
         >
-          <Button
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-6"
-            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          >
-            ページ上部に戻るよ
-          </Button>
-        </motion.div>
-      </div>
+          ありがとうございました
+        </motion.h1>
+
+        <motion.p
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="mt-3 text-sm text-slate-500"
+        >
+          出席登録が完了しました。このページは閉じて構いません。
+        </motion.p>
+      </motion.div>
     </div>
   );
 }

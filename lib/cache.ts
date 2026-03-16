@@ -1,3 +1,5 @@
+import { redis } from './redis';
+
 // シンプルなメモリキャッシュ実装
 class MemoryCache {
   private cache = new Map<string, { data: any; expires: number }>();
@@ -10,12 +12,12 @@ class MemoryCache {
   get(key: string): any | null {
     const item = this.cache.get(key);
     if (!item) return null;
-    
+
     if (Date.now() > item.expires) {
       this.cache.delete(key);
       return null;
     }
-    
+
     return item.data;
   }
 
@@ -31,14 +33,57 @@ class MemoryCache {
   cleanup() {
     const now = Date.now();
     const keysToDelete: string[] = [];
-    
+
     this.cache.forEach((item, key) => {
       if (now > item.expires) {
         keysToDelete.push(key);
       }
     });
-    
+
     keysToDelete.forEach(key => this.cache.delete(key));
+  }
+
+  /**
+   * Redis付きでデータを保存します (サーバーレスインスタンス間で共有)。
+   * メモリキャッシュとRedis両方に書き込みます。
+   */
+  async setWithRedis(key: string, data: any, ttlSeconds: number = 300) {
+    this.set(key, data, ttlSeconds);
+
+    if (redis) {
+      try {
+        await redis.set(`cache:${key}`, JSON.stringify(data), { ex: ttlSeconds });
+      } catch {
+        // Redis書き込み失敗は無視 (メモリキャッシュで対応)
+      }
+    }
+  }
+
+  /**
+   * Redis付きでデータを取得します。
+   * メモリキャッシュを優先し、ミス時にRedisをチェックします。
+   */
+  async getWithRedis(key: string): Promise<any | null> {
+    // メモリキャッシュ優先
+    const memoryResult = this.get(key);
+    if (memoryResult !== null) return memoryResult;
+
+    // Redisフォールバック
+    if (redis) {
+      try {
+        const redisResult = await redis.get(`cache:${key}`);
+        if (redisResult) {
+          const data = typeof redisResult === 'string' ? JSON.parse(redisResult) : redisResult;
+          // メモリキャッシュに復元 (短いTTL)
+          this.set(key, data, 60);
+          return data;
+        }
+      } catch {
+        // Redis読み取り失敗は無視
+      }
+    }
+
+    return null;
   }
 }
 

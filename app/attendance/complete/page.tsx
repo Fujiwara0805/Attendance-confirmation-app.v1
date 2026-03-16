@@ -1,72 +1,46 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Button } from '@/components/ui/button';
 import { CheckCircle } from 'lucide-react';
 
 export default function AttendanceComplete() {
-  const router = useRouter();
-  
-  // 5秒後にトップページに自動遷移する
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      router.push('/attendance/thanks');
-    }, 5000);
-    
-    return () => clearTimeout(timer);
-  }, [router]);
-
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
+    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       <motion.div
-        initial={{ scale: 0.8, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 0.5 }}
-        className="text-center max-w-md w-full mx-auto px-6 py-8 bg-white rounded-lg shadow-md"
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.5, ease: 'easeOut' }}
+        className="text-center px-6"
       >
         <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
           className="flex justify-center mb-6"
         >
-          <CheckCircle size={80} strokeWidth={1.5} className="text-green-500" />
+          <div className="w-20 h-20 rounded-full bg-emerald-50 flex items-center justify-center ring-1 ring-emerald-100">
+            <CheckCircle size={40} strokeWidth={1.5} className="text-emerald-500" />
+          </div>
         </motion.div>
-        
+
         <motion.h1
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.4 }}
-          className="text-3xl font-bold mb-4 text-indigo-700"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="text-2xl font-bold text-gray-900 tracking-tight"
         >
-          出席完了しました
+          ありがとうございました
         </motion.h1>
-        
+
         <motion.p
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.6 }}
-          className="text-gray-600 mb-8"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="mt-3 text-sm text-slate-500"
         >
-          出席が正常に登録されました。5秒後に自動的にお知らせページへ遷移します。
+          出席が正常に登録されました
         </motion.p>
-        
-        <motion.div
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.8 }}
-          className="flex justify-center"
-        >
-          <Button 
-            onClick={() => router.push('/attendance/thanks')}
-            className="bg-indigo-600 hover:bg-indigo-700 min-w-[200px]"
-          >
-            お知らせページへ
-          </Button>
-        </motion.div>
       </motion.div>
     </div>
   );
-} 
+}
