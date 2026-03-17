@@ -27,7 +27,6 @@ import {
   Loader2,
   ArrowUp,
   ArrowDown,
-  BookOpen,
   User,
   Mail,
   Phone,
@@ -276,7 +275,7 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
           </div>
         </CardHeader>
         <CardContent className="pt-0">
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <AnimatePresence>
               {enabledFields.map((field, index) => (
                 <motion.div
@@ -284,17 +283,17 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, x: -20 }}
-                  className="flex items-center gap-1.5 sm:gap-2 px-2 py-1.5 sm:px-2.5 sm:py-2 rounded-lg border border-slate-200 bg-white hover:border-slate-300 transition-colors group"
+                  className="flex items-center gap-1.5 h-9 px-2 rounded-md border border-slate-200 bg-white hover:border-slate-300 transition-colors"
                 >
                   {/* 並び替え */}
-                  <div className="flex flex-col shrink-0">
+                  <div className="flex flex-col shrink-0 -space-y-1">
                     <button
                       type="button"
                       onClick={() => moveField(index, Math.max(0, index - 1))}
                       disabled={index === 0}
                       className="p-0.5 text-slate-300 hover:text-slate-600 disabled:opacity-30"
                     >
-                      <ArrowUp className="h-3 w-3" />
+                      <ArrowUp className="h-2.5 w-2.5" />
                     </button>
                     <button
                       type="button"
@@ -302,42 +301,32 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
                       disabled={index === enabledFields.length - 1}
                       className="p-0.5 text-slate-300 hover:text-slate-600 disabled:opacity-30"
                     >
-                      <ArrowDown className="h-3 w-3" />
+                      <ArrowDown className="h-2.5 w-2.5" />
                     </button>
                   </div>
 
-                  {/* アイコン */}
-                  <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${
-                    field.isDefault ? 'bg-indigo-50' : 'bg-violet-50'
-                  }`}>
-                    {React.createElement(fieldTypeIcons[field.type] || Type, {
-                      size: 13,
-                      className: field.isDefault ? 'text-indigo-500' : 'text-violet-500',
-                    })}
-                  </div>
-
-                  {/* 項目名（小さく全表示） */}
-                  <span className="flex-1 min-w-0 text-xs font-medium text-slate-700 truncate">{field.label}</span>
-
-                  {/* 必須オン/オフトグル */}
-                  <div className="flex items-center gap-1 shrink-0">
-                    <span className={`text-[10px] font-medium whitespace-nowrap ${field.required ? 'text-red-500' : 'text-slate-400'}`}>
-                      必須
+                  {/* 項目名 + 必須ラベル（縦並び） */}
+                  <div className="flex-1 min-w-0">
+                    <span className="block text-xs font-medium text-slate-700 truncate leading-tight">{field.label}</span>
+                    <span className={`text-[9px] leading-tight ${field.required ? 'text-red-500' : 'text-slate-400'}`}>
+                      {field.required ? '必須' : '任意'}
                     </span>
-                    <Switch
-                      checked={field.required}
-                      onCheckedChange={() => toggleRequired(field.id)}
-                      className="scale-75 origin-right data-[state=checked]:bg-red-500"
-                    />
                   </div>
+
+                  {/* 必須トグル */}
+                  <Switch
+                    checked={field.required}
+                    onCheckedChange={() => toggleRequired(field.id)}
+                    className="scale-[0.65] origin-right data-[state=checked]:bg-red-500 shrink-0"
+                  />
 
                   {/* 削除 */}
                   <button
                     type="button"
                     onClick={() => handleDeleteField(field.id)}
-                    className="p-1 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0"
+                    className="p-0.5 rounded text-slate-400 hover:text-red-600 transition-colors shrink-0"
                   >
-                    {field.isDefault ? <X className="h-3.5 w-3.5" /> : <Trash2 className="h-3.5 w-3.5" />}
+                    {field.isDefault ? <X className="h-3 w-3" /> : <Trash2 className="h-3 w-3" />}
                   </button>
                 </motion.div>
               ))}
@@ -346,17 +335,17 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
 
           {/* 無効化したデフォルトフィールド */}
           {disabledFields.length > 0 && (
-            <div className="mt-4 pt-3 border-t border-slate-100">
-              <p className="text-xs text-slate-400 mb-2">無効なフィールド</p>
-              <div className="flex flex-wrap gap-1.5">
+            <div className="mt-3 pt-2 border-t border-slate-100">
+              <p className="text-[10px] text-slate-400 mb-1.5">追加可能な項目</p>
+              <div className="flex flex-wrap gap-1">
                 {disabledFields.map(field => (
                   <button
                     key={field.id}
                     type="button"
                     onClick={() => toggleFieldEnabled(field.id)}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs bg-slate-50 text-slate-500 rounded-md border border-slate-200 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-colors"
+                    className="inline-flex items-center gap-0.5 px-2 py-0.5 text-[11px] bg-slate-50 text-slate-500 rounded border border-slate-200 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-colors"
                   >
-                    <Plus className="h-3 w-3" />
+                    <Plus className="h-2.5 w-2.5" />
                     {field.label}
                   </button>
                 ))}

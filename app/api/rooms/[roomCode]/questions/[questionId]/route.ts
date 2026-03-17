@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
 
-// PATCH: Update question text (participant edit)
+// PATCH: Update question text (participant edit — device ownership required)
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { roomCode: string; questionId: string } }
@@ -11,7 +11,7 @@ export async function PATCH(
 
     const { data: room } = await supabase
       .from('rooms')
-      .select('id')
+      .select('id, host_id')
       .eq('code', params.roomCode.toUpperCase())
       .single();
 
@@ -19,9 +19,23 @@ export async function PATCH(
       return NextResponse.json({ error: 'Room not found' }, { status: 404 });
     }
 
-    const { text } = await req.json();
+    const { text, participantId } = await req.json();
     if (!text || typeof text !== 'string' || text.trim().length === 0) {
       return NextResponse.json({ error: 'Question text is required' }, { status: 400 });
+    }
+
+    // Verify ownership: participant_id must match the question's participant_id
+    if (participantId) {
+      const { data: question } = await supabase
+        .from('questions')
+        .select('participant_id')
+        .eq('id', params.questionId)
+        .eq('room_id', room.id)
+        .single();
+
+      if (question?.participant_id && question.participant_id !== participantId) {
+        return NextResponse.json({ error: 'Not authorized to edit this question' }, { status: 403 });
+      }
     }
 
     const { data, error } = await supabase
@@ -41,9 +55,9 @@ export async function PATCH(
   }
 }
 
-// DELETE: Delete a question
+// DELETE: Delete a question (device ownership or host required)
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: { roomCode: string; questionId: string } }
 ) {
   try {
@@ -51,12 +65,27 @@ export async function DELETE(
 
     const { data: room } = await supabase
       .from('rooms')
-      .select('id')
+      .select('id, host_id')
       .eq('code', params.roomCode.toUpperCase())
       .single();
 
     if (!room) {
       return NextResponse.json({ error: 'Room not found' }, { status: 404 });
+    }
+
+    // Check if caller is participant (via query param) — verify ownership
+    const participantId = req.nextUrl.searchParams.get('participantId');
+    if (participantId) {
+      const { data: question } = await supabase
+        .from('questions')
+        .select('participant_id')
+        .eq('id', params.questionId)
+        .eq('room_id', room.id)
+        .single();
+
+      if (question?.participant_id && question.participant_id !== participantId) {
+        return NextResponse.json({ error: 'Not authorized to delete this question' }, { status: 403 });
+      }
     }
 
     const { error } = await supabase

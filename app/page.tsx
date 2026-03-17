@@ -126,25 +126,29 @@ const steps = [
   {
     num: '01',
     title: 'イベントを設定',
-    description: '出席フォーム・Q&Aルーム・投票を数クリックで作成。カスタマイズも自由自在。',
+    desc1: '出席フォーム、Q&Aルーム、投票を',
+    desc2: '数クリックで作成。カスタマイズも自由自在。',
     icon: Globe,
   },
   {
     num: '02',
     title: 'QRコードで招待',
-    description: 'QRコードやURLを参加者に共有。アプリのインストールは一切不要。',
+    desc1: 'QRコードとURLを参加者に共有。',
+    desc2: 'アプリのインストールは一切不要。',
     icon: Sparkles,
   },
   {
     num: '03',
     title: '参加者がすぐアクション',
-    description: 'スマホから出席登録・質問投稿・投票に参加。ワンタップで完了。',
+    desc1: 'スマホから出席登録、質問投稿、投票に参加。',
+    desc2: 'ワンタップで完了。',
     icon: CheckCircle2,
   },
   {
     num: '04',
     title: '結果をリアルタイムで確認',
-    description: '回答をリアルタイムで集計・可視化。データはCSVで即エクスポート。',
+    desc1: '回答をリアルタイムで集計・可視化。',
+    desc2: 'データはCSVで即エクスポート。',
     icon: Clock,
   },
 ];
@@ -235,8 +239,11 @@ export default function LandingPage() {
                 <Link href="/news" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-lg transition-colors">
                   お知らせ
                 </Link>
-                <Link href="/legal/tokusho" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-lg transition-colors">
-                  特定商取引法
+                <Link href="/legal/privacy" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-lg transition-colors">
+                  プライバシーポリシー
+                </Link>
+                <Link href="/legal/terms" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-lg transition-colors">
+                  利用規約
                 </Link>
                 <div className="pt-2">
                   <Link href="/admin/login" onClick={() => setMobileMenuOpen(false)} className="block w-full text-center text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 px-4 py-2.5 rounded-xl">
@@ -274,11 +281,13 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="text-3xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-slate-900 leading-[1.1]"
+            className="text-2xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-slate-900 leading-[1.15]"
           >
-            すべてのイベントを、
+            全てのワークショップを
             <br className="sm:hidden" />
-            もっとインタラクティブに。
+            「受け取る」から
+            <br className="sm:hidden" />
+            「共に作る」場へ
           </motion.h1>
 
           <motion.p
@@ -289,11 +298,7 @@ export default function LandingPage() {
           >
             出席管理・リアルタイムQ&A・
             <br className="sm:hidden" />
-            ライブ投票をひとつのプラットフォームで。
-            <br />
-            アプリ不要・ログイン不要、
-            <br className="sm:hidden" />
-            QRコードひとつで10,000人規模に対応。
+            ライブ投票をひとつのプラットフォームに。
           </motion.p>
 
           <motion.div
@@ -494,7 +499,11 @@ export default function LandingPage() {
                   Step {s.num}
                 </p>
                 <h3 className="text-base font-bold text-slate-900">{s.title}</h3>
-                <p className="mt-1.5 text-sm text-slate-500">{s.description}</p>
+                <p className="mt-1.5 text-sm text-slate-500">
+                  {s.desc1}
+                  <br className="sm:hidden" />
+                  {s.desc2}
+                </p>
               </motion.div>
             ))}
           </motion.div>
@@ -511,15 +520,13 @@ export default function LandingPage() {
           <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/3" />
 
           <div className="relative z-10">
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-white tracking-tight">
-              次のイベントを、
+            <h2 className="text-xl sm:text-3xl md:text-4xl font-extrabold text-white tracking-tight">
+              次のワークショップを、
               <br className="sm:hidden" />
               もっとインタラクティブに。
             </h2>
             <p className="mt-4 text-base text-indigo-100 max-w-lg mx-auto">
-              初期費用ゼロ、
-              <br className="sm:hidden" />
-              セットアップは1分。
+              初期費用ゼロ、セットアップは1分。
               <br />
               まずは無料プランで、
               <br className="sm:hidden" />
@@ -679,14 +686,11 @@ export default function LandingPage() {
             <span className="text-xs text-slate-400">by 株式会社Nobody</span>
           </div>
           <div className="flex items-center gap-6 text-sm text-slate-500">
-            <Link href="/news" className="hover:text-slate-900 transition-colors">
-              お知らせ
+            <Link href="/legal/privacy" className="hover:text-slate-900 transition-colors">
+              プライバシーポリシー
             </Link>
-            <Link href="/legal/tokusho" className="hover:text-slate-900 transition-colors">
-              特定商取引法
-            </Link>
-            <Link href="/admin/login" className="hover:text-slate-900 transition-colors">
-              管理者ログイン
+            <Link href="/legal/terms" className="hover:text-slate-900 transition-colors">
+              利用規約
             </Link>
             <a href="mailto:sobota@nobody-info.com" className="hover:text-slate-900 transition-colors">
               お問い合わせ

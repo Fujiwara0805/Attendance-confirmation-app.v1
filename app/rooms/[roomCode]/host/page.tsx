@@ -6,7 +6,7 @@ import { useSession } from 'next-auth/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   MessageSquare, BarChart3, Plus, QrCode, Copy, Check,
-  Download, ExternalLink, StopCircle, Trash2, Monitor,
+  Download, ExternalLink, StopCircle, Trash2, Monitor, ArrowLeft,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -179,6 +179,13 @@ export default function HostPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Link
+              href="/admin"
+              className="flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-700 px-2 py-2 rounded-lg transition-colors"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">管理画面</span>
+            </Link>
             <Link
               href={`/rooms/${roomCode}/present`}
               className="hidden sm:flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-lg transition-colors"

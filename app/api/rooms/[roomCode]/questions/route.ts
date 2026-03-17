@@ -57,7 +57,7 @@ export async function POST(
       return NextResponse.json({ error: 'Room is closed' }, { status: 400 });
     }
 
-    const { text, authorName, isAnonymous } = await req.json();
+    const { text, authorName, isAnonymous, participantId } = await req.json();
     if (!text || typeof text !== 'string' || text.trim().length === 0) {
       return NextResponse.json({ error: 'Question text is required' }, { status: 400 });
     }
@@ -69,6 +69,7 @@ export async function POST(
         text: text.trim(),
         author_name: isAnonymous ? 'Anonymous' : (authorName || 'Anonymous'),
         is_anonymous: isAnonymous !== false,
+        ...(participantId ? { participant_id: participantId } : {}),
       })
       .select()
       .single();

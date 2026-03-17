@@ -84,6 +84,7 @@ export default function ParticipantPage() {
           text: questionText.trim(),
           authorName: isAnonymous ? 'Anonymous' : (displayName || 'Anonymous'),
           isAnonymous,
+          participantId,
         }),
       });
       const created = await res.json();
@@ -130,7 +131,7 @@ export default function ParticipantPage() {
       await fetch(`/api/rooms/${roomCode}/questions/${questionId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: newText }),
+        body: JSON.stringify({ text: newText, participantId }),
       });
     } catch {
       // Silently fail
@@ -139,7 +140,7 @@ export default function ParticipantPage() {
 
   const handleDeleteOwnQuestion = async (questionId: string) => {
     try {
-      await fetch(`/api/rooms/${roomCode}/questions/${questionId}`, {
+      await fetch(`/api/rooms/${roomCode}/questions/${questionId}?participantId=${participantId}`, {
         method: 'DELETE',
       });
       const newOwn = new Set(ownQuestionIds);

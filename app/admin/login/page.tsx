@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { motion } from 'framer-motion'
-import { Chrome, Shield, Mail, Loader2, Eye, EyeOff } from 'lucide-react'
+import { Chrome, Shield, Mail, Loader2, Eye, EyeOff, Home } from 'lucide-react'
 import Link from 'next/link'
 
 export default function AdminLoginPage() {
@@ -82,7 +82,9 @@ export default function AdminLoginPage() {
               管理者ログイン
             </CardTitle>
             <p className="text-slate-600 mt-2">
-              出席管理・Q&A・投票など、すべての機能を管理できます
+              出席管理・Q&A・投票など、
+              <br className="sm:hidden" />
+              すべての機能を管理できます
             </p>
           </CardHeader>
 
@@ -231,6 +233,16 @@ export default function AdminLoginPage() {
             </motion.div>
           </CardContent>
         </Card>
+
+        <div className="mt-4 text-center">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 transition-colors"
+          >
+            <Home className="w-3.5 h-3.5" />
+            ホームに戻る
+          </Link>
+        </div>
       </motion.div>
     </div>
   )
