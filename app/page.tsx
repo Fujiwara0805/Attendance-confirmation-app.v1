@@ -296,7 +296,7 @@ export default function LandingPage() {
             transition={{ duration: 0.5, delay: 0.1 }}
             className="text-2xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-slate-900 leading-[1.15]"
           >
-            全てのワークショップを
+            全て学習機会を
             <br />
             「受け取る」から「共に作る」へ
           </motion.h1>
