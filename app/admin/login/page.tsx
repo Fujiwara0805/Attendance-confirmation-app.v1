@@ -9,7 +9,6 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { motion } from 'framer-motion'
 import { Chrome, Shield, Mail, Loader2, Eye, EyeOff } from 'lucide-react'
-import Image from 'next/image'
 import Link from 'next/link'
 
 export default function AdminLoginPage() {
@@ -79,27 +78,11 @@ export default function AdminLoginPage() {
       >
         <Card className="shadow-xl border-0">
           <CardHeader className="text-center pb-6">
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-              className="mx-auto mb-4 p-3 bg-gradient-to-br rounded-xl shadow-lg w-fit"
-            >
-              <Image
-                src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_200/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png"
-                alt="ざせきくん"
-                width={100}
-                height={100}
-                className="rounded"
-              />
-            </motion.div>
             <CardTitle className="text-2xl font-bold text-slate-900">
               管理者ログイン
             </CardTitle>
             <p className="text-slate-600 mt-2">
-              出席管理・Q&A・投票など、
-              <br className="sm:hidden" />
-              すべての機能を管理できます
+              出席管理・Q&A・投票など、すべての機能を管理できます
             </p>
           </CardHeader>
 
@@ -230,13 +213,7 @@ export default function AdminLoginPage() {
                 <p className="text-sm font-medium text-blue-900">管理者機能について</p>
               </div>
               <p className="text-sm text-blue-800 mt-2">
-                ログインすると、
-                <br className="sm:hidden" />
-                フォームの作成・編集・削除、
-                <br className="sm:hidden" />
-                Q&Aルームの管理、
-                <br className="sm:hidden" />
-                出席データのエクスポートが可能になります。
+                ログインすると、フォームの作成・編集・削除、Q&Aルームの管理、出席データのエクスポートが可能になります。
               </p>
             </motion.div>
 

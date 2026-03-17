@@ -7,19 +7,19 @@ import { Toaster } from '@/components/ui/toaster';
 const inter = Inter({ subsets: ['latin'], display: 'swap' });
 
 export const metadata: Metadata = {
-  title: 'ざせきくん - 出席管理システム',
-  description: 'ざせきくんは、学生の出席管理を効率的に行うWebシステムです。リアルタイムでの出席記録、授業別の出席状況確認、Q&A・ライブ投票機能を提供します。教育機関での出席管理業務を大幅に効率化します。',
-  keywords: ['出席管理', '学生管理', '教育システム', 'Webアプリ', 'リアルタイムQ&A', '授業管理', 'ライブ投票'],
-  authors: [{ name: 'ざせきくん開発チーム' }],
-  creator: 'ざせきくん開発チーム',
+  title: 'ざせきくん - 出席管理・Q&A・投票をワンストップで',
+  description: 'ざせきくんは、出席管理・リアルタイムQ&A・ライブ投票をひとつにまとめたイベント運営プラットフォームです。アプリ不要・ログイン不要で、10,000人規模の同時アクセスにも対応。QRコード共有ですぐに始められます。',
+  keywords: ['出席管理', 'リアルタイムQ&A', 'ライブ投票', 'イベント運営', 'QRコード出席', 'Webアプリ', '授業管理', 'アンケート'],
+  authors: [{ name: '株式会社Nobody' }],
+  creator: '株式会社Nobody',
   publisher: 'ざせきくん',
   robots: {
     index: true,
     follow: true,
   },
   openGraph: {
-    title: 'ざせきくん - 出席管理システム',
-    description: '学生の出席管理を効率的に行うWebシステム。リアルタイム出席記録とCSVエクスポートで教育現場をサポート。',
+    title: 'ざせきくん - 出席管理・Q&A・投票をワンストップで',
+    description: '出席管理・リアルタイムQ&A・ライブ投票をひとつに。アプリ不要で10,000人規模にも対応するイベント運営プラットフォーム。',
     type: 'website',
     locale: 'ja_JP',
     images: [
@@ -33,8 +33,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'ざせきくん - 出席管理システム',
-    description: '学生の出席管理を効率的に行うWebシステム。リアルタイム出席記録とCSVエクスポート対応。',
+    title: 'ざせきくん - 出席管理・Q&A・投票をワンストップで',
+    description: '出席管理・リアルタイムQ&A・ライブ投票をひとつに。アプリ不要で10,000人規模にも対応するイベント運営プラットフォーム。',
     images: ['https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_200/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png'],
   },
   icons: {

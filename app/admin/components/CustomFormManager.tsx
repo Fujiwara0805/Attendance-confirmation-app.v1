@@ -17,7 +17,6 @@ import {
   Plus,
   Trash2,
   Save,
-  GripVertical,
   Type,
   Hash,
   Calendar,
@@ -28,7 +27,6 @@ import {
   Loader2,
   ArrowUp,
   ArrowDown,
-  Settings,
   BookOpen,
   User,
   Mail,
@@ -286,10 +284,10 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, x: -20 }}
-                  className="flex items-center gap-2 p-3 sm:p-2.5 rounded-lg border border-slate-200 bg-white hover:border-slate-300 transition-colors group"
+                  className="flex items-center gap-1.5 sm:gap-2 px-2 py-1.5 sm:px-2.5 sm:py-2 rounded-lg border border-slate-200 bg-white hover:border-slate-300 transition-colors group"
                 >
                   {/* 並び替え */}
-                  <div className="flex flex-col gap-0.5 shrink-0">
+                  <div className="flex flex-col shrink-0">
                     <button
                       type="button"
                       onClick={() => moveField(index, Math.max(0, index - 1))}
@@ -308,51 +306,39 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
                     </button>
                   </div>
 
-                  <GripVertical className="h-4 w-4 text-slate-300 shrink-0" />
-
                   {/* アイコン */}
-                  <div className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${
+                  <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${
                     field.isDefault ? 'bg-indigo-50' : 'bg-violet-50'
                   }`}>
                     {React.createElement(fieldTypeIcons[field.type] || Type, {
-                      size: 14,
+                      size: 13,
                       className: field.isDefault ? 'text-indigo-500' : 'text-violet-500',
                     })}
                   </div>
 
-                  {/* ラベル・バッジ */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-slate-700 truncate">{field.label}</span>
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 shrink-0">
-                        {field.isDefault ? 'デフォルト' : 'カスタム'}
-                      </Badge>
-                      {field.required && (
-                        <Badge className="text-[10px] px-1.5 py-0 h-4 bg-red-50 text-red-600 border-red-200 shrink-0">
-                          必須
-                        </Badge>
-                      )}
-                    </div>
+                  {/* 項目名（小さく全表示） */}
+                  <span className="flex-1 min-w-0 text-xs font-medium text-slate-700 truncate">{field.label}</span>
+
+                  {/* 必須オン/オフトグル */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    <span className={`text-[10px] font-medium whitespace-nowrap ${field.required ? 'text-red-500' : 'text-slate-400'}`}>
+                      必須
+                    </span>
+                    <Switch
+                      checked={field.required}
+                      onCheckedChange={() => toggleRequired(field.id)}
+                      className="scale-75 origin-right data-[state=checked]:bg-red-500"
+                    />
                   </div>
 
-                  {/* 必須トグル + 削除 */}
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => toggleRequired(field.id)}
-                      className="p-1.5 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
-                      title={field.required ? '任意に変更' : '必須に変更'}
-                    >
-                      <Settings className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteField(field.id)}
-                      className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                    >
-                      {field.isDefault ? <X className="h-3.5 w-3.5" /> : <Trash2 className="h-3.5 w-3.5" />}
-                    </button>
-                  </div>
+                  {/* 削除 */}
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteField(field.id)}
+                    className="p-1 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0"
+                  >
+                    {field.isDefault ? <X className="h-3.5 w-3.5" /> : <Trash2 className="h-3.5 w-3.5" />}
+                  </button>
                 </motion.div>
               ))}
             </AnimatePresence>

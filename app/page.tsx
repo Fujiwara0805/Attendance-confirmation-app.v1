@@ -56,65 +56,65 @@ const child = {
 const features = [
   {
     icon: MapPin,
-    title: '位置情報で自動判定',
+    title: '位置情報で不正を防止',
     description:
-      'GPS + 半径設定で、対象エリア内の参加者だけが登録可能。不正な代理登録を防止。',
+      'GPS連携で対象エリア内の参加者だけが登録可能。代理出席の心配はもう不要。',
     color: 'text-blue-600',
     bg: 'bg-blue-50',
   },
   {
     icon: Zap,
-    title: '一瞬で出席登録',
+    title: 'QRコードで即完了',
     description:
-      'アプリ不要・ログイン不要。QRコードを読み取って、タップ1つで完了。',
+      'アプリ不要・アカウント不要。QRコードを読み取るだけで、参加者はすぐにアクションできる。',
     color: 'text-amber-600',
     bg: 'bg-amber-50',
   },
   {
     icon: BarChart3,
-    title: 'データ自動集計',
+    title: 'データをリアルタイム集計',
     description:
-      '出席データをリアルタイム保存。CSV/Excelでいつでもエクスポート可能。',
+      'すべての回答を自動で集計・可視化。CSVエクスポートでレポート作成も簡単に。',
     color: 'text-emerald-600',
     bg: 'bg-emerald-50',
   },
   {
     icon: ShieldCheck,
-    title: '高信頼スケーラビリティ',
+    title: '10,000人規模でも安定稼働',
     description:
-      '10,000人同時アクセスでも安心。Supabaseの堅牢なインフラで安定稼働。',
+      '大規模イベントでも遅延ゼロ。堅牢なクラウドインフラが安定したパフォーマンスを実現。',
     color: 'text-violet-600',
     bg: 'bg-violet-50',
   },
   {
     icon: Smartphone,
-    title: 'モバイルファースト',
+    title: 'どんな端末でも快適に',
     description:
-      'スマートフォンに最適化されたUI。どんな端末でも快適に操作可能。',
+      'モバイルファーストで設計。スマホ・タブレット・PCすべてで最適な体験を提供。',
     color: 'text-rose-600',
     bg: 'bg-rose-50',
   },
   {
     icon: Users,
-    title: '管理者ダッシュボード',
+    title: '管理画面ですべて完結',
     description:
-      'フォームごとの設定、位置情報の範囲設定、出席状況の一覧管理を一箇所で。',
+      'フォーム作成・ルーム管理・データ出力まで、ひとつのダッシュボードで。',
     color: 'text-cyan-600',
     bg: 'bg-cyan-50',
   },
   {
     icon: MessageSquare,
-    title: 'リアルタイムQ&A',
+    title: 'Q&Aで対話を生み出す',
     description:
-      '参加者からの質問をリアルタイムで受付。いいね機能で重要な質問を可視化。匿名投稿対応。',
+      '参加者の質問をリアルタイム受付。いいね機能で注目トピックを可視化。匿名投稿にも対応。',
     color: 'text-orange-600',
     bg: 'bg-orange-50',
   },
   {
     icon: Vote,
-    title: 'ライブ投票',
+    title: '投票で全員の声を集める',
     description:
-      'リアルタイム投票機能。理解度チェックやアンケートを即座に集計・表示。',
+      'ライブ投票で意見やフィードバックを瞬時に集計。意思決定をその場で加速。',
     color: 'text-pink-600',
     bg: 'bg-pink-50',
   },
@@ -125,26 +125,26 @@ const features = [
 const steps = [
   {
     num: '01',
-    title: 'フォーム・ルームを作成',
-    description: '管理者がフォームまたはルームを作成。位置情報制限やカスタム項目も自由に設定。',
+    title: 'イベントを設定',
+    description: '出席フォーム・Q&Aルーム・投票を数クリックで作成。カスタマイズも自由自在。',
     icon: Globe,
   },
   {
     num: '02',
-    title: 'QRコードを共有',
-    description: '参加者にQRコードやURLを配布。アプリのインストールは不要。',
+    title: 'QRコードで招待',
+    description: 'QRコードやURLを参加者に共有。アプリのインストールは一切不要。',
     icon: Sparkles,
   },
   {
     num: '03',
-    title: '参加者がアクセス',
-    description: '出席登録・Q&A投稿・投票に参加。スマホからワンタップで完了。',
+    title: '参加者がすぐアクション',
+    description: 'スマホから出席登録・質問投稿・投票に参加。ワンタップで完了。',
     icon: CheckCircle2,
   },
   {
     num: '04',
-    title: 'リアルタイム集計',
-    description: 'すべてのデータをリアルタイムで集計。CSV出力で分析・管理に活用。',
+    title: '結果をリアルタイムで確認',
+    description: '回答をリアルタイムで集計・可視化。データはCSVで即エクスポート。',
     icon: Clock,
   },
 ];
@@ -276,11 +276,9 @@ export default function LandingPage() {
             transition={{ duration: 0.5, delay: 0.1 }}
             className="text-3xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-slate-900 leading-[1.1]"
           >
-            出席管理も、
+            すべてのイベントを、
             <br className="sm:hidden" />
-            Q&Aも、投票も。
-            <br />
-            <span className="text-gradient">すべてを、ひとつに。</span>
+            もっとインタラクティブに。
           </motion.h1>
 
           <motion.p
@@ -289,15 +287,13 @@ export default function LandingPage() {
             transition={{ duration: 0.5, delay: 0.2 }}
             className="mt-6 text-lg sm:text-xl text-slate-500 leading-relaxed max-w-2xl mx-auto"
           >
-            位置情報つき出席管理、
+            出席管理・リアルタイムQ&A・
             <br className="sm:hidden" />
-            リアルタイムQ&A・ライブ投票を
-            <br className="sm:hidden" />
-            ワンストップで手軽に利用できる。
+            ライブ投票をひとつのプラットフォームで。
             <br />
-            アプリ不要・ログイン不要で、
+            アプリ不要・ログイン不要、
             <br className="sm:hidden" />
-            10,000人規模にも対応。
+            QRコードひとつで10,000人規模に対応。
           </motion.p>
 
           <motion.div
@@ -439,9 +435,9 @@ export default function LandingPage() {
               ワンストップで。
             </h2>
             <p className="mt-4 text-base text-slate-500 max-w-xl mx-auto">
-              出席管理・Q&A・投票機能、
+              必要な機能をひとつに集約。
               <br className="sm:hidden" />
-              すべてをシンプルかつ強力に。
+              シンプルなのに、パワフル。
             </p>
           </motion.div>
 
@@ -478,7 +474,7 @@ export default function LandingPage() {
             <h2 className="mt-5 text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">
               4ステップで、
               <br className="sm:hidden" />
-              すぐに運用開始。
+              すぐにスタート。
             </h2>
           </motion.div>
 
@@ -516,9 +512,9 @@ export default function LandingPage() {
 
           <div className="relative z-10">
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-white tracking-tight">
-              手動管理はもう終わり、
+              次のイベントを、
               <br className="sm:hidden" />
-              今日から変えよう。
+              もっとインタラクティブに。
             </h2>
             <p className="mt-4 text-base text-indigo-100 max-w-lg mx-auto">
               初期費用ゼロ、
@@ -527,7 +523,7 @@ export default function LandingPage() {
               <br />
               まずは無料プランで、
               <br className="sm:hidden" />
-              ざせきくんを体験してください。
+              ざせきくんの力を体験してください。
             </p>
             <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
               <Link
@@ -550,7 +546,9 @@ export default function LandingPage() {
               Pricing
             </span>
             <h2 className="mt-5 text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">
-              シンプルな料金プラン
+              シンプルで、
+              <br className="sm:hidden" />
+              わかりやすい料金。
             </h2>
             <p className="mt-4 text-base text-slate-500 max-w-xl mx-auto">
               まずは無料で始めて、
