@@ -786,18 +786,18 @@ export default function AdminPage() {
                 出席管理
               </TabsTrigger>
               <TabsTrigger
-                value="rooms"
-                className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 h-8 text-sm font-medium transition-all gap-1.5"
-              >
-                <MessageSquare className="w-3.5 h-3.5" />
-                ルーム
-              </TabsTrigger>
-              <TabsTrigger
                 value="export"
                 className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 h-8 text-sm font-medium transition-all gap-1.5"
               >
                 <BarChart3 className="w-3.5 h-3.5" />
                 出席データ
+              </TabsTrigger>
+              <TabsTrigger
+                value="rooms"
+                className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 h-8 text-sm font-medium transition-all gap-1.5"
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                ルーム管理
               </TabsTrigger>
             </TabsList>
           </div>

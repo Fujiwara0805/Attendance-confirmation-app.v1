@@ -432,6 +432,14 @@ export default function DynamicAttendanceForm() {
     }
   }, [campusCenter, locationFetched]);
 
+  // 位置情報設定がある場合、自動的に位置情報を取得開始（モーダルをスキップ）
+  useEffect(() => {
+    if (campusCenter && !locationFetched && isInitialized) {
+      setShowLocationModal(false);
+      requestLocationPermission();
+    }
+  }, [campusCenter, locationFetched, isInitialized, requestLocationPermission]);
+
   // 2点間の距離を計算（Haversine公式）
   function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
     const R = 6371;
@@ -668,61 +676,40 @@ export default function DynamicAttendanceForm() {
                   必要項目を入力して、出席登録をしましょう
                 </p>
 
-                {/* Location status pill (位置情報設定がある場合のみ表示) */}
-                {campusCenter && (
-                <motion.button
-                  variants={scaleIn}
-                  onClick={() => {
-                    if (locationInfo.status === 'error') {
-                      setShowLocationPermissionModal(true);
-                    } else if (locationInfo.status === 'outside' || locationInfo.status === 'success') {
-                      // 再取得: キャッシュをクリアして再度位置情報を取得
-                      LocationCacheManager.clearLocationCache();
-                      setLocationFetched(false);
-                      setLocationInfo({ status: 'loading', message: '位置情報を再取得中...' });
-                      requestLocationPermission();
-                    }
-                  }}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                    locationInfo.status === 'loading'
-                      ? 'bg-slate-100 text-slate-500'
-                      : locationInfo.status === 'success'
-                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
-                      : locationInfo.status === 'outside'
-                      ? 'bg-amber-50 text-amber-700 border border-amber-200/60'
-                      : 'bg-red-50 text-red-700 border border-red-200/60'
-                  }`}
-                >
-                  {locationInfo.status === 'loading' && (
+                {/* 位置情報エラー時のみ表示 */}
+                {campusCenter && locationInfo.status === 'error' && (
+                  <motion.div
+                    variants={scaleIn}
+                    className="w-full max-w-sm bg-red-50/80 border border-red-200/60 rounded-xl p-3 text-center"
+                  >
+                    <div className="flex items-center justify-center gap-1.5 mb-1.5">
+                      <AlertCircle className="h-3.5 w-3.5 text-red-500" />
+                      <span className="text-xs font-medium text-red-700">位置情報を取得できませんでした</span>
+                    </div>
+                    <p className="text-[11px] text-red-600/80 leading-relaxed mb-2">
+                      出席登録には位置情報の許可が必要です。
+                      <br />
+                      ブラウザの設定から位置情報を許可してください。
+                    </p>
+                    <button
+                      onClick={() => {
+                        LocationCacheManager.clearLocationCache();
+                        setLocationFetched(false);
+                        setLocationInfo({ status: 'loading', message: '位置情報を再取得中...' });
+                        requestLocationPermission();
+                      }}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-700 bg-red-100 hover:bg-red-200 px-3 py-1.5 rounded-lg transition-colors"
+                    >
+                      <RefreshCw className="h-3 w-3" />
+                      再取得する
+                    </button>
+                  </motion.div>
+                )}
+                {campusCenter && locationInfo.status === 'loading' && (
+                  <motion.div variants={scaleIn} className="inline-flex items-center gap-1.5 text-xs text-slate-400">
                     <Loader2 className="h-3 w-3 animate-spin" />
-                  )}
-                  {locationInfo.status === 'success' && (
-                    <CheckCircle className="h-3 w-3" />
-                  )}
-                  {locationInfo.status === 'outside' && (
-                    <AlertTriangle className="h-3 w-3" />
-                  )}
-                  {locationInfo.status === 'error' && (
-                    <AlertCircle className="h-3 w-3" />
-                  )}
-                  <span>
-                    {locationInfo.status === 'loading'
-                      ? '位置情報を取得中...'
-                      : locationInfo.status === 'success'
-                      ? `${campusCenter?.locationName || 'キャンパス'}内`
-                      : locationInfo.status === 'outside'
-                      ? `${campusCenter?.locationName || 'キャンパス'}外`
-                      : '位置情報エラー'}
-                  </span>
-                  {campusCenter && locationInfo.distance !== undefined && (
-                    <span className="text-[10px] opacity-70">
-                      ({locationInfo.distance.toFixed(1)}km)
-                    </span>
-                  )}
-                  {locationInfo.status !== 'loading' && (
-                    <RefreshCw className="h-3 w-3 opacity-50" />
-                  )}
-                </motion.button>
+                    位置情報を取得中...
+                  </motion.div>
                 )}
               </motion.div>
             </motion.div>

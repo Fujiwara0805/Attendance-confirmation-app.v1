@@ -186,6 +186,16 @@ export default function HostPage() {
             >
               戻る
             </Link>
+            {qrUrl && (
+              <a
+                href={qrUrl}
+                download={`qr-${roomCode}.png`}
+                className="flex items-center gap-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-lg transition-colors"
+                title="QRコードをダウンロード"
+              >
+                <QrCode className="w-3.5 h-3.5" />
+              </a>
+            )}
             <Link
               href={`/rooms/${roomCode}/present`}
               className="hidden sm:flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-lg transition-colors"
