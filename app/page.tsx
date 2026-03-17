@@ -285,7 +285,7 @@ export default function LandingPage() {
           >
             全てのワークショップを
             <br className="sm:hidden" />
-            「受け取る」から「共に作る」場へ
+            「受け取る」から「共に作る」へ
           </motion.h1>
 
           <motion.p
