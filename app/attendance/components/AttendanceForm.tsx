@@ -328,14 +328,14 @@ export default function DynamicAttendanceForm() {
       const remainingTime = Math.max(0, 15 - elapsedMinutes);
       
       if (remainingTime > 0) {
-        setTimeUntilNextSubmission(remainingTime);
-        
+        setTimeUntilNextSubmission(Math.ceil(remainingTime));
+
         // タイマーを設定
         const timer = setInterval(() => {
           const now = Date.now();
           const elapsed = (now - lastTime) / (1000 * 60);
-          const remaining = Math.max(0, 15 - elapsed);
-          
+          const remaining = Math.max(0, Math.ceil(15 - elapsed));
+
           setTimeUntilNextSubmission(remaining);
           
           if (remaining === 0) {
@@ -377,7 +377,7 @@ export default function DynamicAttendanceForm() {
         setTimeUntilNextSubmission(0);
         clearInterval(timer);
       } else {
-        setTimeUntilNextSubmission(Math.ceil((cooldownPeriod - elapsedTime) / 1000 / 60));
+        setTimeUntilNextSubmission(Math.max(1, Math.ceil((cooldownPeriod - elapsedTime) / 1000 / 60)));
       }
     }, 60000);
     
@@ -392,7 +392,8 @@ export default function DynamicAttendanceForm() {
     setLocationInfo({ status: 'loading', message: '位置情報を取得中...' });
 
     try {
-      // ブラウザの位置情報APIを直接呼び出し（許可ダイアログが表示される）
+      // キャッシュをクリアしてから新鮮な位置情報を取得（古い位置データでの誤判定を防止）
+      LocationCacheManager.clearLocationCache();
       const location = await LocationCacheManager.getCurrentLocation();
 
       const validation = LocationCacheManager.isLocationValid(location, campusCenter);
@@ -467,7 +468,7 @@ export default function DynamicAttendanceForm() {
     }
     
     // 位置情報の検証（既に取得済みの情報を使用）
-    if (process.env.NODE_ENV !== 'development' && campusCenter && locationInfo.status !== 'success') {
+    if (campusCenter && locationInfo.status !== 'success') {
       setSubmitError(`${campusCenter.locationName || 'キャンパス'}の許可範囲外からは出席登録できません`);
       toast.error('許可範囲外からの出席登録は拒否されます');
       setIsSubmittingForm(false);
@@ -840,16 +841,18 @@ export default function DynamicAttendanceForm() {
                       >
                         <Button
                           type="submit"
-                          className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-medium rounded-xl h-12 shadow-lg shadow-indigo-200/50 transition-all disabled:opacity-50 disabled:shadow-none"
-                          disabled={isSubmitting || !isSubmitEnabled}
+                          className={`w-full font-medium rounded-xl h-12 transition-all ${
+                            timeUntilNextSubmission > 0
+                              ? 'bg-gray-400 text-gray-200 cursor-not-allowed shadow-none'
+                              : 'bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-lg shadow-indigo-200/50 disabled:opacity-50 disabled:shadow-none'
+                          }`}
+                          disabled={isSubmitting || !isSubmitEnabled || timeUntilNextSubmission > 0}
                         >
                           {isSubmitting ? (
                             <span className="flex items-center gap-2">
                               <Loader2 className="h-4 w-4 animate-spin" />
                               送信中...
                             </span>
-                          ) : timeUntilNextSubmission > 0 ? (
-                            `あと${timeUntilNextSubmission}分お待ちください`
                           ) : (
                             <span className="flex items-center gap-2">
                               <Send className="h-4 w-4" />
@@ -868,7 +871,7 @@ export default function DynamicAttendanceForm() {
                         <p className="text-xs text-amber-500 text-center mt-3">
                           同一端末からの連続登録には15分の間隔が必要です
                         </p>
-                      ) : (!locationInfo.isOnCampus && process.env.NODE_ENV === 'production') ? (
+                      ) : (campusCenter && !locationInfo.isOnCampus) ? (
                         <p className="text-xs text-red-500 text-center mt-3">
                           {campusCenter?.locationName || 'キャンパス'}内（半径{campusCenter?.radius || 0.5}km以内）からのみ登録可能
                         </p>
@@ -938,16 +941,18 @@ export default function DynamicAttendanceForm() {
                   <Button
                     type="button"
                     onClick={form.handleSubmit(onSubmit)}
-                    className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-semibold rounded-xl h-12 shadow-lg shadow-indigo-300/30 transition-all disabled:opacity-50 disabled:shadow-none"
-                    disabled={isSubmitting || !isSubmitEnabled}
+                    className={`w-full font-semibold rounded-xl h-12 transition-all ${
+                      timeUntilNextSubmission > 0
+                        ? 'bg-gray-400 text-gray-200 cursor-not-allowed shadow-none'
+                        : 'bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-lg shadow-indigo-300/30 disabled:opacity-50 disabled:shadow-none'
+                    }`}
+                    disabled={isSubmitting || !isSubmitEnabled || timeUntilNextSubmission > 0}
                   >
                     {isSubmitting ? (
                       <span className="flex items-center gap-2">
                         <Loader2 className="h-4 w-4 animate-spin" />
                         送信中...
                       </span>
-                    ) : timeUntilNextSubmission > 0 ? (
-                      `あと${timeUntilNextSubmission}分お待ちください`
                     ) : (
                       <span className="flex items-center gap-2">
                         <Send className="h-4 w-4" />
