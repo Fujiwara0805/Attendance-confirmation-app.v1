@@ -87,12 +87,27 @@ const fieldTypeIcons: Record<string, React.ComponentType<{ className?: string; s
   checkbox: CheckSquare,
 };
 
+interface EditingCourseData {
+  code: string;
+  courseName: string;
+  teacherName: string;
+  customFields?: any[];
+  enabledDefaultFields?: string[];
+  locationSettings?: {
+    latitude: number;
+    longitude: number;
+    radius: number;
+    locationName?: string;
+  };
+}
+
 interface CustomFormManagerProps {
   onCourseAdded?: () => void;
   onClose?: () => void;
+  editingCourse?: EditingCourseData;
 }
 
-export default function CustomFormManager({ onCourseAdded, onClose }: CustomFormManagerProps) {
+export default function CustomFormManager({ onCourseAdded, onClose, editingCourse }: CustomFormManagerProps) {
   const { toast } = useToast();
   const [allFields, setAllFields] = useState<UnifiedFormField[]>([]);
   const [savingCourse, setSavingCourse] = useState(false);
@@ -192,9 +207,13 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
     },
   });
 
-  // 初期化時にデフォルトフィールドをセット（すべて無効状態からスタート）
+  // 初期化時にデフォルトフィールドをセット
   useEffect(() => {
-    const initialFields: UnifiedFormField[] = defaultFields.map((field, index) => ({
+    const enabledDefaults = editingCourse?.enabledDefaultFields || [];
+    const existingCustomFields = editingCourse?.customFields || [];
+
+    // デフォルトフィールドを初期化（編集時は有効状態を復元）
+    const initialDefaultFields: UnifiedFormField[] = defaultFields.map((field, index) => ({
       id: `default_${field.key}`,
       name: field.key,
       label: field.label,
@@ -206,10 +225,40 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
       order: index,
       isDefault: true,
       originalKey: field.key,
-      isEnabled: false,
+      isEnabled: enabledDefaults.includes(field.key),
     }));
-    setAllFields(initialFields);
-  }, []);
+
+    // カスタムフィールドを復元（編集時）
+    const initialCustomFields: UnifiedFormField[] = existingCustomFields.map((cf: any, index: number) => ({
+      id: cf.id || `custom_${Date.now()}_${index}`,
+      name: cf.name,
+      label: cf.label,
+      type: cf.type || 'text',
+      required: cf.required ?? true,
+      placeholder: cf.placeholder || '',
+      description: cf.description || '',
+      options: cf.options || [],
+      order: initialDefaultFields.filter(f => f.isEnabled).length + index,
+      isDefault: false,
+      isEnabled: true,
+    }));
+
+    setAllFields([...initialDefaultFields, ...initialCustomFields]);
+
+    // 編集時はフォームと位置情報も復元
+    if (editingCourse) {
+      courseForm.setValue('courseName', editingCourse.courseName);
+      courseForm.setValue('teacherName', editingCourse.teacherName);
+      if (editingCourse.locationSettings) {
+        setEnableLocation(true);
+        setLocationName(editingCourse.locationSettings.locationName || '');
+        setLatitude(editingCourse.locationSettings.latitude);
+        setLongitude(editingCourse.locationSettings.longitude);
+        setRadius(editingCourse.locationSettings.radius);
+        setLocationResolved(true);
+      }
+    }
+  }, [editingCourse]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // フィールドの有効/無効切り替え
   const toggleFieldEnabled = (fieldId: string) => {
@@ -280,7 +329,7 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
     );
   };
 
-  // 講義作成
+  // 講義作成 / 更新
   const handleAddCustomCourse = async (data: CourseFormData) => {
     setSavingCourse(true);
     try {
@@ -290,66 +339,88 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
         .filter(f => f.isDefault)
         .map(f => f.originalKey || f.name);
 
-      const response = await fetch('/api/v2/courses', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: data.courseName.trim(),
-          teacherName: data.teacherName.trim(),
-          customFields,
-          enabledDefaultFields,
-          locationSettings: enableLocation ? {
-            latitude,
-            longitude,
-            radius,
-            locationName: locationName.trim() || undefined,
-          } : null,
-        }),
-      });
+      const locationSettings = enableLocation ? {
+        latitude,
+        longitude,
+        radius,
+        locationName: locationName.trim() || undefined,
+      } : null;
+
+      let response: Response;
+
+      if (editingCourse) {
+        // 更新モード（PATCH）
+        response = await fetch(`/api/v2/courses/${editingCourse.code}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: data.courseName.trim(),
+            teacher_name: data.teacherName.trim(),
+            custom_fields: customFields,
+            enabled_default_fields: enabledDefaultFields,
+            location_settings: locationSettings,
+          }),
+        });
+      } else {
+        // 新規作成モード（POST）
+        response = await fetch('/api/v2/courses', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: data.courseName.trim(),
+            teacherName: data.teacherName.trim(),
+            customFields,
+            enabledDefaultFields,
+            locationSettings,
+          }),
+        });
+      }
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || errorData.error || '講義の追加に失敗しました');
+        throw new Error(errorData.message || errorData.error || (editingCourse ? 'フォームの更新に失敗しました' : '講義の追加に失敗しました'));
       }
 
       toast({
-        title: '作成しました',
-        description: 'カスタムフォーム付き講義を追加しました',
+        title: editingCourse ? '更新しました' : '作成しました',
+        description: editingCourse ? 'カスタムフォームを更新しました' : 'カスタムフォーム付き講義を追加しました',
       });
 
-      courseForm.reset();
-      setEnableLocation(false);
-      setLocationName('');
-      setLatitude(0);
-      setLongitude(0);
-      setRadius(0.5);
-      setLocationResolved(false);
-      setLocationError(null);
+      if (!editingCourse) {
+        courseForm.reset();
+        setEnableLocation(false);
+        setLocationName('');
+        setLatitude(0);
+        setLongitude(0);
+        setRadius(0.5);
+        setLocationResolved(false);
+        setLocationError(null);
 
-      // リセット（すべて無効状態に戻す）
-      const resetFields: UnifiedFormField[] = defaultFields.map((field, index) => ({
-        id: `default_${field.key}`,
-        name: field.key,
-        label: field.label,
-        type: field.type,
-        required: true,
-        placeholder: '',
-        description: '',
-        options: field.key === 'grade' ? ['1', '2', '3', '4'] : [],
-        order: index,
-        isDefault: true,
-        originalKey: field.key,
-        isEnabled: false,
-      }));
-      setAllFields(resetFields);
+        // リセット（すべて無効状態に戻す）
+        const resetFields: UnifiedFormField[] = defaultFields.map((field, index) => ({
+          id: `default_${field.key}`,
+          name: field.key,
+          label: field.label,
+          type: field.type,
+          required: true,
+          placeholder: '',
+          description: '',
+          options: field.key === 'grade' ? ['1', '2', '3', '4'] : [],
+          order: index,
+          isDefault: true,
+          originalKey: field.key,
+          isEnabled: false,
+        }));
+        setAllFields(resetFields);
+      }
 
       onCourseAdded?.();
       onClose?.();
     } catch (error) {
-      console.error('Error adding custom course:', error);
+      console.error('Error saving custom course:', error);
       toast({
         title: 'エラー',
-        description: error instanceof Error ? error.message : '講義の追加に失敗しました',
+        description: error instanceof Error ? error.message : (editingCourse ? 'フォームの更新に失敗しました' : '講義の追加に失敗しました'),
         variant: 'destructive',
       });
     } finally {
@@ -762,12 +833,12 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
                 {savingCourse ? (
                   <>
                     <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-                    作成中...
+                    {editingCourse ? '更新中...' : '作成中...'}
                   </>
                 ) : (
                   <>
                     <Save className="h-3.5 w-3.5 mr-1.5" />
-                    講義を作成
+                    {editingCourse ? 'フォームを更新' : '講義を作成'}
                   </>
                 )}
               </Button>

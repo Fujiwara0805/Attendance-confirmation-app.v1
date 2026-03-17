@@ -64,6 +64,8 @@ interface Course {
   createdAt: string;
   lastUpdated: string;
   isCustomForm?: boolean;
+  customFields?: any[];
+  enabledDefaultFields?: string[];
   locationSettings?: {
     latitude: number;
     longitude: number;
@@ -210,6 +212,7 @@ export default function AdminPage() {
 
   // カスタムフォーム設定用の状態を追加
   const [isCustomFormDialogOpen, setIsCustomFormDialogOpen] = useState<boolean>(false);
+  const [editingCustomFormCourse, setEditingCustomFormCourse] = useState<Course | null>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState<boolean>(false);
 
   // 編集用の状態
@@ -357,6 +360,8 @@ export default function AdminPage() {
           createdAt: c.created_at || '',
           lastUpdated: c.created_at || '',
           isCustomForm: (c.custom_fields && c.custom_fields.length > 0) || false,
+          customFields: c.custom_fields || [],
+          enabledDefaultFields: c.enabled_default_fields || [],
           locationSettings: c.location_settings || undefined,
         }));
         setCourses(mappedCourses);
@@ -480,6 +485,13 @@ export default function AdminPage() {
 
   // 編集ダイアログを開く
   const handleEditCourse = (course: Course) => {
+    if (course.isCustomForm) {
+      // カスタムフォームの場合はCustomFormManagerを編集モードで開く
+      setEditingCustomFormCourse(course);
+      setIsCustomFormDialogOpen(true);
+      return;
+    }
+    // デフォルトフォームの場合は従来の編集ダイアログ
     setEditingCourse(course);
     const hasLocation = !!course.locationSettings;
     setEditCourse({
@@ -1280,17 +1292,18 @@ export default function AdminPage() {
               </div>
             </CustomModal>
 
-            {/* Custom Form Modal (kept for future use) */}
+            {/* Custom Form Modal */}
             <CustomModal
               isOpen={isCustomFormDialogOpen}
-              onClose={() => setIsCustomFormDialogOpen(false)}
-              title="カスタムフォーム設定"
-              description="出席フォームの項目をカスタマイズできます。デフォルト項目の有効/無効化や、独自の項目を追加できます。"
+              onClose={() => { setIsCustomFormDialogOpen(false); setEditingCustomFormCourse(null); }}
+              title={editingCustomFormCourse ? "カスタムフォーム編集" : "カスタムフォーム設定"}
+              description={editingCustomFormCourse ? "フォームの項目・設定を編集できます。" : "出席フォームの項目をカスタマイズできます。デフォルト項目の有効/無効化や、独自の項目を追加できます。"}
               className="sm:max-w-[800px] max-h-[90vh]"
             >
               <CustomFormManager
-                onCourseAdded={fetchCourses}
-                onClose={() => setIsCustomFormDialogOpen(false)}
+                onCourseAdded={() => { fetchCourses(); fetchPlanInfo(); }}
+                onClose={() => { setIsCustomFormDialogOpen(false); setEditingCustomFormCourse(null); }}
+                editingCourse={editingCustomFormCourse || undefined}
               />
             </CustomModal>
 
@@ -1483,23 +1496,21 @@ export default function AdminPage() {
                             </div>
                           </div>
                           {/* Action buttons */}
-                          <div className="flex items-center gap-1 flex-shrink-0 opacity-60 group-hover:opacity-100 transition-opacity">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEditCourse(course)}
-                              className="h-7 w-7 p-0 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50"
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); handleEditCourse(course); }}
+                              className="h-9 w-9 sm:h-7 sm:w-7 flex items-center justify-center rounded-md text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 active:bg-indigo-100 transition-colors"
                             >
-                              <Edit className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleDeleteCourse(course.code, course.courseName); }}
-                              className="h-7 w-7 p-0 text-red-400 hover:text-red-600 hover:bg-red-50"
+                              <Edit className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); handleDeleteCourse(course.code, course.courseName); }}
+                              className="h-9 w-9 sm:h-7 sm:w-7 flex items-center justify-center rounded-md text-red-400 hover:text-red-600 hover:bg-red-50 active:bg-red-100 transition-colors"
                             >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
+                              <Trash2 className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                            </button>
                           </div>
                         </div>
 
@@ -1838,11 +1849,11 @@ export default function AdminPage() {
 
                         {/* Actions row 2: status toggle / edit / delete */}
                         <div className="mt-2.5 flex items-center justify-between">
-                          <div className="flex items-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={async () => {
+                          <div className="flex items-center gap-1.5 sm:gap-1">
+                            <button
+                              type="button"
+                              onClick={async (e) => {
+                                e.stopPropagation();
                                 const newStatus = room.status === 'active' ? 'closed' : 'active';
                                 try {
                                   const res = await fetch(`/api/rooms/${room.code}`, {
@@ -1858,42 +1869,40 @@ export default function AdminPage() {
                                   showToast("更新失敗", "ステータスの変更に失敗しました。", "destructive");
                                 }
                               }}
-                              className={`h-7 px-2 text-xs ${
+                              className={`h-9 px-3 sm:h-7 sm:px-2 text-xs rounded-md inline-flex items-center transition-colors ${
                                 room.status === 'active'
-                                  ? 'text-red-500 hover:text-red-600 hover:bg-red-50'
-                                  : 'text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50'
+                                  ? 'text-red-500 hover:text-red-600 hover:bg-red-50 active:bg-red-100'
+                                  : 'text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 active:bg-emerald-100'
                               }`}
                             >
                               {room.status === 'active' ? (
                                 <>
-                                  <StopCircle className="h-3 w-3 mr-1" />
+                                  <StopCircle className="h-3.5 w-3.5 sm:h-3 sm:w-3 mr-1" />
                                   終了
                                 </>
                               ) : (
                                 <>
-                                  <Play className="h-3 w-3 mr-1" />
+                                  <Play className="h-3.5 w-3.5 sm:h-3 sm:w-3 mr-1" />
                                   開始
                                 </>
                               )}
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEditRoom(room)}
-                              className="h-7 px-2 text-xs text-slate-400 hover:text-indigo-600"
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); handleEditRoom(room); }}
+                              className="h-9 px-3 sm:h-7 sm:px-2 text-xs rounded-md inline-flex items-center text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 active:bg-indigo-100 transition-colors"
                             >
-                              <Edit className="h-3 w-3 mr-1" />
+                              <Edit className="h-3.5 w-3.5 sm:h-3 sm:w-3 mr-1" />
                               編集
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDeleteRoom(room)}
-                              className="h-7 px-2 text-xs text-red-400 hover:text-red-600 hover:bg-red-50"
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); handleDeleteRoom(room); }}
+                              className="h-9 px-3 sm:h-7 sm:px-2 text-xs rounded-md inline-flex items-center text-red-400 hover:text-red-600 hover:bg-red-50 active:bg-red-100 transition-colors"
                             >
-                              <Trash2 className="h-3 w-3 mr-1" />
+                              <Trash2 className="h-3.5 w-3.5 sm:h-3 sm:w-3 mr-1" />
                               削除
-                            </Button>
+                            </button>
                           </div>
                           <span className="text-[11px] text-slate-400">
                             作成: {new Date(room.created_at).toLocaleDateString('ja-JP')}

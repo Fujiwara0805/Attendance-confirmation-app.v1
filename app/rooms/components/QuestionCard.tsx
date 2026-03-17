@@ -118,46 +118,50 @@ export default function QuestionCard({
 
         {/* Host controls */}
         {isHost && (
-          <div className="flex flex-col gap-1 flex-shrink-0">
+          <div className="flex flex-col gap-1.5 sm:gap-1 flex-shrink-0">
             <button
+              type="button"
               onClick={() => onToggleAnswered?.(id)}
-              className={`p-1.5 rounded-lg text-xs transition-colors ${
-                isAnswered ? 'bg-emerald-100 text-emerald-600' : 'hover:bg-slate-100 text-slate-400'
+              className={`p-2.5 sm:p-1.5 rounded-lg text-xs transition-colors ${
+                isAnswered ? 'bg-emerald-100 text-emerald-600 active:bg-emerald-200' : 'hover:bg-slate-100 active:bg-slate-200 text-slate-400'
               }`}
               title={isAnswered ? '未回答に戻す' : '回答済みにする'}
             >
-              <CheckCircle2 className="w-3.5 h-3.5" />
+              <CheckCircle2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
             </button>
             <button
+              type="button"
               onClick={() => onTogglePinned?.(id)}
-              className={`p-1.5 rounded-lg text-xs transition-colors ${
-                isPinned ? 'bg-indigo-100 text-indigo-600' : 'hover:bg-slate-100 text-slate-400'
+              className={`p-2.5 sm:p-1.5 rounded-lg text-xs transition-colors ${
+                isPinned ? 'bg-indigo-100 text-indigo-600 active:bg-indigo-200' : 'hover:bg-slate-100 active:bg-slate-200 text-slate-400'
               }`}
               title={isPinned ? 'ピン解除' : 'ピン留め'}
             >
-              <Pin className="w-3.5 h-3.5" />
+              <Pin className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
             </button>
           </div>
         )}
 
         {/* Participant controls (own questions) */}
         {isOwn && !isHost && (
-          <div className="flex flex-col gap-1 flex-shrink-0">
+          <div className="flex flex-col gap-1.5 sm:gap-1 flex-shrink-0">
             {!isEditing && (
               <>
                 <button
+                  type="button"
                   onClick={() => { setIsEditing(true); setEditText(text); }}
-                  className="p-1.5 rounded-lg text-xs hover:bg-slate-100 text-slate-400 transition-colors"
+                  className="p-2.5 sm:p-1.5 rounded-lg text-xs hover:bg-slate-100 active:bg-slate-200 text-slate-400 transition-colors"
                   title="編集"
                 >
-                  <Edit2 className="w-3.5 h-3.5" />
+                  <Edit2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
                 </button>
                 <button
+                  type="button"
                   onClick={() => onDeleteOwn?.(id)}
-                  className="p-1.5 rounded-lg text-xs hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors"
+                  className="p-2.5 sm:p-1.5 rounded-lg text-xs hover:bg-red-50 active:bg-red-100 text-red-400 hover:text-red-600 transition-colors"
                   title="削除"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
+                  <Trash2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
                 </button>
               </>
             )}
