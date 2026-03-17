@@ -216,11 +216,14 @@ export default function DynamicAttendanceForm() {
           setCampusCenter(course.location_settings);
           LocationCacheManager.saveLocationSettings(course.location_settings);
         }
+        setCourseDataLoaded(true);
       } else {
         toast.error('指定された講義が見つかりません');
+        setCourseDataLoaded(true);
       }
     } catch (error) {
       toast.error('講義情報の取得中にエラーが発生しました');
+      setCourseDataLoaded(true);
     }
   }, [courseId, form]);
 
@@ -351,8 +354,13 @@ export default function DynamicAttendanceForm() {
   // coursesが取得された後に講義情報を設定
   // フォーム設定の初期化が完了してから実行する
   useEffect(() => {
-    if (courseId && isInitialized) {
-      fetchTargetCourse();
+    if (isInitialized) {
+      if (courseId) {
+        fetchTargetCourse();
+      } else {
+        // courseIdがない場合は講義データ取得不要 → 即座にロード完了
+        setCourseDataLoaded(true);
+      }
     }
   }, [courseId, fetchTargetCourse, isInitialized]);
 
@@ -420,8 +428,13 @@ export default function DynamicAttendanceForm() {
     }
   }, [campusCenter]);
 
+  // 講義データ取得完了フラグ
+  const [courseDataLoaded, setCourseDataLoaded] = useState(false);
+
   // campusCenterが設定されていない場合（位置情報不要）はモーダルをスキップ
+  // ※講義データの取得が完了してから判定する（早期判定による誤スキップを防止）
   useEffect(() => {
+    if (!courseDataLoaded) return; // 講義データ未取得の場合は判定しない
     if (!campusCenter && !locationFetched) {
       setShowLocationModal(false);
       setLocationInfo({
@@ -431,7 +444,7 @@ export default function DynamicAttendanceForm() {
       });
       setLocationFetched(true);
     }
-  }, [campusCenter, locationFetched]);
+  }, [campusCenter, locationFetched, courseDataLoaded]);
 
   // 位置情報設定がある場合、自動的に位置情報を取得開始（モーダルをスキップ）
   useEffect(() => {
@@ -457,20 +470,23 @@ export default function DynamicAttendanceForm() {
   // フォーム送信処理
   const onSubmit = async (values: any) => {
     setSubmitError(null);
+    setIsSubmitting(true); // ボタンローディング表示
     setIsSubmittingForm(true); // フォーム送信開始
     
     // 講義名の確認を条件付きに変更
     if (!courseId && !values.class_name) {
       setSubmitError('講義が選択されていません。');
       toast.error('講義を選択してください');
+      setIsSubmitting(false);
       setIsSubmittingForm(false);
       return;
     }
-    
+
     // 位置情報の検証（既に取得済みの情報を使用）
     if (campusCenter && locationInfo.status !== 'success') {
       setSubmitError(`${campusCenter.locationName || 'キャンパス'}の許可範囲外からは出席登録できません`);
       toast.error('許可範囲外からの出席登録は拒否されます');
+      setIsSubmitting(false);
       setIsSubmittingForm(false);
       return;
     }
@@ -486,6 +502,7 @@ export default function DynamicAttendanceForm() {
       if (elapsedMinutes < 15) {
         setSubmitError(`同一端末からの出席登録は15分間隔を空ける必要があります。あと約${Math.ceil(15 - elapsedMinutes)}分お待ちください。`);
         toast.error('出席登録の間隔が短すぎます');
+        setIsSubmitting(false);
         setIsSubmittingForm(false);
         return;
       }
@@ -536,11 +553,13 @@ export default function DynamicAttendanceForm() {
         const errorData = await response.json().catch(() => ({}));
         setSubmitError(errorData.message || '出席登録に失敗しました。もう一度お試しください。');
         toast.error('出席登録に失敗しました');
+        setIsSubmitting(false);
         setIsSubmittingForm(false);
       }
     } catch {
       setSubmitError('ネットワークエラーが発生しました。通信環境を確認してもう一度お試しください。');
       toast.error('通信エラーが発生しました');
+      setIsSubmitting(false);
       setIsSubmittingForm(false);
     }
   };
@@ -548,10 +567,9 @@ export default function DynamicAttendanceForm() {
   // フォーム有効性チェックの修正（416行目付近）
   const isFormValid = form.formState.isValid; // 講義名チェックを削除
 
-  const isSubmitEnabled = 
-    (process.env.NODE_ENV === 'development' 
-      ? isFormValid
-      : isFormValid && (locationInfo.isOnCampus === true))
+  const isSubmitEnabled =
+    isFormValid
+    && (!campusCenter || locationInfo.isOnCampus === true)
     && timeUntilNextSubmission === 0;
 
   return (
@@ -907,14 +925,6 @@ export default function DynamicAttendanceForm() {
                 </button>
               </div>
 
-              <div className="text-[10px] text-slate-300 flex items-center gap-1">
-                <MapPin className="h-2.5 w-2.5" />
-                <span>
-                  {locationInfo.distance !== undefined
-                    ? `${campusCenter?.locationName || 'キャンパス'}から約${locationInfo.distance.toFixed(1)}km`
-                    : '位置情報の取得中...'}
-                </span>
-              </div>
             </motion.div>
 
             {/* Sticky bottom submit bar (mobile only) */}
@@ -929,7 +939,7 @@ export default function DynamicAttendanceForm() {
                   <p className="text-[11px] text-amber-500 text-center mb-2">
                     連続登録には15分の間隔が必要です
                   </p>
-                ) : (!locationInfo.isOnCampus && process.env.NODE_ENV === 'production') ? (
+                ) : (campusCenter && !locationInfo.isOnCampus) ? (
                   <p className="text-[11px] text-red-500 text-center mb-2">
                     {campusCenter?.locationName || 'キャンパス'}内からのみ登録可能
                   </p>

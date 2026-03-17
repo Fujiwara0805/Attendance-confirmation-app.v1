@@ -1,9 +1,29 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { CheckCircle } from 'lucide-react';
 
 export default function AttendanceComplete() {
+  const router = useRouter();
+  const [countdown, setCountdown] = useState(3);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          router.replace('/');
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [router]);
+
   return (
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       <motion.div
@@ -39,6 +59,15 @@ export default function AttendanceComplete() {
           className="mt-3 text-sm text-slate-500"
         >
           出席が正常に登録されました
+        </motion.p>
+
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.6 }}
+          className="mt-4 text-xs text-slate-400"
+        >
+          {countdown}秒後にトップページへ移動します...
         </motion.p>
       </motion.div>
     </div>
