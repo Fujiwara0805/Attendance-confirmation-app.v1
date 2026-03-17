@@ -66,7 +66,7 @@ const features = [
     icon: Zap,
     title: 'QRコードで即完了',
     description:
-      'アプリ不要・アカウント不要。QRコードを読み取るだけで、参加者はすぐにアクションできる。',
+      'ログイン不要。QRコードを読み取るだけで、参加者はすぐにアクションできる。',
     color: 'text-amber-600',
     bg: 'bg-amber-50',
   },
@@ -74,7 +74,7 @@ const features = [
     icon: BarChart3,
     title: 'データをリアルタイム集計',
     description:
-      'すべての回答を自動で集計・可視化。CSVエクスポートでレポート作成も簡単に。',
+      'すべての回答を自動で集計・可視化。CSVエクスポートでデータ分析も簡単に。',
     color: 'text-emerald-600',
     bg: 'bg-emerald-50',
   },
@@ -140,8 +140,8 @@ const steps = [
   {
     num: '03',
     title: '参加者がすぐアクション',
-    desc1: 'スマホから出席登録、質問投稿、投票に参加。',
-    desc2: 'ワンタップで完了。',
+    desc1: 'スマホから出席登録、質問投稿、',
+    desc2: '投票に参加。ワンタップで完了。',
     icon: CheckCircle2,
   },
   {
@@ -273,7 +273,7 @@ export default function LandingPage() {
           >
             <span className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-wide uppercase text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-full px-3.5 py-1.5 mb-6">
               <Sparkles className="w-3.5 h-3.5" />
-              出席管理 × Q&A × 投票
+              出席管理 × リアルタイムQ&A × ライブ投票
             </span>
           </motion.div>
 
@@ -285,9 +285,7 @@ export default function LandingPage() {
           >
             全てのワークショップを
             <br className="sm:hidden" />
-            「受け取る」から
-            <br className="sm:hidden" />
-            「共に作る」場へ
+            「受け取る」から「共に作る」場へ
           </motion.h1>
 
           <motion.p
@@ -298,7 +296,7 @@ export default function LandingPage() {
           >
             出席管理・リアルタイムQ&A・
             <br className="sm:hidden" />
-            ライブ投票をひとつのプラットフォームに。
+            ライブ投票を一つのプラットフォームに。
           </motion.p>
 
           <motion.div
