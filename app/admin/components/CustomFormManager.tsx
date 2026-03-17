@@ -26,6 +26,7 @@ import {
   Loader2,
   ArrowUp,
   ArrowDown,
+  GripVertical,
   User,
   Mail,
   Phone,
@@ -282,7 +283,7 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, x: -20 }}
-                  className="flex items-center gap-1.5 h-9 px-2 rounded-md border border-slate-200 bg-white hover:border-slate-300 transition-colors"
+                  className="flex items-center gap-1.5 h-11 px-2 rounded-md border border-slate-200 bg-white hover:border-slate-300 transition-colors"
                 >
                   {/* 並び替え（上下矢印） */}
                   <div className="flex flex-col shrink-0 border-r border-slate-100 pr-1.5 mr-0.5">
@@ -303,6 +304,9 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
                       <ArrowDown className="h-3 w-3" />
                     </button>
                   </div>
+
+                  {/* ドラッグハンドル */}
+                  <GripVertical className="h-3.5 w-3.5 text-slate-300 shrink-0 cursor-grab" />
 
                   {/* 項目名 */}
                   <span className="flex-1 min-w-0 text-xs font-medium text-slate-700 truncate">{field.label}</span>

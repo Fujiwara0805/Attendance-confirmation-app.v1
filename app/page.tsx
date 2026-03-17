@@ -284,7 +284,7 @@ export default function LandingPage() {
             className="text-2xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-slate-900 leading-[1.15]"
           >
             全てのワークショップを
-            <br className="sm:hidden" />
+            <br />
             「受け取る」から「共に作る」へ
           </motion.h1>
 
@@ -520,7 +520,7 @@ export default function LandingPage() {
           <div className="relative z-10">
             <h2 className="text-xl sm:text-3xl md:text-4xl font-extrabold text-white tracking-tight">
               次のワークショップを、
-              <br className="sm:hidden" />
+              <br />
               もっとインタラクティブに。
             </h2>
             <p className="mt-4 text-base text-indigo-100 max-w-lg mx-auto">
