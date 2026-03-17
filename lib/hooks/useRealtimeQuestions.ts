@@ -26,6 +26,11 @@ export function useRealtimeQuestions(roomId: string | null) {
     });
   }, []);
 
+  // 楽観的削除: UI即時反映 → DB削除は呼び出し側で実行
+  const optimisticDelete = useCallback((questionId: string) => {
+    setQuestions((prev) => prev.filter((q) => q.id !== questionId));
+  }, []);
+
   useEffect(() => {
     if (!roomId) return;
 
@@ -42,29 +47,43 @@ export function useRealtimeQuestions(roomId: string | null) {
         setLoading(false);
       });
 
-    // Realtime subscription
+    // INSERT/UPDATE はフィルタ付きチャンネルで受信
+    // (DELETE は payload.old に room_id が含まれないためフィルタにマッチしない
+    //  → 楽観的削除で対応)
     const channel = supabase
       .channel(`room-questions-${roomId}`)
       .on('postgres_changes', {
-        event: '*',
+        event: 'INSERT',
         schema: 'public',
         table: 'questions',
         filter: `room_id=eq.${roomId}`,
       }, (payload) => {
         setQuestions((prev) => {
-          switch (payload.eventType) {
-            case 'INSERT':
-              return sortQuestions([...prev, payload.new as Question]);
-            case 'UPDATE':
-              return sortQuestions(
-                prev.map((q) => (q.id === (payload.new as Question).id ? (payload.new as Question) : q))
-              );
-            case 'DELETE':
-              return prev.filter((q) => q.id !== (payload.old as { id: string }).id);
-            default:
-              return prev;
-          }
+          // 楽観的追加で既に存在する場合は重複を避ける
+          if (prev.some((q) => q.id === (payload.new as Question).id)) return prev;
+          return sortQuestions([...prev, payload.new as Question]);
         });
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'questions',
+        filter: `room_id=eq.${roomId}`,
+      }, (payload) => {
+        setQuestions((prev) =>
+          sortQuestions(
+            prev.map((q) => (q.id === (payload.new as Question).id ? (payload.new as Question) : q))
+          )
+        );
+      })
+      .on('postgres_changes', {
+        event: 'DELETE',
+        schema: 'public',
+        table: 'questions',
+      }, (payload) => {
+        // フィルタなしで全 DELETE を受信し、ローカル state に存在するもののみ処理
+        const deletedId = (payload.old as { id: string }).id;
+        setQuestions((prev) => prev.filter((q) => q.id !== deletedId));
       })
       .subscribe();
 
@@ -73,5 +92,5 @@ export function useRealtimeQuestions(roomId: string | null) {
     };
   }, [roomId, sortQuestions]);
 
-  return { questions, loading };
+  return { questions, loading, optimisticDelete };
 }

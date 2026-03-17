@@ -259,6 +259,15 @@ export default function AdminPage() {
   const [editRoomTitle, setEditRoomTitle] = useState<string>('');
   const [savingEditRoom, setSavingEditRoom] = useState<boolean>(false);
 
+  // 削除確認モーダル用の状態
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    type: 'course' | 'room';
+    code: string;
+    name: string;
+    room?: Room;
+  } | null>(null);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+
 
   // トースト表示を1秒間に設定
   const showToast = useCallback((title: string, description: string, variant: 'default' | 'destructive' = 'default') => {
@@ -553,26 +562,43 @@ export default function AdminPage() {
   };
 
   // 講義の削除（Supabase v2 API - 物理削除）
-  const handleDeleteCourse = async (courseCode: string, courseName: string) => {
-    if (!confirm(`「${courseName}」を削除してもよろしいですか？\n関連する出席データもすべて削除されます。`)) {
-      return;
-    }
+  const handleDeleteCourse = (courseCode: string, courseName: string) => {
+    setDeleteConfirm({ type: 'course', code: courseCode, name: courseName });
+  };
 
+  // 削除確認モーダルから実行
+  const executeDelete = async () => {
+    if (!deleteConfirm) return;
+    setIsDeleting(true);
     try {
-      const response = await fetch(`/api/v2/courses/${courseCode}`, {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        showToast("削除完了", "フォームを削除しました。");
-        await fetchCourses(); fetchPlanInfo();
-      } else {
-        const errorData = await response.json();
-        showToast("削除失敗", errorData.message || "フォームの削除に失敗しました。", "destructive");
+      if (deleteConfirm.type === 'course') {
+        const response = await fetch(`/api/v2/courses/${deleteConfirm.code}`, {
+          method: 'DELETE',
+        });
+        if (response.ok) {
+          showToast("削除完了", "フォームを削除しました。");
+          await fetchCourses(); fetchPlanInfo();
+        } else {
+          const errorData = await response.json();
+          showToast("削除失敗", errorData.message || "フォームの削除に失敗しました。", "destructive");
+        }
+      } else if (deleteConfirm.type === 'room') {
+        const response = await fetch(`/api/rooms/${deleteConfirm.code}`, {
+          method: 'DELETE',
+        });
+        if (response.ok) {
+          showToast("削除完了", "ルームを削除しました。");
+          await fetchRooms(); fetchPlanInfo();
+        } else {
+          showToast("削除失敗", "ルームの削除に失敗しました。", "destructive");
+        }
       }
     } catch (error) {
-      console.error('Failed to delete course:', error);
+      console.error('Failed to delete:', error);
       showToast("通信エラー", "サーバーとの通信中にエラーが発生しました。", "destructive");
+    } finally {
+      setIsDeleting(false);
+      setDeleteConfirm(null);
     }
   };
 
@@ -650,24 +676,8 @@ export default function AdminPage() {
   };
 
   // ルーム削除
-  const handleDeleteRoom = async (room: Room) => {
-    if (!confirm(`「${room.title}」を削除してもよろしいですか？\n関連するQ&Aデータ・投票データもすべて削除されます。`)) {
-      return;
-    }
-    try {
-      const response = await fetch(`/api/rooms/${room.code}`, {
-        method: 'DELETE',
-      });
-      if (response.ok) {
-        showToast("削除完了", "ルームを削除しました。");
-        await fetchRooms();
-        fetchPlanInfo();
-      } else {
-        showToast("削除失敗", "ルームの削除に失敗しました。", "destructive");
-      }
-    } catch {
-      showToast("通信エラー", "サーバーとの通信中にエラーが発生しました。", "destructive");
-    }
+  const handleDeleteRoom = (room: Room) => {
+    setDeleteConfirm({ type: 'room', code: room.code, name: room.title, room });
   };
 
   // Copy URL helper
@@ -1938,6 +1948,57 @@ export default function AdminPage() {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* 削除確認モーダル */}
+      <CustomModal
+        isOpen={!!deleteConfirm}
+        onClose={() => { if (!isDeleting) setDeleteConfirm(null); }}
+        title="削除の確認"
+        description={
+          deleteConfirm?.type === 'course'
+            ? `「${deleteConfirm?.name}」を削除してもよろしいですか？\n関連する出席データもすべて削除されます。`
+            : `「${deleteConfirm?.name}」を削除してもよろしいですか？\n関連するQ&Aデータ・投票データもすべて削除されます。`
+        }
+        className="max-w-sm"
+      >
+        <div className="space-y-4">
+          <div className="flex items-center gap-3 p-3 bg-red-50 border border-red-100 rounded-lg">
+            <Trash2 className="h-5 w-5 text-red-500 flex-shrink-0" />
+            <p className="text-sm text-red-700">
+              {deleteConfirm?.type === 'course'
+                ? 'このフォームと関連する出席データがすべて削除されます。この操作は取り消せません。'
+                : 'このルームと関連するQ&A・投票データがすべて削除されます。この操作は取り消せません。'}
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => setDeleteConfirm(null)}
+              disabled={isDeleting}
+            >
+              キャンセル
+            </Button>
+            <Button
+              className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+              onClick={executeDelete}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  削除中...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  削除する
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </CustomModal>
 
       {/* Subtle footer */}
       <footer className="max-w-6xl mx-auto px-4 sm:px-6 py-6 mt-4">

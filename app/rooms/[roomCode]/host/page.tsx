@@ -68,7 +68,7 @@ export default function HostPage() {
   }, [roomCode]);
 
   // Realtime
-  const { questions, loading: qLoading } = useRealtimeQuestions(room?.id || null);
+  const { questions, loading: qLoading, optimisticDelete } = useRealtimeQuestions(room?.id || null);
   const { polls, pollVotes, activePoll, loading: pLoading } = useRealtimePolls(room?.id || null);
 
   const handleCopyCode = () => {
@@ -85,9 +85,12 @@ export default function HostPage() {
   }, [questions]);
 
   const handleDeleteQuestion = useCallback(async (questionId: string) => {
+    // 楽観的削除: UIを即座に更新
+    optimisticDelete(questionId);
+    // DB削除はバックグラウンドで実行
     const supabase = createBrowserClient();
     await supabase.from('questions').delete().eq('id', questionId);
-  }, []);
+  }, [optimisticDelete]);
 
   const handleCreatePoll = async () => {
     const validOptions = pollOptions.filter((o) => o.trim());

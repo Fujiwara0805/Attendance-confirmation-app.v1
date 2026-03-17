@@ -59,7 +59,7 @@ export default function ParticipantPage() {
   }, [roomCode]);
 
   // Realtime data
-  const { questions, loading: qLoading } = useRealtimeQuestions(room?.id || null);
+  const { questions, loading: qLoading, optimisticDelete } = useRealtimeQuestions(room?.id || null);
   const { activePoll, polls, pollVotes, loading: pLoading } = useRealtimePolls(room?.id || null);
 
   // Load voted state from localStorage
@@ -140,13 +140,16 @@ export default function ParticipantPage() {
 
   const handleDeleteOwnQuestion = async (questionId: string) => {
     try {
-      await fetch(`/api/rooms/${roomCode}/questions/${questionId}?participantId=${participantId}`, {
-        method: 'DELETE',
-      });
+      // 楽観的削除: UIを即座に更新
+      optimisticDelete(questionId);
       const newOwn = new Set(ownQuestionIds);
       newOwn.delete(questionId);
       setOwnQuestionIds(newOwn);
       localStorage.setItem(`own_questions_${roomCode}`, JSON.stringify(Array.from(newOwn)));
+      // DB削除はバックグラウンドで実行
+      await fetch(`/api/rooms/${roomCode}/questions/${questionId}?participantId=${participantId}`, {
+        method: 'DELETE',
+      });
     } catch {
       // Silently fail
     }
