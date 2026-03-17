@@ -668,7 +668,8 @@ export default function DynamicAttendanceForm() {
                   必要項目を入力して、出席登録をしましょう
                 </p>
 
-                {/* Location status pill */}
+                {/* Location status pill (位置情報設定がある場合のみ表示) */}
+                {campusCenter && (
                 <motion.button
                   variants={scaleIn}
                   onClick={() => {
@@ -722,6 +723,7 @@ export default function DynamicAttendanceForm() {
                     <RefreshCw className="h-3 w-3 opacity-50" />
                   )}
                 </motion.button>
+                )}
               </motion.div>
             </motion.div>
 
@@ -745,25 +747,6 @@ export default function DynamicAttendanceForm() {
                 </motion.div>
               )}
             </AnimatePresence>
-
-            {/* Debug info (development only) */}
-            {process.env.NODE_ENV === 'development' && (
-              <div className="mx-5 mt-3 p-3 bg-slate-50 rounded-xl text-xs border border-slate-200/60">
-                <p className="font-semibold text-slate-600 mb-2">Debug</p>
-                <div className="space-y-0.5 text-slate-500 font-mono">
-                  <p>location_settings: {campusCenter ? 'yes' : 'no'}</p>
-                  {campusCenter && (
-                    <>
-                      <p>name: {campusCenter.locationName || 'N/A'}</p>
-                      <p>center: {campusCenter.latitude}, {campusCenter.longitude}</p>
-                      <p>radius: {campusCenter.radius}km</p>
-                    </>
-                  )}
-                  <p>status: {locationInfo.status}</p>
-                  {locationInfo.distance && <p>distance: {locationInfo.distance.toFixed(3)}km</p>}
-                </div>
-              </div>
-            )}
 
             {/* Error banner */}
             <AnimatePresence>

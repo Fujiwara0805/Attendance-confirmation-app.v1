@@ -42,6 +42,8 @@ import {
   ArrowRight,
   QrCode,
   Download,
+  Play,
+  StopCircle,
 } from 'lucide-react';
 // Separator kept for potential sub-component use
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -1494,7 +1496,7 @@ export default function AdminPage() {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleDeleteCourse(course.code, course.courseName)}
-                              className="h-7 w-7 p-0 text-slate-500 hover:text-red-600 hover:bg-red-50"
+                              className="h-7 w-7 p-0 text-red-400 hover:text-red-600 hover:bg-red-50"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
@@ -1823,11 +1825,57 @@ export default function AdminPage() {
                             <Settings className="h-3 w-3 mr-1.5" />
                             ホスト管理
                           </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open(`/rooms/${room.code}/host?tab=export`, '_blank')}
+                            className="h-8 px-3 text-xs border-slate-200 text-slate-600 hover:text-indigo-600 hover:border-indigo-300"
+                          >
+                            <Download className="h-3 w-3 mr-1.5" />
+                            データ出力
+                          </Button>
                         </div>
 
-                        {/* Actions row 2: edit / delete */}
+                        {/* Actions row 2: status toggle / edit / delete */}
                         <div className="mt-2.5 flex items-center justify-between">
                           <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={async () => {
+                                const newStatus = room.status === 'active' ? 'closed' : 'active';
+                                try {
+                                  const res = await fetch(`/api/rooms/${room.code}`, {
+                                    method: 'PATCH',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ status: newStatus }),
+                                  });
+                                  if (res.ok) {
+                                    showToast("更新完了", newStatus === 'active' ? 'ルームを再開しました。' : 'ルームを終了しました。');
+                                    await fetchRooms();
+                                  }
+                                } catch {
+                                  showToast("更新失敗", "ステータスの変更に失敗しました。", "destructive");
+                                }
+                              }}
+                              className={`h-7 px-2 text-xs ${
+                                room.status === 'active'
+                                  ? 'text-red-500 hover:text-red-600 hover:bg-red-50'
+                                  : 'text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50'
+                              }`}
+                            >
+                              {room.status === 'active' ? (
+                                <>
+                                  <StopCircle className="h-3 w-3 mr-1" />
+                                  終了
+                                </>
+                              ) : (
+                                <>
+                                  <Play className="h-3 w-3 mr-1" />
+                                  開始
+                                </>
+                              )}
+                            </Button>
                             <Button
                               variant="ghost"
                               size="sm"
@@ -1841,7 +1889,7 @@ export default function AdminPage() {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleDeleteRoom(room)}
-                              className="h-7 px-2 text-xs text-slate-400 hover:text-red-600"
+                              className="h-7 px-2 text-xs text-red-400 hover:text-red-600 hover:bg-red-50"
                             >
                               <Trash2 className="h-3 w-3 mr-1" />
                               削除

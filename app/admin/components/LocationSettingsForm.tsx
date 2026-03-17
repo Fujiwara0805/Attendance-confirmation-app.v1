@@ -373,36 +373,6 @@ export default function LocationSettingsForm({ initialSettings, onSave }: Locati
           </div>
         </div>
 
-        {/* デバッグ情報表示 */}
-        {process.env.NODE_ENV === 'development' && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-200"
-          >
-            <p className="font-semibold mb-3 text-slate-700">デバッグ情報:</p>
-            <div className="space-y-2 text-sm text-slate-600">
-              <div className="flex justify-between">
-                <span>緯度:</span>
-                <span className="font-mono">{settings.latitude}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>経度:</span>
-                <span className="font-mono">{settings.longitude}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>場所名:</span>
-                <span className="truncate ml-2">{settings.locationName}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>保存状態:</span>
-                <span className={`font-medium ${isSaving ? 'text-blue-600' : saveSuccess ? 'text-green-600' : 'text-slate-600'}`}>
-                  {isSaving ? '保存中' : saveSuccess ? '保存完了' : '待機中'}
-                </span>
-              </div>
-            </div>
-          </motion.div>
-        )}
       </CardContent>
     </Card>
   );

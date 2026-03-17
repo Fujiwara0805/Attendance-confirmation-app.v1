@@ -154,7 +154,7 @@ export default function QuestionCard({
                 </button>
                 <button
                   onClick={() => onDeleteOwn?.(id)}
-                  className="p-1.5 rounded-lg text-xs hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors"
+                  className="p-1.5 rounded-lg text-xs hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors"
                   title="削除"
                 >
                   <Trash2 className="w-3.5 h-3.5" />

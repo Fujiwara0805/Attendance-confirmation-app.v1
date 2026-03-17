@@ -6,7 +6,7 @@ import { useSession } from 'next-auth/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   MessageSquare, BarChart3, Plus, QrCode, Copy, Check,
-  Download, ExternalLink, StopCircle, Trash2, Monitor, ArrowLeft,
+  Download, ExternalLink, StopCircle, Trash2, Monitor,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -125,13 +125,14 @@ export default function HostPage() {
     });
   };
 
-  const handleCloseRoom = async () => {
+  const handleToggleRoomStatus = async () => {
+    const newStatus = room?.status === 'active' ? 'closed' : 'active';
     await fetch(`/api/rooms/${roomCode}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'closed' }),
+      body: JSON.stringify({ status: newStatus }),
     });
-    setRoom((prev) => prev ? { ...prev, status: 'closed' } : null);
+    setRoom((prev) => prev ? { ...prev, status: newStatus } : null);
   };
 
   const handleExportCSV = (type: 'questions' | 'polls') => {
@@ -181,10 +182,9 @@ export default function HostPage() {
           <div className="flex items-center gap-2">
             <Link
               href="/admin"
-              className="flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-700 px-2 py-2 rounded-lg transition-colors"
+              className="flex items-center gap-1.5 text-xs font-medium text-white bg-slate-600 hover:bg-slate-700 px-3 py-2 rounded-lg transition-colors"
             >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">管理画面</span>
+              戻る
             </Link>
             <Link
               href={`/rooms/${roomCode}/present`}
@@ -193,17 +193,26 @@ export default function HostPage() {
               <Monitor className="w-3.5 h-3.5" />
               プレゼン
             </Link>
-            {room.status === 'active' ? (
-              <button
-                onClick={handleCloseRoom}
-                className="flex items-center gap-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 px-3 py-2 rounded-lg transition-colors"
-              >
-                <StopCircle className="w-3.5 h-3.5" />
-                終了
-              </button>
-            ) : (
-              <span className="text-xs text-red-500 bg-red-50 px-3 py-2 rounded-lg">終了済み</span>
-            )}
+            <button
+              onClick={handleToggleRoomStatus}
+              className={`flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg transition-colors ${
+                room.status === 'active'
+                  ? 'text-red-600 bg-red-50 hover:bg-red-100'
+                  : 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100'
+              }`}
+            >
+              {room.status === 'active' ? (
+                <>
+                  <StopCircle className="w-3.5 h-3.5" />
+                  終了
+                </>
+              ) : (
+                <>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  再開
+                </>
+              )}
+            </button>
           </div>
         </div>
 
@@ -319,7 +328,7 @@ export default function HostPage() {
                       {pollOptions.length > 2 && (
                         <button
                           onClick={() => setPollOptions(pollOptions.filter((_, j) => j !== i))}
-                          className="text-slate-400 hover:text-red-500 px-2"
+                          className="text-red-400 hover:text-red-600 px-2"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>

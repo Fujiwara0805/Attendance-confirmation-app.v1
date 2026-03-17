@@ -45,6 +45,12 @@ import {
   MessageSquare,
   Check,
   X,
+  MapPin,
+  Search,
+  Navigation,
+  ChevronDown,
+  ChevronUp,
+  CheckCircle,
 } from 'lucide-react';
 import type { CustomFormField } from '@/app/types';
 import { defaultFields, fieldTypeLabels, presetFields, presetCategoryLabels, presetToCustomField, type PresetField } from '@/lib/dynamicFormUtils';
@@ -92,6 +98,90 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
   const [savingCourse, setSavingCourse] = useState(false);
   const [showPresetPicker, setShowPresetPicker] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+
+  // 位置情報設定
+  const [enableLocation, setEnableLocation] = useState(false);
+  const [locationMode, setLocationMode] = useState<'search' | 'gps'>('search');
+  const [locationName, setLocationName] = useState('');
+  const [latitude, setLatitude] = useState(0);
+  const [longitude, setLongitude] = useState(0);
+  const [radius, setRadius] = useState(0.5);
+  const [locationResolved, setLocationResolved] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [placeSuggestions, setPlaceSuggestions] = useState<Array<{ description: string; place_id: string }>>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const searchDebounceRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  // Google Places Autocomplete
+  const fetchPlaceSuggestions = React.useCallback(async (input: string) => {
+    if (!input.trim() || input.length < 2) {
+      setPlaceSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/places/autocomplete?input=${encodeURIComponent(input)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.predictions?.length > 0) {
+        setPlaceSuggestions(data.predictions.map((p: { description: string; place_id: string }) => ({
+          description: p.description, place_id: p.place_id,
+        })));
+        setShowSuggestions(true);
+      } else {
+        setPlaceSuggestions([]);
+        setShowSuggestions(false);
+      }
+    } catch { setPlaceSuggestions([]); }
+  }, []);
+
+  const selectPlace = React.useCallback(async (placeId: string, description: string) => {
+    setShowSuggestions(false);
+    setLocationError(null);
+    try {
+      const res = await fetch(`/api/places/details?place_id=${encodeURIComponent(placeId)}`);
+      if (!res.ok) throw new Error('詳細取得に失敗');
+      const data = await res.json();
+      if (data.result?.geometry?.location) {
+        const loc = data.result.geometry.location;
+        setLocationName(description);
+        setLatitude(loc.lat);
+        setLongitude(loc.lng);
+        setLocationResolved(true);
+      }
+    } catch {
+      setLocationError('場所の詳細取得に失敗しました。');
+    }
+  }, []);
+
+  const getCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationError('このブラウザは位置情報をサポートしていません。');
+      return;
+    }
+    setIsGettingLocation(true);
+    setLocationError(null);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLatitude(position.coords.latitude);
+        setLongitude(position.coords.longitude);
+        setLocationName(`設定位置 (精度: ${Math.round(position.coords.accuracy)}m)`);
+        setLocationResolved(true);
+        setIsGettingLocation(false);
+      },
+      (error) => {
+        setIsGettingLocation(false);
+        const messages: Record<number, string> = {
+          1: '位置情報の使用が拒否されました。ブラウザの設定を確認してください。',
+          2: '位置情報が利用できません。',
+          3: '位置情報の取得がタイムアウトしました。',
+        };
+        setLocationError(messages[error.code] || '位置情報の取得に失敗しました。');
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
 
   // 講義作成フォーム
   const courseForm = useForm<CourseFormData>({
@@ -208,6 +298,12 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
           teacherName: data.teacherName.trim(),
           customFields,
           enabledDefaultFields,
+          locationSettings: enableLocation ? {
+            latitude,
+            longitude,
+            radius,
+            locationName: locationName.trim() || undefined,
+          } : null,
         }),
       });
 
@@ -222,6 +318,13 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
       });
 
       courseForm.reset();
+      setEnableLocation(false);
+      setLocationName('');
+      setLatitude(0);
+      setLongitude(0);
+      setRadius(0.5);
+      setLocationResolved(false);
+      setLocationError(null);
 
       // リセット（すべて無効状態に戻す）
       const resetFields: UnifiedFormField[] = defaultFields.map((field, index) => ({
@@ -285,13 +388,19 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
                   exit={{ opacity: 0, x: -20 }}
                   className="flex items-center gap-1.5 h-11 px-2 rounded-md border border-slate-200 bg-white hover:border-slate-300 transition-colors"
                 >
+                  {/* ドラッグハンドル */}
+                  <GripVertical className="h-3.5 w-3.5 text-slate-300 shrink-0 cursor-grab" />
+
+                  {/* 項目名 */}
+                  <span className="flex-1 min-w-0 text-xs font-medium text-slate-700 truncate">{field.label}</span>
+
                   {/* 並び替え（上下矢印） */}
-                  <div className="flex flex-col shrink-0 border-r border-slate-100 pr-1.5 mr-0.5">
+                  <div className="flex items-center gap-0.5 shrink-0">
                     <button
                       type="button"
                       onClick={() => moveField(index, Math.max(0, index - 1))}
                       disabled={index === 0}
-                      className="p-0.5 text-slate-400 hover:text-indigo-600 disabled:opacity-20 transition-colors"
+                      className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-indigo-600 disabled:opacity-20 disabled:hover:bg-transparent transition-colors"
                     >
                       <ArrowUp className="h-3 w-3" />
                     </button>
@@ -299,17 +408,11 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
                       type="button"
                       onClick={() => moveField(index, Math.min(enabledFields.length - 1, index + 1))}
                       disabled={index === enabledFields.length - 1}
-                      className="p-0.5 text-slate-400 hover:text-indigo-600 disabled:opacity-20 transition-colors"
+                      className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-indigo-600 disabled:opacity-20 disabled:hover:bg-transparent transition-colors"
                     >
                       <ArrowDown className="h-3 w-3" />
                     </button>
                   </div>
-
-                  {/* ドラッグハンドル */}
-                  <GripVertical className="h-3.5 w-3.5 text-slate-300 shrink-0 cursor-grab" />
-
-                  {/* 項目名 */}
-                  <span className="flex-1 min-w-0 text-xs font-medium text-slate-700 truncate">{field.label}</span>
 
                   {/* 必須/任意 ドロップダウン */}
                   <select
@@ -333,7 +436,7 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
                   <button
                     type="button"
                     onClick={() => handleDeleteField(field.id)}
-                    className="p-0.5 rounded text-slate-400 hover:text-red-600 transition-colors shrink-0"
+                    className="p-0.5 rounded text-red-400 hover:text-red-600 transition-colors shrink-0"
                   >
                     {field.isDefault ? <X className="h-3 w-3" /> : <Trash2 className="h-3 w-3" />}
                   </button>
@@ -495,6 +598,153 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
               />
               {courseForm.formState.errors.teacherName && (
                 <p className="text-xs text-red-500">{courseForm.formState.errors.teacherName.message}</p>
+              )}
+            </div>
+
+            {/* 位置情報設定トグル */}
+            <div className="border border-slate-200 rounded-xl overflow-hidden">
+              <button
+                type="button"
+                onClick={() => {
+                  const next = !enableLocation;
+                  setEnableLocation(next);
+                  if (!next) {
+                    setLocationResolved(false);
+                    setLocationError(null);
+                  }
+                }}
+                className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-4 w-4 text-indigo-500" />
+                  <span className="text-sm font-medium text-slate-700">位置情報制限を設定</span>
+                  <span className="text-xs text-slate-400">（任意）</span>
+                </div>
+                {enableLocation ? (
+                  <ChevronUp className="h-4 w-4 text-slate-400" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-slate-400" />
+                )}
+              </button>
+
+              {enableLocation && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="px-4 py-3 space-y-3 border-t border-slate-200"
+                >
+                  {/* モード切替タブ */}
+                  <div className="flex rounded-lg bg-slate-100 p-0.5">
+                    <button
+                      type="button"
+                      onClick={() => { setLocationMode('search'); setLocationResolved(false); setLocationError(null); setLocationName(''); setLatitude(0); setLongitude(0); }}
+                      className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium transition-all ${locationMode === 'search' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                    >
+                      <Search className="h-3.5 w-3.5" />
+                      場所を検索
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setLocationMode('gps'); setLocationResolved(false); setLocationError(null); setPlaceSuggestions([]); setShowSuggestions(false); setLocationName(''); setLatitude(0); setLongitude(0); }}
+                      className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium transition-all ${locationMode === 'gps' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                    >
+                      <Navigation className="h-3.5 w-3.5" />
+                      端末の現在地
+                    </button>
+                  </div>
+
+                  {/* 場所検索モード */}
+                  {locationMode === 'search' && (
+                    <div className="space-y-1.5 relative">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                        <Input
+                          placeholder="場所を検索（例: 大分大学）"
+                          value={locationName}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setLocationName(val);
+                            setLocationResolved(false);
+                            if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+                            searchDebounceRef.current = setTimeout(() => fetchPlaceSuggestions(val), 300);
+                          }}
+                          onFocus={() => { if (placeSuggestions.length > 0) setShowSuggestions(true); }}
+                          onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                          className="h-9 text-sm pl-9"
+                        />
+                      </div>
+                      {showSuggestions && placeSuggestions.length > 0 && (
+                        <div className="absolute z-50 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
+                          {placeSuggestions.map((s) => (
+                            <button
+                              key={s.place_id}
+                              type="button"
+                              className="w-full text-left px-3 py-2.5 text-sm hover:bg-indigo-50 flex items-start gap-2 border-b border-slate-100 last:border-0 transition-colors"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => selectPlace(s.place_id, s.description)}
+                            >
+                              <MapPin className="h-4 w-4 text-indigo-400 mt-0.5 shrink-0" />
+                              <span className="text-slate-700">{s.description}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 現在地モード */}
+                  {locationMode === 'gps' && (
+                    <div className="space-y-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={getCurrentLocation}
+                        disabled={isGettingLocation || locationResolved}
+                        className="w-full h-10 text-sm border-dashed"
+                      >
+                        {isGettingLocation ? (
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        ) : locationResolved ? (
+                          <CheckCircle className="h-4 w-4 text-emerald-500 mr-2" />
+                        ) : (
+                          <Navigation className="h-4 w-4 mr-2" />
+                        )}
+                        {isGettingLocation ? '位置情報を取得中...' : locationResolved ? '現在地を取得しました' : '現在地を取得する'}
+                      </Button>
+                      {!locationResolved && !isGettingLocation && (
+                        <p className="text-xs text-slate-400 text-center">ブラウザの位置情報許可が必要です</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* ステータス表示 */}
+                  {locationResolved && (
+                    <div className="flex items-center gap-1.5 text-xs text-emerald-600 bg-emerald-50 rounded-lg px-3 py-2">
+                      <CheckCircle className="h-3.5 w-3.5" />
+                      <span>位置情報を設定しました{locationMode === 'search' && locationName ? `（${locationName}）` : ''}</span>
+                    </div>
+                  )}
+                  {locationError && (
+                    <p className="text-xs text-red-500 bg-red-50 rounded-lg px-3 py-2">{locationError}</p>
+                  )}
+
+                  {/* 許可範囲 */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-slate-600">許可範囲（km）</Label>
+                    <Input
+                      type="number"
+                      step="0.1"
+                      min="0.1"
+                      max="10"
+                      value={radius}
+                      onChange={(e) => setRadius(parseFloat(e.target.value) || 0.5)}
+                      className="h-9 text-sm"
+                    />
+                    <p className="text-xs text-slate-400">指定場所から半径{radius}km以内で出席可能</p>
+                  </div>
+                </motion.div>
               )}
             </div>
 
