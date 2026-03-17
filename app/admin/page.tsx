@@ -1495,7 +1495,7 @@ export default function AdminPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleDeleteCourse(course.code, course.courseName)}
+                              onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleDeleteCourse(course.code, course.courseName); }}
                               className="h-7 w-7 p-0 text-red-400 hover:text-red-600 hover:bg-red-50"
                             >
                               <Trash2 className="h-3.5 w-3.5" />

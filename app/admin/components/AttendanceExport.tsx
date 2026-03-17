@@ -315,7 +315,7 @@ export default function AttendanceExport() {
                     <BarChart3 className="h-4 w-4 text-indigo-500" />
                     データプレビュー
                   </h4>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-3 gap-3">
                     <div className="bg-white rounded-lg p-3 border border-slate-200">
                       <div className="text-2xl font-bold text-indigo-600">{previewData.totalRecords}</div>
                       <div className="text-xs text-slate-500">出席レコード数</div>
@@ -333,45 +333,6 @@ export default function AttendanceExport() {
                       <div className="text-xs text-slate-500">日数</div>
                     </div>
                   </div>
-
-                  {/* 直近のレコードプレビュー */}
-                  {previewData.records && previewData.records.length > 0 && (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-xs border-collapse">
-                        <thead>
-                          <tr className="border-b border-slate-200">
-                            <th className="text-left py-2 px-2 text-slate-600">学籍番号</th>
-                            <th className="text-left py-2 px-2 text-slate-600">氏名</th>
-                            <th className="text-left py-2 px-2 text-slate-600">学年</th>
-                            <th className="text-left py-2 px-2 text-slate-600">出席日</th>
-                            <th className="text-left py-2 px-2 text-slate-600">キャンパス</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {previewData.records.slice(0, 5).map((record: any, idx: number) => (
-                            <tr key={idx} className="border-b border-slate-100">
-                              <td className="py-1.5 px-2 text-slate-800">{record.studentId}</td>
-                              <td className="py-1.5 px-2 text-slate-800">{record.studentName}</td>
-                              <td className="py-1.5 px-2 text-slate-800">{record.grade || '-'}</td>
-                              <td className="py-1.5 px-2 text-slate-800">{record.attendedAt}</td>
-                              <td className="py-1.5 px-2">
-                                {record.isOnCampus ? (
-                                  <CheckCircle className="h-3.5 w-3.5 text-green-500" />
-                                ) : (
-                                  <AlertCircle className="h-3.5 w-3.5 text-amber-500" />
-                                )}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                      {previewData.totalRecords > 5 && (
-                        <p className="text-xs text-slate-400 mt-1">
-                          他 {previewData.totalRecords - 5} 件のレコード...
-                        </p>
-                      )}
-                    </div>
-                  )}
                 </div>
               ) : (
                 <div className="text-sm text-slate-500 flex items-center gap-2">

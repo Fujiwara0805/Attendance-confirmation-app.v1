@@ -169,7 +169,20 @@ export default function LandingPage() {
 
   const handleProPlan = async () => {
     try {
-      const res = await fetch('/api/stripe/create-checkout-session', { method: 'POST' });
+      const res = await fetch('/api/stripe/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productType: 'pro_subscription',
+          successUrl: `${window.location.origin}/admin?payment=success`,
+          cancelUrl: `${window.location.origin}/#pricing`,
+        }),
+      });
+      if (res.status === 401) {
+        // 未ログインの場合はログイン画面へ
+        window.location.href = '/admin/login';
+        return;
+      }
       const data = await res.json();
       if (data.url) window.location.href = data.url;
     } catch {
@@ -576,7 +589,7 @@ export default function LandingPage() {
               <ul className="space-y-3 mb-8">
                 {[
                   'フォーム 3個まで作成',
-                  'ルーム 1個まで作成',
+                  'ルーム 2個まで作成',
                   'Q&A・投票機能',
                   '位置情報による出席管理',
                   'CSV / Excelエクスポート',

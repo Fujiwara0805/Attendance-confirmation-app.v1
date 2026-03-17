@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { motion } from 'framer-motion'
-import { Chrome, Shield, Mail, Loader2, Eye, EyeOff, Home } from 'lucide-react'
+import { Chrome, Mail, Loader2, Eye, EyeOff, Home } from 'lucide-react'
 import Link from 'next/link'
 
 export default function AdminLoginPage() {
@@ -204,33 +204,6 @@ export default function AdminLoginPage() {
               </Link>
             </motion.div>
 
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.5 }}
-              className="bg-blue-50 border border-blue-200 rounded-lg p-4"
-            >
-              <div className="flex items-center space-x-2">
-                <Shield className="h-5 w-5 text-blue-600 flex-shrink-0" />
-                <p className="text-sm font-medium text-blue-900">管理者機能について</p>
-              </div>
-              <p className="text-sm text-blue-800 mt-2">
-                ログインすると、フォームの作成・編集・削除、Q&Aルームの管理、出席データのエクスポートが可能になります。
-              </p>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.6 }}
-              className="bg-amber-50 border border-amber-200 rounded-lg p-4"
-            >
-              <p className="text-sm text-amber-800">
-                <strong>参加者の方へ:</strong> 出席登録やQ&A・投票への参加にログインは不要です。
-                <br className="sm:hidden" />
-                共有されたURLまたはQRコードからアクセスしてください。
-              </p>
-            </motion.div>
           </CardContent>
         </Card>
 
