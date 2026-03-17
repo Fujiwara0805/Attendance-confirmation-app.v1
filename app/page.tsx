@@ -1,6 +1,7 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
@@ -20,6 +21,8 @@ import {
   Vote,
   Building2,
   Crown,
+  Menu,
+  X,
 } from 'lucide-react';
 
 const LOGO_URL =
@@ -71,7 +74,7 @@ const features = [
     icon: BarChart3,
     title: 'データ自動集計',
     description:
-      '出席データをSupabaseにリアルタイム保存。CSV/Excelでいつでもエクスポート可能。',
+      '出席データをリアルタイム保存。CSV/Excelでいつでもエクスポート可能。',
     color: 'text-emerald-600',
     bg: 'bg-emerald-50',
   },
@@ -122,26 +125,26 @@ const features = [
 const steps = [
   {
     num: '01',
-    title: 'フォームを作成',
-    description: '管理者がフォームと位置情報の範囲を設定。',
+    title: 'フォーム・ルームを作成',
+    description: '管理者がフォームまたはルームを作成。位置情報制限やカスタム項目も自由に設定。',
     icon: Globe,
   },
   {
     num: '02',
     title: 'QRコードを共有',
-    description: '参加者にQRコードまたはURLを配布。',
+    description: '参加者にQRコードやURLを配布。アプリのインストールは不要。',
     icon: Sparkles,
   },
   {
     num: '03',
-    title: '出席登録',
-    description: '参加者がスマホからワンタップで登録完了。',
+    title: '参加者がアクセス',
+    description: '出席登録・Q&A投稿・投票に参加。スマホからワンタップで完了。',
     icon: CheckCircle2,
   },
   {
     num: '04',
-    title: '自動集計',
-    description: 'データベースに即座に反映。CSV出力で成績管理に活用。',
+    title: 'リアルタイム集計',
+    description: 'すべてのデータをリアルタイムで集計。CSV出力で分析・管理に活用。',
     icon: Clock,
   },
 ];
@@ -158,6 +161,18 @@ const stats = [
 /* ═══════════════════════════════════════════════════════════════════ */
 
 export default function LandingPage() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const handleProPlan = async () => {
+    try {
+      const res = await fetch('/api/stripe/create-checkout-session', { method: 'POST' });
+      const data = await res.json();
+      if (data.url) window.location.href = data.url;
+    } catch {
+      window.location.href = '/admin/login';
+    }
+  };
+
   return (
     <div className="min-h-screen overflow-x-hidden">
       {/* ─── Navigation ─── */}
@@ -165,11 +180,12 @@ export default function LandingPage() {
         <div className="mx-auto max-w-6xl flex items-center justify-between px-5 py-3">
           <Link href="/" className="flex items-center gap-2.5">
             <Image src={LOGO_URL} alt="ざせきくん" width={36} height={36} className="rounded-lg" />
-            <span className="text-lg font-bold tracking-tight text-slate-900">
+            <span className="hidden sm:block text-lg font-bold tracking-tight text-slate-900">
               ざせきくん
             </span>
           </Link>
           <div className="flex items-center gap-3">
+            {/* Desktop links */}
             <Link
               href="/rooms"
               className="hidden sm:inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-700 transition-colors px-3 py-2"
@@ -185,13 +201,52 @@ export default function LandingPage() {
             </Link>
             <Link
               href="/admin/login"
-              className="inline-flex items-center gap-1.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.97] transition-all px-4 py-2 rounded-xl shadow-sm"
+              className="hidden sm:inline-flex items-center gap-1.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.97] transition-all px-4 py-2 rounded-xl shadow-sm"
             >
               無料で始める
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
+            {/* Mobile hamburger */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="sm:hidden p-2 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors"
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
           </div>
         </div>
+        {/* Mobile dropdown */}
+        <AnimatePresence>
+          {mobileMenuOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2 }}
+              className="sm:hidden border-t border-slate-100 bg-white overflow-hidden"
+            >
+              <div className="px-5 py-4 space-y-1">
+                <Link href="/admin/login" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-lg transition-colors">
+                  管理者ログイン
+                </Link>
+                <Link href="/rooms" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-lg transition-colors">
+                  ルームに参加
+                </Link>
+                <Link href="/news" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-lg transition-colors">
+                  お知らせ
+                </Link>
+                <Link href="/legal/tokusho" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-lg transition-colors">
+                  特定商取引法
+                </Link>
+                <div className="pt-2">
+                  <Link href="/admin/login" onClick={() => setMobileMenuOpen(false)} className="block w-full text-center text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 px-4 py-2.5 rounded-xl">
+                    無料で始める
+                  </Link>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </nav>
 
       {/* ─── Hero ─── */}
@@ -219,11 +274,13 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-slate-900 leading-[1.1]"
+            className="text-3xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-slate-900 leading-[1.1]"
           >
-            出席管理も、<wbr />Q&Aも、<wbr />投票も。
+            出席管理も、
+            <br className="sm:hidden" />
+            Q&Aも、投票も。
             <br />
-            <span className="text-gradient">すべてを、<wbr />ひとつに。</span>
+            <span className="text-gradient">すべてを、ひとつに。</span>
           </motion.h1>
 
           <motion.p
@@ -234,9 +291,9 @@ export default function LandingPage() {
           >
             位置情報つき出席管理、
             <br className="sm:hidden" />
-            リアルタイムQ&A・ライブ投票、
+            リアルタイムQ&A・ライブ投票を
             <br className="sm:hidden" />
-            カスタムフォームをワンストップで。
+            ワンストップで手軽に利用できる。
             <br />
             アプリ不要・ログイン不要で、
             <br className="sm:hidden" />
@@ -274,7 +331,6 @@ export default function LandingPage() {
           className="mx-auto mt-16 max-w-3xl"
         >
           <div className="relative rounded-2xl bg-white/80 backdrop-blur-xl shadow-2xl shadow-slate-200/60 ring-1 ring-slate-200/60 overflow-hidden">
-            {/* Browser-style header */}
             <div className="flex items-center gap-2 px-5 py-3 border-b border-slate-100 bg-slate-50/60">
               <div className="flex gap-1.5">
                 <div className="w-3 h-3 rounded-full bg-red-400/70" />
@@ -283,11 +339,10 @@ export default function LandingPage() {
               </div>
               <div className="flex-1 mx-4">
                 <div className="mx-auto max-w-sm h-6 bg-slate-100 rounded-md flex items-center justify-center">
-                  <span className="text-[11px] text-slate-400 font-mono">zasekikun.vercel.app/attendance</span>
+                  <span className="text-[11px] text-slate-400 font-mono">zaseki-kun.com/attendance</span>
                 </div>
               </div>
             </div>
-            {/* Mock form content */}
             <div className="p-6 sm:p-10 space-y-5">
               <div className="flex items-center gap-3 mb-6">
                 <Image src={LOGO_URL} alt="" width={40} height={40} className="rounded-lg" />
@@ -345,21 +400,29 @@ export default function LandingPage() {
 
           <motion.div {...stagger} className="space-y-3">
             {[
-              { date: '2026.03.17', tag: 'リリース', tagColor: 'bg-emerald-50 text-emerald-600', title: 'ざせきくん v2.0をリリースしました。Q&A・投票機能、カスタムフォーム機能を追加。' },
-              { date: '2026.03.10', tag: 'アップデート', tagColor: 'bg-blue-50 text-blue-600', title: 'Google Places連携による位置情報検索機能を追加しました。' },
-              { date: '2026.03.01', tag: 'お知らせ', tagColor: 'bg-amber-50 text-amber-600', title: 'Proプラン（月額550円）の提供を開始しました。無制限のフォーム・ルーム作成が可能に。' },
+              { date: '2026.03.17', tag: 'リリース', tagColor: 'bg-blue-100 text-blue-700', title: 'ざせきくん v2.0をリリースしました。Q&A・投票機能、カスタムフォーム機能を追加。' },
+              { date: '2026.03.10', tag: 'アップデート', tagColor: 'bg-emerald-100 text-emerald-700', title: 'Google Places連携による位置情報検索機能を追加しました。' },
+              { date: '2026.03.01', tag: 'お知らせ', tagColor: 'bg-amber-100 text-amber-700', title: 'Proプラン（月額550円）の提供を開始しました。無制限のフォーム・ルーム作成が可能に。' },
             ].map((news, i) => (
               <motion.div
                 key={i}
                 {...child}
-                className="flex items-start gap-4 p-4 rounded-xl bg-white/80 border border-slate-100 hover:border-slate-200 transition-colors"
+                className="flex gap-4 p-4 rounded-xl bg-white/80 border border-slate-100 hover:border-slate-200 transition-colors"
               >
-                <span className="text-xs text-slate-400 font-mono whitespace-nowrap pt-0.5">{news.date}</span>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${news.tagColor}`}>{news.tag}</span>
+                <div className="shrink-0 flex flex-col items-start gap-1.5">
+                  <span className="text-xs text-slate-400 font-mono whitespace-nowrap">{news.date}</span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${news.tagColor}`}>{news.tag}</span>
+                </div>
                 <p className="text-sm text-slate-700 leading-relaxed">{news.title}</p>
               </motion.div>
             ))}
           </motion.div>
+
+          <div className="text-center mt-6">
+            <Link href="/news" className="text-sm text-indigo-600 hover:text-indigo-800 font-medium hover:underline transition-colors">
+              すべてのお知らせを見る →
+            </Link>
+          </div>
         </div>
       </section>
 
@@ -371,10 +434,12 @@ export default function LandingPage() {
               Features
             </span>
             <h2 className="mt-5 text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">
-              すべてが、ワンストップで。
+              すべてが、
+              <br className="sm:hidden" />
+              ワンストップで。
             </h2>
             <p className="mt-4 text-base text-slate-500 max-w-xl mx-auto">
-              出席管理・Q&A・投票機能
+              出席管理・Q&A・投票機能、
               <br className="sm:hidden" />
               すべてをシンプルかつ強力に。
             </p>
@@ -388,9 +453,9 @@ export default function LandingPage() {
               <motion.div
                 key={f.title}
                 {...child}
-                className="group glass-card p-6 card-hover cursor-default"
+                className="group glass-card p-6 card-hover cursor-default text-center"
               >
-                <div className={`inline-flex items-center justify-center w-11 h-11 rounded-xl ${f.bg} ${f.color} mb-4`}>
+                <div className={`flex items-center justify-center w-11 h-11 rounded-xl ${f.bg} ${f.color} mb-4 mx-auto`}>
                   <f.icon className="w-5 h-5" />
                 </div>
                 <h3 className="text-lg font-bold text-slate-900">{f.title}</h3>
@@ -411,7 +476,9 @@ export default function LandingPage() {
               How it works
             </span>
             <h2 className="mt-5 text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">
-              4ステップで、すぐに運用開始。
+              4ステップで、
+              <br className="sm:hidden" />
+              すぐに運用開始。
             </h2>
           </motion.div>
 
@@ -421,7 +488,6 @@ export default function LandingPage() {
           >
             {steps.map((s, i) => (
               <motion.div key={s.num} {...child} className="relative text-center">
-                {/* Connector line (desktop) */}
                 {i < steps.length - 1 && (
                   <div className="hidden lg:block absolute top-8 left-[calc(50%+32px)] w-[calc(100%-64px)] h-px bg-gradient-to-r from-indigo-200 to-indigo-100" />
                 )}
@@ -445,13 +511,14 @@ export default function LandingPage() {
           {...fadeIn}
           className="mx-auto max-w-3xl text-center rounded-3xl bg-gradient-to-br from-indigo-600 via-indigo-600 to-blue-700 p-10 sm:p-14 shadow-2xl shadow-indigo-200/40 relative overflow-hidden"
         >
-          {/* Decoration */}
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/3" />
           <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/3" />
 
           <div className="relative z-10">
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-              手動管理はもう終わり、今日から変えよう。
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-white tracking-tight">
+              手動管理はもう終わり、
+              <br className="sm:hidden" />
+              今日から変えよう。
             </h2>
             <p className="mt-4 text-base text-indigo-100 max-w-lg mx-auto">
               初期費用ゼロ、
@@ -486,7 +553,9 @@ export default function LandingPage() {
               シンプルな料金プラン
             </h2>
             <p className="mt-4 text-base text-slate-500 max-w-xl mx-auto">
-              まずは無料で始めて、必要に応じてアップグレード。
+              まずは無料で始めて、
+              <br className="sm:hidden" />
+              必要に応じてアップグレード。
             </p>
           </motion.div>
 
@@ -558,12 +627,12 @@ export default function LandingPage() {
                   </li>
                 ))}
               </ul>
-              <Link
-                href="/admin/login"
+              <button
+                onClick={handleProPlan}
                 className="block w-full text-center text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 active:scale-[0.97] transition-all px-6 py-3 rounded-xl shadow-lg shadow-indigo-200/50"
               >
                 Proプランを始める
-              </Link>
+              </button>
             </motion.div>
           </motion.div>
         </div>
@@ -612,6 +681,9 @@ export default function LandingPage() {
             <span className="text-xs text-slate-400">by 株式会社Nobody</span>
           </div>
           <div className="flex items-center gap-6 text-sm text-slate-500">
+            <Link href="/news" className="hover:text-slate-900 transition-colors">
+              お知らせ
+            </Link>
             <Link href="/legal/tokusho" className="hover:text-slate-900 transition-colors">
               特定商取引法
             </Link>

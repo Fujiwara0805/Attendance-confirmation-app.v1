@@ -854,6 +854,19 @@ export default function AdminPage() {
               </div>
             </div>
 
+            {/* 機能紹介 */}
+            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-4">
+              <h3 className="text-sm font-semibold text-blue-900 mb-2 flex items-center gap-1.5">
+                <BookOpen className="h-4 w-4" />
+                出席管理について
+              </h3>
+              <ul className="text-xs text-blue-800 space-y-1.5 leading-relaxed">
+                <li>• <strong>デフォルトフォーム</strong>：日付・フォーム名・ID・学年・名前・所属・レポートなど、標準の出席項目が含まれたフォームです。すぐに使い始められます。</li>
+                <li>• <strong>カスタムフォーム</strong>：項目を自由に追加・削除・並び替えできます。不要な項目を無効化して、用途に合わせたフォームを作成できます。</li>
+                <li>• 作成後にQRコードやURLを参加者に共有するだけで、すぐに出席管理を開始できます。</li>
+              </ul>
+            </div>
+
             {/* Add Course Modal */}
             <CustomModal
               isOpen={isAddDialogOpen}
@@ -1598,6 +1611,19 @@ export default function AdminPage() {
               </div>
             </div>
 
+            {/* ルーム機能紹介 */}
+            <div className="bg-purple-50 border border-purple-100 rounded-xl p-4 mb-4">
+              <h3 className="text-sm font-semibold text-purple-900 mb-2 flex items-center gap-1.5">
+                <MessageSquare className="h-4 w-4" />
+                ルーム機能について
+              </h3>
+              <ul className="text-xs text-purple-800 space-y-1.5 leading-relaxed">
+                <li>• <strong>リアルタイムQ&A</strong>：参加者から匿名で質問を受付。いいね機能で重要な質問を可視化。</li>
+                <li>• <strong>ライブ投票</strong>：理解度チェックやアンケートをリアルタイムで集計・表示。</li>
+                <li>• ルーム作成後、参加者にコードやURLを共有するだけで誰でも参加可能。ログイン不要です。</li>
+              </ul>
+            </div>
+
             {/* Room Creation Modal */}
             <CustomModal
               isOpen={isCreateRoomDialogOpen}
@@ -1837,6 +1863,16 @@ export default function AdminPage() {
               <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">出席データ</h1>
               <p className="text-sm text-slate-500 mt-0.5">
                 フォームごとの出席データをCSV形式でエクスポートできます
+              </p>
+            </div>
+            {/* エクスポート機能紹介 */}
+            <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 mb-4">
+              <h3 className="text-sm font-semibold text-emerald-900 mb-2 flex items-center gap-1.5">
+                <BarChart3 className="h-4 w-4" />
+                出席データエクスポートについて
+              </h3>
+              <p className="text-xs text-emerald-800 leading-relaxed">
+                出席フォームに登録されたデータをCSV（Excel対応）またはJSON形式でダウンロードできます。日付フィルタで特定期間のデータを絞り込むことも可能です。
               </p>
             </div>
             <AttendanceExport />

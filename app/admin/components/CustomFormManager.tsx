@@ -105,7 +105,7 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
     },
   });
 
-  // 初期化時にデフォルトフィールドをセット
+  // 初期化時にデフォルトフィールドをセット（すべて無効状態からスタート）
   useEffect(() => {
     const initialFields: UnifiedFormField[] = defaultFields.map((field, index) => ({
       id: `default_${field.key}`,
@@ -119,7 +119,7 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
       order: index,
       isDefault: true,
       originalKey: field.key,
-      isEnabled: true,
+      isEnabled: false,
     }));
     setAllFields(initialFields);
   }, []);
@@ -226,7 +226,7 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
 
       courseForm.reset();
 
-      // リセット
+      // リセット（すべて無効状態に戻す）
       const resetFields: UnifiedFormField[] = defaultFields.map((field, index) => ({
         id: `default_${field.key}`,
         name: field.key,
@@ -239,7 +239,7 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
         order: index,
         isDefault: true,
         originalKey: field.key,
-        isEnabled: true,
+        isEnabled: false,
       }));
       setAllFields(resetFields);
 
@@ -286,7 +286,7 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, x: -20 }}
-                  className="flex items-center gap-2 p-2.5 rounded-lg border border-slate-200 bg-white hover:border-slate-300 transition-colors group"
+                  className="flex items-center gap-2 p-3 sm:p-2.5 rounded-lg border border-slate-200 bg-white hover:border-slate-300 transition-colors group"
                 >
                   {/* 並び替え */}
                   <div className="flex flex-col gap-0.5 shrink-0">
@@ -336,7 +336,7 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
                   </div>
 
                   {/* 必須トグル + 削除 */}
-                  <div className="flex items-center gap-1.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center gap-1.5 shrink-0">
                     <button
                       type="button"
                       onClick={() => toggleRequired(field.id)}

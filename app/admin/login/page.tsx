@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { motion } from 'framer-motion'
 import { Chrome, Shield, Mail, Loader2, Eye, EyeOff } from 'lucide-react'
 import Image from 'next/image'
+import Link from 'next/link'
 
 export default function AdminLoginPage() {
   const [loading, setLoading] = useState(false)
@@ -18,8 +19,6 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
-  const [mode, setMode] = useState<'login' | 'register'>('login')
-  const [name, setName] = useState('')
   const router = useRouter()
 
   useEffect(() => {
@@ -41,7 +40,7 @@ export default function AdminLoginPage() {
     }
   }
 
-  const handleEmailAuth = async (e: React.FormEvent) => {
+  const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
 
@@ -49,32 +48,9 @@ export default function AdminLoginPage() {
       setError('メールアドレスとパスワードを入力してください')
       return
     }
-    if (password.length < 6) {
-      setError('パスワードは6文字以上で入力してください')
-      return
-    }
-    if (mode === 'register' && !name.trim()) {
-      setError('名前を入力してください')
-      return
-    }
 
     setEmailLoading(true)
     try {
-      if (mode === 'register') {
-        // 新規登録
-        const res = await fetch('/api/auth/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: email.trim(), password, name: name.trim() }),
-        })
-        const data = await res.json()
-        if (!res.ok) {
-          setError(data.error || '登録に失敗しました')
-          return
-        }
-      }
-
-      // ログイン
       const result = await signIn('credentials', {
         email: email.trim(),
         password,
@@ -87,7 +63,7 @@ export default function AdminLoginPage() {
         router.push('/admin')
       }
     } catch {
-      setError('認証中にエラーが発生しました')
+      setError('ログイン中にエラーが発生しました')
     } finally {
       setEmailLoading(false)
     }
@@ -166,22 +142,9 @@ export default function AdminLoginPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.4 }}
-              onSubmit={handleEmailAuth}
+              onSubmit={handleEmailLogin}
               className="space-y-3"
             >
-              {mode === 'register' && (
-                <div className="space-y-1.5">
-                  <Label htmlFor="name" className="text-sm font-medium text-slate-700">名前</Label>
-                  <Input
-                    id="name"
-                    type="text"
-                    placeholder="例: 田中太郎"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="h-10"
-                  />
-                </div>
-              )}
               <div className="space-y-1.5">
                 <Label htmlFor="email" className="text-sm font-medium text-slate-700">メールアドレス</Label>
                 <Input
@@ -199,7 +162,7 @@ export default function AdminLoginPage() {
                   <Input
                     id="password"
                     type={showPassword ? 'text' : 'password'}
-                    placeholder="6文字以上"
+                    placeholder="パスワードを入力"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="h-10 pr-10"
@@ -215,7 +178,13 @@ export default function AdminLoginPage() {
               </div>
 
               {error && (
-                <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>
+                <motion.p
+                  initial={{ opacity: 0, y: -5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2"
+                >
+                  {error}
+                </motion.p>
               )}
 
               <Button
@@ -228,19 +197,27 @@ export default function AdminLoginPage() {
                 ) : (
                   <Mail className="w-4 h-4 mr-2" />
                 )}
-                {mode === 'login' ? 'メールアドレスでログイン' : 'アカウントを作成'}
+                メールアドレスでログイン
               </Button>
-
-              <div className="text-center">
-                <button
-                  type="button"
-                  onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); }}
-                  className="text-sm text-indigo-600 hover:text-indigo-800 hover:underline transition-colors"
-                >
-                  {mode === 'login' ? 'アカウントをお持ちでない方はこちら' : 'ログインはこちら'}
-                </button>
-              </div>
             </motion.form>
+
+            {/* 新規登録リンク */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.45 }}
+              className="text-center border border-indigo-100 bg-indigo-50/50 rounded-lg py-3"
+            >
+              <p className="text-sm text-slate-600">
+                初めてご利用の方は
+              </p>
+              <Link
+                href="/admin/register"
+                className="inline-flex items-center gap-1 text-sm font-semibold text-indigo-600 hover:text-indigo-800 hover:underline mt-1 transition-colors"
+              >
+                新規アカウント登録はこちら →
+              </Link>
+            </motion.div>
 
             <motion.div
               initial={{ opacity: 0 }}
