@@ -247,14 +247,6 @@ export default function AdminPage() {
   const [editRoomTitle, setEditRoomTitle] = useState<string>('');
   const [savingEditRoom, setSavingEditRoom] = useState<boolean>(false);
 
-  // 位置情報設定用の状態を追加
-  const [locationSettings, setLocationSettings] = useState({
-    latitude: 33.1751332,
-    longitude: 131.6138803,
-    radius: 0.5,
-    locationName: ''
-  });
-  const [loadingLocationSettings, setLoadingLocationSettings] = useState(false);
 
   // トースト表示を1秒間に設定
   const showToast = useCallback((title: string, description: string, variant: 'default' | 'destructive' = 'default') => {
@@ -372,54 +364,6 @@ export default function AdminPage() {
     }
   }, [showToast]);
 
-  // 位置情報設定を取得
-  const fetchLocationSettings = useCallback(async () => {
-    setLoadingLocationSettings(true);
-    try {
-      const response = await fetch('/api/admin/location-settings');
-      if (response.ok) {
-        const data = await response.json();
-        setLocationSettings(data.defaultLocationSettings);
-      }
-    } catch (error) {
-      console.error('位置情報設定の取得に失敗:', error);
-      showToast('エラー', '位置情報設定の取得に失敗しました', 'destructive');
-    } finally {
-      setLoadingLocationSettings(false);
-    }
-  }, [showToast]);
-
-  // 位置情報設定を保存
-  const saveLocationSettings = async (settings: typeof locationSettings): Promise<void> => {
-    try {
-      const response = await fetch('/api/admin/location-settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings)
-      });
-
-      if (response.ok) {
-        setLocationSettings(settings);
-        showToast('成功', '位置情報設定を保存しました。出席フォームに反映されるまで数分かかる場合があります。');
-        
-        // ローカルストレージからキャッシュをクリア（ユーザー向け）
-        if (typeof window !== 'undefined') {
-          try {
-            localStorage.removeItem('attendance_location_settings');
-            console.log('位置情報設定のキャッシュをクリアしました');
-          } catch (error) {
-            console.warn('キャッシュクリアに失敗:', error);
-          }
-        }
-      } else {
-        throw new Error('保存に失敗しました');
-      }
-    } catch (error) {
-      console.error('位置情報設定の保存に失敗:', error);
-      showToast('エラー', '位置情報設定の保存に失敗しました', 'destructive');
-      throw error;
-    }
-  };
 
   // 認証チェック
   useEffect(() => {
@@ -434,10 +378,9 @@ export default function AdminPage() {
     if (status === 'authenticated') {
       fetchCourses();
       fetchRooms();
-      fetchLocationSettings();
       fetchPlanInfo();
     }
-  }, [status, fetchCourses, fetchRooms, fetchLocationSettings, fetchPlanInfo]);
+  }, [status, fetchCourses, fetchRooms, fetchPlanInfo]);
 
   // 決済結果の処理
   useEffect(() => {
