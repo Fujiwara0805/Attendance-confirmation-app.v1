@@ -80,7 +80,7 @@ const features = [
   },
   {
     icon: ShieldCheck,
-    title: '10,000人規模でも安定稼働',
+    title: '1,000人規模でも安定稼働',
     description:
       '大規模イベントでも遅延ゼロ。堅牢なクラウドインフラが安定したパフォーマンスを実現。',
     color: 'text-violet-600',
@@ -158,7 +158,7 @@ const steps = [
 const stats = [
   { value: '0.3秒', label: '平均登録時間' },
   { value: '99.9%', label: '稼働率' },
-  { value: '10,000+', label: '同時アクセス対応' },
+  { value: '1,000+', label: '同時アクセス対応' },
   { value: '0円', label: '初期費用' },
 ];
 
@@ -435,7 +435,7 @@ export default function LandingPage() {
             <h2 className="mt-5 text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">
               すべてが、
               <br className="sm:hidden" />
-              ワンストップで。
+              ワンストップで完了。
             </h2>
             <p className="mt-4 text-base text-slate-500 max-w-xl mx-auto">
               必要な機能をひとつに集約。
