@@ -383,7 +383,7 @@ export default function AttendanceExport() {
           )}
 
           {/* エクスポートボタン */}
-          <div className="flex gap-3 pt-2">
+          <div className="flex flex-col sm:flex-row gap-3 pt-2">
             <Button
               onClick={() => handleExport('csv')}
               disabled={!selectedCourse || loading}

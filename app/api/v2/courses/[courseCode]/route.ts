@@ -105,7 +105,7 @@ export async function PATCH(
   }
 }
 
-// DELETE: 講義削除（認証必須・オーナーのみ）
+// DELETE: 講義削除（認証必須・オーナーのみ・物理削除）
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ courseCode: string }> }
@@ -134,17 +134,21 @@ export async function DELETE(
       return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     }
 
-    // ソフトデリート（archiveに変更）
+    // 関連データを先に削除
+    await supabase.from('submission_cooldowns').delete().eq('course_id', existing.id);
+    await supabase.from('attendance').delete().eq('course_id', existing.id);
+
+    // 講義を物理削除
     const { error } = await supabase
       .from('courses')
-      .update({ status: 'archived', updated_at: new Date().toISOString() })
+      .delete()
       .eq('code', courseCode);
 
     if (error) {
       return NextResponse.json({ message: 'Failed to delete', error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ message: 'Course archived' }, { status: 200 });
+    return NextResponse.json({ message: 'Course deleted' }, { status: 200 });
   } catch (error) {
     console.error('Error deleting course:', error);
     return NextResponse.json({ message: 'Internal server error' }, { status: 500 });

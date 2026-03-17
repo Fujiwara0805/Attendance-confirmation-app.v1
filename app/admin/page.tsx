@@ -40,6 +40,8 @@ import {
   Users,
   Link2,
   ArrowRight,
+  QrCode,
+  Download,
 } from 'lucide-react';
 // Separator kept for potential sub-component use
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -232,6 +234,11 @@ export default function AdminPage() {
   // モバイルメニュー用の状態
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
+  // QRコードモーダル用の状態
+  const [isQrDialogOpen, setIsQrDialogOpen] = useState<boolean>(false);
+  const [qrCourse, setQrCourse] = useState<Course | null>(null);
+  const [qrDataUrl, setQrDataUrl] = useState<string>('');
+
   // 作成タイプ選択モーダル
   const [isCreateTypeDialogOpen, setIsCreateTypeDialogOpen] = useState<boolean>(false);
 
@@ -351,7 +358,9 @@ export default function AdminPage() {
           locationSettings: c.location_settings || undefined,
         }));
         setCourses(mappedCourses);
-        showToast("データ更新", `${mappedCourses.length}件の出席フォームを読み込みました。`);
+        if (mappedCourses.length > 0) {
+          showToast("データ更新", `${mappedCourses.length}件の出席フォームを読み込みました。`);
+        }
       } else {
         const errorData = await response.json();
         showToast("読み込みエラー", errorData.message || "フォーム情報の読み込みに失敗しました。", "destructive");
@@ -529,9 +538,9 @@ export default function AdminPage() {
     }
   };
 
-  // 講義の削除（Supabase v2 API - ソフトデリート）
+  // 講義の削除（Supabase v2 API - 物理削除）
   const handleDeleteCourse = async (courseCode: string, courseName: string) => {
-    if (!confirm(`「${courseName}」を削除してもよろしいですか？`)) {
+    if (!confirm(`「${courseName}」を削除してもよろしいですか？\n関連する出席データもすべて削除されます。`)) {
       return;
     }
 
@@ -657,6 +666,29 @@ export default function AdminPage() {
     }
   };
 
+  // QRコード表示
+  const handleShowQr = async (course: Course) => {
+    setQrCourse(course);
+    setIsQrDialogOpen(true);
+    const url = `${window.location.origin}/attendance/${course.code}`;
+    try {
+      const QRCode = await import('qrcode');
+      const dataUrl = await QRCode.toDataURL(url, { width: 512, margin: 2 });
+      setQrDataUrl(dataUrl);
+    } catch {
+      showToast("エラー", "QRコードの生成に失敗しました。", "destructive");
+    }
+  };
+
+  // QRコードダウンロード
+  const handleDownloadQr = () => {
+    if (!qrDataUrl || !qrCourse) return;
+    const link = document.createElement('a');
+    link.href = qrDataUrl;
+    link.download = `qr-${qrCourse.code}.png`;
+    link.click();
+  };
+
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Minimal top nav */}
@@ -665,7 +697,7 @@ export default function AdminPage() {
           {/* Left: Logo + title */}
           <div className="flex items-center gap-3">
             <Image
-              src="https://res.cloudinary.com/dz9trbwma/image/upload/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png"
+              src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_200/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png"
               alt="ざせきくん"
               width={32}
               height={32}
@@ -1300,6 +1332,55 @@ export default function AdminPage() {
               </div>
             </CustomModal>
 
+            {/* QR Code Modal */}
+            <CustomModal
+              isOpen={isQrDialogOpen}
+              onClose={() => { setIsQrDialogOpen(false); setQrCourse(null); setQrDataUrl(''); }}
+              title="QRコード"
+              description={qrCourse ? `「${qrCourse.courseName}」の出席フォームQRコード` : ''}
+              className="sm:max-w-[400px]"
+            >
+              <div className="flex flex-col items-center gap-4">
+                {qrDataUrl ? (
+                  <>
+                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                      <img src={qrDataUrl} alt="QRコード" className="w-64 h-64" />
+                    </div>
+                    <p className="text-xs text-slate-500 text-center break-all px-4">
+                      {typeof window !== 'undefined' && qrCourse ? `${window.location.origin}/attendance/${qrCourse.code}` : ''}
+                    </p>
+                    <div className="flex items-center gap-2 w-full">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          if (qrCourse) {
+                            const url = `${window.location.origin}/attendance/${qrCourse.code}`;
+                            navigator.clipboard.writeText(url);
+                            showToast("コピー完了", "URLをコピーしました。");
+                          }
+                        }}
+                        className="flex-1 h-9 text-sm"
+                      >
+                        <Copy className="h-3.5 w-3.5 mr-1.5" />
+                        URLコピー
+                      </Button>
+                      <Button
+                        onClick={handleDownloadQr}
+                        className="flex-1 h-9 text-sm bg-indigo-600 hover:bg-indigo-700 text-white"
+                      >
+                        <Download className="h-3.5 w-3.5 mr-1.5" />
+                        ダウンロード
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-indigo-500" />
+                  </div>
+                )}
+              </div>
+            </CustomModal>
+
             {/* Course list */}
             {loadingCourses ? (
               <div className="flex items-center justify-center py-20">
@@ -1420,6 +1501,15 @@ export default function AdminPage() {
                               className="h-8 w-8 p-0 flex-shrink-0 border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-300"
                             >
                               <Copy className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleShowQr(course)}
+                              className="h-8 w-8 p-0 flex-shrink-0 border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-300"
+                              title="QRコードを表示"
+                            >
+                              <QrCode className="h-3.5 w-3.5" />
                             </Button>
                             <Button
                               variant="outline"

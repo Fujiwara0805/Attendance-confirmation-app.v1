@@ -18,7 +18,7 @@ import PollResultsChart from '../../components/PollResultsChart';
 import { staggerContainer } from '@/lib/animations';
 
 const LOGO_URL =
-  'https://res.cloudinary.com/dz9trbwma/image/upload/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png';
+  'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_200/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png';
 
 interface Room {
   id: string;
@@ -116,6 +116,12 @@ export default function HostPage() {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status }),
+    });
+  };
+
+  const handleDeletePoll = async (pollId: string) => {
+    await fetch(`/api/rooms/${roomCode}/polls/${pollId}`, {
+      method: 'DELETE',
     });
   };
 
@@ -372,6 +378,13 @@ export default function HostPage() {
                           終了
                         </button>
                       )}
+                      <button
+                        onClick={() => handleDeletePoll(poll.id)}
+                        className="text-xs bg-red-50 text-red-600 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 inline mr-1" />
+                        削除
+                      </button>
                     </div>
                   </div>
                   <PollResultsChart

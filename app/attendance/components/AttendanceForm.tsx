@@ -53,11 +53,11 @@ interface Course {
 const defaultFormSchema = z.object({
   date: z.string().min(1, { message: '日付を入力してください' }),
   class_name: z.string().optional(),
-  student_id: z.string().min(1, { message: '学籍番号を入力してください' }),
+  student_id: z.string().min(1, { message: 'ID・番号（学籍番号など）を入力してください' }),
   grade: z.string().min(1, { message: '学年を選択してください' }),
   name: z.string().min(1, { message: '名前を入力してください' }),
-  department: z.string().min(1, { message: '学科・コースを入力してください' }),
-  feedback: z.string().min(1, { message: '講義レポートを入力してください' }),
+  department: z.string().min(1, { message: '所属（学科・コース等）を入力してください' }),
+  feedback: z.string().min(1, { message: 'レポート・感想を入力してください' }),
 });
 
 export interface GlobalSettings {
@@ -657,7 +657,7 @@ export default function DynamicAttendanceForm() {
             >
               <motion.div variants={fadeInUp} className="flex flex-col items-center">
                 <Image
-                  src="https://res.cloudinary.com/dz9trbwma/image/upload/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png"
+                  src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_200/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png"
                   alt="ざせきくん"
                   width={72}
                   height={72}
@@ -665,7 +665,7 @@ export default function DynamicAttendanceForm() {
                 />
                 <h2 className="text-xl font-bold text-slate-900 tracking-tight text-center">出席管理システム</h2>
                 <p className="text-slate-500 text-center text-sm mt-1 mb-4 leading-relaxed">
-                  レポートを提出して、出席登録をしましょう
+                  必要項目を入力して、出席登録をしましょう
                 </p>
 
                 {/* Location status pill */}
@@ -809,7 +809,7 @@ export default function DynamicAttendanceForm() {
                           required: true,
                           placeholder: '',
                           description: '',
-                          options: field.key === 'grade' ? ['1', '2', '3', '4'] : [],
+                          options: [],
                           order: index
                         })),
                         ...customFields.sort((a, b) => (a.order || 0) - (b.order || 0))

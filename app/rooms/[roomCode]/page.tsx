@@ -14,7 +14,7 @@ import PollResultsChart from '../components/PollResultsChart';
 import { staggerContainer } from '@/lib/animations';
 
 const LOGO_URL =
-  'https://res.cloudinary.com/dz9trbwma/image/upload/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png';
+  'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_200/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png';
 
 type Tab = 'qa' | 'polls';
 
@@ -39,6 +39,9 @@ export default function ParticipantPage() {
   const [isAnonymous, setIsAnonymous] = useState(true);
   const [sending, setSending] = useState(false);
   const [votedQuestions, setVotedQuestions] = useState<Set<string>>(new Set());
+
+  // Own questions tracking
+  const [ownQuestionIds, setOwnQuestionIds] = useState<Set<string>>(new Set());
 
   // Poll state
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
@@ -66,13 +69,15 @@ export default function ParticipantPage() {
     if (stored) setVotedQuestions(new Set(JSON.parse(stored)));
     const storedPolls = localStorage.getItem(`voted_polls_${roomCode}`);
     if (storedPolls) setHasVotedPoll(new Set(JSON.parse(storedPolls)));
+    const storedOwn = localStorage.getItem(`own_questions_${roomCode}`);
+    if (storedOwn) setOwnQuestionIds(new Set(JSON.parse(storedOwn)));
   }, [roomCode, isReady]);
 
   const handleSubmitQuestion = async () => {
     if (!questionText.trim() || sending) return;
     setSending(true);
     try {
-      await fetch(`/api/rooms/${roomCode}/questions`, {
+      const res = await fetch(`/api/rooms/${roomCode}/questions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -81,6 +86,13 @@ export default function ParticipantPage() {
           isAnonymous,
         }),
       });
+      const created = await res.json();
+      if (created?.id) {
+        const newOwn = new Set(ownQuestionIds);
+        newOwn.add(created.id);
+        setOwnQuestionIds(newOwn);
+        localStorage.setItem(`own_questions_${roomCode}`, JSON.stringify(Array.from(newOwn)));
+      }
       setQuestionText('');
     } catch {
       // Silently fail — optimistic approach
@@ -110,6 +122,32 @@ export default function ParticipantPage() {
       // Revert on failure
       const reverted = new Set(votedQuestions);
       setVotedQuestions(reverted);
+    }
+  };
+
+  const handleEditQuestion = async (questionId: string, newText: string) => {
+    try {
+      await fetch(`/api/rooms/${roomCode}/questions/${questionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: newText }),
+      });
+    } catch {
+      // Silently fail
+    }
+  };
+
+  const handleDeleteOwnQuestion = async (questionId: string) => {
+    try {
+      await fetch(`/api/rooms/${roomCode}/questions/${questionId}`, {
+        method: 'DELETE',
+      });
+      const newOwn = new Set(ownQuestionIds);
+      newOwn.delete(questionId);
+      setOwnQuestionIds(newOwn);
+      localStorage.setItem(`own_questions_${roomCode}`, JSON.stringify(Array.from(newOwn)));
+    } catch {
+      // Silently fail
     }
   };
 
@@ -268,6 +306,9 @@ export default function ParticipantPage() {
                       createdAt={q.created_at}
                       hasVoted={votedQuestions.has(q.id)}
                       onVote={handleVote}
+                      isOwn={ownQuestionIds.has(q.id)}
+                      onEdit={handleEditQuestion}
+                      onDeleteOwn={handleDeleteOwnQuestion}
                     />
                   ))}
                 </AnimatePresence>

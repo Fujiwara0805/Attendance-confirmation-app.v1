@@ -13,7 +13,7 @@ export function createDynamicSchema(fields: CustomFormField[], enabledDefaultFie
     schemaObject.class_name = z.string().optional();
   }
   if (enabledDefaultFields.includes('student_id')) {
-    schemaObject.student_id = z.string().min(1, { message: '学籍番号を入力してください' });
+    schemaObject.student_id = z.string().min(1, { message: 'ID・番号（学籍番号など）を入力してください' });
   }
   if (enabledDefaultFields.includes('grade')) {
     schemaObject.grade = z.string().min(1, { message: '学年を選択してください' });
@@ -22,10 +22,10 @@ export function createDynamicSchema(fields: CustomFormField[], enabledDefaultFie
     schemaObject.name = z.string().min(1, { message: '名前を入力してください' });
   }
   if (enabledDefaultFields.includes('department')) {
-    schemaObject.department = z.string().min(1, { message: '学科・コースを入力してください' });
+    schemaObject.department = z.string().min(1, { message: '所属（学科・コース等）を入力してください' });
   }
   if (enabledDefaultFields.includes('feedback')) {
-    schemaObject.feedback = z.string().min(1, { message: '講義レポートを入力してください' });
+    schemaObject.feedback = z.string().min(1, { message: 'レポート・感想を入力してください' });
   }
 
   // カスタムフィールドの追加
@@ -140,12 +140,12 @@ export const fieldTypeLabels: Record<CustomFieldType, string> = {
 // デフォルトフィールドの定義
 export const defaultFields = [
   { key: 'date', label: '日付', type: 'date' as CustomFieldType },
-  { key: 'class_name', label: '講義名', type: 'select' as CustomFieldType },
-  { key: 'student_id', label: '学籍番号', type: 'text' as CustomFieldType },
-  { key: 'grade', label: '学年', type: 'select' as CustomFieldType },
+  { key: 'class_name', label: 'フォーム名', type: 'select' as CustomFieldType },
+  { key: 'student_id', label: 'ID・番号（学籍番号など）', type: 'text' as CustomFieldType },
+  { key: 'grade', label: '学年', type: 'text' as CustomFieldType },
   { key: 'name', label: '名前', type: 'text' as CustomFieldType },
-  { key: 'department', label: '学科・コース', type: 'text' as CustomFieldType },
-  { key: 'feedback', label: '講義レポート', type: 'textarea' as CustomFieldType }
+  { key: 'department', label: '所属（学科・コース等）', type: 'text' as CustomFieldType },
+  { key: 'feedback', label: 'レポート・感想', type: 'textarea' as CustomFieldType }
 ];
 
 // プリセットフィールド定義（ユーザーが選択して追加できる汎用項目）

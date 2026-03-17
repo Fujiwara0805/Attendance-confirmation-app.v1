@@ -1,7 +1,8 @@
 'use client';
 
+import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ThumbsUp, CheckCircle2, Pin } from 'lucide-react';
+import { ThumbsUp, CheckCircle2, Pin, Edit2, Trash2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ja } from 'date-fns/locale';
 
@@ -20,6 +21,10 @@ interface QuestionCardProps {
   onToggleAnswered?: (id: string) => void;
   onTogglePinned?: (id: string) => void;
   onDelete?: (id: string) => void;
+  // Participant controls (own questions)
+  isOwn?: boolean;
+  onEdit?: (id: string, newText: string) => void;
+  onDeleteOwn?: (id: string) => void;
 }
 
 export default function QuestionCard({
@@ -36,7 +41,12 @@ export default function QuestionCard({
   onToggleAnswered,
   onTogglePinned,
   onDelete,
+  isOwn,
+  onEdit,
+  onDeleteOwn,
 }: QuestionCardProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editText, setEditText] = useState(text);
   const timeAgo = formatDistanceToNow(new Date(createdAt), { addSuffix: true, locale: ja });
 
   return (
@@ -68,9 +78,36 @@ export default function QuestionCard({
           <div className="flex items-start gap-2">
             {isPinned && <Pin className="w-3.5 h-3.5 text-indigo-500 mt-0.5 flex-shrink-0" />}
             {isAnswered && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 mt-0.5 flex-shrink-0" />}
-            <p className={`text-sm text-slate-800 leading-relaxed ${isAnswered ? 'line-through' : ''}`}>
-              {text}
-            </p>
+            {isEditing ? (
+              <div className="flex-1 space-y-2">
+                <input
+                  type="text"
+                  value={editText}
+                  onChange={(e) => setEditText(e.target.value)}
+                  className="w-full bg-slate-50 border-2 border-indigo-200 rounded-lg px-3 py-1.5 text-sm focus:border-indigo-400 outline-none"
+                  autoFocus
+                />
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => { onEdit?.(id, editText); setIsEditing(false); }}
+                    disabled={!editText.trim()}
+                    className="text-xs bg-indigo-50 text-indigo-600 hover:bg-indigo-100 px-2 py-1 rounded-lg disabled:opacity-40"
+                  >
+                    保存
+                  </button>
+                  <button
+                    onClick={() => setIsEditing(false)}
+                    className="text-xs text-slate-400 hover:text-slate-600 px-2 py-1"
+                  >
+                    キャンセル
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className={`text-sm text-slate-800 leading-relaxed ${isAnswered ? 'line-through' : ''}`}>
+                {text}
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-2 mt-2">
             <span className="text-xs text-slate-400">{authorName}</span>
@@ -100,6 +137,30 @@ export default function QuestionCard({
             >
               <Pin className="w-3.5 h-3.5" />
             </button>
+          </div>
+        )}
+
+        {/* Participant controls (own questions) */}
+        {isOwn && !isHost && (
+          <div className="flex flex-col gap-1 flex-shrink-0">
+            {!isEditing && (
+              <>
+                <button
+                  onClick={() => { setIsEditing(true); setEditText(text); }}
+                  className="p-1.5 rounded-lg text-xs hover:bg-slate-100 text-slate-400 transition-colors"
+                  title="編集"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => onDeleteOwn?.(id)}
+                  className="p-1.5 rounded-lg text-xs hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors"
+                  title="削除"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>
