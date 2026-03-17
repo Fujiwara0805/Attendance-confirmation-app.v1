@@ -696,16 +696,18 @@ export default function AdminPage() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           {/* Left: Logo + title */}
           <div className="flex items-center gap-3">
-            <Image
-              src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_200/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png"
-              alt="ざせきくん"
-              width={32}
-              height={32}
-              className="rounded-lg"
-            />
-            <span className="text-base font-semibold text-slate-900 tracking-tight hidden sm:block">
-              ざせきくん
-            </span>
+            <a href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+              <Image
+                src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_200/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png"
+                alt="ざせきくん"
+                width={32}
+                height={32}
+                className="rounded-lg"
+              />
+              <span className="text-base font-semibold text-slate-900 tracking-tight hidden sm:block">
+                ざせきくん
+              </span>
+            </a>
           </div>
 
           {/* Right: user + logout */}

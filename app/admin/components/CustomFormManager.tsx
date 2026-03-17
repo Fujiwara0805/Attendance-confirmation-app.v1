@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -285,40 +284,46 @@ export default function CustomFormManager({ onCourseAdded, onClose }: CustomForm
                   exit={{ opacity: 0, x: -20 }}
                   className="flex items-center gap-1.5 h-9 px-2 rounded-md border border-slate-200 bg-white hover:border-slate-300 transition-colors"
                 >
-                  {/* 並び替え */}
-                  <div className="flex flex-col shrink-0 -space-y-1">
+                  {/* 並び替え（上下矢印） */}
+                  <div className="flex flex-col shrink-0 border-r border-slate-100 pr-1.5 mr-0.5">
                     <button
                       type="button"
                       onClick={() => moveField(index, Math.max(0, index - 1))}
                       disabled={index === 0}
-                      className="p-0.5 text-slate-300 hover:text-slate-600 disabled:opacity-30"
+                      className="p-0.5 text-slate-400 hover:text-indigo-600 disabled:opacity-20 transition-colors"
                     >
-                      <ArrowUp className="h-2.5 w-2.5" />
+                      <ArrowUp className="h-3 w-3" />
                     </button>
                     <button
                       type="button"
                       onClick={() => moveField(index, Math.min(enabledFields.length - 1, index + 1))}
                       disabled={index === enabledFields.length - 1}
-                      className="p-0.5 text-slate-300 hover:text-slate-600 disabled:opacity-30"
+                      className="p-0.5 text-slate-400 hover:text-indigo-600 disabled:opacity-20 transition-colors"
                     >
-                      <ArrowDown className="h-2.5 w-2.5" />
+                      <ArrowDown className="h-3 w-3" />
                     </button>
                   </div>
 
-                  {/* 項目名 + 必須ラベル（縦並び） */}
-                  <div className="flex-1 min-w-0">
-                    <span className="block text-xs font-medium text-slate-700 truncate leading-tight">{field.label}</span>
-                    <span className={`text-[9px] leading-tight ${field.required ? 'text-red-500' : 'text-slate-400'}`}>
-                      {field.required ? '必須' : '任意'}
-                    </span>
-                  </div>
+                  {/* 項目名 */}
+                  <span className="flex-1 min-w-0 text-xs font-medium text-slate-700 truncate">{field.label}</span>
 
-                  {/* 必須トグル */}
-                  <Switch
-                    checked={field.required}
-                    onCheckedChange={() => toggleRequired(field.id)}
-                    className="scale-[0.65] origin-right data-[state=checked]:bg-red-500 shrink-0"
-                  />
+                  {/* 必須/任意 ドロップダウン */}
+                  <select
+                    value={field.required ? 'required' : 'optional'}
+                    onChange={(e) => {
+                      const newRequired = e.target.value === 'required';
+                      if (newRequired !== field.required) toggleRequired(field.id);
+                    }}
+                    className={`text-[10px] font-medium h-6 px-1 pr-4 rounded border appearance-none bg-no-repeat bg-[right_2px_center] bg-[length:10px] cursor-pointer outline-none transition-colors ${
+                      field.required
+                        ? 'border-red-200 bg-red-50 text-red-600'
+                        : 'border-slate-200 bg-slate-50 text-slate-500'
+                    }`}
+                    style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")` }}
+                  >
+                    <option value="required">必須</option>
+                    <option value="optional">任意</option>
+                  </select>
 
                   {/* 削除 */}
                   <button
