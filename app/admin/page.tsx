@@ -906,6 +906,12 @@ export default function AdminPage() {
                 ルーム管理
               </TabsTrigger>
             </TabsList>
+            <Link href="/admin/scanner">
+              <Button variant="outline" size="sm" className="h-8 gap-1.5 text-indigo-600 border-indigo-200 hover:bg-indigo-50">
+                <QrCode className="w-3.5 h-3.5" />
+                QRスキャン受付
+              </Button>
+            </Link>
           </div>
 
           {/* ===== COURSES TAB ===== */}
@@ -1713,9 +1719,9 @@ export default function AdminPage() {
                           </div>
                         </div>
 
-                        {/* 招待状フォーム: 回答一覧ボタン */}
+                        {/* 招待状フォーム: 回答一覧ボタン + QRスキャン受付 */}
                         {course.formType === 'invitation' && (
-                          <div className="mt-2.5 pt-2.5 border-t border-slate-100">
+                          <div className="mt-2.5 pt-2.5 border-t border-slate-100 space-y-2">
                             <Button
                               variant="outline"
                               size="sm"
@@ -1725,6 +1731,16 @@ export default function AdminPage() {
                               <Users className="h-3 w-3 mr-1.5" />
                               参加申込一覧を表示
                             </Button>
+                            <Link href={`/admin/scanner?course=${course.code}`}>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full h-8 text-xs text-indigo-600 border-indigo-200 hover:bg-indigo-50 mt-1"
+                              >
+                                <QrCode className="h-3 w-3 mr-1.5" />
+                                QRスキャン受付
+                              </Button>
+                            </Link>
                           </div>
                         )}
 

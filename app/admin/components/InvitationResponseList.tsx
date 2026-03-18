@@ -13,7 +13,9 @@ import {
   RefreshCw,
   Download,
   Inbox,
+  QrCode,
 } from 'lucide-react';
+import Link from 'next/link';
 
 interface Response {
   id: string;
@@ -101,6 +103,12 @@ export default function InvitationResponseList({ courseCode, courseName }: Invit
           </Badge>
         </div>
         <div className="flex items-center gap-2">
+          <Link href={`/admin/scanner?course=${courseCode}`}>
+            <Button variant="outline" size="sm" className="h-8 text-indigo-600 border-indigo-200 hover:bg-indigo-50">
+              <QrCode className="h-3.5 w-3.5 mr-1" />
+              QR受付
+            </Button>
+          </Link>
           <Button variant="outline" size="sm" onClick={fetchResponses} disabled={loading} className="h-8">
             <RefreshCw className={`h-3.5 w-3.5 mr-1 ${loading ? 'animate-spin' : ''}`} />
             更新
