@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
 
     let query = supabase
       .from('courses')
-      .select('id, code, name, description, teacher_name, category, template_id, enabled_default_fields, custom_fields, location_settings, status, created_at')
+      .select('id, code, name, description, teacher_name, category, template_id, enabled_default_fields, custom_fields, location_settings, status, created_at, form_type, invitation_settings')
       .eq('status', 'active')
       .order('created_at', { ascending: false });
 
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { name, description, teacherName, category, templateId, customFields, enabledDefaultFields, locationSettings } = body;
+    const { name, description, teacherName, category, templateId, customFields, enabledDefaultFields, locationSettings, formType, invitationSettings } = body;
 
     if (!name || !teacherName) {
       return NextResponse.json({ message: 'name and teacherName are required' }, { status: 400 });
@@ -109,6 +109,8 @@ export async function POST(req: NextRequest) {
         custom_fields: customFields || [],
         enabled_default_fields: enabledDefaultFields || ['date', 'class_name', 'student_id', 'grade', 'name', 'department', 'feedback'],
         location_settings: locationSettings || null,
+        form_type: formType || 'attendance',
+        invitation_settings: invitationSettings || null,
       })
       .select()
       .single();

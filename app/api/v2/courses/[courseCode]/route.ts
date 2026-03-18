@@ -17,7 +17,8 @@ export async function GET(
       .select(`
         id, code, name, description, teacher_name, category,
         template_id, custom_fields, enabled_default_fields,
-        location_settings, status, created_at
+        location_settings, status, created_at,
+        form_type, invitation_settings
       `)
       .eq('code', courseCode)
       .eq('status', 'active')
@@ -78,7 +79,8 @@ export async function PATCH(
     // 更新可能なフィールドのみ抽出
     const updateData: Record<string, any> = {};
     const allowedFields = ['name', 'description', 'teacher_name', 'category', 'template_id',
-      'custom_fields', 'enabled_default_fields', 'location_settings', 'status'];
+      'custom_fields', 'enabled_default_fields', 'location_settings', 'status',
+      'form_type', 'invitation_settings'];
 
     for (const key of allowedFields) {
       if (body[key] !== undefined) {
@@ -137,6 +139,7 @@ export async function DELETE(
     // 関連データを先に削除
     await supabase.from('submission_cooldowns').delete().eq('course_id', existing.id);
     await supabase.from('attendance').delete().eq('course_id', existing.id);
+    await supabase.from('invitation_responses').delete().eq('course_id', existing.id);
 
     // 講義を物理削除
     const { error } = await supabase

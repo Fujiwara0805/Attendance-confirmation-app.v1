@@ -78,3 +78,43 @@ export interface CourseFormConfig {
   customFields: CustomFormField[]; // 講義固有のカスタムフィールド
   enabledDefaultFields: string[]; // 有効化されたデフォルトフィールドのリスト
 }
+
+// 招待状フォーム関連の型定義
+export type FormType = 'attendance' | 'invitation';
+
+export interface TimeSlot {
+  id: string;
+  startTime: string;
+  endTime: string;
+  label: string;
+  capacity?: number;
+}
+
+export interface DateSlot {
+  id: string;
+  date: string;
+  label: string;
+  timeSlots: TimeSlot[];
+}
+
+export interface InvitationSettings {
+  eventLocation?: string;
+  eventDescription?: string;
+  dateSlots: DateSlot[];
+}
+
+export interface InvitationResponse {
+  id: string;
+  courseId: string;
+  responseCode: string;
+  respondentName: string;
+  respondentEmail?: string;
+  respondentPhone?: string;
+  customData: Record<string, any>;
+  selectedDate: string;
+  selectedTimeSlotId: string;
+  selectedTimeLabel?: string;
+  checkedInAt?: string;
+  checkedInBy?: string;
+  createdAt: string;
+}

@@ -54,6 +54,8 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import LocationSettingsForm from './components/LocationSettingsForm';
 import CustomFormManager from './components/CustomFormManager';
+import InvitationFormManager from './components/InvitationFormManager';
+import InvitationResponseList from './components/InvitationResponseList';
 import AttendanceExport from './components/AttendanceExport';
 
 interface Course {
@@ -73,6 +75,8 @@ interface Course {
     radius: number;
     locationName?: string;
   };
+  formType?: string;
+  invitationSettings?: any;
 }
 
 export default function AdminPage() {
@@ -252,6 +256,12 @@ export default function AdminPage() {
   // 作成タイプ選択モーダル
   const [isCreateTypeDialogOpen, setIsCreateTypeDialogOpen] = useState<boolean>(false);
 
+  // 招待状フォーム用の状態
+  const [isInvitationFormDialogOpen, setIsInvitationFormDialogOpen] = useState<boolean>(false);
+  const [editingInvitationFormCourse, setEditingInvitationFormCourse] = useState<Course | null>(null);
+  const [isResponseListDialogOpen, setIsResponseListDialogOpen] = useState<boolean>(false);
+  const [responseListCourse, setResponseListCourse] = useState<Course | null>(null);
+
   // ルーム管理用の状態
   interface Room { id: string; code: string; title: string; status: string; host_id: string; created_at: string; }
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -341,6 +351,22 @@ export default function AdminPage() {
     setIsCustomFormDialogOpen(true);
   };
 
+  // 招待状フォームダイアログを開く（上限チェック付き）
+  const handleInvitationFormDialog = () => {
+    if (planInfo && !planInfo.canCreateForm) {
+      showToast('上限に達しています', `無料プランではフォーム${planInfo.limits.maxForms}個まで作成できます。Proプランにアップグレードしてください。`, 'destructive');
+      return;
+    }
+    setEditingInvitationFormCourse(null);
+    setIsInvitationFormDialogOpen(true);
+  };
+
+  // 回答一覧を表示
+  const handleShowResponses = (course: Course) => {
+    setResponseListCourse(course);
+    setIsResponseListDialogOpen(true);
+  };
+
   // ルーム一覧取得
   const fetchRooms = useCallback(async () => {
     setLoadingRooms(true);
@@ -377,6 +403,8 @@ export default function AdminPage() {
           customFields: c.custom_fields || [],
           enabledDefaultFields: c.enabled_default_fields || [],
           locationSettings: c.location_settings || undefined,
+          formType: c.form_type || 'attendance',
+          invitationSettings: c.invitation_settings || undefined,
         }));
         setCourses(mappedCourses);
         if (mappedCourses.length > 0) {
@@ -523,6 +551,12 @@ export default function AdminPage() {
 
   // 編集ダイアログを開く
   const handleEditCourse = (course: Course) => {
+    if (course.formType === 'invitation') {
+      // 招待状フォームの場合はInvitationFormManagerを編集モードで開く
+      setEditingInvitationFormCourse(course);
+      setIsInvitationFormDialogOpen(true);
+      return;
+    }
     if (course.isCustomForm) {
       // カスタムフォームの場合はCustomFormManagerを編集モードで開く
       setEditingCustomFormCourse(course);
@@ -723,7 +757,8 @@ export default function AdminPage() {
   const handleShowQr = async (course: Course) => {
     setQrCourse(course);
     setIsQrDialogOpen(true);
-    const url = `${window.location.origin}/attendance/${course.code}`;
+    const basePath = course.formType === 'invitation' ? '/invitation/' : '/attendance/';
+    const url = `${window.location.origin}${basePath}${course.code}`;
     try {
       const QRCode = await import('qrcode');
       const dataUrl = await QRCode.toDataURL(url, { width: 512, margin: 2 });
@@ -938,6 +973,7 @@ export default function AdminPage() {
               <ul className="text-xs text-blue-800 space-y-1.5 leading-relaxed">
                 <li>• <strong>デフォルトフォーム</strong>：日付・フォーム名・ID・学年・名前・所属・レポートなど、標準の出席項目が含まれたフォームです。すぐに使い始められます。</li>
                 <li>• <strong>カスタムフォーム</strong>：項目を自由に追加・削除・並び替えできます。不要な項目を無効化して、用途に合わせたフォームを作成できます。</li>
+                <li>• <strong>招待状フォーム</strong>：イベント参加申込用。日時選択＋個人QRコードを発行し、当日の受付確認に使えます。</li>
                 <li>• 作成後にQRコードやURLを参加者に共有するだけで、すぐに出席管理を開始できます。</li>
               </ul>
             </div>
@@ -1370,11 +1406,11 @@ export default function AdminPage() {
             <CustomModal
               isOpen={isCreateTypeDialogOpen}
               onClose={() => setIsCreateTypeDialogOpen(false)}
-              title="出席フォームのタイプを選択"
+              title="フォームのタイプを選択"
               description="作成するフォームのタイプを選んでください。"
-              className="sm:max-w-[480px]"
+              className="sm:max-w-[640px]"
             >
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {/* デフォルトフォーム */}
                 <button
                   onClick={() => {
@@ -1418,6 +1454,26 @@ export default function AdminPage() {
                   </div>
                   <ArrowRight className="absolute top-5 right-4 h-4 w-4 text-slate-300 group-hover:text-purple-500 transition-colors" />
                 </button>
+
+                {/* 招待状フォーム */}
+                <button
+                  onClick={() => {
+                    setIsCreateTypeDialogOpen(false);
+                    handleInvitationFormDialog();
+                  }}
+                  className="group relative flex flex-col items-start gap-3 p-5 rounded-xl border-2 border-slate-200 bg-white hover:border-emerald-400 hover:shadow-md transition-all duration-200 text-left"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center group-hover:bg-emerald-200 transition-colors">
+                    <Users className="h-5 w-5 text-emerald-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-900">招待状フォーム</h3>
+                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                      イベント参加申込用。日時選択＋個人QRコードを発行します。
+                    </p>
+                  </div>
+                  <ArrowRight className="absolute top-5 right-4 h-4 w-4 text-slate-300 group-hover:text-emerald-500 transition-colors" />
+                </button>
               </div>
             </CustomModal>
 
@@ -1436,14 +1492,15 @@ export default function AdminPage() {
                       <img src={qrDataUrl} alt="QRコード" className="w-64 h-64" />
                     </div>
                     <p className="text-xs text-slate-500 text-center break-all px-4">
-                      {typeof window !== 'undefined' && qrCourse ? `${window.location.origin}/attendance/${qrCourse.code}` : ''}
+                      {typeof window !== 'undefined' && qrCourse ? `${window.location.origin}${qrCourse.formType === 'invitation' ? '/invitation/' : '/attendance/'}${qrCourse.code}` : ''}
                     </p>
                     <div className="flex items-center gap-2 w-full">
                       <Button
                         variant="outline"
                         onClick={() => {
                           if (qrCourse) {
-                            const url = `${window.location.origin}/attendance/${qrCourse.code}`;
+                            const basePath = qrCourse.formType === 'invitation' ? '/invitation/' : '/attendance/';
+                            const url = `${window.location.origin}${basePath}${qrCourse.code}`;
                             navigator.clipboard.writeText(url);
                             showToast("コピー完了", "URLをコピーしました。");
                           }
@@ -1468,6 +1525,43 @@ export default function AdminPage() {
                   </div>
                 )}
               </div>
+            </CustomModal>
+
+            {/* Invitation Form Manager Modal */}
+            <CustomModal
+              isOpen={isInvitationFormDialogOpen}
+              onClose={() => { setIsInvitationFormDialogOpen(false); setEditingInvitationFormCourse(null); }}
+              title={editingInvitationFormCourse ? '招待状フォームを編集' : '招待状フォーム作成'}
+              description={editingInvitationFormCourse ? '招待状フォームの設定を更新します。' : 'イベント参加申込用のフォームを作成します。'}
+              className="sm:max-w-[600px]"
+            >
+              <InvitationFormManager
+                onCourseAdded={() => { fetchCourses(); fetchPlanInfo(); }}
+                onClose={() => { setIsInvitationFormDialogOpen(false); setEditingInvitationFormCourse(null); }}
+                editingInvitation={editingInvitationFormCourse ? {
+                  code: editingInvitationFormCourse.code,
+                  eventName: editingInvitationFormCourse.courseName,
+                  teacherName: editingInvitationFormCourse.teacherName,
+                  invitationSettings: editingInvitationFormCourse.invitationSettings,
+                  customFields: editingInvitationFormCourse.customFields,
+                } : undefined}
+              />
+            </CustomModal>
+
+            {/* Invitation Response List Modal */}
+            <CustomModal
+              isOpen={isResponseListDialogOpen}
+              onClose={() => { setIsResponseListDialogOpen(false); setResponseListCourse(null); }}
+              title="参加申込一覧"
+              description={responseListCourse ? `「${responseListCourse.courseName}」の参加申込状況` : ''}
+              className="sm:max-w-[640px]"
+            >
+              {responseListCourse && (
+                <InvitationResponseList
+                  courseCode={responseListCourse.code}
+                  courseName={responseListCourse.courseName}
+                />
+              )}
             </CustomModal>
 
             {/* Course list */}
@@ -1505,9 +1599,10 @@ export default function AdminPage() {
               /* Course cards grid */
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {courses.map((course, index) => {
+                  const basePath = course.formType === 'invitation' ? '/invitation/' : '/attendance/';
                   const formUrl = typeof window !== 'undefined'
-                    ? `${window.location.origin}/attendance/${course.code}`
-                    : `/attendance/${course.code}`;
+                    ? `${window.location.origin}${basePath}${course.code}`
+                    : `${basePath}${course.code}`;
 
                   return (
                     <motion.div
@@ -1518,9 +1613,11 @@ export default function AdminPage() {
                       className={`
                         group relative bg-white rounded-xl border transition-all duration-200
                         hover:shadow-md hover:border-slate-300
-                        ${course.isCustomForm
-                          ? 'border-purple-200/80 shadow-sm shadow-purple-100/50'
-                          : 'border-slate-200 shadow-sm'
+                        ${course.formType === 'invitation'
+                          ? 'border-emerald-200/80 shadow-sm shadow-emerald-100/50'
+                          : course.isCustomForm
+                            ? 'border-purple-200/80 shadow-sm shadow-purple-100/50'
+                            : 'border-slate-200 shadow-sm'
                         }
                       `}
                     >
@@ -1530,24 +1627,31 @@ export default function AdminPage() {
                           <div className="flex items-center gap-2 min-w-0">
                             <div className={`
                               flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center
-                              ${course.isCustomForm
-                                ? 'bg-purple-100 text-purple-600'
-                                : 'bg-indigo-50 text-indigo-600'
+                              ${course.formType === 'invitation'
+                                ? 'bg-emerald-100 text-emerald-600'
+                                : course.isCustomForm
+                                  ? 'bg-purple-100 text-purple-600'
+                                  : 'bg-indigo-50 text-indigo-600'
                               }
                             `}>
-                              <BookOpen className="h-4 w-4" />
+                              {course.formType === 'invitation' ? <Users className="h-4 w-4" /> : <BookOpen className="h-4 w-4" />}
                             </div>
                             <div className="min-w-0">
                               <div className="flex items-center gap-1.5">
                                 <h3 className="font-semibold text-slate-900 text-sm truncate">
                                   {course.courseName}
                                 </h3>
-                                {course.isCustomForm && (
+                                {course.formType === 'invitation' ? (
+                                  <span className="flex-shrink-0 inline-flex items-center gap-0.5 text-[10px] font-medium text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full">
+                                    <Users className="h-2.5 w-2.5" />
+                                    招待状
+                                  </span>
+                                ) : course.isCustomForm ? (
                                   <span className="flex-shrink-0 inline-flex items-center gap-0.5 text-[10px] font-medium text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded-full">
                                     <Sparkles className="h-2.5 w-2.5" />
                                     カスタム
                                   </span>
-                                )}
+                                ) : null}
                               </div>
                               <p className="text-xs text-slate-500 truncate">
                                 {course.teacherName}
@@ -1608,6 +1712,21 @@ export default function AdminPage() {
                             </Button>
                           </div>
                         </div>
+
+                        {/* 招待状フォーム: 回答一覧ボタン */}
+                        {course.formType === 'invitation' && (
+                          <div className="mt-2.5 pt-2.5 border-t border-slate-100">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleShowResponses(course)}
+                              className="w-full h-8 text-xs text-emerald-600 border-emerald-200 hover:bg-emerald-50"
+                            >
+                              <Users className="h-3 w-3 mr-1.5" />
+                              参加申込一覧を表示
+                            </Button>
+                          </div>
+                        )}
 
                         {/* Date */}
                         <div className="mt-2.5 flex items-center justify-end">
