@@ -13,9 +13,7 @@ import {
   RefreshCw,
   Download,
   Inbox,
-  QrCode,
 } from 'lucide-react';
-import Link from 'next/link';
 
 interface Response {
   id: string;
@@ -95,20 +93,20 @@ export default function InvitationResponseList({ courseCode, courseName }: Invit
       {/* ヘッダー */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Badge variant="secondary" className="bg-indigo-50 text-indigo-700">
-            {responses.length}名申込
-          </Badge>
-          <Badge variant="secondary" className="bg-emerald-50 text-emerald-700">
-            {checkedInCount}名受付済み
-          </Badge>
+          <div className="flex flex-col items-center">
+            <Badge variant="secondary" className="bg-indigo-50 text-indigo-700">
+              申込
+            </Badge>
+            <span className="text-lg font-bold text-indigo-700 mt-0.5">{responses.length}</span>
+          </div>
+          <div className="flex flex-col items-center">
+            <Badge variant="secondary" className="bg-emerald-50 text-emerald-700">
+              受付済
+            </Badge>
+            <span className="text-lg font-bold text-emerald-700 mt-0.5">{checkedInCount}</span>
+          </div>
         </div>
         <div className="flex items-center gap-2">
-          <Link href={`/admin/scanner?course=${courseCode}`}>
-            <Button variant="outline" size="sm" className="h-8 text-indigo-600 border-indigo-200 hover:bg-indigo-50">
-              <QrCode className="h-3.5 w-3.5 mr-1" />
-              QR受付
-            </Button>
-          </Link>
           <Button variant="outline" size="sm" onClick={fetchResponses} disabled={loading} className="h-8">
             <RefreshCw className={`h-3.5 w-3.5 mr-1 ${loading ? 'animate-spin' : ''}`} />
             更新
