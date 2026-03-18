@@ -256,7 +256,7 @@ export default function AdminPage() {
   // 作成タイプ選択モーダル
   const [isCreateTypeDialogOpen, setIsCreateTypeDialogOpen] = useState<boolean>(false);
 
-  // 招待状フォーム用の状態
+  // 招待フォーム用の状態
   const [isInvitationFormDialogOpen, setIsInvitationFormDialogOpen] = useState<boolean>(false);
   const [editingInvitationFormCourse, setEditingInvitationFormCourse] = useState<Course | null>(null);
   const [isResponseListDialogOpen, setIsResponseListDialogOpen] = useState<boolean>(false);
@@ -351,7 +351,7 @@ export default function AdminPage() {
     setIsCustomFormDialogOpen(true);
   };
 
-  // 招待状フォームダイアログを開く（上限チェック付き）
+  // 招待フォームダイアログを開く（上限チェック付き）
   const handleInvitationFormDialog = () => {
     if (planInfo && !planInfo.canCreateForm) {
       showToast('上限に達しています', `無料プランではフォーム${planInfo.limits.maxForms}個まで作成できます。Proプランにアップグレードしてください。`, 'destructive');
@@ -552,7 +552,7 @@ export default function AdminPage() {
   // 編集ダイアログを開く
   const handleEditCourse = (course: Course) => {
     if (course.formType === 'invitation') {
-      // 招待状フォームの場合はInvitationFormManagerを編集モードで開く
+      // 招待フォームの場合はInvitationFormManagerを編集モードで開く
       setEditingInvitationFormCourse(course);
       setIsInvitationFormDialogOpen(true);
       return;
@@ -563,7 +563,7 @@ export default function AdminPage() {
       setIsCustomFormDialogOpen(true);
       return;
     }
-    // デフォルトフォームの場合は従来の編集ダイアログ
+    // 出席フォームの場合は従来の編集ダイアログ
     setEditingCourse(course);
     const hasLocation = !!course.locationSettings;
     setEditCourse({
@@ -906,12 +906,6 @@ export default function AdminPage() {
                 ルーム管理
               </TabsTrigger>
             </TabsList>
-            <Link href="/admin/scanner">
-              <Button variant="outline" size="sm" className="h-8 gap-1.5 text-indigo-600 border-indigo-200 hover:bg-indigo-50">
-                <QrCode className="w-3.5 h-3.5" />
-                QRスキャン受付
-              </Button>
-            </Link>
           </div>
 
           {/* ===== COURSES TAB ===== */}
@@ -977,9 +971,9 @@ export default function AdminPage() {
                 出席管理について
               </h3>
               <ul className="text-xs text-blue-800 space-y-1.5 leading-relaxed">
-                <li>• <strong>デフォルトフォーム</strong>：日付・フォーム名・ID・学年・名前・所属・レポートなど、標準の出席項目が含まれたフォームです。すぐに使い始められます。</li>
+                <li>• <strong>出席フォーム</strong>：日付・フォーム名・ID・学年・名前・所属・レポートなど、標準の出席項目が含まれたフォームです。すぐに使い始められます。</li>
                 <li>• <strong>カスタムフォーム</strong>：項目を自由に追加・削除・並び替えできます。不要な項目を無効化して、用途に合わせたフォームを作成できます。</li>
-                <li>• <strong>招待状フォーム</strong>：イベント参加申込用。日時選択＋個人QRコードを発行し、当日の受付確認に使えます。</li>
+                <li>• <strong>招待フォーム</strong>：イベント参加申込用。日時選択＋個人QRコードを発行し、当日の受付確認に使えます。</li>
                 <li>• 作成後にQRコードやURLを参加者に共有するだけで、すぐに出席管理を開始できます。</li>
               </ul>
             </div>
@@ -988,7 +982,7 @@ export default function AdminPage() {
             <CustomModal
               isOpen={isAddDialogOpen}
               onClose={() => setIsAddDialogOpen(false)}
-              title="デフォルトフォーム作成"
+              title="出席フォーム作成"
               description="標準の項目が含まれたフォームを作成します。位置情報制限も設定できます。"
               className="sm:max-w-[520px]"
             >
@@ -1417,7 +1411,7 @@ export default function AdminPage() {
               className="sm:max-w-[640px]"
             >
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {/* デフォルトフォーム */}
+                {/* 出席フォーム */}
                 <button
                   onClick={() => {
                     setIsCreateTypeDialogOpen(false);
@@ -1433,7 +1427,7 @@ export default function AdminPage() {
                     <FileText className="h-5 w-5 text-indigo-600" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-semibold text-slate-900">デフォルトフォーム</h3>
+                    <h3 className="text-sm font-semibold text-slate-900">出席フォーム</h3>
                     <p className="text-xs text-slate-500 mt-1 leading-relaxed">
                       標準の出席項目が含まれたフォーム。すぐに使い始められます。
                     </p>
@@ -1461,7 +1455,7 @@ export default function AdminPage() {
                   <ArrowRight className="absolute top-5 right-4 h-4 w-4 text-slate-300 group-hover:text-purple-500 transition-colors" />
                 </button>
 
-                {/* 招待状フォーム */}
+                {/* 招待フォーム */}
                 <button
                   onClick={() => {
                     setIsCreateTypeDialogOpen(false);
@@ -1473,7 +1467,7 @@ export default function AdminPage() {
                     <Users className="h-5 w-5 text-emerald-600" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-semibold text-slate-900">招待状フォーム</h3>
+                    <h3 className="text-sm font-semibold text-slate-900">招待フォーム</h3>
                     <p className="text-xs text-slate-500 mt-1 leading-relaxed">
                       イベント参加申込用。日時選択＋個人QRコードを発行します。
                     </p>
@@ -1537,8 +1531,8 @@ export default function AdminPage() {
             <CustomModal
               isOpen={isInvitationFormDialogOpen}
               onClose={() => { setIsInvitationFormDialogOpen(false); setEditingInvitationFormCourse(null); }}
-              title={editingInvitationFormCourse ? '招待状フォームを編集' : '招待状フォーム作成'}
-              description={editingInvitationFormCourse ? '招待状フォームの設定を更新します。' : 'イベント参加申込用のフォームを作成します。'}
+              title={editingInvitationFormCourse ? '招待フォームを編集' : '招待フォーム作成'}
+              description={editingInvitationFormCourse ? '招待フォームの設定を更新します。' : 'イベント参加申込用のフォームを作成します。'}
               className="sm:max-w-[600px]"
             >
               <InvitationFormManager
@@ -1719,7 +1713,7 @@ export default function AdminPage() {
                           </div>
                         </div>
 
-                        {/* 招待状フォーム: 回答一覧ボタン + QRスキャン受付 */}
+                        {/* 招待フォーム: 回答一覧ボタン + QRスキャン受付 */}
                         {course.formType === 'invitation' && (
                           <div className="mt-2.5 pt-2.5 border-t border-slate-100 space-y-2">
                             <Button
