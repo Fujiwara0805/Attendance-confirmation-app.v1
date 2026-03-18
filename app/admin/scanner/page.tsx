@@ -229,16 +229,29 @@ function AdminScannerPage() {
         html5QrCodeRef.current = new Html5Qrcode(readerDivId);
       }
 
-      await html5QrCodeRef.current.start(
-        { facingMode: 'environment' },
-        {
-          fps: 10,
-          qrbox: { width: 250, height: 250 },
-          aspectRatio: 1,
-        },
-        handleScanSuccess,
-        () => {} // ignore scan failures (no QR detected)
-      );
+      const qrConfig = {
+        fps: 10,
+        qrbox: { width: 250, height: 250 },
+        aspectRatio: 1,
+      };
+
+      try {
+        // まず外カメラ（背面カメラ）を厳密に指定して起動
+        await html5QrCodeRef.current.start(
+          { facingMode: { exact: 'environment' } },
+          qrConfig,
+          handleScanSuccess,
+          () => {}
+        );
+      } catch {
+        // 外カメラが見つからない場合（デスクトップ等）はフォールバック
+        await html5QrCodeRef.current.start(
+          { facingMode: 'environment' },
+          qrConfig,
+          handleScanSuccess,
+          () => {}
+        );
+      }
 
       setCameraActive(true);
     } catch (err) {
