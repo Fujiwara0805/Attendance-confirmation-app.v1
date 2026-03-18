@@ -44,6 +44,7 @@ import {
   Download,
   Play,
   StopCircle,
+  UserX,
 } from 'lucide-react';
 // Separator kept for potential sub-component use
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -238,6 +239,10 @@ export default function AdminPage() {
 
   // モバイルメニュー用の状態
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
+
+  // アカウント削除モーダル用の状態
+  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   // QRコードモーダル用の状態
   const [isQrDialogOpen, setIsQrDialogOpen] = useState<boolean>(false);
@@ -445,6 +450,30 @@ export default function AdminPage() {
   // ログアウト処理
   const handleSignOut = () => {
     signOut({ callbackUrl: '/admin/login' });
+  };
+
+  // アカウント削除処理
+  const handleDeleteAccount = async () => {
+    setDeletingAccount(true);
+    try {
+      const response = await fetch('/api/auth/delete-account', {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        showToast('エラー', data.error || 'アカウントの削除に失敗しました', 'destructive');
+        return;
+      }
+
+      // セッション破棄してログインページへリダイレクト
+      signOut({ callbackUrl: '/admin/login' });
+    } catch {
+      showToast('エラー', 'アカウントの削除中にエラーが発生しました', 'destructive');
+    } finally {
+      setDeletingAccount(false);
+      setShowDeleteAccountModal(false);
+    }
   };
 
   // 新規講義の追加（Supabase v2 API）
@@ -761,6 +790,15 @@ export default function AdminPage() {
               <LogOut className="h-3.5 w-3.5" />
               <span className="text-sm">ログアウト</span>
             </Button>
+            <Button
+              onClick={() => setShowDeleteAccountModal(true)}
+              variant="ghost"
+              size="sm"
+              className="hidden sm:flex text-red-400 hover:text-red-600 hover:bg-red-50 h-8 gap-1.5"
+            >
+              <UserX className="h-3.5 w-3.5" />
+              <span className="text-sm">アカウント削除</span>
+            </Button>
           </div>
         </div>
 
@@ -781,15 +819,26 @@ export default function AdminPage() {
                 <p className="text-xs text-slate-500 truncate">{session.user?.email}</p>
               </div>
             </div>
-            <Button
-              onClick={handleSignOut}
-              variant="outline"
-              size="sm"
-              className="w-full h-8 text-sm"
-            >
-              <LogOut className="h-3.5 w-3.5 mr-1.5" />
-              ログアウト
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={handleSignOut}
+                variant="outline"
+                size="sm"
+                className="flex-1 h-10 text-sm"
+              >
+                <LogOut className="h-3.5 w-3.5 mr-1.5" />
+                ログアウト
+              </Button>
+              <Button
+                onClick={() => setShowDeleteAccountModal(true)}
+                variant="outline"
+                size="sm"
+                className="flex-1 h-10 text-sm text-red-600 border-red-200 hover:bg-red-50"
+              >
+                <UserX className="h-3.5 w-3.5 mr-1.5" />
+                アカウント削除
+              </Button>
+            </div>
           </motion.div>
         )}
       </header>
@@ -1992,6 +2041,54 @@ export default function AdminPage() {
               ) : (
                 <>
                   <Trash2 className="h-4 w-4 mr-2" />
+                  削除する
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </CustomModal>
+
+      {/* アカウント削除確認モーダル */}
+      <CustomModal
+        isOpen={showDeleteAccountModal}
+        onClose={() => setShowDeleteAccountModal(false)}
+        title="アカウント削除"
+      >
+        <div className="space-y-4">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <p className="text-sm text-red-800 font-medium mb-2">
+              この操作は取り消せません
+            </p>
+            <p className="text-sm text-red-700">
+              アカウントを削除すると、すべてのデータ（出席管理フォーム、ルーム、出席データなど）が完全に削除されます。
+            </p>
+          </div>
+          <p className="text-sm text-slate-600">
+            本当にアカウントを削除しますか？
+          </p>
+          <div className="flex gap-3 pt-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteAccountModal(false)}
+              className="flex-1 h-10"
+              disabled={deletingAccount}
+            >
+              キャンセル
+            </Button>
+            <Button
+              onClick={handleDeleteAccount}
+              disabled={deletingAccount}
+              className="flex-1 h-10 bg-red-600 hover:bg-red-700 text-white"
+            >
+              {deletingAccount ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  削除中...
+                </>
+              ) : (
+                <>
+                  <UserX className="h-4 w-4 mr-2" />
                   削除する
                 </>
               )}

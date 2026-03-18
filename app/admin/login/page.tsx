@@ -184,6 +184,15 @@ export default function AdminLoginPage() {
                 )}
                 メールアドレスでログイン
               </Button>
+
+              <div className="text-right">
+                <Link
+                  href="/admin/forgot-password"
+                  className="text-xs text-slate-500 hover:text-indigo-600 transition-colors"
+                >
+                  パスワードをお忘れの方はこちら
+                </Link>
+              </div>
             </motion.form>
 
             {/* 新規登録リンク */}
