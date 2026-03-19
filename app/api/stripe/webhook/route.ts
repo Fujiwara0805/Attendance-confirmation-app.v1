@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { headers } from 'next/headers';
-import { upsertSubscription } from '@/lib/subscription';
+import { upsertSubscription, getUserSubscription } from '@/lib/subscription';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-07-30.basil',
@@ -32,13 +32,14 @@ export async function POST(request: NextRequest) {
         const session = event.data.object as Stripe.Checkout.Session;
 
         if (session.mode === 'subscription' && session.customer_email) {
+          const plan = session.metadata?.productType === 'enterprise_subscription' ? 'enterprise' : 'paid';
           await upsertSubscription(session.customer_email, {
-            plan: 'paid',
+            plan,
             status: 'active',
             stripe_customer_id: session.customer as string,
             stripe_subscription_id: session.subscription as string,
           });
-          console.log(`Pro subscription started for ${session.customer_email}`);
+          console.log(`${plan === 'enterprise' ? 'Enterprise' : 'Pro'} subscription started for ${session.customer_email}`);
         }
         break;
       }
@@ -50,8 +51,11 @@ export async function POST(request: NextRequest) {
 
         if ('email' in customer && customer.email) {
           const status = subscription.cancel_at_period_end ? 'cancelled' : 'active';
+          // 既存のプランタイプを維持するため、現在のサブスクリプションを確認
+          const currentSub = await getUserSubscription(customer.email);
+          const currentPlan = currentSub.plan === 'enterprise' ? 'enterprise' : 'paid';
           await upsertSubscription(customer.email, {
-            plan: subscription.status === 'active' ? 'paid' : 'free',
+            plan: subscription.status === 'active' ? currentPlan : 'free',
             status,
             stripe_subscription_id: subscription.id,
             current_period_start: new Date((subscription as any).current_period_start * 1000).toISOString(),

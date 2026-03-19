@@ -296,7 +296,7 @@ export default function AdminPage() {
 
   // サブスクリプション情報の状態
   const [planInfo, setPlanInfo] = useState<{
-    subscription: { plan: 'free' | 'paid'; status: string };
+    subscription: { plan: 'free' | 'paid' | 'enterprise'; status: string };
     usage: { formCount: number; roomCount: number };
     limits: { maxForms: number; maxRooms: number };
     canCreateForm: boolean;
@@ -924,11 +924,13 @@ export default function AdminPage() {
                 {/* プランバッジ */}
                 {planInfo && (
                   <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
-                    planInfo.subscription.plan === 'paid'
-                      ? 'bg-indigo-100 text-indigo-700'
-                      : 'bg-slate-100 text-slate-600'
+                    planInfo.subscription.plan === 'enterprise'
+                      ? 'bg-slate-800 text-white'
+                      : planInfo.subscription.plan === 'paid'
+                        ? 'bg-indigo-100 text-indigo-700'
+                        : 'bg-slate-100 text-slate-600'
                   }`}>
-                    {planInfo.subscription.plan === 'paid' ? '✦ Pro' : 'Free'}
+                    {planInfo.subscription.plan === 'enterprise' ? '✦ Enterprise' : planInfo.subscription.plan === 'paid' ? '✦ Pro' : 'Free'}
                     <span className="text-[10px] opacity-70">
                       {planInfo.usage.formCount}/{planInfo.limits.maxForms === Infinity ? '∞' : planInfo.limits.maxForms}
                     </span>
@@ -1768,11 +1770,13 @@ export default function AdminPage() {
                 {/* ルーム数バッジ */}
                 {planInfo && (
                   <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
-                    planInfo.subscription.plan === 'paid'
-                      ? 'bg-indigo-100 text-indigo-700'
-                      : 'bg-slate-100 text-slate-600'
+                    planInfo.subscription.plan === 'enterprise'
+                      ? 'bg-slate-800 text-white'
+                      : planInfo.subscription.plan === 'paid'
+                        ? 'bg-indigo-100 text-indigo-700'
+                        : 'bg-slate-100 text-slate-600'
                   }`}>
-                    {planInfo.subscription.plan === 'paid' ? '✦ Pro' : 'Free'}
+                    {planInfo.subscription.plan === 'enterprise' ? '✦ Enterprise' : planInfo.subscription.plan === 'paid' ? '✦ Pro' : 'Free'}
                     <span className="text-[10px] opacity-70">
                       {planInfo.usage.roomCount}/{planInfo.limits.maxRooms === Infinity ? '∞' : planInfo.limits.maxRooms}
                     </span>

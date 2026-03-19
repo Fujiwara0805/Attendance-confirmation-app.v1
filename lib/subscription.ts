@@ -4,9 +4,10 @@ import { createServerClient } from '@/lib/supabase';
 export const PLAN_LIMITS = {
   free: { maxForms: 3, maxRooms: 2 },
   paid: { maxForms: Infinity, maxRooms: Infinity },
+  enterprise: { maxForms: Infinity, maxRooms: Infinity },
 } as const;
 
-export type PlanType = 'free' | 'paid';
+export type PlanType = 'free' | 'paid' | 'enterprise';
 
 export interface SubscriptionInfo {
   plan: PlanType;
@@ -44,7 +45,7 @@ export async function getUserSubscription(email: string): Promise<SubscriptionIn
   }
 
   // 有効期限切れチェック
-  if (data.plan === 'paid' && data.current_period_end) {
+  if ((data.plan === 'paid' || data.plan === 'enterprise') && data.current_period_end) {
     const now = new Date();
     const periodEnd = new Date(data.current_period_end);
     if (now > periodEnd && data.status !== 'active') {

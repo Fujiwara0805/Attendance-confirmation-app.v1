@@ -176,19 +176,18 @@ const stats = [
 export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const handleProPlan = async () => {
+  const handlePlanPurchase = async (productType: string) => {
     try {
       const res = await fetch('/api/stripe/create-checkout-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          productType: 'pro_subscription',
+          productType,
           successUrl: `${window.location.origin}/admin?payment=success`,
           cancelUrl: `${window.location.origin}/#pricing`,
         }),
       });
       if (res.status === 401) {
-        // 未ログインの場合はログイン画面へ
         window.location.href = '/admin/login';
         return;
       }
@@ -585,7 +584,7 @@ export default function LandingPage() {
             </p>
           </motion.div>
 
-          <motion.div {...stagger} className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+          <motion.div {...stagger} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
             {/* Free Plan */}
             <motion.div {...child} className="glass-card p-8 relative">
               <div className="mb-6">
@@ -656,10 +655,53 @@ export default function LandingPage() {
                 ))}
               </ul>
               <button
-                onClick={handleProPlan}
+                onClick={() => handlePlanPurchase('pro_subscription')}
                 className="block w-full text-center text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 active:scale-[0.97] transition-all px-6 py-3 rounded-xl shadow-lg shadow-indigo-200/50"
               >
                 Proプランを始める
+              </button>
+            </motion.div>
+
+            {/* Enterprise Plan */}
+            <motion.div {...child} className="glass-card p-8 relative md:col-span-2 lg:col-span-1">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                <span className="inline-flex items-center gap-1 text-xs font-bold text-white bg-gradient-to-r from-slate-700 to-slate-900 px-4 py-1 rounded-full shadow-md">
+                  <Building2 className="w-3 h-3" />
+                  法人向け
+                </span>
+              </div>
+              <div className="mb-6">
+                <h3 className="text-lg font-bold text-slate-900">Enterprise プラン</h3>
+                <p className="text-sm text-slate-500 mt-1">法人・大規模イベント運用に</p>
+              </div>
+              <div className="mb-6">
+                <span className="text-4xl font-extrabold text-slate-900">¥2,000</span>
+                <span className="text-sm text-slate-400 ml-1">/ 月（税込）</span>
+              </div>
+              <ul className="space-y-3 mb-8">
+                {[
+                  'フォーム 無制限',
+                  'ルーム 無制限',
+                  'Q&A・投票機能',
+                  '位置情報による出席管理',
+                  '招待フォーム・事前登録',
+                  'CSV / Excelエクスポート',
+                  'QRコード生成',
+                  'カスタムフォーム作成',
+                  '複数端末での同時運用',
+                  '優先サポート',
+                ].map((item) => (
+                  <li key={item} className="flex items-center gap-2.5 text-sm text-slate-700">
+                    <CheckCircle2 className="w-4 h-4 text-slate-700 flex-shrink-0" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              <button
+                onClick={() => handlePlanPurchase('enterprise_subscription')}
+                className="block w-full text-center text-sm font-semibold text-white bg-gradient-to-r from-slate-700 to-slate-900 hover:from-slate-800 hover:to-black active:scale-[0.97] transition-all px-6 py-3 rounded-xl shadow-lg shadow-slate-200/50"
+              >
+                Enterpriseプランを始める
               </button>
             </motion.div>
           </motion.div>
