@@ -23,6 +23,7 @@ import {
   Crown,
   Menu,
   X,
+  Mail,
 } from 'lucide-react';
 
 const LOGO_URL =
@@ -118,6 +119,14 @@ const features = [
     color: 'text-pink-600',
     bg: 'bg-pink-50',
   },
+  {
+    icon: Mail,
+    title: '招待フォームで事前登録',
+    description:
+      'イベントの参加確認を招待フォームを使うことで、招待フォーム→事前登録→QRコード発行→当日受付の一気通貫フローを実現できます。',
+    color: 'text-teal-600',
+    bg: 'bg-teal-50',
+  },
 ];
 
 /* ─────────────────────────── How it Works ──────────────────────────── */
@@ -126,7 +135,7 @@ const steps = [
   {
     num: '01',
     title: 'イベントを設定',
-    desc1: '出席フォーム、Q&Aルーム、投票を',
+    desc1: '出席フォーム、招待フォーム、Q&Aルーム、投票を',
     desc2: '数クリックで作成。カスタマイズも自由自在。',
     icon: Globe,
   },
@@ -134,13 +143,13 @@ const steps = [
     num: '02',
     title: 'QRコードで招待',
     desc1: 'QRコードとURLを参加者に共有。',
-    desc2: 'アプリのインストールは一切不要。',
+    desc2: '招待フォームで事前登録も可能。',
     icon: Sparkles,
   },
   {
     num: '03',
     title: '参加者がすぐアクション',
-    desc1: 'スマホから出席登録、質問投稿、',
+    desc1: 'スマホから出席登録、事前申込、質問投稿、',
     desc2: '投票に参加。ワンタップで完了。',
     icon: CheckCircle2,
   },
@@ -286,7 +295,7 @@ export default function LandingPage() {
           >
             <span className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-wide uppercase text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-full px-3.5 py-1.5 mb-6">
               <Sparkles className="w-3.5 h-3.5" />
-              出席管理 × リアルタイムQ&A × ライブ投票
+              出席管理 × 招待フォーム × リアルタイムQ&A × ライブ投票
             </span>
           </motion.div>
 
@@ -307,9 +316,9 @@ export default function LandingPage() {
             transition={{ duration: 0.5, delay: 0.2 }}
             className="mt-6 text-lg sm:text-xl text-slate-500 leading-relaxed max-w-2xl mx-auto"
           >
-            出席管理・リアルタイムQ&A・
+            出席管理・招待フォーム・リアルタイムQ&A・
             <br className="sm:hidden" />
-            ライブ投票を一つのプラットフォームに。
+            ライブ投票を1つのプラットフォームで。
           </motion.p>
 
           <motion.div
@@ -412,6 +421,7 @@ export default function LandingPage() {
 
           <motion.div {...stagger} className="space-y-3">
             {[
+              { date: '2026.03.19', tag: 'リリース', tagColor: 'bg-blue-100 text-blue-700', title: '招待フォーム機能をリリースしました。SNS告知→事前登録→QRコード発行→当日受付の一気通貫フローを実現。' },
               { date: '2026.03.17', tag: 'リリース', tagColor: 'bg-blue-100 text-blue-700', title: 'ざせきくん v2.0をリリースしました。Q&A・投票機能、カスタムフォーム機能を追加。' },
               { date: '2026.03.10', tag: 'アップデート', tagColor: 'bg-emerald-100 text-emerald-700', title: 'Google Places連携による位置情報検索機能を追加しました。' },
               { date: '2026.03.01', tag: 'お知らせ', tagColor: 'bg-amber-100 text-amber-700', title: 'Proプラン（月額550円）の提供を開始しました。無制限のフォーム・ルーム作成が可能に。' },
@@ -592,6 +602,7 @@ export default function LandingPage() {
                   'ルーム 2個まで作成',
                   'Q&A・投票機能',
                   '位置情報による出席管理',
+                  '招待フォーム・事前登録',
                   'CSV / Excelエクスポート',
                   'QRコード生成',
                   'カスタムフォーム作成',
@@ -632,6 +643,7 @@ export default function LandingPage() {
                   'ルーム 無制限',
                   'Q&A・投票機能',
                   '位置情報による出席管理',
+                  '招待フォーム・事前登録',
                   'CSV / Excelエクスポート',
                   'QRコード生成',
                   'カスタムフォーム作成',

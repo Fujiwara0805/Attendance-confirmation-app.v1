@@ -39,6 +39,12 @@ const tagConfig: Record<TagType, { color: string; bg: string; icon: React.Elemen
 
 const announcements: { date: string; tag: TagType; description: string }[] = [
   {
+    date: '2026.03.19',
+    tag: 'リリース',
+    description:
+      '招待フォーム機能をリリースしました。イベントの参加確認を招待フォームを使うことで、招待フォーム→事前登録→QRコード発行→当日受付の一気通貫フローを実現できます。招待フォームビルダー、日時スロット選択、回答一覧管理、CSV出力機能を搭載。',
+  },
+  {
     date: '2026.03.17',
     tag: 'リリース',
     description:

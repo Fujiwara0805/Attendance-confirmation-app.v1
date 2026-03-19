@@ -93,9 +93,15 @@
       font-size: 16px !important;
       min-height: 44px; /* タッチターゲットの最小サイズ */
     }
-    
+
     button {
       min-height: 44px; /* タッチターゲットの最小サイズ */
+    }
+
+    /* ラジオボタンは円形を維持 */
+    button[role="radio"] {
+      min-height: auto;
+      min-width: auto;
     }
   }
 }

@@ -203,7 +203,7 @@ export default function InvitationForm() {
       {/* ヘッダー */}
       <header className="bg-white/80 backdrop-blur-md border-b border-slate-200/60 sticky top-0 z-10">
         <div className="max-w-lg mx-auto px-4 h-14 flex items-center gap-3">
-          <a href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+          <div className="flex items-center gap-2">
             <Image
               src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_200/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png"
               alt="ざせきくん"
@@ -212,7 +212,7 @@ export default function InvitationForm() {
               className="rounded-lg"
             />
             <span className="text-sm font-semibold text-slate-900">ざせきくん</span>
-          </a>
+          </div>
         </div>
       </header>
 
