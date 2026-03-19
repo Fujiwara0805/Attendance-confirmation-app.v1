@@ -294,7 +294,9 @@ export default function LandingPage() {
           >
             <span className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-wide uppercase text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-full px-3.5 py-1.5 mb-6">
               <Sparkles className="w-3.5 h-3.5" />
-              出席管理 × 招待フォーム × リアルタイムQ&A × ライブ投票
+              出席管理 × 招待フォーム
+              <br className="sm:hidden" />
+              {' '}× リアルタイムQ&A × ライブ投票
             </span>
           </motion.div>
 
@@ -315,9 +317,11 @@ export default function LandingPage() {
             transition={{ duration: 0.5, delay: 0.2 }}
             className="mt-6 text-lg sm:text-xl text-slate-500 leading-relaxed max-w-2xl mx-auto"
           >
-            出席管理・招待フォーム・リアルタイムQ&A・
+            出席管理・招待フォーム・
             <br className="sm:hidden" />
-            ライブ投票を1つのプラットフォームで。
+            リアルタイムQ&A・ライブ投票を1つの
+            <br className="sm:hidden" />
+            プラットフォームで。
           </motion.p>
 
           <motion.div
@@ -468,7 +472,7 @@ export default function LandingPage() {
 
           <motion.div
             {...stagger}
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5"
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"
           >
             {features.map((f) => (
               <motion.div
