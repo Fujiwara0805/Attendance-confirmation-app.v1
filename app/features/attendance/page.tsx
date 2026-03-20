@@ -1,0 +1,176 @@
+'use client';
+
+import { motion } from 'framer-motion';
+import Link from 'next/link';
+import { ArrowRight, ChevronLeft } from 'lucide-react';
+import LPHeader from '@/app/components/LPHeader';
+import LPFooter from '@/app/components/LPFooter';
+
+const fadeIn = {
+  initial: { opacity: 0, y: 12 },
+  whileInView: { opacity: 1, y: 0 },
+  viewport: { once: true, margin: '-60px' },
+  transition: { duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] },
+};
+
+const features = [
+  {
+    title: '位置情報で不正を防止',
+    description:
+      'GPS連携で対象エリア内の参加者だけが登録可能。代理出席の心配はもう不要。',
+    image:
+      'https://images.unsplash.com/photo-1553877522-43269d4ea984?auto=format&fit=crop&w=800&q=80',
+    alt: '位置情報による不正防止のイメージ',
+  },
+  {
+    title: 'QRコードで即完了',
+    description:
+      'ログイン不要。QRコードを読み取るだけで、参加者はすぐにアクションできる。',
+    image:
+      'https://images.unsplash.com/photo-1555421689-d68471e189f2?auto=format&fit=crop&w=800&q=80',
+    alt: 'QRコードスキャンのイメージ',
+  },
+  {
+    title: 'データをリアルタイム集計',
+    description:
+      'すべての回答を自動で集計・可視化。CSVエクスポートでデータ分析も簡単に。',
+    image:
+      'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&q=80',
+    alt: 'リアルタイムデータ集計のイメージ',
+  },
+  {
+    title: '1,000人規模でも安定稼働',
+    description:
+      '大規模イベントでも遅延ゼロ。堅牢なクラウドインフラが安定したパフォーマンスを実現。',
+    image:
+      'https://images.unsplash.com/photo-1505373877841-8d25f7d46678?auto=format&fit=crop&w=800&q=80',
+    alt: '大規模イベントのイメージ',
+  },
+];
+
+export default function AttendanceFeaturePage() {
+  return (
+    <>
+      <LPHeader />
+
+      <main className="pt-16">
+        {/* ── Hero ── */}
+        <section className="relative overflow-hidden bg-gradient-to-b from-indigo-50/80 to-white">
+          <div className="mx-auto max-w-6xl px-5 py-24 lg:py-32">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+              <motion.div {...fadeIn}>
+                <p className="inline-block text-sm font-semibold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full mb-6">
+                  出席管理
+                </p>
+                <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-slate-900 leading-[1.15]">
+                  出席管理フォーム
+                </h1>
+                <p className="mt-5 text-lg text-slate-600 leading-relaxed max-w-lg">
+                  位置情報×QRコードで、不正のない正確な出席管理を実現
+                </p>
+                <div className="mt-8 flex flex-wrap gap-3">
+                  <Link
+                    href="/admin/login"
+                    className="inline-flex items-center gap-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.97] transition-all px-6 py-3 rounded-xl shadow-sm"
+                  >
+                    無料で始める
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+                  <Link
+                    href="/#features"
+                    className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 transition-all px-6 py-3 rounded-xl"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    他の機能を見る
+                  </Link>
+                </div>
+              </motion.div>
+
+              <motion.div
+                {...fadeIn}
+                transition={{ ...fadeIn.transition, delay: 0.1 }}
+              >
+                <img
+                  src="https://images.unsplash.com/photo-1524178232363-1fb2b075b655?auto=format&fit=crop&w=800&q=80"
+                  alt="教室での出席管理のイメージ"
+                  className="rounded-2xl shadow-xl w-full h-auto object-cover aspect-[4/3]"
+                  loading="lazy"
+                />
+              </motion.div>
+            </div>
+          </div>
+        </section>
+
+        {/* ── Feature Sections ── */}
+        {features.map((feature, index) => {
+          const isReversed = index % 2 !== 0;
+          const bgClass =
+            index % 2 === 0 ? 'bg-white' : 'bg-slate-50/60';
+
+          return (
+            <section key={feature.title} className={bgClass}>
+              <div className="mx-auto max-w-6xl px-5 py-20 lg:py-28">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+                  {/* Text */}
+                  <motion.div
+                    {...fadeIn}
+                    className={isReversed ? 'lg:order-2' : ''}
+                  >
+                    <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900">
+                      {feature.title}
+                    </h2>
+                    <p className="mt-4 text-lg text-slate-600 leading-relaxed max-w-md">
+                      {feature.description}
+                    </p>
+                  </motion.div>
+
+                  {/* Image */}
+                  <motion.div
+                    {...fadeIn}
+                    transition={{ ...fadeIn.transition, delay: 0.1 }}
+                    className={isReversed ? 'lg:order-1' : ''}
+                  >
+                    <img
+                      src={feature.image}
+                      alt={feature.alt}
+                      className="rounded-2xl shadow-xl w-full h-auto object-cover aspect-[4/3]"
+                      loading="lazy"
+                    />
+                  </motion.div>
+                </div>
+              </div>
+            </section>
+          );
+        })}
+
+        {/* ── Final CTA ── */}
+        <section className="bg-gradient-to-b from-indigo-50/80 to-white">
+          <div className="mx-auto max-w-6xl px-5 py-24 lg:py-32">
+            <motion.div
+              {...fadeIn}
+              className="text-center max-w-2xl mx-auto"
+            >
+              <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900">
+                出席管理を、もっとスマートに。
+              </h2>
+              <p className="mt-5 text-lg text-slate-600 leading-relaxed">
+                初期費用ゼロ、セットアップは1分。まずは無料プランで始めてみてください。
+              </p>
+              <div className="mt-8">
+                <Link
+                  href="/admin/login"
+                  className="inline-flex items-center gap-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.97] transition-all px-8 py-3.5 rounded-xl shadow-sm"
+                >
+                  無料で始める
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              </div>
+            </motion.div>
+          </div>
+        </section>
+      </main>
+
+      <LPFooter />
+    </>
+  );
+}

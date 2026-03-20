@@ -24,26 +24,31 @@ import {
   Menu,
   X,
   Mail,
+  HelpCircle,
+  ClipboardList,
+  UserCheck,
+  Mic2,
 } from 'lucide-react';
 
 const LOGO_URL =
   'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_200/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png';
 
+/* ─── Smooth animations (reduced for mobile) ─── */
 const fadeIn = {
-  initial: { opacity: 0, y: 20 },
+  initial: { opacity: 0, y: 12 },
   whileInView: { opacity: 1, y: 0 },
-  viewport: { once: true, margin: '-40px' },
+  viewport: { once: true, margin: '-60px' },
   transition: { duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] },
 };
 
 const stagger = {
   initial: {},
-  whileInView: { transition: { staggerChildren: 0.08 } },
+  whileInView: { transition: { staggerChildren: 0.06 } },
   viewport: { once: true },
 };
 
 const child = {
-  initial: { opacity: 0, y: 16 },
+  initial: { opacity: 0, y: 10 },
   whileInView: {
     opacity: 1,
     y: 0,
@@ -52,85 +57,74 @@ const child = {
   viewport: { once: true },
 };
 
-/* ─────────────────────────────── Features ─────────────────────────────── */
-
+/* ─── Features ─── */
 const features = [
   {
     icon: MapPin,
     title: '位置情報で不正を防止',
-    description:
-      'GPS連携で対象エリア内の参加者だけが登録可能。代理出席の心配はもう不要。',
+    description: 'GPS連携で対象エリア内の参加者だけが登録可能。代理出席の心配はもう不要。',
     color: 'text-blue-600',
     bg: 'bg-blue-50',
   },
   {
     icon: Zap,
     title: 'QRコードで即完了',
-    description:
-      'ログイン不要。QRコードを読み取るだけで、参加者はすぐにアクションできる。',
+    description: 'ログイン不要。QRコードを読み取るだけで、参加者はすぐにアクションできる。',
     color: 'text-amber-600',
     bg: 'bg-amber-50',
   },
   {
     icon: BarChart3,
     title: 'データをリアルタイム集計',
-    description:
-      'すべての回答を自動で集計・可視化。CSVエクスポートでデータ分析も簡単に。',
+    description: 'すべての回答を自動で集計・可視化。CSVエクスポートでデータ分析も簡単に。',
     color: 'text-emerald-600',
     bg: 'bg-emerald-50',
   },
   {
     icon: ShieldCheck,
     title: '1,000人規模でも安定稼働',
-    description:
-      '大規模イベントでも遅延ゼロ。堅牢なクラウドインフラが安定したパフォーマンスを実現。',
+    description: '大規模イベントでも遅延ゼロ。堅牢なクラウドインフラが安定したパフォーマンスを実現。',
     color: 'text-violet-600',
     bg: 'bg-violet-50',
   },
   {
     icon: Smartphone,
     title: 'どんな端末でも快適に',
-    description:
-      'モバイルファーストで設計。スマホ・タブレット・PCすべてで最適な体験を提供。',
+    description: 'モバイルファーストで設計。スマホ・タブレット・PCすべてで最適な体験を提供。',
     color: 'text-rose-600',
     bg: 'bg-rose-50',
   },
   {
     icon: Users,
     title: '管理画面ですべて完結',
-    description:
-      'フォーム作成・ルーム管理・データ出力まで、ひとつのダッシュボードで。',
+    description: 'フォーム作成・ルーム管理・データ出力まで、ひとつのダッシュボードで。',
     color: 'text-cyan-600',
     bg: 'bg-cyan-50',
   },
   {
     icon: MessageSquare,
     title: 'Q&Aで対話を生み出す',
-    description:
-      '参加者の質問をリアルタイム受付。いいね機能で注目トピックを可視化。匿名投稿にも対応。',
+    description: '参加者の質問をリアルタイム受付。いいね機能で注目トピックを可視化。匿名投稿にも対応。',
     color: 'text-orange-600',
     bg: 'bg-orange-50',
   },
   {
     icon: Vote,
     title: '投票で全員の声を集める',
-    description:
-      'ライブ投票で意見やフィードバックを瞬時に集計。意思決定をその場で加速。',
+    description: 'ライブ投票で意見やフィードバックを瞬時に集計。意思決定をその場で加速。',
     color: 'text-pink-600',
     bg: 'bg-pink-50',
   },
   {
     icon: Mail,
     title: '招待フォームで事前登録',
-    description:
-      'イベントの参加確認を招待フォームを使うことで、招待フォーム→事前登録→QRコード発行→当日受付の一気通貫フローを実現できます。',
+    description: 'イベントの参加確認を招待フォームを使うことで、招待フォーム→事前登録→QRコード発行→当日受付の一気通貫フローを実現できます。',
     color: 'text-teal-600',
     bg: 'bg-teal-50',
   },
 ];
 
-/* ─────────────────────────── How it Works ──────────────────────────── */
-
+/* ─── How it Works ─── */
 const steps = [
   {
     num: '01',
@@ -162,8 +156,7 @@ const steps = [
   },
 ];
 
-/* ─────────────────────────── Stats ──────────────────────────── */
-
+/* ─── Stats ─── */
 const stats = [
   { value: '0.3秒', label: '平均登録時間' },
   { value: '99.9%', label: '稼働率' },
@@ -171,10 +164,75 @@ const stats = [
   { value: '0円', label: '初期費用' },
 ];
 
+/* ─── Products ─── */
+const products = [
+  {
+    icon: ClipboardList,
+    title: '出席管理フォーム',
+    description: '位置情報×QRコードで、不正のない正確な出席管理を実現。',
+    href: '/features/attendance',
+    image: 'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?auto=format&fit=crop&w=600&q=80',
+    color: 'from-blue-600 to-indigo-600',
+  },
+  {
+    icon: UserCheck,
+    title: '招待フォーム・参加者管理',
+    description: 'SNS告知から事前登録、QRコード発行、当日受付まで一気通貫。',
+    href: '/features/invitation',
+    image: 'https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=600&q=80',
+    color: 'from-teal-600 to-emerald-600',
+  },
+  {
+    icon: Mic2,
+    title: 'リアルタイムQ&A・ライブ投票',
+    description: '参加者全員が声を届けられる、双方向コミュニケーションを実現。',
+    href: '/features/live-interaction',
+    image: 'https://images.unsplash.com/photo-1475721027785-f74eccf877e2?auto=format&fit=crop&w=600&q=80',
+    color: 'from-orange-600 to-pink-600',
+  },
+];
+
+/* ─── FAQ ─── */
+const faqItems = [
+  {
+    q: 'ざせきくんとは何ですか？',
+    a: 'ざせきくんは、出席管理・招待フォーム・リアルタイムQ&A・ライブ投票をひとつにまとめたイベント運営プラットフォームです。授業、セミナー、カンファレンス、ワークショップなど、あらゆる学習・イベントシーンで活用いただけます。',
+  },
+  {
+    q: '無料プランではどこまで使えますか？',
+    a: '無料プランでは、フォーム3個・ルーム2個まで作成可能です。Q&A・投票機能、位置情報による出席管理、招待フォーム・事前登録、CSV/Excelエクスポート、QRコード生成、カスタムフォーム作成のすべての機能をご利用いただけます。',
+  },
+  {
+    q: '参加者はアプリのインストールが必要ですか？',
+    a: 'いいえ、参加者はアプリのインストールもログインも不要です。QRコードやURLからスマホのブラウザでそのままアクセスし、すぐに出席登録・質問投稿・投票に参加できます。',
+  },
+  {
+    q: '同一アカウントで複数端末にログインできますか？',
+    a: 'はい、可能です。同一アカウントで複数の端末に同時ログインできます。例えば、受付用端末でQRコードスキャン、スクリーン投影用端末でライブQ&A・投票を表示、管理用端末でデータ確認、といった同時運用が可能です。',
+  },
+  {
+    q: 'データのエクスポートは可能ですか？',
+    a: 'はい。出席データ、Q&Aの質問一覧、投票結果などをCSV形式でエクスポートできます。Excelやスプレッドシートでの分析に活用いただけます。',
+  },
+  {
+    q: '解約はいつでもできますか？',
+    a: 'はい、いつでも解約可能です。解約後も現在の請求期間が終了するまでプランの機能をご利用いただけます。解約手数料等は一切かかりません。',
+  },
+];
+
+/* ─── Navigation Product Links ─── */
+const productLinks = [
+  { href: '/features/attendance', label: '出席管理フォーム' },
+  { href: '/features/invitation', label: '招待フォーム・参加者管理' },
+  { href: '/features/live-interaction', label: 'リアルタイムQ&A・ライブ投票' },
+];
+
 /* ═══════════════════════════════════════════════════════════════════ */
 
 export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [productMenuOpen, setProductMenuOpen] = useState(false);
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   const handlePlanPurchase = async (productType: string) => {
     try {
@@ -201,7 +259,7 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen overflow-x-hidden">
       {/* ─── Navigation ─── */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/70 backdrop-blur-xl border-b border-slate-200/60">
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-xl border-b border-slate-200/60">
         <div className="mx-auto max-w-6xl flex items-center justify-between px-5 py-3">
           <Link href="/" className="flex items-center gap-2.5">
             <Image src={LOGO_URL} alt="ざせきくん" width={36} height={36} className="rounded-lg" />
@@ -209,8 +267,42 @@ export default function LandingPage() {
               ざせきくん
             </span>
           </Link>
-          <div className="flex items-center gap-3">
-            {/* Desktop links */}
+          <div className="flex items-center gap-1">
+            {/* Desktop product dropdown */}
+            <div
+              className="hidden md:block relative"
+              onMouseEnter={() => setProductMenuOpen(true)}
+              onMouseLeave={() => setProductMenuOpen(false)}
+            >
+              <button className="inline-flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors px-3 py-2 rounded-lg hover:bg-slate-50">
+                製品
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${productMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
+              <AnimatePresence>
+                {productMenuOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 4 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute top-full left-0 mt-1 w-64 bg-white rounded-xl shadow-xl ring-1 ring-black/5 p-2"
+                  >
+                    {productLinks.map((link) => (
+                      <Link
+                        key={link.href}
+                        href={link.href}
+                        className="block px-3 py-2.5 text-sm text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 rounded-lg transition-colors"
+                      >
+                        {link.label}
+                      </Link>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+            <Link href="/faq" className="hidden md:inline-flex text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors px-3 py-2 rounded-lg hover:bg-slate-50">
+              FAQ
+            </Link>
             <Link
               href="/rooms"
               className="hidden sm:inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-700 transition-colors px-3 py-2"
@@ -251,6 +343,16 @@ export default function LandingPage() {
               className="sm:hidden border-t border-slate-100 bg-white overflow-hidden"
             >
               <div className="px-5 py-4 space-y-1">
+                <p className="px-3 py-1 text-xs font-bold text-slate-400 uppercase tracking-wider">製品</p>
+                {productLinks.map((link) => (
+                  <Link key={link.href} href={link.href} onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-lg transition-colors">
+                    {link.label}
+                  </Link>
+                ))}
+                <div className="border-t border-slate-100 my-2" />
+                <Link href="/faq" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-lg transition-colors">
+                  FAQ
+                </Link>
                 <Link href="/admin/login" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-lg transition-colors">
                   管理者ログイン
                 </Link>
@@ -259,12 +361,6 @@ export default function LandingPage() {
                 </Link>
                 <Link href="/news" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-lg transition-colors">
                   お知らせ
-                </Link>
-                <Link href="/legal/privacy" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-lg transition-colors">
-                  プライバシーポリシー
-                </Link>
-                <Link href="/legal/terms" onClick={() => setMobileMenuOpen(false)} className="block px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-lg transition-colors">
-                  利用規約
                 </Link>
                 <div className="pt-2">
                   <Link href="/admin/login" onClick={() => setMobileMenuOpen(false)} className="block w-full text-center text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 px-4 py-2.5 rounded-xl">
@@ -277,126 +373,111 @@ export default function LandingPage() {
         </AnimatePresence>
       </nav>
 
-      {/* ─── Hero ─── */}
-      <section className="relative pt-32 pb-20 sm:pt-40 sm:pb-28 px-5">
-        {/* Background decoration */}
+      {/* ─── Hero (Slido-inspired: split layout) ─── */}
+      <section className="relative pt-28 pb-16 sm:pt-36 sm:pb-24 px-5">
         <div className="absolute inset-0 -z-10">
-          <div className="absolute top-20 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-gradient-to-b from-indigo-100/60 via-blue-50/40 to-transparent rounded-full blur-3xl" />
-          <div className="absolute top-40 left-10 w-72 h-72 bg-violet-100/30 rounded-full blur-3xl" />
-          <div className="absolute top-60 right-10 w-72 h-72 bg-cyan-100/30 rounded-full blur-3xl" />
+          <div className="absolute top-20 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-gradient-to-b from-indigo-100/50 via-blue-50/30 to-transparent rounded-full blur-3xl" />
         </div>
 
-        <div className="mx-auto max-w-4xl text-center">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.4 }}
-          >
-            <span className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-wide uppercase text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-full px-3.5 py-1.5 mb-6">
-              <Sparkles className="w-3.5 h-3.5" />
-              出席管理 × 招待フォーム
-              <br className="sm:hidden" />
-              {' '}× リアルタイムQ&A × ライブ投票
-            </span>
-          </motion.div>
+        <div className="mx-auto max-w-6xl">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+            {/* Text */}
+            <div className="text-center lg:text-left">
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4 }}
+              >
+                <span className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-wide uppercase text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-full px-3.5 py-1.5 mb-6">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  出席管理 × 招待フォーム
+                  <br className="sm:hidden" />
+                  {' '}× リアルタイムQ&A × ライブ投票
+                </span>
+              </motion.div>
 
-          <motion.h1
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-            className="text-2xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-slate-900 leading-[1.15]"
-          >
-            全ての学習機会を
-            <br />
-            「受け取る」から「共に作る」へ
-          </motion.h1>
+              <motion.h1
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.1 }}
+                className="text-3xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-slate-900 leading-[1.15]"
+              >
+                全ての学習機会を
+                <br />
+                「受け取る」から「共に作る」へ
+              </motion.h1>
 
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="mt-6 text-lg sm:text-xl text-slate-500 leading-relaxed max-w-2xl mx-auto"
-          >
-            出席管理・招待フォーム・
-            <br className="sm:hidden" />
-            リアルタイムQ&A・ライブ投票を1つの
-            <br className="sm:hidden" />
-            プラットフォームで。
-          </motion.p>
+              <motion.p
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+                className="mt-6 text-lg sm:text-xl text-slate-500 leading-relaxed max-w-xl mx-auto lg:mx-0"
+              >
+                出席管理・招待フォーム・
+                <br className="sm:hidden" />
+                リアルタイムQ&A・ライブ投票を1つの
+                <br className="sm:hidden" />
+                プラットフォームで。
+              </motion.p>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-            className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-3"
-          >
-            <Link
-              href="/admin/login"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 text-base font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.97] transition-all px-7 py-3.5 rounded-xl shadow-lg shadow-indigo-200/50"
-            >
-              無料で始める
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-            <a
-              href="#features"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 text-base font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 active:scale-[0.97] transition-all px-7 py-3.5 rounded-xl"
-            >
-              機能を見る
-              <ChevronDown className="w-4 h-4" />
-            </a>
-          </motion.div>
-        </div>
-
-        {/* Hero visual — mockup card */}
-        <motion.div
-          initial={{ opacity: 0, y: 40 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
-          className="mx-auto mt-16 max-w-3xl"
-        >
-          <div className="relative rounded-2xl bg-white/80 backdrop-blur-xl shadow-2xl shadow-slate-200/60 ring-1 ring-slate-200/60 overflow-hidden">
-            <div className="flex items-center gap-2 px-5 py-3 border-b border-slate-100 bg-slate-50/60">
-              <div className="flex gap-1.5">
-                <div className="w-3 h-3 rounded-full bg-red-400/70" />
-                <div className="w-3 h-3 rounded-full bg-amber-400/70" />
-                <div className="w-3 h-3 rounded-full bg-green-400/70" />
-              </div>
-              <div className="flex-1 mx-4">
-                <div className="mx-auto max-w-sm h-6 bg-slate-100 rounded-md flex items-center justify-center">
-                  <span className="text-[11px] text-slate-400 font-mono">zaseki-kun.com/attendance</span>
-                </div>
-              </div>
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.3 }}
+                className="mt-8 flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3"
+              >
+                <Link
+                  href="/admin/login"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 text-base font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.97] transition-all px-7 py-3.5 rounded-xl shadow-lg shadow-indigo-200/50"
+                >
+                  無料で始める
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+                <a
+                  href="#features"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 text-base font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 active:scale-[0.97] transition-all px-7 py-3.5 rounded-xl"
+                >
+                  機能を見る
+                  <ChevronDown className="w-4 h-4" />
+                </a>
+              </motion.div>
             </div>
-            <div className="p-6 sm:p-10 space-y-5">
-              <div className="flex items-center gap-3 mb-6">
-                <Image src={LOGO_URL} alt="" width={40} height={40} className="rounded-lg" />
-                <div>
-                  <p className="text-sm font-bold text-slate-900">イベント名 — 出席登録</p>
-                  <p className="text-xs text-slate-400">2026年3月17日 月曜日</p>
+
+            {/* Hero Image */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.6, delay: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
+              className="relative"
+            >
+              <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-slate-300/40">
+                <img
+                  src="https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=800&q=80"
+                  alt="カンファレンス会場"
+                  className="w-full h-auto object-cover aspect-[4/3]"
+                  loading="eager"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-indigo-900/30 to-transparent" />
+                {/* Floating badge */}
+                <div className="absolute bottom-4 left-4 right-4 sm:bottom-6 sm:left-6 sm:right-auto">
+                  <div className="inline-flex items-center gap-2 bg-white/90 backdrop-blur-sm rounded-xl px-4 py-2.5 shadow-lg">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
+                      <CheckCircle2 className="w-4 h-4 text-indigo-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-900">アプリ不要・ログイン不要</p>
+                      <p className="text-[10px] text-slate-500">QRコードですぐにスタート</p>
+                    </div>
+                  </div>
                 </div>
               </div>
-              <div className="space-y-3">
-                <div className="h-12 bg-slate-50 rounded-xl border-2 border-slate-100 flex items-center px-4">
-                  <span className="text-sm text-slate-400">IDを入力</span>
-                </div>
-                <div className="h-12 bg-slate-50 rounded-xl border-2 border-slate-100 flex items-center px-4">
-                  <span className="text-sm text-slate-400">お名前を入力</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 text-xs text-emerald-600 bg-emerald-50 rounded-lg px-3 py-2">
-                <MapPin className="w-3.5 h-3.5" />
-                <span>位置情報が確認されました — エリア内です</span>
-              </div>
-              <button className="w-full h-12 bg-indigo-600 rounded-xl text-white font-semibold text-sm shadow-md cursor-default">
-                出席を登録する
-              </button>
-            </div>
+            </motion.div>
           </div>
-        </motion.div>
+        </div>
       </section>
 
       {/* ─── Stats ─── */}
-      <section className="py-12 border-y border-slate-100 bg-white/60 backdrop-blur-sm">
+      <section className="py-12 border-y border-slate-100 bg-white/60">
         <motion.div
           {...stagger}
           className="mx-auto max-w-5xl px-5 grid grid-cols-2 md:grid-cols-4 gap-8"
@@ -451,6 +532,60 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ─── Products Showcase (NEW - Slido-inspired) ─── */}
+      <section className="py-20 sm:py-28 px-5 bg-slate-50/60">
+        <div className="mx-auto max-w-6xl">
+          <motion.div {...fadeIn} className="text-center mb-14">
+            <span className="text-xs font-semibold tracking-wide uppercase text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-full px-3.5 py-1.5">
+              Products
+            </span>
+            <h2 className="mt-5 text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">
+              3つの製品で、
+              <br className="sm:hidden" />
+              あらゆるシーンに対応。
+            </h2>
+            <p className="mt-4 text-base text-slate-500 max-w-xl mx-auto">
+              出席管理から双方向コミュニケーションまで、
+              <br className="sm:hidden" />
+              ひとつのプラットフォームで完結。
+            </p>
+          </motion.div>
+
+          <motion.div {...stagger} className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {products.map((p) => (
+              <motion.div key={p.title} {...child}>
+                <Link href={p.href} className="group block h-full">
+                  <div className="h-full bg-white rounded-2xl shadow-lg ring-1 ring-black/5 overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+                    <div className="relative h-48 overflow-hidden">
+                      <img
+                        src={p.image}
+                        alt={p.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        loading="lazy"
+                      />
+                      <div className={`absolute inset-0 bg-gradient-to-t ${p.color} opacity-40`} />
+                    </div>
+                    <div className="p-6">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600">
+                          <p.icon className="w-5 h-5" />
+                        </div>
+                        <h3 className="text-lg font-bold text-slate-900">{p.title}</h3>
+                      </div>
+                      <p className="text-sm text-slate-500 leading-relaxed">{p.description}</p>
+                      <div className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-indigo-600 group-hover:gap-2 transition-all">
+                        詳しく見る
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              </motion.div>
+            ))}
+          </motion.div>
+        </div>
+      </section>
+
       {/* ─── Features ─── */}
       <section id="features" className="py-20 sm:py-28 px-5">
         <div className="mx-auto max-w-6xl">
@@ -478,7 +613,7 @@ export default function LandingPage() {
               <motion.div
                 key={f.title}
                 {...child}
-                className="group glass-card p-6 card-hover cursor-default text-center"
+                className="group bg-white rounded-2xl p-6 shadow-sm ring-1 ring-black/5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 text-center"
               >
                 <div className={`flex items-center justify-center w-11 h-11 rounded-xl ${f.bg} ${f.color} mb-4 mx-auto`}>
                   <f.icon className="w-5 h-5" />
@@ -494,7 +629,7 @@ export default function LandingPage() {
       </section>
 
       {/* ─── How It Works ─── */}
-      <section className="py-20 sm:py-28 px-5 bg-gradient-to-b from-slate-50/80 to-white">
+      <section className="py-20 sm:py-28 px-5 bg-slate-50/60">
         <div className="mx-auto max-w-5xl">
           <motion.div {...fadeIn} className="text-center mb-14">
             <span className="text-xs font-semibold tracking-wide uppercase text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-full px-3.5 py-1.5">
@@ -570,7 +705,7 @@ export default function LandingPage() {
       </section>
 
       {/* ─── Pricing ─── */}
-      <section className="py-20 sm:py-28 px-5 bg-gradient-to-b from-white to-slate-50/80">
+      <section id="pricing" className="py-20 sm:py-28 px-5 bg-slate-50/60">
         <div className="mx-auto max-w-5xl">
           <motion.div {...fadeIn} className="text-center mb-14">
             <span className="text-xs font-semibold tracking-wide uppercase text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-full px-3.5 py-1.5">
@@ -590,7 +725,7 @@ export default function LandingPage() {
 
           <motion.div {...stagger} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
             {/* Free Plan */}
-            <motion.div {...child} className="glass-card p-8 relative">
+            <motion.div {...child} className="bg-white rounded-2xl p-8 shadow-sm ring-1 ring-black/5 relative">
               <div className="mb-6">
                 <h3 className="text-lg font-bold text-slate-900">Free プラン</h3>
                 <p className="text-sm text-slate-500 mt-1">個人利用・お試しに最適</p>
@@ -625,7 +760,7 @@ export default function LandingPage() {
             </motion.div>
 
             {/* Pro Plan */}
-            <motion.div {...child} className="glass-card p-8 relative ring-2 ring-indigo-500 shadow-xl shadow-indigo-100/40">
+            <motion.div {...child} className="bg-white rounded-2xl p-8 relative ring-2 ring-indigo-500 shadow-xl shadow-indigo-100/40">
               <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                 <span className="inline-flex items-center gap-1 text-xs font-bold text-white bg-gradient-to-r from-indigo-600 to-blue-600 px-4 py-1 rounded-full shadow-md">
                   <Crown className="w-3 h-3" />
@@ -667,7 +802,7 @@ export default function LandingPage() {
             </motion.div>
 
             {/* Enterprise Plan */}
-            <motion.div {...child} className="glass-card p-8 relative md:col-span-2 lg:col-span-1">
+            <motion.div {...child} className="bg-white rounded-2xl p-8 relative md:col-span-2 lg:col-span-1 ring-1 ring-black/5 shadow-sm">
               <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                 <span className="inline-flex items-center gap-1 text-xs font-bold text-white bg-gradient-to-r from-slate-700 to-slate-900 px-4 py-1 rounded-full shadow-md">
                   <Building2 className="w-3 h-3" />
@@ -712,6 +847,63 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ─── FAQ ─── */}
+      <section id="faq" className="py-20 sm:py-28 px-5">
+        <div className="mx-auto max-w-3xl">
+          <motion.div {...fadeIn} className="text-center mb-14">
+            <span className="text-xs font-semibold tracking-wide uppercase text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-full px-3.5 py-1.5">
+              FAQ
+            </span>
+            <h2 className="mt-5 text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">
+              よくある質問
+            </h2>
+          </motion.div>
+
+          <motion.div {...stagger} className="space-y-3">
+            {faqItems.map((item, i) => (
+              <motion.div
+                key={i}
+                {...child}
+                className="bg-white rounded-2xl ring-1 ring-black/5 shadow-sm overflow-hidden"
+              >
+                <button
+                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                  className="w-full flex items-center justify-between gap-4 p-5 text-left hover:bg-slate-50/50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <HelpCircle className="w-5 h-5 text-indigo-500 flex-shrink-0" />
+                    <span className="text-sm font-semibold text-slate-900">{item.q}</span>
+                  </div>
+                  <ChevronDown className={`w-4 h-4 text-slate-400 flex-shrink-0 transition-transform duration-200 ${openFaq === i ? 'rotate-180' : ''}`} />
+                </button>
+                <AnimatePresence>
+                  {openFaq === i && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
+                      className="overflow-hidden"
+                    >
+                      <div className="px-5 pb-5 pl-13">
+                        <p className="text-sm text-slate-600 leading-relaxed pl-8">{item.a}</p>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            ))}
+          </motion.div>
+
+          <div className="text-center mt-8">
+            <Link href="/faq" className="inline-flex items-center gap-1.5 text-sm font-semibold text-indigo-600 hover:text-indigo-800 transition-colors">
+              すべてのFAQを見る
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* ─── Company Info ─── */}
       <section className="py-16 px-5 bg-slate-50/60">
         <div className="mx-auto max-w-4xl">
@@ -721,7 +913,7 @@ export default function LandingPage() {
             </h2>
           </motion.div>
 
-          <motion.div {...fadeIn} className="glass-card p-6 sm:p-8">
+          <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm ring-1 ring-black/5">
             <table className="w-full text-sm">
               <tbody className="divide-y divide-slate-100">
                 {[
@@ -736,7 +928,9 @@ export default function LandingPage() {
                     <td className="py-3 text-slate-800">
                       {label === 'お問い合わせ' ? (
                         <a href={`mailto:${value}`} className="text-indigo-600 hover:underline">{value}</a>
-                      ) : value}
+                      ) : (
+                        <span dangerouslySetInnerHTML={{ __html: value }} />
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -747,29 +941,59 @@ export default function LandingPage() {
       </section>
 
       {/* ─── Footer ─── */}
-      <footer className="border-t border-slate-100 py-10 px-5 bg-white/60">
-        <div className="mx-auto max-w-6xl flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2.5">
-            <Image src={LOGO_URL} alt="ざせきくん" width={28} height={28} className="rounded-lg" />
-            <span className="text-sm font-bold text-slate-900">ざせきくん</span>
-            <span className="text-xs text-slate-400">by 株式会社Nobody</span>
-          </div>
-          <div className="flex items-center gap-6 text-sm text-slate-500">
-            <Link href="/legal/privacy" className="hover:text-slate-900 transition-colors">
-              プライバシーポリシー
-            </Link>
-            <Link href="/legal/terms" className="hover:text-slate-900 transition-colors">
-              利用規約
-            </Link>
-            <a href="mailto:sobota@nobody-info.com" className="hover:text-slate-900 transition-colors">
-              お問い合わせ
-            </a>
+      <footer className="border-t border-slate-100 bg-white">
+        <div className="mx-auto max-w-6xl px-5 py-12">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            {/* Brand */}
+            <div>
+              <div className="flex items-center gap-2.5 mb-4">
+                <Image src={LOGO_URL} alt="ざせきくん" width={28} height={28} className="rounded-lg" />
+                <span className="text-sm font-bold text-slate-900">ざせきくん</span>
+              </div>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                出席管理・招待フォーム・リアルタイムQ&A・ライブ投票をワンストップで。
+              </p>
+              <p className="text-xs text-slate-400 mt-2">by 株式会社Nobody</p>
+            </div>
+
+            {/* Products */}
+            <div>
+              <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-4">製品</h4>
+              <ul className="space-y-2.5">
+                <li><Link href="/features/attendance" className="text-sm text-slate-500 hover:text-slate-900 transition-colors">出席管理フォーム</Link></li>
+                <li><Link href="/features/invitation" className="text-sm text-slate-500 hover:text-slate-900 transition-colors">招待フォーム・参加者管理</Link></li>
+                <li><Link href="/features/live-interaction" className="text-sm text-slate-500 hover:text-slate-900 transition-colors">リアルタイムQ&A・ライブ投票</Link></li>
+              </ul>
+            </div>
+
+            {/* Resources */}
+            <div>
+              <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-4">リソース</h4>
+              <ul className="space-y-2.5">
+                <li><Link href="/faq" className="text-sm text-slate-500 hover:text-slate-900 transition-colors">FAQ</Link></li>
+                <li><Link href="/news" className="text-sm text-slate-500 hover:text-slate-900 transition-colors">お知らせ</Link></li>
+                <li><Link href="/rooms" className="text-sm text-slate-500 hover:text-slate-900 transition-colors">ルームに参加</Link></li>
+              </ul>
+            </div>
+
+            {/* Legal */}
+            <div>
+              <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-4">法務</h4>
+              <ul className="space-y-2.5">
+                <li><Link href="/legal/privacy" className="text-sm text-slate-500 hover:text-slate-900 transition-colors">プライバシーポリシー</Link></li>
+                <li><Link href="/legal/terms" className="text-sm text-slate-500 hover:text-slate-900 transition-colors">利用規約</Link></li>
+                <li><Link href="/legal/tokusho" className="text-sm text-slate-500 hover:text-slate-900 transition-colors">特定商取引法に基づく表記</Link></li>
+                <li><a href="mailto:sobota@nobody-info.com" className="text-sm text-slate-500 hover:text-slate-900 transition-colors">お問い合わせ</a></li>
+              </ul>
+            </div>
           </div>
         </div>
-        <div className="mx-auto max-w-6xl mt-6 pt-6 border-t border-slate-100 text-center">
-          <p className="text-xs text-slate-400">
-            &copy; {new Date().getFullYear()} 株式会社Nobody. All rights reserved.
-          </p>
+        <div className="border-t border-slate-100">
+          <div className="mx-auto max-w-6xl px-5 py-6 text-center">
+            <p className="text-xs text-slate-400">
+              &copy; {new Date().getFullYear()} 株式会社Nobody. All rights reserved.
+            </p>
+          </div>
         </div>
       </footer>
     </div>

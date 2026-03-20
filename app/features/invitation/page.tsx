@@ -1,0 +1,165 @@
+'use client';
+
+import { motion } from 'framer-motion';
+import Link from 'next/link';
+import { ArrowRight, ChevronLeft } from 'lucide-react';
+import LPHeader from '@/app/components/LPHeader';
+import LPFooter from '@/app/components/LPFooter';
+
+const fadeIn = {
+  initial: { opacity: 0, y: 12 },
+  whileInView: { opacity: 1, y: 0 },
+  viewport: { once: true, margin: '-60px' },
+  transition: { duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] },
+};
+
+const features = [
+  {
+    title: '招待フォームで事前登録',
+    description:
+      'イベントの参加確認を招待フォームを使うことで、招待フォーム→事前登録→QRコード発行→当日受付の一気通貫フローを実現できます。',
+    image:
+      'https://images.unsplash.com/photo-1559223607-a43c990c692c?auto=format&fit=crop&w=800&q=80',
+    reverse: false,
+  },
+  {
+    title: 'QRコードで当日受付を簡素化',
+    description:
+      '事前登録した参加者にQRコードを自動発行。当日はスキャンするだけで受付完了。長蛇の列はもう不要。',
+    image:
+      'https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&w=800&q=80',
+    reverse: true,
+  },
+  {
+    title: '参加者データを一元管理',
+    description:
+      '誰が事前登録し、誰が当日出席したか。すべてのデータをリアルタイムで把握。CSVエクスポートで分析も簡単。',
+    image:
+      'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=800&q=80',
+    reverse: false,
+  },
+  {
+    title: 'カスタムフォームで柔軟に対応',
+    description:
+      '参加者の所属・役職・食事制限など、イベントに合わせた項目を自由に追加。必要な情報を事前に収集できます。',
+    image:
+      'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=800&q=80',
+    reverse: true,
+  },
+];
+
+export default function InvitationFeaturePage() {
+  return (
+    <>
+      <LPHeader />
+
+      {/* ── Hero ── */}
+      <section className="pt-24 pb-16 md:pb-24 bg-gradient-to-b from-indigo-50 to-white">
+        <div className="mx-auto max-w-6xl px-5">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            <motion.div {...fadeIn}>
+              <p className="inline-block text-xs font-semibold tracking-wider uppercase text-indigo-600 bg-indigo-100 px-3 py-1 rounded-full mb-5">
+                招待フォーム・参加者管理
+              </p>
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-slate-900 leading-[1.15]">
+                招待フォーム・
+                <br className="hidden sm:block" />
+                参加者管理
+              </h1>
+              <p className="mt-5 text-base sm:text-lg text-slate-600 leading-relaxed max-w-lg">
+                SNS告知から事前登録、QRコード発行、当日受付まで一気通貫
+              </p>
+              <div className="mt-8 flex flex-wrap gap-3">
+                <Link
+                  href="/admin/login"
+                  className="inline-flex items-center gap-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.97] transition-all px-6 py-3 rounded-xl shadow-sm"
+                >
+                  無料で始める
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+                <Link
+                  href="/#features"
+                  className="inline-flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700 bg-white hover:bg-indigo-50 border border-indigo-200 transition-all px-6 py-3 rounded-xl"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  他の機能を見る
+                </Link>
+              </div>
+            </motion.div>
+
+            <motion.div {...fadeIn} transition={{ ...fadeIn.transition, delay: 0.1 }}>
+              <img
+                src="https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=800&q=80"
+                alt="イベント受付のイメージ"
+                className="rounded-2xl shadow-xl w-full h-auto object-cover aspect-[4/3]"
+                loading="lazy"
+              />
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Feature Sections ── */}
+      {features.map((feature, i) => (
+        <section
+          key={feature.title}
+          className={i % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}
+        >
+          <div className="mx-auto max-w-6xl px-5 py-16 md:py-24">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+              <motion.div
+                {...fadeIn}
+                className={feature.reverse ? 'lg:order-2' : ''}
+              >
+                <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
+                  {feature.title}
+                </h2>
+                <p className="mt-4 text-base sm:text-lg text-slate-600 leading-relaxed">
+                  {feature.description}
+                </p>
+              </motion.div>
+
+              <motion.div
+                {...fadeIn}
+                transition={{ ...fadeIn.transition, delay: 0.1 }}
+                className={feature.reverse ? 'lg:order-1' : ''}
+              >
+                <img
+                  src={feature.image}
+                  alt={feature.title}
+                  className="rounded-2xl shadow-xl w-full h-auto object-cover aspect-[4/3]"
+                  loading="lazy"
+                />
+              </motion.div>
+            </div>
+          </div>
+        </section>
+      ))}
+
+      {/* ── Final CTA ── */}
+      <section className="bg-gradient-to-b from-white to-indigo-50">
+        <div className="mx-auto max-w-3xl px-5 py-20 md:py-28 text-center">
+          <motion.div {...fadeIn}>
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight text-slate-900">
+              イベント受付を、シームレスに。
+            </h2>
+            <p className="mt-4 text-base sm:text-lg text-slate-600 leading-relaxed">
+              初期費用ゼロ、セットアップは1分。まずは無料プランで始めてみてください。
+            </p>
+            <div className="mt-8">
+              <Link
+                href="/admin/login"
+                className="inline-flex items-center gap-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.97] transition-all px-8 py-3.5 rounded-xl shadow-sm"
+              >
+                無料で始める
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      <LPFooter />
+    </>
+  );
+}
