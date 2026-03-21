@@ -24,11 +24,21 @@ export default function PresentPage() {
   const [room, setRoom] = useState<Room | null>(null);
   const [view, setView] = useState<View>('qa');
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [qrUrl, setQrUrl] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`/api/rooms/${roomCode}`)
       .then((r) => r.json())
       .then((data) => { if (data.id) setRoom(data); });
+  }, [roomCode]);
+
+  // Generate QR code for room participation
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const joinUrl = `${window.location.origin}/rooms/${roomCode}`;
+    import('qrcode').then((QRCode) => {
+      QRCode.toDataURL(joinUrl, { width: 160, margin: 1, color: { dark: '#ffffff', light: '#00000000' } }).then(setQrUrl);
+    });
   }, [roomCode]);
 
   const { questions } = useRealtimeQuestions(room?.id || null);
@@ -70,11 +80,19 @@ export default function PresentPage() {
     >
       {/* Header */}
       <header className="flex items-center justify-between px-8 py-4 border-b border-white/10 sticky top-0 z-40 bg-gradient-to-r from-slate-900 via-slate-900 to-indigo-950 backdrop-blur-xl">
-        <div>
-          <h1 className="text-xl font-bold">{room.title}</h1>
-          <p className="text-sm text-slate-400">
-            参加コード: <span className="font-mono text-indigo-400">{room.code}</span>
-          </p>
+        <div className="flex items-center gap-4">
+          {/* QR Code for room participation */}
+          {qrUrl && (
+            <div className="shrink-0 bg-white/10 rounded-lg p-1.5">
+              <img src={qrUrl} alt="参加QRコード" className="w-12 h-12" />
+            </div>
+          )}
+          <div>
+            <h1 className="text-xl font-bold">{room.title}</h1>
+            <p className="text-sm text-slate-400">
+              参加コード: <span className="font-mono text-indigo-400">{room.code}</span>
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex bg-white/10 rounded-xl p-1">

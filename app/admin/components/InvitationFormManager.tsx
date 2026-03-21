@@ -616,9 +616,8 @@ export default function InvitationFormManager({ onCourseAdded, onClose, editingI
               {customFields.length}項目
             </Badge>
           </div>
-          <p className="text-xs mt-1">
-            <span className="text-slate-400">氏名・メール・電話番号は標準で含まれます。</span>
-            <span className="text-red-500">追加の項目を設定できます。</span>
+          <p className="text-xs text-red-500 mt-1">
+            氏名・メール・電話番号は標準で含まれます。追加の項目を設定できます。
           </p>
         </CardHeader>
         <CardContent className="pt-0">
