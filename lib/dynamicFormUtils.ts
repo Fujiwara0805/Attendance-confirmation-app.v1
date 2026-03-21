@@ -1,31 +1,46 @@
 import { z } from 'zod';
 import { CustomFormField, CustomFieldType } from '@/app/types';
 
+/** enabled_default_fields の要素（後方互換: string | { key, required } ） */
+export type DefaultFieldEntry = string | { key: string; required: boolean };
+
+/** enabled_default_fields を正規化して { key, required } の配列に変換 */
+export function normalizeDefaultFields(entries: DefaultFieldEntry[]): { key: string; required: boolean }[] {
+  return entries.map(entry =>
+    typeof entry === 'string' ? { key: entry, required: false } : entry
+  );
+}
+
+/** デフォルトフィールドのバリデーションメッセージ */
+const defaultFieldMessages: Record<string, string> = {
+  date: '日付を入力してください',
+  student_id: 'ID・番号（学籍番号など）を入力してください',
+  grade: '学年を選択してください',
+  name: '名前を入力してください',
+  department: '所属（学科・コース等）を入力してください',
+  feedback: 'レポート・感想を入力してください',
+};
+
 // 動的Zodスキーマ生成
-export function createDynamicSchema(fields: CustomFormField[], enabledDefaultFields: string[] = []) {
+export function createDynamicSchema(fields: CustomFormField[], enabledDefaultFields: DefaultFieldEntry[] = []) {
   const schemaObject: Record<string, z.ZodTypeAny> = {};
 
-  // デフォルトフィールドの追加
-  if (enabledDefaultFields.includes('date')) {
-    schemaObject.date = z.string().min(1, { message: '日付を入力してください' });
-  }
-  if (enabledDefaultFields.includes('class_name')) {
-    schemaObject.class_name = z.string().optional();
-  }
-  if (enabledDefaultFields.includes('student_id')) {
-    schemaObject.student_id = z.string().min(1, { message: 'ID・番号（学籍番号など）を入力してください' });
-  }
-  if (enabledDefaultFields.includes('grade')) {
-    schemaObject.grade = z.string().min(1, { message: '学年を選択してください' });
-  }
-  if (enabledDefaultFields.includes('name')) {
-    schemaObject.name = z.string().min(1, { message: '名前を入力してください' });
-  }
-  if (enabledDefaultFields.includes('department')) {
-    schemaObject.department = z.string().min(1, { message: '所属（学科・コース等）を入力してください' });
-  }
-  if (enabledDefaultFields.includes('feedback')) {
-    schemaObject.feedback = z.string().min(1, { message: 'レポート・感想を入力してください' });
+  // デフォルトフィールドの追加（required 状態を反映）
+  const normalized = normalizeDefaultFields(enabledDefaultFields);
+  for (const { key, required } of normalized) {
+    if (key === 'class_name') {
+      // フォーム名は常にオプショナル（セレクトで選ぶため）
+      schemaObject.class_name = z.string().optional();
+    } else if (key === 'feedback') {
+      // テキストエリア
+      schemaObject[key] = required
+        ? z.string().min(1, { message: defaultFieldMessages[key] || `${key}を入力してください` })
+        : z.string().optional();
+    } else {
+      schemaObject[key] = required
+        ? z.string().min(1, { message: defaultFieldMessages[key] || `${key}を入力してください` })
+        : z.string().optional();
+    }
   }
 
   // カスタムフィールドの追加
@@ -76,29 +91,32 @@ export function createDynamicSchema(fields: CustomFormField[], enabledDefaultFie
 }
 
 // デフォルト値生成
-export function createDefaultValues(fields: CustomFormField[], enabledDefaultFields: string[] = []) {
+export function createDefaultValues(fields: CustomFormField[], enabledDefaultFields: DefaultFieldEntry[] = []) {
   const defaultValues: Record<string, any> = {};
 
   // デフォルトフィールドの初期値
-  if (enabledDefaultFields.includes('date')) {
+  const normalized = normalizeDefaultFields(enabledDefaultFields);
+  const enabledKeys = new Set(normalized.map(n => n.key));
+
+  if (enabledKeys.has('date')) {
     defaultValues.date = new Date().toISOString().split('T')[0];
   }
-  if (enabledDefaultFields.includes('class_name')) {
+  if (enabledKeys.has('class_name')) {
     defaultValues.class_name = '';
   }
-  if (enabledDefaultFields.includes('student_id')) {
+  if (enabledKeys.has('student_id')) {
     defaultValues.student_id = '';
   }
-  if (enabledDefaultFields.includes('grade')) {
+  if (enabledKeys.has('grade')) {
     defaultValues.grade = '';
   }
-  if (enabledDefaultFields.includes('name')) {
+  if (enabledKeys.has('name')) {
     defaultValues.name = '';
   }
-  if (enabledDefaultFields.includes('department')) {
+  if (enabledKeys.has('department')) {
     defaultValues.department = '';
   }
-  if (enabledDefaultFields.includes('feedback')) {
+  if (enabledKeys.has('feedback')) {
     defaultValues.feedback = '';
   }
 

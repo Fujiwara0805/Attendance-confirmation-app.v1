@@ -53,7 +53,7 @@ import {
   CheckCircle,
 } from 'lucide-react';
 import type { CustomFormField } from '@/app/types';
-import { defaultFields, fieldTypeLabels, presetFields, presetCategoryLabels, presetToCustomField, type PresetField } from '@/lib/dynamicFormUtils';
+import { defaultFields, fieldTypeLabels, presetFields, presetCategoryLabels, presetToCustomField, normalizeDefaultFields, type PresetField, type DefaultFieldEntry } from '@/lib/dynamicFormUtils';
 
 // 講義作成用のスキーマ
 const courseSchema = z.object({
@@ -92,7 +92,7 @@ interface EditingCourseData {
   courseName: string;
   teacherName: string;
   customFields?: any[];
-  enabledDefaultFields?: string[];
+  enabledDefaultFields?: DefaultFieldEntry[];
   locationSettings?: {
     latitude: number;
     longitude: number;
@@ -212,20 +212,25 @@ export default function CustomFormManager({ onCourseAdded, onClose, editingCours
     const enabledDefaults = editingCourse?.enabledDefaultFields || [];
     const existingCustomFields = editingCourse?.customFields || [];
 
-    // デフォルトフィールドを初期化（編集時は有効状態を復元）
+    // enabled_default_fields を正規化して required 状態を復元
+    const normalizedDefaults = normalizeDefaultFields(enabledDefaults);
+    const enabledKeysSet = new Set(normalizedDefaults.map(d => d.key));
+    const requiredMap = new Map(normalizedDefaults.map(d => [d.key, d.required]));
+
+    // デフォルトフィールドを初期化（初期設定は任意: required: false）
     const initialDefaultFields: UnifiedFormField[] = defaultFields.map((field, index) => ({
       id: `default_${field.key}`,
       name: field.key,
       label: field.label,
       type: field.type,
-      required: true,
+      required: requiredMap.get(field.key) ?? false,
       placeholder: '',
       description: '',
       options: field.key === 'grade' ? ['1', '2', '3', '4'] : [],
       order: index,
       isDefault: true,
       originalKey: field.key,
-      isEnabled: enabledDefaults.includes(field.key),
+      isEnabled: enabledKeysSet.has(field.key),
     }));
 
     // カスタムフィールドを復元（編集時）
@@ -337,7 +342,7 @@ export default function CustomFormManager({ onCourseAdded, onClose, editingCours
       const customFields = enabledFields.filter(f => !f.isDefault);
       const enabledDefaultFields = enabledFields
         .filter(f => f.isDefault)
-        .map(f => f.originalKey || f.name);
+        .map(f => ({ key: f.originalKey || f.name, required: f.required }));
 
       const locationSettings = enableLocation ? {
         latitude,

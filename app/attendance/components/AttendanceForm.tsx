@@ -30,7 +30,7 @@ import { MapPin, AlertTriangle, CheckCircle, GraduationCap, Settings, HelpCircle
 import { fadeInUp, staggerContainer, scaleIn, slideUp } from '@/lib/animations';
 import Image from 'next/image';
 import { CustomFormField, CourseFormConfig } from '@/app/types';
-import { createDynamicSchema, createDefaultValues, defaultFields } from '@/lib/dynamicFormUtils';
+import { createDynamicSchema, createDefaultValues, defaultFields, normalizeDefaultFields, type DefaultFieldEntry } from '@/lib/dynamicFormUtils';
 import DynamicFormField from './DynamicFormField';
 import LocationPermissionModal from './LocationPermissionModal';
 import { fetchJsonWithRetry } from '@/lib/fetchWithRetry';
@@ -90,7 +90,7 @@ export default function DynamicAttendanceForm() {
   // 動的フォーム設定用の状態
   const [formConfig, setFormConfig] = useState<CourseFormConfig | null>(null);
   const [customFields, setCustomFields] = useState<CustomFormField[]>([]);
-  const [enabledDefaultFields, setEnabledDefaultFields] = useState<string[]>([]);
+  const [enabledDefaultFields, setEnabledDefaultFields] = useState<DefaultFieldEntry[]>([]);
   const [dynamicSchema, setDynamicSchema] = useState<any>(defaultFormSchema);
   
   const [locationInfo, setLocationInfo] = useState<{
@@ -822,13 +822,17 @@ export default function DynamicAttendanceForm() {
                         // console.log('Rendering dynamic fields...');
                       }
 
+                      const normalizedDefaults = normalizeDefaultFields(enabledDefaultFields);
+                      const enabledKeySet = new Set(normalizedDefaults.map(d => d.key));
+                      const requiredMap = new Map(normalizedDefaults.map(d => [d.key, d.required]));
+
                       const allFields: CustomFormField[] = [
-                        ...defaultFields.filter(field => enabledDefaultFields.includes(field.key)).map((field, index) => ({
+                        ...defaultFields.filter(field => enabledKeySet.has(field.key)).map((field, index) => ({
                           id: field.key,
                           name: field.key,
                           label: field.label,
                           type: field.type,
-                          required: true,
+                          required: requiredMap.get(field.key) ?? false,
                           placeholder: '',
                           description: '',
                           options: [],

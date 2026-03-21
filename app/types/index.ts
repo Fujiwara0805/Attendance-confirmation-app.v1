@@ -76,7 +76,7 @@ export interface CourseFormConfig {
   courseId: string;
   templateId?: string; // 使用するテンプレートID
   customFields: CustomFormField[]; // 講義固有のカスタムフィールド
-  enabledDefaultFields: string[]; // 有効化されたデフォルトフィールドのリスト
+  enabledDefaultFields: (string | { key: string; required: boolean })[]; // 有効化されたデフォルトフィールドのリスト
 }
 
 // 招待状フォーム関連の型定義
