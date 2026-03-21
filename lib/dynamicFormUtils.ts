@@ -370,7 +370,7 @@ export const presetFields: PresetField[] = [
     name: 'pricing_plan',
     label: '料金プラン',
     type: 'select',
-    description: '料金プランの選択（価格はカスタマイズ可能）',
+    description: '料金プランの選択',
     category: 'event',
     icon: 'Star',
     options: ['一般 - ¥5,000', '学生 - ¥3,000', 'VIP - ¥10,000', '早期割引 - ¥4,000', '団体割引 - ¥3,500'],

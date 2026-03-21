@@ -47,11 +47,9 @@ export default function InvitationResponseList({ courseCode, courseName }: Invit
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [showFilter, setShowFilter] = useState(false);
-  const [filterDateFrom, setFilterDateFrom] = useState('');
-  const [filterDateTo, setFilterDateTo] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'checked_in' | 'not_checked_in'>('all');
   const [filterParticipationDateFrom, setFilterParticipationDateFrom] = useState('');
-  const [filterParticipationDateTo, setFilterParticipationDateTo] = useState('');
+  const [filterParticipationTimeFrom, setFilterParticipationTimeFrom] = useState('');
 
   const fetchResponses = async () => {
     setLoading(true);
@@ -82,24 +80,23 @@ export default function InvitationResponseList({ courseCode, courseName }: Invit
     } else if (filterStatus === 'not_checked_in') {
       filtered = filtered.filter(r => r.checked_in_at === null);
     }
-    // Registration date filter
-    if (filterDateFrom) {
-      const from = new Date(filterDateFrom + 'T00:00:00');
-      filtered = filtered.filter(r => new Date(r.created_at) >= from);
-    }
-    if (filterDateTo) {
-      const to = new Date(filterDateTo + 'T23:59:59');
-      filtered = filtered.filter(r => new Date(r.created_at) <= to);
-    }
-    // Participation date filter
+    // Participation date/time filter
     if (filterParticipationDateFrom) {
-      filtered = filtered.filter(r => r.selected_date >= filterParticipationDateFrom);
-    }
-    if (filterParticipationDateTo) {
-      filtered = filtered.filter(r => r.selected_date <= filterParticipationDateTo);
+      filtered = filtered.filter(r => r.selected_date === filterParticipationDateFrom);
+      if (filterParticipationTimeFrom) {
+        filtered = filtered.filter(r => {
+          if (!r.selected_time_label) return false;
+          // Parse time ranges like "10:00〜12:00" or "10:00-12:00"
+          const timeMatch = r.selected_time_label.match(/(\d{1,2}:\d{2})\s*[〜~\-－―]\s*(\d{1,2}:\d{2})/);
+          if (!timeMatch) return false;
+          const rangeStart = timeMatch[1];
+          const rangeEnd = timeMatch[2];
+          return filterParticipationTimeFrom >= rangeStart && filterParticipationTimeFrom < rangeEnd;
+        });
+      }
     }
     return filtered;
-  }, [responses, filterStatus, filterDateFrom, filterDateTo, filterParticipationDateFrom, filterParticipationDateTo]);
+  }, [responses, filterStatus, filterParticipationDateFrom, filterParticipationTimeFrom]);
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(filteredResponses.length / ITEMS_PER_PAGE));
@@ -111,7 +108,7 @@ export default function InvitationResponseList({ courseCode, courseName }: Invit
   // Reset page when filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [filterStatus, filterDateFrom, filterDateTo, filterParticipationDateFrom, filterParticipationDateTo]);
+  }, [filterStatus, filterParticipationDateFrom, filterParticipationTimeFrom]);
 
   // Collect all custom field keys across responses for CSV export
   const allCustomFieldKeys = useMemo(() => {
@@ -168,13 +165,11 @@ export default function InvitationResponseList({ courseCode, courseName }: Invit
 
   const clearFilters = () => {
     setFilterStatus('all');
-    setFilterDateFrom('');
-    setFilterDateTo('');
     setFilterParticipationDateFrom('');
-    setFilterParticipationDateTo('');
+    setFilterParticipationTimeFrom('');
   };
 
-  const hasActiveFilters = filterStatus !== 'all' || filterDateFrom || filterDateTo || filterParticipationDateFrom || filterParticipationDateTo;
+  const hasActiveFilters = filterStatus !== 'all' || filterParticipationDateFrom || filterParticipationTimeFrom;
 
   return (
     <div className="space-y-4">
@@ -245,44 +240,24 @@ export default function InvitationResponseList({ courseCode, courseName }: Invit
             </div>
           </div>
 
-          {/* Date filters */}
+          {/* Participation date/time filter */}
           <div className="flex items-end gap-3 flex-wrap">
             <div className="space-y-1">
-              <Label className="text-xs text-slate-500">登録日（開始）</Label>
-              <Input
-                type="date"
-                value={filterDateFrom}
-                onChange={(e) => setFilterDateFrom(e.target.value)}
-                className="h-8 text-sm w-40"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-slate-500">登録日（終了）</Label>
-              <Input
-                type="date"
-                value={filterDateTo}
-                onChange={(e) => setFilterDateTo(e.target.value)}
-                className="h-8 text-sm w-40"
-              />
-            </div>
-            <div className="w-px h-8 bg-slate-200" />
-            <div className="space-y-1">
-              <Label className="text-xs text-slate-500">参加日（開始）</Label>
-              <Input
-                type="date"
-                value={filterParticipationDateFrom}
-                onChange={(e) => setFilterParticipationDateFrom(e.target.value)}
-                className="h-8 text-sm w-40"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-slate-500">参加日（終了）</Label>
-              <Input
-                type="date"
-                value={filterParticipationDateTo}
-                onChange={(e) => setFilterParticipationDateTo(e.target.value)}
-                className="h-8 text-sm w-40"
-              />
+              <Label className="text-xs text-slate-500">参加日時</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="date"
+                  value={filterParticipationDateFrom}
+                  onChange={(e) => setFilterParticipationDateFrom(e.target.value)}
+                  className="h-8 text-sm w-40"
+                />
+                <Input
+                  type="time"
+                  value={filterParticipationTimeFrom}
+                  onChange={(e) => setFilterParticipationTimeFrom(e.target.value)}
+                  className="h-8 text-sm w-32"
+                />
+              </div>
             </div>
             {hasActiveFilters && (
               <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 text-xs text-slate-500">

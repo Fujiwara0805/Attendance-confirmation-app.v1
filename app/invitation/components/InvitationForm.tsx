@@ -16,7 +16,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
-import { MapPin, Calendar, Loader2, Send, AlertCircle, User, Mail, Phone, ExternalLink } from 'lucide-react';
+import { Calendar, Loader2, Send, AlertCircle, User, Mail, Phone } from 'lucide-react';
 import Image from 'next/image';
 import type { CustomFormField as CustomFieldType, InvitationSettings, TimeSlot } from '@/app/types';
 import { createDynamicSchema, createDefaultValues } from '@/lib/dynamicFormUtils';
@@ -251,20 +251,6 @@ export default function InvitationForm() {
         {/* Dark gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/40 to-black/70" />
 
-        {/* Subtle brand badge */}
-        <div className="absolute top-4 left-4 z-10">
-          <div className="flex items-center gap-2 bg-white/15 backdrop-blur-md rounded-full px-3 py-1.5 border border-white/20">
-            <Image
-              src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_200/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png"
-              alt="ざせきくん"
-              width={20}
-              height={20}
-              className="rounded-full"
-            />
-            <span className="text-xs font-medium text-white/90">ざせきくん</span>
-          </div>
-        </div>
-
         {/* Event title overlay */}
         <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-8">
           <motion.div
@@ -284,7 +270,7 @@ export default function InvitationForm() {
 
       <main className="max-w-lg mx-auto px-4 sm:px-6 -mt-6 relative z-10 pb-12">
 
-        {/* Event Details Card */}
+        {/* Event Details Card - Invitation Card Style */}
         <motion.div
           custom={0}
           variants={fadeInUp}
@@ -292,48 +278,56 @@ export default function InvitationForm() {
           animate="visible"
           className="bg-white rounded-2xl shadow-lg shadow-amber-900/5 border border-amber-100/60 p-6 mb-5"
         >
-          {/* Ornamental top border */}
-          <div className="flex items-center justify-center mb-5">
-            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-amber-300/60 to-transparent" />
-            <div className="mx-3 w-1.5 h-1.5 rounded-full bg-amber-400/70" />
-            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-amber-300/60 to-transparent" />
+          {/* Decorative top line with title */}
+          <p className="text-center text-sm text-amber-600 tracking-[0.15em] font-medium mb-5">
+            ーーー招待カードーーー
+          </p>
+
+          <div className="space-y-3 text-sm text-stone-700 leading-relaxed">
+            {/* イベント名 */}
+            <p>
+              <span className="font-semibold text-stone-800">イベント名：</span>
+              {courseData.name}
+            </p>
+
+            {/* 開催地 */}
+            {eventLocation && venueName && (
+              <p>
+                <span className="font-semibold text-stone-800">開催地：</span>
+                <a
+                  href={getGoogleMapsUrl(eventLocation)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-amber-700 hover:text-amber-500 underline underline-offset-2 transition-colors"
+                >
+                  {venueName}
+                </a>
+              </p>
+            )}
+
+            {/* イベント概要 */}
+            {invitationSettings?.eventDescription && (
+              <p>
+                <span className="font-semibold text-stone-800">イベント概要：</span>
+                {invitationSettings.eventDescription}
+              </p>
+            )}
           </div>
 
-          {invitationSettings?.eventDescription && (
-            <p className="text-sm text-stone-600 leading-relaxed mb-5 text-center font-light">
-              {invitationSettings.eventDescription}
-            </p>
-          )}
-
-          {/* Location - clickable to Google Maps */}
-          {eventLocation && venueName && (
-            <a
-              href={getGoogleMapsUrl(eventLocation)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group flex items-center justify-center gap-2 text-sm text-amber-800 hover:text-amber-600 transition-colors py-2.5 px-4 rounded-xl bg-amber-50/60 hover:bg-amber-50 border border-amber-100/50 mx-auto mb-4"
-            >
-              <MapPin className="h-4 w-4 text-amber-500 shrink-0" />
-              <span className="font-medium">{venueName}</span>
-              <ExternalLink className="h-3 w-3 text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-            </a>
-          )}
-
-          {/* Event Notes */}
+          {/* 注意事項・備考欄 */}
           {invitationSettings?.eventNotes && (
-            <div className="mt-4 pt-4 border-t border-amber-100/50">
-              <p className="text-xs text-stone-500 whitespace-pre-wrap leading-relaxed text-center">
-                {invitationSettings.eventNotes}
+            <div className="mt-5 pt-4 border-t border-amber-100/40">
+              <p className="text-sm text-stone-700 leading-relaxed">
+                <span className="font-semibold text-stone-800">注意事項・備考欄：</span>
+                <span className="whitespace-pre-wrap">{invitationSettings.eventNotes}</span>
               </p>
             </div>
           )}
 
-          {/* Ornamental bottom border */}
-          <div className="flex items-center justify-center mt-5">
-            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-amber-300/60 to-transparent" />
-            <div className="mx-3 w-1.5 h-1.5 rounded-full bg-amber-400/70" />
-            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-amber-300/60 to-transparent" />
-          </div>
+          {/* Decorative bottom line */}
+          <p className="text-center text-sm text-amber-600 tracking-[0.15em] font-medium mt-5">
+            ーーーーーーーーーーー
+          </p>
         </motion.div>
 
         <Form {...form}>
@@ -517,15 +511,25 @@ export default function InvitationForm() {
               </Button>
             </motion.div>
 
-            {/* Footer branding */}
+            {/* Footer branding with logo */}
             <motion.div
               custom={5}
               variants={fadeInUp}
               initial="hidden"
               animate="visible"
-              className="text-center pt-4 pb-2"
+              className="flex flex-col items-center pt-5 pb-2 gap-1.5"
             >
-              <p className="text-[10px] text-stone-400 tracking-wider">
+              <div className="flex items-center gap-1.5">
+                <Image
+                  src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_200/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png"
+                  alt="ざせきくん"
+                  width={16}
+                  height={16}
+                  className="rounded-full"
+                />
+                <span className="text-[11px] font-medium text-stone-400">ざせきくん</span>
+              </div>
+              <p className="text-[10px] text-stone-300 tracking-wider">
                 Powered by ざせきくん
               </p>
             </motion.div>
