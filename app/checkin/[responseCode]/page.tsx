@@ -41,6 +41,9 @@ function parseTimeLabel(label: string): { startHour: number; startMin: number; e
   };
 }
 
+/** イベント開始時間の何分前から受付を許可するか */
+const EARLY_CHECKIN_MINUTES = 60;
+
 export default function CheckinPage() {
   const params = useParams();
   const responseCode = params.responseCode as string;
@@ -113,15 +116,18 @@ export default function CheckinPage() {
       if (timeRange) {
         const currentMinutes = now.getHours() * 60 + now.getMinutes();
         const startMinutes = timeRange.startHour * 60 + timeRange.startMin;
+        const earlyStartMinutes = Math.max(0, startMinutes - EARLY_CHECKIN_MINUTES);
         const endMinutes = timeRange.endHour * 60 + timeRange.endMin;
 
-        if (currentMinutes < startMinutes) {
-          const waitHours = Math.floor((startMinutes - currentMinutes) / 60);
-          const waitMins = (startMinutes - currentMinutes) % 60;
+        if (currentMinutes < earlyStartMinutes) {
+          const waitHours = Math.floor((earlyStartMinutes - currentMinutes) / 60);
+          const waitMins = (earlyStartMinutes - currentMinutes) % 60;
           const waitText = waitHours > 0 ? `${waitHours}時間${waitMins > 0 ? `${waitMins}分` : ''}` : `${waitMins}分`;
+          const earlyStartH = String(Math.floor(earlyStartMinutes / 60)).padStart(2, '0');
+          const earlyStartM = String(earlyStartMinutes % 60).padStart(2, '0');
           return {
             canCheckin: false,
-            reason: `受付開始まであと${waitText}です。受付時間は ${responseData.selected_time_label} です。`,
+            reason: `受付開始まであと${waitText}です。受付は ${earlyStartH}:${earlyStartM} から開始されます（開始60分前から受付可能）。`,
             type: 'before',
           };
         }

@@ -2,6 +2,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
 
+/** イベント開始時間の何分前から受付を許可するか */
+const EARLY_CHECKIN_MINUTES = 60;
+
 /**
  * selected_time_label（例: "12:00 - 13:00"）をパースして
  * { startHour, startMin, endHour, endMin } を返す
@@ -74,11 +77,14 @@ export async function PATCH(
       if (timeRange) {
         const currentMinutes = currentHour * 60 + currentMin;
         const startMinutes = timeRange.startHour * 60 + timeRange.startMin;
+        const earlyStartMinutes = Math.max(0, startMinutes - EARLY_CHECKIN_MINUTES);
         const endMinutes = timeRange.endHour * 60 + timeRange.endMin;
 
-        if (currentMinutes < startMinutes || currentMinutes > endMinutes) {
+        if (currentMinutes < earlyStartMinutes || currentMinutes > endMinutes) {
+          const earlyStartH = String(Math.floor(earlyStartMinutes / 60)).padStart(2, '0');
+          const earlyStartM = String(earlyStartMinutes % 60).padStart(2, '0');
           return NextResponse.json({
-            message: `受付可能な時間帯ではありません。受付時間は ${existing.selected_time_label} です。`,
+            message: `受付可能な時間帯ではありません。受付時間は ${earlyStartH}:${earlyStartM} 〜 ${existing.selected_time_label.split(/[-−–〜~]/)[1]?.trim() || ''} です。`,
             code: 'TIME_MISMATCH',
             selectedDate: existing.selected_date,
             selectedTimeLabel: existing.selected_time_label,
