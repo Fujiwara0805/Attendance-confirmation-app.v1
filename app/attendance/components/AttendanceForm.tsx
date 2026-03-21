@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -120,9 +120,22 @@ export default function DynamicAttendanceForm() {
     locationName?: string;
   } | null>(null);
 
+  // 動的スキーマのrefを保持（resolverが常に最新スキーマを参照できるようにする）
+  const dynamicSchemaRef = useRef(dynamicSchema);
+
+  // スキーマrefを常に最新に保つ
+  useEffect(() => {
+    dynamicSchemaRef.current = dynamicSchema;
+  }, [dynamicSchema]);
+
   // 動的フォームの初期化
+  // resolverをラップし、常にrefから最新スキーマを読み取ることで、
+  // フィールド削除後も古いスキーマでバリデーションされるバグを防止
   const form = useForm({
-    resolver: zodResolver(dynamicSchema),
+    resolver: async (values, context, options) => {
+      const currentResolver = zodResolver(dynamicSchemaRef.current);
+      return currentResolver(values, context, options);
+    },
     defaultValues: createDefaultValues(customFields, enabledDefaultFields),
     mode: 'onChange',
   });
@@ -131,20 +144,31 @@ export default function DynamicAttendanceForm() {
   useEffect(() => {
     const newSchema = createDynamicSchema(customFields, enabledDefaultFields);
     setDynamicSchema(newSchema);
+    dynamicSchemaRef.current = newSchema;
     const newDefaultValues = createDefaultValues(customFields, enabledDefaultFields);
-    
+
+    // 新しいスキーマに存在するフィールド名のセットを取得
+    const validFieldNames = new Set(Object.keys(newDefaultValues));
+
     // 現在の値を保持しつつ、新しいデフォルト値をマージ
+    // 削除されたフィールドの値は含めない（古いバリデーションエラーの原因になるため）
     const currentValues = form.getValues();
-    const mergedValues = { ...newDefaultValues, ...currentValues };
-    
+    const filteredCurrentValues: Record<string, any> = {};
+    for (const key of Object.keys(currentValues)) {
+      if (validFieldNames.has(key)) {
+        filteredCurrentValues[key] = currentValues[key];
+      }
+    }
+    const mergedValues = { ...newDefaultValues, ...filteredCurrentValues };
+
     // 講義名が既に設定されている場合は保持する
-    if (targetCourse && currentValues.class_name) {
-      mergedValues.class_name = currentValues.class_name;
-    } else if (targetCourse && !currentValues.class_name) {
+    if (targetCourse && filteredCurrentValues.class_name) {
+      mergedValues.class_name = filteredCurrentValues.class_name;
+    } else if (targetCourse && !filteredCurrentValues.class_name) {
       // targetCourseがあるが、フォームに講義名が設定されていない場合は設定
       mergedValues.class_name = targetCourse.courseName;
     }
-    
+
     form.reset(mergedValues);
   }, [customFields, enabledDefaultFields, form, targetCourse]);
 

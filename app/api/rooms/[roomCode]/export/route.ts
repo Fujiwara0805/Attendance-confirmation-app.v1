@@ -100,7 +100,7 @@ export async function GET(
 
     // Default: summary
     const [questionsRes, pollsRes, votesRes] = await Promise.all([
-      supabase.from('questions').select('id, upvote_count, text').eq('room_id', room.id).order('upvote_count', { ascending: false }).limit(5),
+      supabase.from('questions').select('id, upvote_count, text').eq('room_id', room.id).order('upvote_count', { ascending: false }),
       supabase.from('polls').select('id, question, status').eq('room_id', room.id),
       supabase.from('poll_votes').select('participant_id').eq('room_id', room.id),
     ]);
@@ -127,7 +127,7 @@ export async function GET(
         totalUpvotes: questions.reduce((sum, q) => sum + (q.upvote_count || 0), 0),
         uniqueParticipants: uniqueParticipants.size,
       },
-      topQuestions: questions.slice(0, 5),
+      topQuestions: questions,
     });
   } catch (err) {
     console.error('Export error:', err);

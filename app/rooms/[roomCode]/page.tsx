@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, BarChart3, Send, ToggleLeft, ToggleRight } from 'lucide-react';
+import { MessageSquare, BarChart3, Send, ToggleLeft, ToggleRight, Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParticipantSession } from '@/lib/hooks/useParticipantSession';
@@ -277,7 +277,7 @@ export default function ParticipantPage() {
                     disabled={!questionText.trim() || sending}
                     className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-4 py-2.5 transition-all active:scale-95 disabled:opacity-40"
                   >
-                    <Send className="w-4 h-4" />
+                    {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                   </button>
                 </div>
                 <button

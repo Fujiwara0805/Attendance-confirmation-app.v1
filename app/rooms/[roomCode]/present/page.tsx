@@ -69,7 +69,7 @@ export default function PresentPage() {
       className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950 text-white flex flex-col"
     >
       {/* Header */}
-      <header className="flex items-center justify-between px-8 py-4 border-b border-white/10">
+      <header className="flex items-center justify-between px-8 py-4 border-b border-white/10 sticky top-0 z-40 bg-gradient-to-r from-slate-900 via-slate-900 to-indigo-950 backdrop-blur-xl">
         <div>
           <h1 className="text-xl font-bold">{room.title}</h1>
           <p className="text-sm text-slate-400">

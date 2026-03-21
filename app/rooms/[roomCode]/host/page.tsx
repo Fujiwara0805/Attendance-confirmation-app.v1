@@ -238,11 +238,6 @@ export default function HostPage() {
               {typeof window !== 'undefined' ? `${window.location.origin}/rooms/${roomCode}` : ''}
             </code>
           </div>
-          {qrUrl && (
-            <a href={qrUrl} download={`qr-${roomCode}.png`} className="text-slate-400 hover:text-slate-600">
-              <QrCode className="w-4 h-4" />
-            </a>
-          )}
         </div>
 
         {/* Tabs */}
@@ -457,7 +452,7 @@ export default function HostPage() {
             {/* Top questions */}
             {exportData?.topQuestions && exportData.topQuestions.length > 0 && (
               <div className="glass-card p-6">
-                <h3 className="text-base font-bold text-slate-900 mb-3">人気の質問 TOP5</h3>
+                <h3 className="text-base font-bold text-slate-900 mb-3">質問一覧（いいね順）</h3>
                 <div className="space-y-2">
                   {exportData.topQuestions.map((q, i) => (
                     <div key={i} className="flex items-center gap-3 text-sm">

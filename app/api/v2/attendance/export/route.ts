@@ -104,10 +104,9 @@ export async function GET(req: NextRequest) {
     // CSV形式（Excel対応BOM付き）
     const csvRows: string[] = [];
 
-    // ヘッダー行
+    // ヘッダー行（出席ID, フィードバック, 緯度, 経度, キャンパス内 は除外）
     const headers = [
-      '出席ID', '学籍番号', '氏名', '学年', '学科・コース',
-      'フィードバック', '緯度', '経度', 'キャンパス内',
+      '学籍番号', '氏名', '学年', '学科・コース',
       '出席日', '登録日時'
     ];
 
@@ -123,18 +122,13 @@ export async function GET(req: NextRequest) {
 
     csvRows.push(headers.map(h => `"${h}"`).join(','));
 
-    // データ行
+    // データ行（出席ID, フィードバック, 緯度, 経度, キャンパス内 は除外）
     records.forEach(r => {
       const row = [
-        r.id,
         r.student_id || '',
         r.student_name || '',
         r.grade || '',
         r.department || '',
-        (r.feedback || '').replace(/"/g, '""').replace(/\n/g, ' '),
-        r.latitude || '',
-        r.longitude || '',
-        r.is_on_campus ? 'はい' : 'いいえ',
         r.attended_at || '',
         r.created_at || '',
       ];

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
@@ -12,6 +12,7 @@ import {
   Calendar,
   Clock,
   UserCheck,
+  ShieldAlert,
 } from 'lucide-react';
 import Image from 'next/image';
 
@@ -25,6 +26,21 @@ interface ResponseData {
   checked_in_at?: string;
 }
 
+/**
+ * selected_time_label（例: "12:00 - 13:00"）をパースして
+ * { startHour, startMin, endHour, endMin } を返す
+ */
+function parseTimeLabel(label: string): { startHour: number; startMin: number; endHour: number; endMin: number } | null {
+  const match = label.match(/(\d{1,2}):(\d{2})\s*[-−–〜~]\s*(\d{1,2}):(\d{2})/);
+  if (!match) return null;
+  return {
+    startHour: parseInt(match[1], 10),
+    startMin: parseInt(match[2], 10),
+    endHour: parseInt(match[3], 10),
+    endMin: parseInt(match[4], 10),
+  };
+}
+
 export default function CheckinPage() {
   const params = useParams();
   const responseCode = params.responseCode as string;
@@ -36,6 +52,13 @@ export default function CheckinPage() {
   const [courseName, setCourseName] = useState('');
   const [checkedIn, setCheckedIn] = useState(false);
   const [checkedInAt, setCheckedInAt] = useState<string | null>(null);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // 1分ごとに現在時刻を更新（時間帯チェックをリアルタイムで反映）
+  useEffect(() => {
+    const interval = setInterval(() => setCurrentTime(new Date()), 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   const fetchResponse = useCallback(async () => {
     try {
@@ -64,6 +87,57 @@ export default function CheckinPage() {
     fetchResponse();
   }, [fetchResponse]);
 
+  // 日付・時間帯の照合チェック（クライアント側）
+  const checkinStatus = useMemo(() => {
+    if (!responseData) return { canCheckin: false, reason: '' };
+
+    const now = currentTime;
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+    // 日付チェック
+    if (responseData.selected_date && responseData.selected_date !== todayStr) {
+      const selectedDate = new Date(responseData.selected_date + 'T00:00:00');
+      const isBeforeEvent = now < selectedDate;
+      return {
+        canCheckin: false,
+        reason: isBeforeEvent
+          ? `受付は ${responseData.selected_date} に開始されます。当日の受付時間にお越しください。`
+          : `受付期間が終了しました。受付日は ${responseData.selected_date} でした。`,
+        type: isBeforeEvent ? 'before' : 'after',
+      };
+    }
+
+    // 時間帯チェック
+    if (responseData.selected_time_label) {
+      const timeRange = parseTimeLabel(responseData.selected_time_label);
+      if (timeRange) {
+        const currentMinutes = now.getHours() * 60 + now.getMinutes();
+        const startMinutes = timeRange.startHour * 60 + timeRange.startMin;
+        const endMinutes = timeRange.endHour * 60 + timeRange.endMin;
+
+        if (currentMinutes < startMinutes) {
+          const waitHours = Math.floor((startMinutes - currentMinutes) / 60);
+          const waitMins = (startMinutes - currentMinutes) % 60;
+          const waitText = waitHours > 0 ? `${waitHours}時間${waitMins > 0 ? `${waitMins}分` : ''}` : `${waitMins}分`;
+          return {
+            canCheckin: false,
+            reason: `受付開始まであと${waitText}です。受付時間は ${responseData.selected_time_label} です。`,
+            type: 'before',
+          };
+        }
+        if (currentMinutes > endMinutes) {
+          return {
+            canCheckin: false,
+            reason: `受付時間が終了しました。受付時間は ${responseData.selected_time_label} でした。`,
+            type: 'after',
+          };
+        }
+      }
+    }
+
+    return { canCheckin: true, reason: '' };
+  }, [responseData, currentTime]);
+
   const handleCheckin = async () => {
     setChecking(true);
     setError(null);
@@ -75,11 +149,13 @@ export default function CheckinPage() {
         body: JSON.stringify({}),
       });
 
+      const data = await res.json();
+
       if (!res.ok) {
-        throw new Error('チェックインに失敗しました');
+        // サーバー側の日付・時間バリデーションエラー
+        throw new Error(data.message || 'チェックインに失敗しました');
       }
 
-      const data = await res.json();
       setCheckedIn(true);
       setCheckedInAt(data.checkedInAt);
     } catch (err) {
@@ -144,6 +220,37 @@ export default function CheckinPage() {
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-8">
+        {/* 受付時間外の警告バナー */}
+        {!checkedIn && !checkinStatus.canCheckin && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4"
+          >
+            <div className="flex items-start gap-2.5">
+              <ShieldAlert className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-bold text-amber-800 mb-1">受付時間外です</p>
+                <p className="text-sm text-amber-700 leading-relaxed">{checkinStatus.reason}</p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* 受付時間内の通知バナー */}
+        {!checkedIn && checkinStatus.canCheckin && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 mb-4 flex items-center gap-2"
+          >
+            <Calendar className="h-4 w-4 text-indigo-600 shrink-0" />
+            <p className="text-sm text-indigo-700 font-medium">
+              受付時間内です。下のボタンから受付を行ってください。
+            </p>
+          </motion.div>
+        )}
+
         {/* イベント名 */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
@@ -162,16 +269,20 @@ export default function CheckinPage() {
           className={`rounded-2xl border-2 shadow-sm p-6 mb-6 ${
             checkedIn
               ? 'bg-emerald-50 border-emerald-300'
-              : 'bg-white border-slate-200'
+              : !checkinStatus.canCheckin
+                ? 'bg-slate-50 border-slate-200'
+                : 'bg-white border-slate-200'
           }`}
         >
           <div className="flex flex-col items-center gap-4">
             {/* アイコン */}
             <div className={`w-16 h-16 rounded-full flex items-center justify-center ${
-              checkedIn ? 'bg-emerald-100' : 'bg-indigo-100'
+              checkedIn ? 'bg-emerald-100' : !checkinStatus.canCheckin ? 'bg-slate-100' : 'bg-indigo-100'
             }`}>
               {checkedIn ? (
                 <UserCheck className="h-8 w-8 text-emerald-600" />
+              ) : !checkinStatus.canCheckin ? (
+                <Clock className="h-8 w-8 text-slate-400" />
               ) : (
                 <User className="h-8 w-8 text-indigo-600" />
               )}
@@ -233,13 +344,22 @@ export default function CheckinPage() {
             <>
               <Button
                 onClick={handleCheckin}
-                disabled={checking}
-                className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg rounded-xl shadow-lg"
+                disabled={checking || !checkinStatus.canCheckin}
+                className={`w-full h-14 font-bold text-lg rounded-xl shadow-lg ${
+                  checkinStatus.canCheckin
+                    ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                    : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
+                }`}
               >
                 {checking ? (
                   <>
                     <Loader2 className="h-5 w-5 animate-spin mr-2" />
                     処理中...
+                  </>
+                ) : !checkinStatus.canCheckin ? (
+                  <>
+                    <ShieldAlert className="h-5 w-5 mr-2" />
+                    受付時間外
                   </>
                 ) : (
                   <>
@@ -248,9 +368,16 @@ export default function CheckinPage() {
                   </>
                 )}
               </Button>
-              <p className="text-xs text-slate-400 text-center mt-3">
-                上記のお名前に間違いがなければ、ボタンを押して受付を完了してください
-              </p>
+              {checkinStatus.canCheckin && (
+                <p className="text-xs text-slate-400 text-center mt-3">
+                  上記のお名前に間違いがなければ、ボタンを押して受付を完了してください
+                </p>
+              )}
+              {!checkinStatus.canCheckin && (
+                <p className="text-xs text-slate-400 text-center mt-3">
+                  申し込み時に選択した日付・時間帯にのみ受付が可能です
+                </p>
+              )}
             </>
           )}
         </motion.div>

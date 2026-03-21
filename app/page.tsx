@@ -404,7 +404,9 @@ export default function LandingPage() {
               >
                 全ての学習機会を
                 <br />
-                「受け取る」から「共に作る」へ
+                「受け取る」から
+                <br className="sm:hidden" />
+                「共に作る」へ
               </motion.h1>
 
               <motion.p
@@ -836,12 +838,15 @@ export default function LandingPage() {
                   </li>
                 ))}
               </ul>
-              <button
-                onClick={() => handlePlanPurchase('enterprise_subscription')}
+              <p className="text-xs text-red-500 font-medium mb-3 leading-relaxed">
+                ※ ご導入につきまして別途ご相談が必要です。お問い合わせフォームよりご連絡ください。
+              </p>
+              <Link
+                href="/contact"
                 className="block w-full text-center text-sm font-semibold text-white bg-gradient-to-r from-slate-700 to-slate-900 hover:from-slate-800 hover:to-black active:scale-[0.97] transition-all px-6 py-3 rounded-xl shadow-lg shadow-slate-200/50"
               >
-                Enterpriseプランを始める
-              </button>
+                お問い合わせ
+              </Link>
             </motion.div>
           </motion.div>
         </div>

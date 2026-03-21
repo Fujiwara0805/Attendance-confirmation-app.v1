@@ -16,7 +16,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
-import { MapPin, Calendar, Loader2, Send, AlertCircle, User, Mail, Phone } from 'lucide-react';
+import { MapPin, Calendar, Loader2, Send, AlertCircle, User, Mail, Phone, Info } from 'lucide-react';
 import Image from 'next/image';
 import type { CustomFormField as CustomFieldType, InvitationSettings, TimeSlot } from '@/app/types';
 import { createDynamicSchema, createDefaultValues } from '@/lib/dynamicFormUtils';
@@ -230,9 +230,20 @@ export default function InvitationForm() {
             </p>
           )}
           {invitationSettings?.eventLocation && (
-            <div className="flex items-center gap-2 text-sm text-slate-500">
-              <MapPin className="h-4 w-4 text-indigo-500" />
-              <span>{invitationSettings.eventLocation}</span>
+            <div className="flex items-start gap-2 text-sm text-slate-500 mb-1">
+              <MapPin className="h-4 w-4 text-indigo-500 mt-0.5 shrink-0" />
+              <div>
+                <span>{invitationSettings.eventLocation}</span>
+                {invitationSettings.eventLocationDetail && (
+                  <span className="text-slate-400 ml-1">({invitationSettings.eventLocationDetail})</span>
+                )}
+              </div>
+            </div>
+          )}
+          {invitationSettings?.eventNotes && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2 mt-3">
+              <Info className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+              <p className="text-sm text-amber-800 whitespace-pre-wrap">{invitationSettings.eventNotes}</p>
             </div>
           )}
         </motion.div>
@@ -277,6 +288,13 @@ export default function InvitationForm() {
                   <User className="h-4 w-4 text-indigo-500" />
                   参加者情報
                 </h2>
+
+                <div className="bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2 flex items-start gap-2">
+                  <Info className="h-3.5 w-3.5 text-indigo-500 mt-0.5 shrink-0" />
+                  <p className="text-xs text-indigo-600">
+                    お名前・メールアドレス・電話番号は参加者情報として事前に設定されています。
+                  </p>
+                </div>
 
                 <FormField
                   control={form.control}

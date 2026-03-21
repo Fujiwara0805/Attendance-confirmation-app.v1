@@ -99,7 +99,9 @@ export interface DateSlot {
 
 export interface InvitationSettings {
   eventLocation?: string;
+  eventLocationDetail?: string;
   eventDescription?: string;
+  eventNotes?: string;
   dateSlots: DateSlot[];
 }
 

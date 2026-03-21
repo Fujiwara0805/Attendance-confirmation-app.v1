@@ -39,14 +39,16 @@ import {
 
 const presetIconMap: Record<string, React.ComponentType<{ className?: string; size?: string | number }>> = {
   Mail, Phone, Building, Briefcase, Users, UserCircle, Award, Star,
-  Target, Share2, HelpCircle, Lightbulb, UtensilsCrossed, Accessibility, MessageSquare,
+  Target, Share2, HelpCircle, Lightbulb, UtensilsCrossed, Accessibility, MessageSquare, MapPin,
 };
 
 const invitationSchema = z.object({
   eventName: z.string().min(1, 'イベント名は必須です'),
   teacherName: z.string().min(1, '担当者名は必須です'),
   eventLocation: z.string().optional(),
+  eventLocationDetail: z.string().optional(),
   eventDescription: z.string().optional(),
+  eventNotes: z.string().optional(),
 });
 
 type InvitationFormData = z.infer<typeof invitationSchema>;
@@ -78,15 +80,55 @@ export default function InvitationFormManager({ onCourseAdded, onClose, editingI
   const [showPresetPicker, setShowPresetPicker] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
+  // Place API (Google Places Autocomplete)
+  const [placeSuggestions, setPlaceSuggestions] = useState<Array<{ description: string; place_id: string }>>([]);
+  const [showPlaceSuggestions, setShowPlaceSuggestions] = useState(false);
+  const placeSearchDebounceRef = React.useRef<NodeJS.Timeout | null>(null);
+
   const form = useForm<InvitationFormData>({
     resolver: zodResolver(invitationSchema),
     defaultValues: {
       eventName: '',
       teacherName: '',
       eventLocation: '',
+      eventLocationDetail: '',
       eventDescription: '',
+      eventNotes: '',
     },
   });
+
+  const fetchPlaceSuggestions = React.useCallback(async (input: string) => {
+    if (!input.trim() || input.length < 2) {
+      setPlaceSuggestions([]);
+      setShowPlaceSuggestions(false);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/places/autocomplete?input=${encodeURIComponent(input)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.predictions?.length > 0) {
+        setPlaceSuggestions(data.predictions.map((p: { description: string; place_id: string }) => ({
+          description: p.description, place_id: p.place_id,
+        })));
+        setShowPlaceSuggestions(true);
+      } else {
+        setPlaceSuggestions([]);
+        setShowPlaceSuggestions(false);
+      }
+    } catch { setPlaceSuggestions([]); }
+  }, []);
+
+  const selectPlace = React.useCallback(async (placeId: string, description: string) => {
+    setShowPlaceSuggestions(false);
+    form.setValue('eventLocation', description);
+  }, [form]);
+
+  const handleLocationInputChange = (value: string) => {
+    form.setValue('eventLocation', value);
+    if (placeSearchDebounceRef.current) clearTimeout(placeSearchDebounceRef.current);
+    placeSearchDebounceRef.current = setTimeout(() => fetchPlaceSuggestions(value), 300);
+  };
 
   // 編集時の初期化
   useEffect(() => {
@@ -95,7 +137,9 @@ export default function InvitationFormManager({ onCourseAdded, onClose, editingI
       form.setValue('teacherName', editingInvitation.teacherName);
       if (editingInvitation.invitationSettings) {
         form.setValue('eventLocation', editingInvitation.invitationSettings.eventLocation || '');
+        form.setValue('eventLocationDetail', editingInvitation.invitationSettings.eventLocationDetail || '');
         form.setValue('eventDescription', editingInvitation.invitationSettings.eventDescription || '');
+        form.setValue('eventNotes', editingInvitation.invitationSettings.eventNotes || '');
         setDateSlots(editingInvitation.invitationSettings.dateSlots || []);
       }
       if (editingInvitation.customFields) {
@@ -220,7 +264,9 @@ export default function InvitationFormManager({ onCourseAdded, onClose, editingI
     try {
       const invitationSettings: InvitationSettings = {
         eventLocation: data.eventLocation || undefined,
+        eventLocationDetail: data.eventLocationDetail || undefined,
         eventDescription: data.eventDescription || undefined,
+        eventNotes: data.eventNotes || undefined,
         dateSlots,
       };
 
@@ -308,11 +354,42 @@ export default function InvitationFormManager({ onCourseAdded, onClose, editingI
             )}
           </div>
 
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 relative">
             <Label className="text-xs font-medium text-slate-600">開催場所</Label>
+            <div className="relative">
+              <MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+              <Input
+                value={form.watch('eventLocation') || ''}
+                onChange={(e) => handleLocationInputChange(e.target.value)}
+                onFocus={() => { if (placeSuggestions.length > 0) setShowPlaceSuggestions(true); }}
+                onBlur={() => setTimeout(() => setShowPlaceSuggestions(false), 200)}
+                placeholder="例: 大分大学 講堂"
+                className="h-9 text-sm pl-8"
+              />
+            </div>
+            {showPlaceSuggestions && placeSuggestions.length > 0 && (
+              <div className="absolute z-20 w-full bg-white border border-slate-200 rounded-md shadow-lg mt-1 max-h-48 overflow-y-auto">
+                {placeSuggestions.map((suggestion) => (
+                  <button
+                    key={suggestion.place_id}
+                    type="button"
+                    className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => selectPlace(suggestion.place_id, suggestion.description)}
+                  >
+                    <MapPin className="h-3 w-3 inline mr-1.5 text-slate-400" />
+                    {suggestion.description}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-slate-600">場所の詳細</Label>
             <Input
-              {...form.register('eventLocation')}
-              placeholder="例: 大分大学 講堂"
+              {...form.register('eventLocationDetail')}
+              placeholder="３階・講演会場"
               className="h-9 text-sm"
             />
           </div>
@@ -322,6 +399,16 @@ export default function InvitationFormManager({ onCourseAdded, onClose, editingI
             <Textarea
               {...form.register('eventDescription')}
               placeholder="イベントの説明を入力してください"
+              className="text-sm resize-none"
+              rows={7}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-slate-600">備考・注意事項</Label>
+            <Textarea
+              {...form.register('eventNotes')}
+              placeholder="参加者へのお知らせや注意事項を入力してください"
               className="text-sm resize-none"
               rows={3}
             />
