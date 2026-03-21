@@ -27,6 +27,7 @@ import {
   X,
   Check,
   MessageSquare,
+  AlertTriangle,
 } from 'lucide-react';
 import type { CustomFormField, DateSlot, TimeSlot, InvitationSettings } from '@/app/types';
 import { presetFields, presetCategoryLabels, presetToCustomField, type PresetField } from '@/lib/dynamicFormUtils';
@@ -70,6 +71,7 @@ interface InvitationFormManagerProps {
 export default function InvitationFormManager({ onCourseAdded, onClose, editingInvitation }: InvitationFormManagerProps) {
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
+  const [hasResponses, setHasResponses] = useState(false);
 
   // 日時スロット
   const [dateSlots, setDateSlots] = useState<DateSlot[]>([]);
@@ -147,6 +149,23 @@ export default function InvitationFormManager({ onCourseAdded, onClose, editingI
       }
     }
   }, [editingInvitation]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 既存の申し込み（レスポンス）を確認
+  useEffect(() => {
+    if (!editingInvitation?.code) return;
+    const fetchResponses = async () => {
+      try {
+        const res = await fetch(`/api/v2/invitation-responses?courseCode=${editingInvitation.code}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const responses = Array.isArray(data) ? data : data.responses ?? [];
+        setHasResponses(responses.length > 0);
+      } catch {
+        // silently fail — default to allowing edits
+      }
+    };
+    fetchResponses();
+  }, [editingInvitation?.code]);
 
   // 日付スロット追加
   const addDateSlot = () => {
@@ -324,6 +343,16 @@ export default function InvitationFormManager({ onCourseAdded, onClose, editingI
 
   return (
     <div className="space-y-5">
+      {/* 申し込み存在時の警告 */}
+      {hasResponses && (
+        <div className="flex items-start gap-3 p-4 rounded-lg border border-amber-200 bg-amber-50 text-amber-800">
+          <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+          <p className="text-sm leading-relaxed">
+            申し込みが存在するため、フォーム項目の追加・削除・編集はできません。変更が必要な場合は、新しいフォームを作成してください。
+          </p>
+        </div>
+      )}
+
       {/* イベント情報 */}
       <Card className="border-slate-200 shadow-sm">
         <CardHeader className="pb-3">
@@ -437,12 +466,13 @@ export default function InvitationFormManager({ onCourseAdded, onClose, editingI
               value={newDate}
               onChange={(e) => setNewDate(e.target.value)}
               className="h-9 text-sm flex-1"
+              disabled={hasResponses}
             />
             <Button
               type="button"
               variant="outline"
               onClick={addDateSlot}
-              disabled={!newDate}
+              disabled={!newDate || hasResponses}
               className="h-9 px-3 text-sm"
             >
               <Plus className="h-3.5 w-3.5 mr-1" />
@@ -472,15 +502,17 @@ export default function InvitationFormManager({ onCourseAdded, onClose, editingI
                       <button
                         type="button"
                         onClick={() => addTimeSlot(dateSlot.id)}
-                        className="p-1 rounded text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 transition-colors"
+                        className="p-1 rounded text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                         title="時間帯を追加"
+                        disabled={hasResponses}
                       >
                         <Plus className="h-3.5 w-3.5" />
                       </button>
                       <button
                         type="button"
                         onClick={() => removeDateSlot(dateSlot.id)}
-                        className="p-1 rounded text-red-400 hover:text-red-600 transition-colors"
+                        className="p-1 rounded text-red-400 hover:text-red-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                        disabled={hasResponses}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -498,6 +530,7 @@ export default function InvitationFormManager({ onCourseAdded, onClose, editingI
                             value={timeSlot.startTime}
                             onChange={(e) => updateTimeSlot(dateSlot.id, timeSlot.id, 'startTime', e.target.value)}
                             className="h-7 text-xs w-24"
+                            disabled={hasResponses}
                           />
                           <span className="text-xs text-slate-400">〜</span>
                           <Input
@@ -505,11 +538,13 @@ export default function InvitationFormManager({ onCourseAdded, onClose, editingI
                             value={timeSlot.endTime}
                             onChange={(e) => updateTimeSlot(dateSlot.id, timeSlot.id, 'endTime', e.target.value)}
                             className="h-7 text-xs w-24"
+                            disabled={hasResponses}
                           />
                           <button
                             type="button"
                             onClick={() => removeTimeSlot(dateSlot.id, timeSlot.id)}
-                            className="p-0.5 rounded text-red-400 hover:text-red-600 transition-colors ml-auto"
+                            className="p-0.5 rounded text-red-400 hover:text-red-600 transition-colors ml-auto disabled:opacity-30 disabled:cursor-not-allowed"
+                            disabled={hasResponses}
                           >
                             <X className="h-3 w-3" />
                           </button>
@@ -523,7 +558,8 @@ export default function InvitationFormManager({ onCourseAdded, onClose, editingI
                       <button
                         type="button"
                         onClick={() => addTimeSlot(dateSlot.id)}
-                        className="w-full py-2 text-xs text-slate-400 border border-dashed border-slate-200 rounded-md hover:text-indigo-500 hover:border-indigo-200 transition-colors"
+                        disabled={hasResponses}
+                        className="w-full py-2 text-xs text-slate-400 border border-dashed border-slate-200 rounded-md hover:text-indigo-500 hover:border-indigo-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-slate-400 disabled:hover:border-slate-200"
                       >
                         <Plus className="h-3 w-3 inline mr-1" />
                         時間帯を追加
@@ -574,7 +610,7 @@ export default function InvitationFormManager({ onCourseAdded, onClose, editingI
                     <button
                       type="button"
                       onClick={() => moveCustomField(index, Math.max(0, index - 1))}
-                      disabled={index === 0}
+                      disabled={index === 0 || hasResponses}
                       className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-indigo-600 disabled:opacity-20 transition-colors"
                     >
                       <ArrowUp className="h-3 w-3" />
@@ -582,7 +618,7 @@ export default function InvitationFormManager({ onCourseAdded, onClose, editingI
                     <button
                       type="button"
                       onClick={() => moveCustomField(index, Math.min(customFields.length - 1, index + 1))}
-                      disabled={index === customFields.length - 1}
+                      disabled={index === customFields.length - 1 || hasResponses}
                       className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-indigo-600 disabled:opacity-20 transition-colors"
                     >
                       <ArrowDown className="h-3 w-3" />
@@ -593,7 +629,8 @@ export default function InvitationFormManager({ onCourseAdded, onClose, editingI
                     onChange={(e) => {
                       if ((e.target.value === 'required') !== field.required) toggleRequired(field.id);
                     }}
-                    className={`text-[10px] font-medium h-6 px-1 pr-4 rounded border appearance-none bg-no-repeat bg-[right_2px_center] bg-[length:10px] cursor-pointer outline-none transition-colors ${
+                    disabled={hasResponses}
+                    className={`text-[10px] font-medium h-6 px-1 pr-4 rounded border appearance-none bg-no-repeat bg-[right_2px_center] bg-[length:10px] cursor-pointer outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                       field.required ? 'border-red-200 bg-red-50 text-red-600' : 'border-slate-200 bg-slate-50 text-slate-500'
                     }`}
                     style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")` }}
@@ -604,7 +641,8 @@ export default function InvitationFormManager({ onCourseAdded, onClose, editingI
                   <button
                     type="button"
                     onClick={() => removeCustomField(field.id)}
-                    className="p-0.5 rounded text-red-400 hover:text-red-600 transition-colors shrink-0"
+                    disabled={hasResponses}
+                    className="p-0.5 rounded text-red-400 hover:text-red-600 transition-colors shrink-0 disabled:opacity-30 disabled:cursor-not-allowed"
                   >
                     <Trash2 className="h-3 w-3" />
                   </button>
@@ -619,6 +657,7 @@ export default function InvitationFormManager({ onCourseAdded, onClose, editingI
               type="button"
               variant="outline"
               onClick={() => setShowPresetPicker(!showPresetPicker)}
+              disabled={hasResponses}
               className="w-full h-10 text-sm border-dashed border-slate-300 text-slate-500 hover:text-indigo-600 hover:border-indigo-300 hover:bg-indigo-50/50"
             >
               <Plus className="h-4 w-4 mr-2" />

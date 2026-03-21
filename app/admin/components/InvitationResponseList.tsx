@@ -49,6 +49,9 @@ export default function InvitationResponseList({ courseCode, courseName }: Invit
   const [showFilter, setShowFilter] = useState(false);
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'checked_in' | 'not_checked_in'>('all');
+  const [filterParticipationDateFrom, setFilterParticipationDateFrom] = useState('');
+  const [filterParticipationDateTo, setFilterParticipationDateTo] = useState('');
 
   const fetchResponses = async () => {
     setLoading(true);
@@ -70,9 +73,16 @@ export default function InvitationResponseList({ courseCode, courseName }: Invit
 
   const checkedInCount = responses.filter(r => r.checked_in_at).length;
 
-  // Date filtering
+  // Filtering
   const filteredResponses = useMemo(() => {
     let filtered = responses;
+    // Status filter
+    if (filterStatus === 'checked_in') {
+      filtered = filtered.filter(r => r.checked_in_at !== null);
+    } else if (filterStatus === 'not_checked_in') {
+      filtered = filtered.filter(r => r.checked_in_at === null);
+    }
+    // Registration date filter
     if (filterDateFrom) {
       const from = new Date(filterDateFrom + 'T00:00:00');
       filtered = filtered.filter(r => new Date(r.created_at) >= from);
@@ -81,8 +91,15 @@ export default function InvitationResponseList({ courseCode, courseName }: Invit
       const to = new Date(filterDateTo + 'T23:59:59');
       filtered = filtered.filter(r => new Date(r.created_at) <= to);
     }
+    // Participation date filter
+    if (filterParticipationDateFrom) {
+      filtered = filtered.filter(r => r.selected_date >= filterParticipationDateFrom);
+    }
+    if (filterParticipationDateTo) {
+      filtered = filtered.filter(r => r.selected_date <= filterParticipationDateTo);
+    }
     return filtered;
-  }, [responses, filterDateFrom, filterDateTo]);
+  }, [responses, filterStatus, filterDateFrom, filterDateTo, filterParticipationDateFrom, filterParticipationDateTo]);
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(filteredResponses.length / ITEMS_PER_PAGE));
@@ -94,7 +111,7 @@ export default function InvitationResponseList({ courseCode, courseName }: Invit
   // Reset page when filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [filterDateFrom, filterDateTo]);
+  }, [filterStatus, filterDateFrom, filterDateTo, filterParticipationDateFrom, filterParticipationDateTo]);
 
   // Collect all custom field keys across responses for CSV export
   const allCustomFieldKeys = useMemo(() => {
@@ -150,11 +167,14 @@ export default function InvitationResponseList({ courseCode, courseName }: Invit
   };
 
   const clearFilters = () => {
+    setFilterStatus('all');
     setFilterDateFrom('');
     setFilterDateTo('');
+    setFilterParticipationDateFrom('');
+    setFilterParticipationDateTo('');
   };
 
-  const hasActiveFilters = filterDateFrom || filterDateTo;
+  const hasActiveFilters = filterStatus !== 'all' || filterDateFrom || filterDateTo || filterParticipationDateFrom || filterParticipationDateTo;
 
   return (
     <div className="space-y-4">
@@ -198,35 +218,81 @@ export default function InvitationResponseList({ courseCode, courseName }: Invit
         </div>
       </div>
 
-      {/* Date filter (PC only) */}
+      {/* Filter panel (PC only) */}
       {showFilter && (
-        <div className="hidden md:flex items-end gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
-          <div className="space-y-1">
-            <Label className="text-xs text-slate-500">登録日（開始）</Label>
-            <Input
-              type="date"
-              value={filterDateFrom}
-              onChange={(e) => setFilterDateFrom(e.target.value)}
-              className="h-8 text-sm w-40"
-            />
+        <div className="hidden md:block p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-3">
+          {/* Status filter */}
+          <div className="flex items-center gap-3">
+            <Label className="text-xs text-slate-500 shrink-0">ステータス</Label>
+            <div className="flex rounded-md border border-slate-200 overflow-hidden">
+              {([
+                { value: 'all', label: 'すべて' },
+                { value: 'not_checked_in', label: '未受付' },
+                { value: 'checked_in', label: '受付済み' },
+              ] as const).map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => setFilterStatus(option.value)}
+                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                    filterStatus === option.value
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-white text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="space-y-1">
-            <Label className="text-xs text-slate-500">登録日（終了）</Label>
-            <Input
-              type="date"
-              value={filterDateTo}
-              onChange={(e) => setFilterDateTo(e.target.value)}
-              className="h-8 text-sm w-40"
-            />
-          </div>
-          {hasActiveFilters && (
-            <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 text-xs text-slate-500">
-              <X className="h-3 w-3 mr-1" />
-              クリア
-            </Button>
-          )}
-          <div className="text-xs text-slate-400 ml-auto self-center">
-            {filteredResponses.length}件表示
+
+          {/* Date filters */}
+          <div className="flex items-end gap-3 flex-wrap">
+            <div className="space-y-1">
+              <Label className="text-xs text-slate-500">登録日（開始）</Label>
+              <Input
+                type="date"
+                value={filterDateFrom}
+                onChange={(e) => setFilterDateFrom(e.target.value)}
+                className="h-8 text-sm w-40"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-slate-500">登録日（終了）</Label>
+              <Input
+                type="date"
+                value={filterDateTo}
+                onChange={(e) => setFilterDateTo(e.target.value)}
+                className="h-8 text-sm w-40"
+              />
+            </div>
+            <div className="w-px h-8 bg-slate-200" />
+            <div className="space-y-1">
+              <Label className="text-xs text-slate-500">参加日（開始）</Label>
+              <Input
+                type="date"
+                value={filterParticipationDateFrom}
+                onChange={(e) => setFilterParticipationDateFrom(e.target.value)}
+                className="h-8 text-sm w-40"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-slate-500">参加日（終了）</Label>
+              <Input
+                type="date"
+                value={filterParticipationDateTo}
+                onChange={(e) => setFilterParticipationDateTo(e.target.value)}
+                className="h-8 text-sm w-40"
+              />
+            </div>
+            {hasActiveFilters && (
+              <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 text-xs text-slate-500">
+                <X className="h-3 w-3 mr-1" />
+                クリア
+              </Button>
+            )}
+            <div className="text-xs text-slate-400 ml-auto self-center">
+              {filteredResponses.length}件表示
+            </div>
           </div>
         </div>
       )}

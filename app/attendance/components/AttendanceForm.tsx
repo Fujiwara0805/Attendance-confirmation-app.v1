@@ -90,9 +90,7 @@ export default function DynamicAttendanceForm() {
   // 動的フォーム設定用の状態
   const [formConfig, setFormConfig] = useState<CourseFormConfig | null>(null);
   const [customFields, setCustomFields] = useState<CustomFormField[]>([]);
-  const [enabledDefaultFields, setEnabledDefaultFields] = useState<string[]>([
-    'date', 'class_name', 'student_id', 'grade', 'name', 'department', 'feedback'
-  ]);
+  const [enabledDefaultFields, setEnabledDefaultFields] = useState<string[]>([]);
   const [dynamicSchema, setDynamicSchema] = useState<any>(defaultFormSchema);
   
   const [locationInfo, setLocationInfo] = useState<{
@@ -223,8 +221,12 @@ export default function DynamicAttendanceForm() {
         if (course.custom_fields && Array.isArray(course.custom_fields) && course.custom_fields.length > 0) {
           setCustomFields(course.custom_fields);
         }
+
+        // enabled_default_fieldsの設定（course → template → フォールバック の優先順）
+        let hasEnabledDefaultFields = false;
         if (course.enabled_default_fields && Array.isArray(course.enabled_default_fields)) {
           setEnabledDefaultFields(course.enabled_default_fields);
+          hasEnabledDefaultFields = true;
         }
 
         // テンプレートからフィールド情報を取得
@@ -233,6 +235,12 @@ export default function DynamicAttendanceForm() {
         }
         if (response.template?.enabled_default_fields) {
           setEnabledDefaultFields(response.template.enabled_default_fields);
+          hasEnabledDefaultFields = true;
+        }
+
+        // courseにもtemplateにもenabled_default_fieldsがない場合は全デフォルトフィールドを使用（後方互換性）
+        if (!hasEnabledDefaultFields) {
+          setEnabledDefaultFields(['date', 'class_name', 'student_id', 'grade', 'name', 'department', 'feedback']);
         }
 
         // 位置情報設定を反映
@@ -382,7 +390,8 @@ export default function DynamicAttendanceForm() {
       if (courseId) {
         fetchTargetCourse();
       } else {
-        // courseIdがない場合は講義データ取得不要 → 即座にロード完了
+        // courseIdがない場合は講義データ取得不要 → デフォルトフィールドを全て有効にしてロード完了
+        setEnabledDefaultFields(['date', 'class_name', 'student_id', 'grade', 'name', 'department', 'feedback']);
         setCourseDataLoaded(true);
       }
     }

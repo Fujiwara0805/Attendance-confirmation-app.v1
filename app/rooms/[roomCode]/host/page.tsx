@@ -50,6 +50,7 @@ export default function HostPage() {
 
   // Export
   const [exportData, setExportData] = useState<{ stats?: Record<string, number>; topQuestions?: Array<{ text: string; upvote_count: number }> } | null>(null);
+  const [showAllQuestions, setShowAllQuestions] = useState(false);
 
   // Fetch room
   useEffect(() => {
@@ -199,13 +200,15 @@ export default function HostPage() {
                 <QrCode className="w-4.5 h-4.5 sm:w-3.5 sm:h-3.5" />
               </a>
             )}
-            <Link
+            <a
               href={`/rooms/${roomCode}/present`}
+              target="_blank"
+              rel="noopener noreferrer"
               className="hidden sm:flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-lg transition-colors"
             >
               <Monitor className="w-3.5 h-3.5" />
               プレゼン
-            </Link>
+            </a>
             <button
               type="button"
               onClick={handleToggleRoomStatus}
@@ -454,13 +457,23 @@ export default function HostPage() {
               <div className="glass-card p-6">
                 <h3 className="text-base font-bold text-slate-900 mb-3">質問一覧（いいね順）</h3>
                 <div className="space-y-2">
-                  {exportData.topQuestions.map((q, i) => (
+                  {(showAllQuestions ? exportData.topQuestions : exportData.topQuestions.slice(0, 5)).map((q, i) => (
                     <div key={i} className="flex items-center gap-3 text-sm">
                       <span className="text-indigo-600 font-bold w-6">{q.upvote_count}</span>
                       <span className="text-slate-700">{q.text}</span>
                     </div>
                   ))}
                 </div>
+                {exportData.topQuestions.length > 5 && (
+                  <button
+                    onClick={() => setShowAllQuestions(!showAllQuestions)}
+                    className="mt-3 text-sm font-medium text-indigo-600 hover:text-indigo-700 transition-colors"
+                  >
+                    {showAllQuestions
+                      ? '閉じる'
+                      : `他の質問をみる（残り${exportData.topQuestions.length - 5}件）`}
+                  </button>
+                )}
               </div>
             )}
 

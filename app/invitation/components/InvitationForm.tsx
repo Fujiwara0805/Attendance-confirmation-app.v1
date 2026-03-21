@@ -16,7 +16,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
-import { MapPin, Calendar, Loader2, Send, AlertCircle, User, Mail, Phone, Info } from 'lucide-react';
+import { MapPin, Calendar, Loader2, Send, AlertCircle, User, Mail, Phone, ExternalLink } from 'lucide-react';
 import Image from 'next/image';
 import type { CustomFormField as CustomFieldType, InvitationSettings, TimeSlot } from '@/app/types';
 import { createDynamicSchema, createDefaultValues } from '@/lib/dynamicFormUtils';
@@ -35,6 +35,33 @@ interface CourseData {
   custom_fields: CustomFieldType[];
   enabled_default_fields: string[];
 }
+
+/** Extract a short venue name from a full Japanese address */
+function extractVenueName(location: string, locationDetail?: string): string {
+  if (locationDetail) return locationDetail;
+  // Try to extract the last meaningful part (building/venue name)
+  // Japanese addresses typically end with the venue name
+  // Pattern: 都道府県 市区町村 ... ビル名/会場名
+  const parts = location.split(/[\s　]+/);
+  if (parts.length >= 2) {
+    return parts[parts.length - 1];
+  }
+  return location;
+}
+
+function getGoogleMapsUrl(location: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
+}
+
+// Stagger animation variants
+const fadeInUp = {
+  hidden: { opacity: 0, y: 24 },
+  visible: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { delay: i * 0.12, duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] },
+  }),
+};
 
 export default function InvitationForm() {
   const router = useRouter();
@@ -84,7 +111,6 @@ export default function InvitationForm() {
       }
 
       if (course.form_type !== 'invitation') {
-        // 出席フォームの場合はリダイレクト
         router.replace(`/attendance/${courseCode}`);
         return;
       }
@@ -147,7 +173,6 @@ export default function InvitationForm() {
 
       const result = await response.json();
 
-      // 完了ページへリダイレクト
       sessionStorage.setItem('invitation_response', JSON.stringify({
         responseCode: result.responseCode,
         respondentName,
@@ -172,11 +197,15 @@ export default function InvitationForm() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-indigo-50 to-white flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
-          <p className="text-sm text-slate-500">読み込み中...</p>
-        </div>
+      <div className="min-h-screen bg-gradient-to-b from-amber-50 via-orange-50/30 to-white flex items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="flex flex-col items-center gap-4"
+        >
+          <div className="w-12 h-12 rounded-full border-2 border-amber-300 border-t-amber-600 animate-spin" />
+          <p className="text-sm text-amber-800/60 tracking-wide font-light">招待状を準備しています...</p>
+        </motion.div>
       </div>
     );
   }
@@ -197,71 +226,134 @@ export default function InvitationForm() {
 
   const invitationSettings = courseData.invitation_settings;
   const customFields = courseData.custom_fields || [];
+  const eventLocation = invitationSettings?.eventLocation;
+  const venueName = eventLocation
+    ? extractVenueName(eventLocation, invitationSettings?.eventLocationDetail)
+    : null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-indigo-50 to-white">
-      {/* ヘッダー */}
-      <header className="bg-white/80 backdrop-blur-md border-b border-slate-200/60 sticky top-0 z-10">
-        <div className="max-w-lg mx-auto px-4 h-14 flex items-center gap-3">
-          <div className="flex items-center gap-2">
+    <div className="min-h-screen bg-gradient-to-b from-amber-50/80 via-orange-50/20 to-stone-50">
+
+      {/* Hero Section with Unsplash Image */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.8 }}
+        className="relative w-full h-[340px] sm:h-[400px] overflow-hidden"
+      >
+        <Image
+          src="https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=1200&q=80&auto=format&fit=crop"
+          alt="Invitation"
+          fill
+          className="object-cover"
+          priority
+        />
+        {/* Dark gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/40 to-black/70" />
+
+        {/* Subtle brand badge */}
+        <div className="absolute top-4 left-4 z-10">
+          <div className="flex items-center gap-2 bg-white/15 backdrop-blur-md rounded-full px-3 py-1.5 border border-white/20">
             <Image
               src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_200/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png"
               alt="ざせきくん"
-              width={28}
-              height={28}
-              className="rounded-lg"
+              width={20}
+              height={20}
+              className="rounded-full"
             />
-            <span className="text-sm font-semibold text-slate-900">ざせきくん</span>
+            <span className="text-xs font-medium text-white/90">ざせきくん</span>
           </div>
         </div>
-      </header>
 
-      <main className="max-w-lg mx-auto px-4 py-6">
-        {/* イベント情報 */}
+        {/* Event title overlay */}
+        <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3, duration: 0.6 }}
+          >
+            <p className="text-amber-200/90 text-xs tracking-[0.3em] uppercase font-medium mb-2">
+              INVITATION
+            </p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-white leading-tight tracking-wide">
+              {courseData.name}
+            </h1>
+          </motion.div>
+        </div>
+      </motion.div>
+
+      <main className="max-w-lg mx-auto px-4 sm:px-6 -mt-6 relative z-10 pb-12">
+
+        {/* Event Details Card */}
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-6"
+          custom={0}
+          variants={fadeInUp}
+          initial="hidden"
+          animate="visible"
+          className="bg-white rounded-2xl shadow-lg shadow-amber-900/5 border border-amber-100/60 p-6 mb-5"
         >
-          <h1 className="text-xl font-bold text-slate-900 mb-2">{courseData.name}</h1>
+          {/* Ornamental top border */}
+          <div className="flex items-center justify-center mb-5">
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-amber-300/60 to-transparent" />
+            <div className="mx-3 w-1.5 h-1.5 rounded-full bg-amber-400/70" />
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-amber-300/60 to-transparent" />
+          </div>
+
           {invitationSettings?.eventDescription && (
-            <p className="text-sm text-slate-600 leading-relaxed mb-3">
+            <p className="text-sm text-stone-600 leading-relaxed mb-5 text-center font-light">
               {invitationSettings.eventDescription}
             </p>
           )}
-          {invitationSettings?.eventLocation && (
-            <div className="flex items-start gap-2 text-sm text-slate-500 mb-1">
-              <MapPin className="h-4 w-4 text-indigo-500 mt-0.5 shrink-0" />
-              <div>
-                <span>{invitationSettings.eventLocation}</span>
-                {invitationSettings.eventLocationDetail && (
-                  <span className="text-slate-400 ml-1">({invitationSettings.eventLocationDetail})</span>
-                )}
-              </div>
-            </div>
+
+          {/* Location - clickable to Google Maps */}
+          {eventLocation && venueName && (
+            <a
+              href={getGoogleMapsUrl(eventLocation)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group flex items-center justify-center gap-2 text-sm text-amber-800 hover:text-amber-600 transition-colors py-2.5 px-4 rounded-xl bg-amber-50/60 hover:bg-amber-50 border border-amber-100/50 mx-auto mb-4"
+            >
+              <MapPin className="h-4 w-4 text-amber-500 shrink-0" />
+              <span className="font-medium">{venueName}</span>
+              <ExternalLink className="h-3 w-3 text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+            </a>
           )}
+
+          {/* Event Notes */}
           {invitationSettings?.eventNotes && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2 mt-3">
-              <Info className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-              <p className="text-sm text-amber-800 whitespace-pre-wrap">{invitationSettings.eventNotes}</p>
+            <div className="mt-4 pt-4 border-t border-amber-100/50">
+              <p className="text-xs text-stone-500 whitespace-pre-wrap leading-relaxed text-center">
+                {invitationSettings.eventNotes}
+              </p>
             </div>
           )}
+
+          {/* Ornamental bottom border */}
+          <div className="flex items-center justify-center mt-5">
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-amber-300/60 to-transparent" />
+            <div className="mx-3 w-1.5 h-1.5 rounded-full bg-amber-400/70" />
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-amber-300/60 to-transparent" />
+          </div>
         </motion.div>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            {/* 日時選択 */}
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+
+            {/* Date/Time Selection */}
             {invitationSettings && invitationSettings.dateSlots.length > 0 && (
               <motion.div
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
+                custom={1}
+                variants={fadeInUp}
+                initial="hidden"
+                animate="visible"
               >
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Calendar className="h-4 w-4 text-indigo-500" />
-                    <h2 className="text-sm font-semibold text-slate-800">
-                      参加日時を選択 <span className="text-red-500">*</span>
+                <div className="bg-white rounded-2xl shadow-lg shadow-amber-900/5 border border-amber-100/60 p-6">
+                  <div className="flex items-center gap-2.5 mb-4">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-amber-500 flex items-center justify-center shadow-sm">
+                      <Calendar className="h-4 w-4 text-white" />
+                    </div>
+                    <h2 className="text-sm font-semibold text-stone-800 tracking-wide">
+                      ご希望の日時 <span className="text-red-400 text-xs">*</span>
                     </h2>
                   </div>
                   <DateSlotPicker
@@ -277,23 +369,21 @@ export default function InvitationForm() {
               </motion.div>
             )}
 
-            {/* 参加者情報 */}
+            {/* Participant Info */}
             <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
+              custom={2}
+              variants={fadeInUp}
+              initial="hidden"
+              animate="visible"
             >
-              <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-4">
-                <h2 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
-                  <User className="h-4 w-4 text-indigo-500" />
-                  参加者情報
-                </h2>
-
-                <div className="bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2 flex items-start gap-2">
-                  <Info className="h-3.5 w-3.5 text-indigo-500 mt-0.5 shrink-0" />
-                  <p className="text-xs text-indigo-600">
-                    お名前・メールアドレス・電話番号は参加者情報として事前に設定されています。
-                  </p>
+              <div className="bg-white rounded-2xl shadow-lg shadow-amber-900/5 border border-amber-100/60 p-6 space-y-5">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-amber-500 flex items-center justify-center shadow-sm">
+                    <User className="h-4 w-4 text-white" />
+                  </div>
+                  <h2 className="text-sm font-semibold text-stone-800 tracking-wide">
+                    ご参加者情報
+                  </h2>
                 </div>
 
                 <FormField
@@ -301,14 +391,14 @@ export default function InvitationForm() {
                   name="respondentName"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-indigo-700">
-                        お名前 <span className="text-red-500">*</span>
+                      <FormLabel className="text-stone-700 text-xs font-medium tracking-wide">
+                        お名前 <span className="text-red-400">*</span>
                       </FormLabel>
                       <FormControl>
                         <Input
                           {...field}
                           placeholder="例: 田中太郎"
-                          className="border-indigo-200 focus:border-indigo-400"
+                          className="border-stone-200 focus:border-amber-400 focus:ring-amber-400/20 rounded-xl bg-stone-50/50 h-11"
                           style={{ fontSize: '16px' }}
                         />
                       </FormControl>
@@ -322,9 +412,9 @@ export default function InvitationForm() {
                   name="respondentEmail"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-indigo-700">
-                        <span className="flex items-center gap-1">
-                          <Mail className="h-3.5 w-3.5" />
+                      <FormLabel className="text-stone-700 text-xs font-medium tracking-wide">
+                        <span className="flex items-center gap-1.5">
+                          <Mail className="h-3 w-3 text-amber-500" />
                           メールアドレス
                         </span>
                       </FormLabel>
@@ -333,7 +423,7 @@ export default function InvitationForm() {
                           {...field}
                           type="email"
                           placeholder="example@email.com"
-                          className="border-indigo-200 focus:border-indigo-400"
+                          className="border-stone-200 focus:border-amber-400 focus:ring-amber-400/20 rounded-xl bg-stone-50/50 h-11"
                           style={{ fontSize: '16px' }}
                         />
                       </FormControl>
@@ -347,9 +437,9 @@ export default function InvitationForm() {
                   name="respondentPhone"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-indigo-700">
-                        <span className="flex items-center gap-1">
-                          <Phone className="h-3.5 w-3.5" />
+                      <FormLabel className="text-stone-700 text-xs font-medium tracking-wide">
+                        <span className="flex items-center gap-1.5">
+                          <Phone className="h-3 w-3 text-amber-500" />
                           電話番号
                         </span>
                       </FormLabel>
@@ -358,7 +448,7 @@ export default function InvitationForm() {
                           {...field}
                           type="tel"
                           placeholder="090-1234-5678"
-                          className="border-indigo-200 focus:border-indigo-400"
+                          className="border-stone-200 focus:border-amber-400 focus:ring-amber-400/20 rounded-xl bg-stone-50/50 h-11"
                           style={{ fontSize: '16px' }}
                         />
                       </FormControl>
@@ -369,14 +459,15 @@ export default function InvitationForm() {
               </div>
             </motion.div>
 
-            {/* カスタムフィールド */}
+            {/* Custom Fields */}
             {customFields.length > 0 && (
               <motion.div
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
+                custom={3}
+                variants={fadeInUp}
+                initial="hidden"
+                animate="visible"
               >
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-4">
+                <div className="bg-white rounded-2xl shadow-lg shadow-amber-900/5 border border-amber-100/60 p-6 space-y-5">
                   {customFields.map((field) => (
                     <DynamicFormField
                       key={field.id}
@@ -388,24 +479,29 @@ export default function InvitationForm() {
               </motion.div>
             )}
 
-            {/* エラー表示 */}
+            {/* Error Display */}
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-xl p-3 flex items-start gap-2">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-2.5"
+              >
                 <AlertCircle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
                 <p className="text-sm text-red-600">{error}</p>
-              </div>
+              </motion.div>
             )}
 
-            {/* 送信ボタン */}
+            {/* Submit Button */}
             <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
+              custom={4}
+              variants={fadeInUp}
+              initial="hidden"
+              animate="visible"
             >
               <Button
                 type="submit"
                 disabled={submitting}
-                className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-base rounded-xl shadow-sm"
+                className="w-full h-13 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-semibold text-base rounded-2xl shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 transition-all duration-300 border-0"
               >
                 {submitting ? (
                   <>
@@ -419,6 +515,19 @@ export default function InvitationForm() {
                   </>
                 )}
               </Button>
+            </motion.div>
+
+            {/* Footer branding */}
+            <motion.div
+              custom={5}
+              variants={fadeInUp}
+              initial="hidden"
+              animate="visible"
+              className="text-center pt-4 pb-2"
+            >
+              <p className="text-[10px] text-stone-400 tracking-wider">
+                Powered by ざせきくん
+              </p>
             </motion.div>
           </form>
         </Form>
