@@ -44,14 +44,14 @@ export default function PollResultsChart({
         return (
           <div key={i}>
             <div className="flex items-center justify-between mb-1">
-              <span className={`${large ? 'text-base' : 'text-sm'} font-medium text-slate-700`}>
+              <span className={`${large ? 'text-base' : 'text-sm'} font-medium ${large ? 'text-white' : 'text-slate-700'}`}>
                 {option}
               </span>
-              <span className={`${large ? 'text-base' : 'text-xs'} text-slate-500`}>
+              <span className={`${large ? 'text-base' : 'text-xs'} ${large ? 'text-slate-300' : 'text-slate-500'}`}>
                 {showPercentage ? `${pct}%` : ''} ({count})
               </span>
             </div>
-            <div className={`w-full ${large ? 'h-8' : 'h-6'} bg-slate-100 rounded-lg overflow-hidden`}>
+            <div className={`w-full ${large ? 'h-8' : 'h-6'} ${large ? 'bg-white/10' : 'bg-slate-100'} rounded-lg overflow-hidden`}>
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${width}%` }}
@@ -70,7 +70,7 @@ export default function PollResultsChart({
           </div>
         );
       })}
-      <p className={`${large ? 'text-sm' : 'text-xs'} text-slate-400 text-center`}>
+      <p className={`${large ? 'text-sm' : 'text-xs'} ${large ? 'text-slate-400' : 'text-slate-400'} text-center`}>
         投票数: {totalVotes}
       </p>
     </div>

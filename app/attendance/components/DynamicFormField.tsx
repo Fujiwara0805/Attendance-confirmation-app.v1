@@ -117,6 +117,44 @@ export default function DynamicFormField<T extends FieldValues>({
           />
         );
 
+      case 'region':
+        // 地域フィールド: 都道府県セレクト + 市町村テキスト入力
+        {
+          const parsed = (() => {
+            try {
+              if (typeof fieldValue === 'string' && fieldValue.includes('{')) return JSON.parse(fieldValue);
+            } catch { /* ignore */ }
+            return { prefecture: fieldValue || '', city: '' };
+          })();
+          const updateRegion = (part: 'prefecture' | 'city', val: string) => {
+            const updated = { ...parsed, [part]: val };
+            onChange(JSON.stringify(updated));
+          };
+          return (
+            <div className="space-y-2">
+              <Select onValueChange={(v) => updateRegion('prefecture', v)} value={parsed.prefecture || ''}>
+                <SelectTrigger className="border-indigo-200 focus:border-indigo-400" style={{ fontSize: '16px' }}>
+                  <SelectValue placeholder="都道府県を選択してください" />
+                </SelectTrigger>
+                <SelectContent>
+                  {field.options?.map((option, index) => (
+                    <SelectItem key={index} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input
+                placeholder="市区町村名を入力してください"
+                className="border-indigo-200 focus:border-indigo-400"
+                style={{ fontSize: '16px' }}
+                value={parsed.city || ''}
+                onChange={(e) => updateRegion('city', e.target.value)}
+              />
+            </div>
+          );
+        }
+
       case 'select':
         // 講義名フィールドの特別処理
         if (isClassNameField) {

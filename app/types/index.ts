@@ -40,7 +40,7 @@ export interface GlobalSettings {
 }
 
 // カスタムフォーム設定用の型定義を追加
-export type CustomFieldType = 'text' | 'textarea' | 'number' | 'date' | 'select' | 'radio' | 'checkbox';
+export type CustomFieldType = 'text' | 'textarea' | 'number' | 'date' | 'select' | 'radio' | 'checkbox' | 'region';
 
 export interface CustomFormField {
   id: string;

@@ -68,6 +68,12 @@ export function createDynamicSchema(fields: CustomFormField[], enabledDefaultFie
           : z.string().optional();
         break;
       
+      case 'region':
+        zodField = field.required
+          ? z.string().min(1, { message: `${field.label}を選択してください` })
+          : z.string().optional();
+        break;
+
       case 'checkbox':
         zodField = field.required
           ? z.boolean().refine((val) => val === true, { message: `${field.label}をチェックしてください` })
@@ -146,7 +152,8 @@ export const fieldTypeLabels: Record<CustomFieldType, string> = {
   date: '日付',
   select: 'セレクト',
   radio: 'ラジオボタン',
-  checkbox: 'チェックボックス'
+  checkbox: 'チェックボックス',
+  region: '地域'
 };
 
 // デフォルトフィールドの定義
@@ -360,8 +367,8 @@ export const presetFields: PresetField[] = [
     id: 'preset_region',
     name: 'region',
     label: '地域/エリア',
-    type: 'select',
-    description: '都道府県・市町村を選択',
+    type: 'region',
+    description: '都道府県・市町村を入力',
     category: 'basic',
     icon: 'MapPin',
     placeholder: '都道府県を選択してください',
