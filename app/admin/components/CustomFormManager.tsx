@@ -52,6 +52,7 @@ import {
   ChevronUp,
   CheckCircle,
   AlertTriangle,
+  Settings,
 } from 'lucide-react';
 import type { CustomFormField } from '@/app/types';
 import { defaultFields, fieldTypeLabels, presetFields, presetCategoryLabels, presetToCustomField, normalizeDefaultFields, type PresetField, type DefaultFieldEntry } from '@/lib/dynamicFormUtils';
@@ -114,6 +115,7 @@ export default function CustomFormManager({ onCourseAdded, onClose, editingCours
   const [savingCourse, setSavingCourse] = useState(false);
   const [showPresetPicker, setShowPresetPicker] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [editingOptionsFieldId, setEditingOptionsFieldId] = useState<string | null>(null);
   const [hasSubmissions, setHasSubmissions] = useState(false);
 
   // 位置情報設定
@@ -366,6 +368,32 @@ export default function CustomFormManager({ onCourseAdded, onClose, editingCours
     );
   };
 
+  // オプション更新（select / radio / region フィールド用）
+  const updateFieldOption = (fieldId: string, optionIndex: number, value: string) => {
+    setAllFields(prev => prev.map(f => {
+      if (f.id !== fieldId || !f.options) return f;
+      const newOptions = [...f.options];
+      newOptions[optionIndex] = value;
+      return { ...f, options: newOptions };
+    }));
+  };
+
+  const removeFieldOption = (fieldId: string, optionIndex: number) => {
+    setAllFields(prev => prev.map(f => {
+      if (f.id !== fieldId || !f.options) return f;
+      const newOptions = f.options.filter((_, i) => i !== optionIndex);
+      return { ...f, options: newOptions };
+    }));
+  };
+
+  const addFieldOption = (fieldId: string) => {
+    setAllFields(prev => prev.map(f => {
+      if (f.id !== fieldId) return f;
+      const newOptions = [...(f.options || []), ''];
+      return { ...f, options: newOptions };
+    }));
+  };
+
   // 講義作成 / 更新
   const handleAddCustomCourse = async (data: CourseFormData) => {
     setSavingCourse(true);
@@ -508,70 +536,126 @@ export default function CustomFormManager({ onCourseAdded, onClose, editingCours
         <CardContent className="pt-0">
           <div className="space-y-1.5">
             <AnimatePresence>
-              {enabledFields.map((field, index) => (
+              {enabledFields.map((field, index) => {
+                const hasEditableOptions = field.name === 'pricing_plan' || field.name === 'payment_method';
+                const isEditingOptions = editingOptionsFieldId === field.id;
+                return (
                 <motion.div
                   key={field.id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, x: -20 }}
-                  className="flex items-center gap-1.5 h-11 px-2 rounded-md border border-slate-200 bg-white hover:border-slate-300 transition-colors"
+                  className="rounded-md border border-slate-200 bg-white hover:border-slate-300 transition-colors"
                 >
-                  {/* ドラッグハンドル */}
-                  <GripVertical className="h-3.5 w-3.5 text-slate-300 shrink-0 cursor-grab" />
+                  <div className="flex items-center gap-1.5 h-11 px-2">
+                    {/* ドラッグハンドル */}
+                    <GripVertical className="h-3.5 w-3.5 text-slate-300 shrink-0 cursor-grab" />
 
-                  {/* 項目名 */}
-                  <span className="flex-1 min-w-0 text-xs font-medium text-slate-700 truncate">{field.label}</span>
+                    {/* 項目名 */}
+                    <span className="flex-1 min-w-0 text-xs font-medium text-slate-700 truncate">{field.label}</span>
 
-                  {/* 並び替え（上下矢印） */}
-                  <div className="flex items-center gap-0.5 shrink-0">
+                    {/* オプション編集ボタン（select / radio フィールド） */}
+                    {hasEditableOptions && (
+                      <button
+                        type="button"
+                        onClick={() => setEditingOptionsFieldId(isEditingOptions ? null : field.id)}
+                        disabled={hasSubmissions}
+                        className={`p-1 rounded transition-colors shrink-0 ${isEditingOptions ? 'bg-indigo-100 text-indigo-600' : 'text-slate-400 hover:text-indigo-600 hover:bg-slate-100'} ${hasSubmissions ? 'opacity-20 cursor-not-allowed' : ''}`}
+                        title="オプションを編集"
+                      >
+                        <Settings className="h-3 w-3" />
+                      </button>
+                    )}
+
+                    {/* 並び替え（上下矢印） */}
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => moveField(index, Math.max(0, index - 1))}
+                        disabled={index === 0 || hasSubmissions}
+                        className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-indigo-600 disabled:opacity-20 disabled:hover:bg-transparent transition-colors"
+                      >
+                        <ArrowUp className="h-3 w-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveField(index, Math.min(enabledFields.length - 1, index + 1))}
+                        disabled={index === enabledFields.length - 1 || hasSubmissions}
+                        className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-indigo-600 disabled:opacity-20 disabled:hover:bg-transparent transition-colors"
+                      >
+                        <ArrowDown className="h-3 w-3" />
+                      </button>
+                    </div>
+
+                    {/* 必須/任意 ドロップダウン */}
+                    <select
+                      value={field.required ? 'required' : 'optional'}
+                      onChange={(e) => {
+                        const newRequired = e.target.value === 'required';
+                        if (newRequired !== field.required) toggleRequired(field.id);
+                      }}
+                      disabled={hasSubmissions}
+                      className={`text-[10px] font-medium h-6 px-1 pr-4 rounded border appearance-none bg-no-repeat bg-[right_2px_center] bg-[length:10px] cursor-pointer outline-none transition-colors ${
+                        field.required
+                          ? 'border-red-200 bg-red-50 text-red-600'
+                          : 'border-slate-200 bg-slate-50 text-slate-500'
+                      } ${hasSubmissions ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")` }}
+                    >
+                      <option value="required">必須</option>
+                      <option value="optional">任意</option>
+                    </select>
+
+                    {/* 削除 */}
                     <button
                       type="button"
-                      onClick={() => moveField(index, Math.max(0, index - 1))}
-                      disabled={index === 0 || hasSubmissions}
-                      className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-indigo-600 disabled:opacity-20 disabled:hover:bg-transparent transition-colors"
+                      onClick={() => handleDeleteField(field.id)}
+                      disabled={hasSubmissions}
+                      className={`p-0.5 rounded text-red-400 hover:text-red-600 transition-colors shrink-0 ${hasSubmissions ? 'opacity-20 cursor-not-allowed' : ''}`}
                     >
-                      <ArrowUp className="h-3 w-3" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => moveField(index, Math.min(enabledFields.length - 1, index + 1))}
-                      disabled={index === enabledFields.length - 1 || hasSubmissions}
-                      className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-indigo-600 disabled:opacity-20 disabled:hover:bg-transparent transition-colors"
-                    >
-                      <ArrowDown className="h-3 w-3" />
+                      {field.isDefault ? <X className="h-3 w-3" /> : <Trash2 className="h-3 w-3" />}
                     </button>
                   </div>
 
-                  {/* 必須/任意 ドロップダウン */}
-                  <select
-                    value={field.required ? 'required' : 'optional'}
-                    onChange={(e) => {
-                      const newRequired = e.target.value === 'required';
-                      if (newRequired !== field.required) toggleRequired(field.id);
-                    }}
-                    disabled={hasSubmissions}
-                    className={`text-[10px] font-medium h-6 px-1 pr-4 rounded border appearance-none bg-no-repeat bg-[right_2px_center] bg-[length:10px] cursor-pointer outline-none transition-colors ${
-                      field.required
-                        ? 'border-red-200 bg-red-50 text-red-600'
-                        : 'border-slate-200 bg-slate-50 text-slate-500'
-                    } ${hasSubmissions ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")` }}
-                  >
-                    <option value="required">必須</option>
-                    <option value="optional">任意</option>
-                  </select>
-
-                  {/* 削除 */}
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteField(field.id)}
-                    disabled={hasSubmissions}
-                    className={`p-0.5 rounded text-red-400 hover:text-red-600 transition-colors shrink-0 ${hasSubmissions ? 'opacity-20 cursor-not-allowed' : ''}`}
-                  >
-                    {field.isDefault ? <X className="h-3 w-3" /> : <Trash2 className="h-3 w-3" />}
-                  </button>
+                  {/* オプション編集エリア（select / radio フィールド） */}
+                  {hasEditableOptions && isEditingOptions && (
+                    <div className="px-3 pb-3 pt-1 border-t border-slate-100">
+                      <p className="text-[10px] text-slate-400 mb-2">選択肢を編集</p>
+                      <div className="space-y-1.5">
+                        {(field.options || []).map((option, optIndex) => (
+                          <div key={optIndex} className="flex items-center gap-1.5">
+                            <Input
+                              value={option}
+                              onChange={(e) => updateFieldOption(field.id, optIndex, e.target.value)}
+                              disabled={hasSubmissions}
+                              className="h-7 text-xs flex-1"
+                              placeholder={`選択肢 ${optIndex + 1}`}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeFieldOption(field.id, optIndex)}
+                              disabled={hasSubmissions}
+                              className="p-1 rounded text-red-400 hover:text-red-600 transition-colors shrink-0 disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => addFieldOption(field.id)}
+                        disabled={hasSubmissions}
+                        className="mt-2 w-full py-1.5 text-xs text-slate-400 border border-dashed border-slate-200 rounded-md hover:text-indigo-500 hover:border-indigo-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                      >
+                        <Plus className="h-3 w-3 inline mr-1" />
+                        オプション追加
+                      </button>
+                    </div>
+                  )}
                 </motion.div>
-              ))}
+                );
+              })}
             </AnimatePresence>
           </div>
 
