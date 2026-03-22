@@ -27,11 +27,6 @@ export async function POST(req: NextRequest) {
       customFields = {},  // カスタムフィールドのデータ {fieldName: value}
     } = body;
 
-    // 必須フィールドの検証
-    if (!student_id || !name) {
-      return NextResponse.json({ message: 'student_id and name are required' }, { status: 400 });
-    }
-
     if (!latitude || !longitude) {
       return NextResponse.json({ message: 'Location data is required' }, { status: 400 });
     }
@@ -96,16 +91,23 @@ export async function POST(req: NextRequest) {
       isOnCampus = distance <= settings.radius;
     }
 
+    // customFieldsからデフォルトフィールド相当の値をフォールバック取得（NOT NULL制約対応: 空文字列をデフォルトに）
+    const resolvedStudentId = student_id || customFields?.student_id || '';
+    const resolvedName = name || customFields?.name || '';
+    const resolvedGrade = grade || customFields?.grade || '';
+    const resolvedDepartment = department || customFields?.department || '';
+    const resolvedFeedback = feedback || customFields?.feedback || '';
+
     // 出席データ挿入
     const { data: attendance, error: insertError } = await supabase
       .from('attendance')
       .insert({
         course_id: course.id,
-        student_id,
-        student_name: name,
-        grade: grade ? parseInt(grade) : null,
-        department: department || null,
-        feedback: feedback || null,
+        student_id: resolvedStudentId,
+        student_name: resolvedName,
+        grade: resolvedGrade ? parseInt(resolvedGrade) : null,
+        department: resolvedDepartment,
+        feedback: resolvedFeedback,
         custom_data: customFields,
         latitude,
         longitude,

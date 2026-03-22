@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { Control, FieldValues, Path } from 'react-hook-form';
 import {
   FormControl,
@@ -173,49 +172,6 @@ export default function DynamicFormField<T extends FieldValues>({
                 <SelectItem value="4">4年</SelectItem>
               </SelectContent>
             </Select>
-          );
-        }
-
-        // 地域/エリアフィールドの特別処理（都道府県 + 市町村）
-        if (field.name === 'region') {
-          const currentValue = fieldValue || '';
-          const parts = currentValue.split(' ');
-          const prefecture = parts[0] || '';
-          const city = parts.slice(1).join(' ') || '';
-
-          return (
-            <div className="space-y-2">
-              <Select
-                onValueChange={(pref) => {
-                  const newValue = city ? `${pref} ${city}` : pref;
-                  onChange(newValue);
-                }}
-                value={prefecture}
-              >
-                <SelectTrigger className="border-indigo-200 focus:border-indigo-400" style={{ fontSize: '16px' }}>
-                  <SelectValue placeholder="都道府県を選択" />
-                </SelectTrigger>
-                <SelectContent>
-                  {field.options?.map((option, index) => (
-                    <SelectItem key={index} value={option}>
-                      {option}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {prefecture && (
-                <Input
-                  placeholder="市町村を入力（例: 大分市）"
-                  className="border-indigo-200 focus:border-indigo-400"
-                  style={{ fontSize: '16px' }}
-                  value={city}
-                  onChange={(e) => {
-                    const newValue = e.target.value ? `${prefecture} ${e.target.value}` : prefecture;
-                    onChange(newValue);
-                  }}
-                />
-              )}
-            </div>
           );
         }
 

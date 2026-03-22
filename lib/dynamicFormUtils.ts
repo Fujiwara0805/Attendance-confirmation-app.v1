@@ -1,13 +1,13 @@
 import { z } from 'zod';
 import { CustomFormField, CustomFieldType } from '@/app/types';
 
-/** enabled_default_fields の要素（後方互換: string | { key, required } ） */
+/** enabled_default_fields の要素（後方互換: string | { key, required }） */
 export type DefaultFieldEntry = string | { key: string; required: boolean };
 
 /** enabled_default_fields を正規化して { key, required } の配列に変換 */
 export function normalizeDefaultFields(entries: DefaultFieldEntry[]): { key: string; required: boolean }[] {
   return entries.map(entry =>
-    typeof entry === 'string' ? { key: entry, required: false } : entry
+    typeof entry === 'string' ? { key: entry, required: true } : entry
   );
 }
 
@@ -29,13 +29,7 @@ export function createDynamicSchema(fields: CustomFormField[], enabledDefaultFie
   const normalized = normalizeDefaultFields(enabledDefaultFields);
   for (const { key, required } of normalized) {
     if (key === 'class_name') {
-      // フォーム名は常にオプショナル（セレクトで選ぶため）
       schemaObject.class_name = z.string().optional();
-    } else if (key === 'feedback') {
-      // テキストエリア
-      schemaObject[key] = required
-        ? z.string().min(1, { message: defaultFieldMessages[key] || `${key}を入力してください` })
-        : z.string().optional();
     } else {
       schemaObject[key] = required
         ? z.string().min(1, { message: defaultFieldMessages[key] || `${key}を入力してください` })

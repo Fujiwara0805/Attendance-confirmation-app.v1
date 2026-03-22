@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
     const supabase = createServerClient();
 
     // 講義情報を取得してオーナーチェック
-    let courseQuery = supabase.from('courses').select('id, code, name, teacher_email, category');
+    let courseQuery = supabase.from('courses').select('id, code, name, teacher_email, category, custom_fields');
     if (courseId) {
       courseQuery = courseQuery.eq('id', courseId);
     } else {
@@ -103,44 +103,44 @@ export async function GET(req: NextRequest) {
 
     // CSV形式（Excel対応BOM付き）
     const csvRows: string[] = [];
+    const customFieldDefs: Array<{ name: string; label: string }> = course.custom_fields || [];
+    const isCustomForm = customFieldDefs.length > 0;
 
-    // ヘッダー行（出席ID, フィードバック, 緯度, 経度, キャンパス内 は除外）
-    const headers = [
-      '学籍番号', '氏名', '学年', '学科・コース',
-      '出席日', '登録日時'
-    ];
+    if (isCustomForm) {
+      // カスタムフォーム: custom_fieldsに定義された項目のみ出力
+      const headers = customFieldDefs.map((f: any) => f.label || f.name);
+      headers.push('出席日', '登録日時');
+      csvRows.push(headers.map(h => `"${h}"`).join(','));
 
-    // カスタムデータのキーを収集
-    const customKeys = new Set<string>();
-    records.forEach(r => {
-      if (r.custom_data && typeof r.custom_data === 'object') {
-        Object.keys(r.custom_data).forEach(k => customKeys.add(k));
-      }
-    });
-    const customKeysArray = Array.from(customKeys);
-    customKeysArray.forEach(k => headers.push(k));
-
-    csvRows.push(headers.map(h => `"${h}"`).join(','));
-
-    // データ行（出席ID, フィードバック, 緯度, 経度, キャンパス内 は除外）
-    records.forEach(r => {
-      const row = [
-        r.student_id || '',
-        r.student_name || '',
-        r.grade || '',
-        r.department || '',
-        r.attended_at || '',
-        r.created_at || '',
-      ];
-
-      // カスタムデータ追加
-      customKeysArray.forEach(k => {
-        const val = r.custom_data?.[k] || '';
-        row.push(String(val).replace(/"/g, '""').replace(/\n/g, ' '));
+      records.forEach(r => {
+        const row = customFieldDefs.map((f: any) => {
+          const val = r.custom_data?.[f.name] ?? '';
+          return String(val).replace(/"/g, '""').replace(/\n/g, ' ');
+        });
+        row.push(r.attended_at || '', r.created_at || '');
+        csvRows.push(row.map(v => `"${v}"`).join(','));
       });
+    } else {
+      // 標準出席フォーム: デフォルト7項目を出力
+      const headers = [
+        '学籍番号', '氏名', '学年', '学科・コース',
+        'レポート・感想', '出席日', '登録日時'
+      ];
+      csvRows.push(headers.map(h => `"${h}"`).join(','));
 
-      csvRows.push(row.map(v => `"${v}"`).join(','));
-    });
+      records.forEach(r => {
+        const row = [
+          r.student_id || '',
+          r.student_name || '',
+          r.grade || '',
+          r.department || '',
+          r.feedback || '',
+          r.attended_at || '',
+          r.created_at || '',
+        ];
+        csvRows.push(row.map(v => `"${v}"`).join(','));
+      });
+    }
 
     const csvContent = csvRows.join('\n');
     const BOM = '\uFEFF';

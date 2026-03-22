@@ -51,6 +51,7 @@ import {
   ChevronDown,
   ChevronUp,
   CheckCircle,
+  AlertTriangle,
 } from 'lucide-react';
 import type { CustomFormField } from '@/app/types';
 import { defaultFields, fieldTypeLabels, presetFields, presetCategoryLabels, presetToCustomField, normalizeDefaultFields, type PresetField, type DefaultFieldEntry } from '@/lib/dynamicFormUtils';
@@ -92,7 +93,7 @@ interface EditingCourseData {
   courseName: string;
   teacherName: string;
   customFields?: any[];
-  enabledDefaultFields?: DefaultFieldEntry[];
+  enabledDefaultFields?: string[];
   locationSettings?: {
     latitude: number;
     longitude: number;
@@ -113,6 +114,7 @@ export default function CustomFormManager({ onCourseAdded, onClose, editingCours
   const [savingCourse, setSavingCourse] = useState(false);
   const [showPresetPicker, setShowPresetPicker] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [hasSubmissions, setHasSubmissions] = useState(false);
 
   // 位置情報設定
   const [enableLocation, setEnableLocation] = useState(false);
@@ -207,17 +209,47 @@ export default function CustomFormManager({ onCourseAdded, onClose, editingCours
     },
   });
 
+  // 編集時に出席データの存在チェック
+  useEffect(() => {
+    if (!editingCourse?.code) return;
+    const checkSubmissions = async () => {
+      try {
+        const res = await fetch(`/api/v2/attendance/export?course_code=${editingCourse.code}&format=json`);
+        if (!res.ok) return;
+        const data = await res.json();
+        setHasSubmissions((data.totalRecords || 0) > 0);
+      } catch {
+        // エラー時は編集を許可（安全側に倒す）
+      }
+    };
+    checkSubmissions();
+  }, [editingCourse?.code]);
+
   // 初期化時にデフォルトフィールドをセット
   useEffect(() => {
     const enabledDefaults = editingCourse?.enabledDefaultFields || [];
     const existingCustomFields = editingCourse?.customFields || [];
 
-    // enabled_default_fields を正規化して required 状態を復元
-    const normalizedDefaults = normalizeDefaultFields(enabledDefaults);
-    const enabledKeysSet = new Set(normalizedDefaults.map(d => d.key));
-    const requiredMap = new Map(normalizedDefaults.map(d => [d.key, d.required]));
+    const defaultFieldKeys = new Set(defaultFields.map(f => f.key));
 
-    // デフォルトフィールドを初期化（初期設定は任意: required: false）
+    // customFieldsの中からデフォルトフィールドに該当するものを検出（新形式対応）
+    const defaultFieldsInCustom = existingCustomFields.filter((cf: any) => defaultFieldKeys.has(cf.name));
+    const nonDefaultCustomFields = existingCustomFields.filter((cf: any) => !defaultFieldKeys.has(cf.name));
+
+    // 旧形式（enabledDefaultFields）の正規化
+    const normalizedDefaults = normalizeDefaultFields(enabledDefaults as DefaultFieldEntry[]);
+    const enabledFromOldFormat = new Set(normalizedDefaults.map(d => d.key));
+    const requiredFromOldFormat = new Map(normalizedDefaults.map(d => [d.key, d.required]));
+
+    // 新形式（customFields内のデフォルトフィールド）
+    const enabledFromNewFormat = new Set(defaultFieldsInCustom.map((cf: any) => cf.name));
+    const requiredFromNewFormat = new Map(defaultFieldsInCustom.map((cf: any) => [cf.name, cf.required ?? false]));
+
+    // 両方をマージ（後方互換性を維持）
+    const enabledKeysSet = new Set([...Array.from(enabledFromOldFormat), ...Array.from(enabledFromNewFormat)]);
+    const requiredMap = new Map([...Array.from(requiredFromOldFormat), ...Array.from(requiredFromNewFormat)]);
+
+    // デフォルトフィールドを初期化（編集時は有効状態・required状態を復元）
     const initialDefaultFields: UnifiedFormField[] = defaultFields.map((field, index) => ({
       id: `default_${field.key}`,
       name: field.key,
@@ -233,8 +265,8 @@ export default function CustomFormManager({ onCourseAdded, onClose, editingCours
       isEnabled: enabledKeysSet.has(field.key),
     }));
 
-    // カスタムフィールドを復元（編集時）
-    const initialCustomFields: UnifiedFormField[] = existingCustomFields.map((cf: any, index: number) => ({
+    // 非デフォルトのカスタムフィールドのみ復元（編集時）
+    const initialCustomFields: UnifiedFormField[] = nonDefaultCustomFields.map((cf: any, index: number) => ({
       id: cf.id || `custom_${Date.now()}_${index}`,
       name: cf.name,
       label: cf.label,
@@ -339,10 +371,20 @@ export default function CustomFormManager({ onCourseAdded, onClose, editingCours
     setSavingCourse(true);
     try {
       const enabledFields = allFields.filter(f => f.isEnabled);
-      const customFields = enabledFields.filter(f => !f.isDefault);
-      const enabledDefaultFields = enabledFields
-        .filter(f => f.isDefault)
-        .map(f => ({ key: f.originalKey || f.name, required: f.required }));
+      // すべての有効フィールドをcustomFieldsとして送信（デフォルトフィールドも含む）
+      const customFields = enabledFields.map((f, index) => ({
+        id: f.id,
+        name: f.originalKey || f.name,
+        label: f.label,
+        type: f.type,
+        required: f.required,
+        placeholder: f.placeholder || '',
+        description: f.description || '',
+        options: f.options || [],
+        order: index,
+      }));
+      // デフォルトフィールドもcustomFieldsに統合したため空配列を送信
+      const enabledDefaultFields: any[] = [];
 
       const locationSettings = enableLocation ? {
         latitude,
@@ -407,7 +449,7 @@ export default function CustomFormManager({ onCourseAdded, onClose, editingCours
           name: field.key,
           label: field.label,
           type: field.type,
-          required: true,
+          required: false,
           placeholder: '',
           description: '',
           options: field.key === 'grade' ? ['1', '2', '3', '4'] : [],
@@ -443,6 +485,16 @@ export default function CustomFormManager({ onCourseAdded, onClose, editingCours
 
   return (
     <div className="space-y-5">
+      {/* 送信データ存在時の警告 */}
+      {hasSubmissions && (
+        <div className="flex items-start gap-3 p-4 rounded-lg border border-amber-200 bg-amber-50 text-amber-800">
+          <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+          <p className="text-sm leading-relaxed">
+            出席データが存在するため、フォーム項目の追加・削除・編集はできません。変更が必要な場合は、新しいフォームを作成してください。
+          </p>
+        </div>
+      )}
+
       {/* 現在のフォーム構成 */}
       <Card className="border-slate-200 shadow-sm">
         <CardHeader className="pb-3">
@@ -475,7 +527,7 @@ export default function CustomFormManager({ onCourseAdded, onClose, editingCours
                     <button
                       type="button"
                       onClick={() => moveField(index, Math.max(0, index - 1))}
-                      disabled={index === 0}
+                      disabled={index === 0 || hasSubmissions}
                       className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-indigo-600 disabled:opacity-20 disabled:hover:bg-transparent transition-colors"
                     >
                       <ArrowUp className="h-3 w-3" />
@@ -483,7 +535,7 @@ export default function CustomFormManager({ onCourseAdded, onClose, editingCours
                     <button
                       type="button"
                       onClick={() => moveField(index, Math.min(enabledFields.length - 1, index + 1))}
-                      disabled={index === enabledFields.length - 1}
+                      disabled={index === enabledFields.length - 1 || hasSubmissions}
                       className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-indigo-600 disabled:opacity-20 disabled:hover:bg-transparent transition-colors"
                     >
                       <ArrowDown className="h-3 w-3" />
@@ -497,11 +549,12 @@ export default function CustomFormManager({ onCourseAdded, onClose, editingCours
                       const newRequired = e.target.value === 'required';
                       if (newRequired !== field.required) toggleRequired(field.id);
                     }}
+                    disabled={hasSubmissions}
                     className={`text-[10px] font-medium h-6 px-1 pr-4 rounded border appearance-none bg-no-repeat bg-[right_2px_center] bg-[length:10px] cursor-pointer outline-none transition-colors ${
                       field.required
                         ? 'border-red-200 bg-red-50 text-red-600'
                         : 'border-slate-200 bg-slate-50 text-slate-500'
-                    }`}
+                    } ${hasSubmissions ? 'opacity-50 cursor-not-allowed' : ''}`}
                     style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")` }}
                   >
                     <option value="required">必須</option>
@@ -512,7 +565,8 @@ export default function CustomFormManager({ onCourseAdded, onClose, editingCours
                   <button
                     type="button"
                     onClick={() => handleDeleteField(field.id)}
-                    className="p-0.5 rounded text-red-400 hover:text-red-600 transition-colors shrink-0"
+                    disabled={hasSubmissions}
+                    className={`p-0.5 rounded text-red-400 hover:text-red-600 transition-colors shrink-0 ${hasSubmissions ? 'opacity-20 cursor-not-allowed' : ''}`}
                   >
                     {field.isDefault ? <X className="h-3 w-3" /> : <Trash2 className="h-3 w-3" />}
                   </button>
@@ -531,7 +585,8 @@ export default function CustomFormManager({ onCourseAdded, onClose, editingCours
                     key={field.id}
                     type="button"
                     onClick={() => toggleFieldEnabled(field.id)}
-                    className="inline-flex items-center gap-0.5 px-2 py-0.5 text-[11px] bg-slate-50 text-slate-500 rounded border border-slate-200 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-colors"
+                    disabled={hasSubmissions}
+                    className={`inline-flex items-center gap-0.5 px-2 py-0.5 text-[11px] bg-slate-50 text-slate-500 rounded border border-slate-200 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-colors ${hasSubmissions ? 'opacity-50 cursor-not-allowed hover:bg-slate-50 hover:text-slate-500 hover:border-slate-200' : ''}`}
                   >
                     <Plus className="h-2.5 w-2.5" />
                     {field.label}
@@ -547,7 +602,8 @@ export default function CustomFormManager({ onCourseAdded, onClose, editingCours
               type="button"
               variant="outline"
               onClick={() => setShowPresetPicker(!showPresetPicker)}
-              className="w-full h-10 text-sm border-dashed border-slate-300 text-slate-500 hover:text-indigo-600 hover:border-indigo-300 hover:bg-indigo-50/50"
+              disabled={hasSubmissions}
+              className={`w-full h-10 text-sm border-dashed border-slate-300 text-slate-500 hover:text-indigo-600 hover:border-indigo-300 hover:bg-indigo-50/50 ${hasSubmissions ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               <Plus className="h-4 w-4 mr-2" />
               {showPresetPicker ? '項目選択を閉じる' : '項目を追加する'}

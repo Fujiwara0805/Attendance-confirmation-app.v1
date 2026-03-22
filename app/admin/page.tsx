@@ -399,7 +399,10 @@ export default function AdminPage() {
           createdBy: '',
           createdAt: c.created_at || '',
           lastUpdated: c.created_at || '',
-          isCustomForm: (c.custom_fields && c.custom_fields.length > 0) || false,
+          isCustomForm: (c.custom_fields && c.custom_fields.length > 0) ||
+            (c.enabled_default_fields && Array.isArray(c.enabled_default_fields) &&
+              c.enabled_default_fields.length > 0 &&
+              c.enabled_default_fields.length !== 7) || false,
           customFields: c.custom_fields || [],
           enabledDefaultFields: c.enabled_default_fields || [],
           locationSettings: c.location_settings || undefined,
@@ -1636,7 +1639,12 @@ export default function AdminPage() {
                                   : 'bg-indigo-50 text-indigo-600'
                               }
                             `}>
-                              {course.formType === 'invitation' ? <Users className="h-4 w-4" /> : <BookOpen className="h-4 w-4" />}
+                              {course.formType === 'invitation'
+                                ? <Users className="h-4 w-4" />
+                                : course.isCustomForm
+                                  ? <Sparkles className="h-4 w-4" />
+                                  : <FileText className="h-4 w-4" />
+                              }
                             </div>
                             <div className="min-w-0">
                               <div className="flex items-center gap-1.5">

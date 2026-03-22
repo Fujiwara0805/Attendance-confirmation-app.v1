@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -90,7 +90,9 @@ export default function DynamicAttendanceForm() {
   // 動的フォーム設定用の状態
   const [formConfig, setFormConfig] = useState<CourseFormConfig | null>(null);
   const [customFields, setCustomFields] = useState<CustomFormField[]>([]);
-  const [enabledDefaultFields, setEnabledDefaultFields] = useState<DefaultFieldEntry[]>([]);
+  const [enabledDefaultFields, setEnabledDefaultFields] = useState<DefaultFieldEntry[]>([
+    'date', 'class_name', 'student_id', 'grade', 'name', 'department', 'feedback'
+  ]);
   const [dynamicSchema, setDynamicSchema] = useState<any>(defaultFormSchema);
   
   const [locationInfo, setLocationInfo] = useState<{
@@ -118,22 +120,9 @@ export default function DynamicAttendanceForm() {
     locationName?: string;
   } | null>(null);
 
-  // 動的スキーマのrefを保持（resolverが常に最新スキーマを参照できるようにする）
-  const dynamicSchemaRef = useRef(dynamicSchema);
-
-  // スキーマrefを常に最新に保つ
-  useEffect(() => {
-    dynamicSchemaRef.current = dynamicSchema;
-  }, [dynamicSchema]);
-
   // 動的フォームの初期化
-  // resolverをラップし、常にrefから最新スキーマを読み取ることで、
-  // フィールド削除後も古いスキーマでバリデーションされるバグを防止
   const form = useForm({
-    resolver: async (values, context, options) => {
-      const currentResolver = zodResolver(dynamicSchemaRef.current);
-      return currentResolver(values, context, options);
-    },
+    resolver: zodResolver(dynamicSchema),
     defaultValues: createDefaultValues(customFields, enabledDefaultFields),
     mode: 'onChange',
   });
@@ -142,31 +131,20 @@ export default function DynamicAttendanceForm() {
   useEffect(() => {
     const newSchema = createDynamicSchema(customFields, enabledDefaultFields);
     setDynamicSchema(newSchema);
-    dynamicSchemaRef.current = newSchema;
     const newDefaultValues = createDefaultValues(customFields, enabledDefaultFields);
-
-    // 新しいスキーマに存在するフィールド名のセットを取得
-    const validFieldNames = new Set(Object.keys(newDefaultValues));
-
+    
     // 現在の値を保持しつつ、新しいデフォルト値をマージ
-    // 削除されたフィールドの値は含めない（古いバリデーションエラーの原因になるため）
     const currentValues = form.getValues();
-    const filteredCurrentValues: Record<string, any> = {};
-    for (const key of Object.keys(currentValues)) {
-      if (validFieldNames.has(key)) {
-        filteredCurrentValues[key] = currentValues[key];
-      }
-    }
-    const mergedValues = { ...newDefaultValues, ...filteredCurrentValues };
-
+    const mergedValues = { ...newDefaultValues, ...currentValues };
+    
     // 講義名が既に設定されている場合は保持する
-    if (targetCourse && filteredCurrentValues.class_name) {
-      mergedValues.class_name = filteredCurrentValues.class_name;
-    } else if (targetCourse && !filteredCurrentValues.class_name) {
+    if (targetCourse && currentValues.class_name) {
+      mergedValues.class_name = currentValues.class_name;
+    } else if (targetCourse && !currentValues.class_name) {
       // targetCourseがあるが、フォームに講義名が設定されていない場合は設定
       mergedValues.class_name = targetCourse.courseName;
     }
-
+    
     form.reset(mergedValues);
   }, [customFields, enabledDefaultFields, form, targetCourse]);
 
@@ -221,12 +199,8 @@ export default function DynamicAttendanceForm() {
         if (course.custom_fields && Array.isArray(course.custom_fields) && course.custom_fields.length > 0) {
           setCustomFields(course.custom_fields);
         }
-
-        // enabled_default_fieldsの設定（course → template → フォールバック の優先順）
-        let hasEnabledDefaultFields = false;
         if (course.enabled_default_fields && Array.isArray(course.enabled_default_fields)) {
           setEnabledDefaultFields(course.enabled_default_fields);
-          hasEnabledDefaultFields = true;
         }
 
         // テンプレートからフィールド情報を取得
@@ -235,12 +209,6 @@ export default function DynamicAttendanceForm() {
         }
         if (response.template?.enabled_default_fields) {
           setEnabledDefaultFields(response.template.enabled_default_fields);
-          hasEnabledDefaultFields = true;
-        }
-
-        // courseにもtemplateにもenabled_default_fieldsがない場合は全デフォルトフィールドを使用（後方互換性）
-        if (!hasEnabledDefaultFields) {
-          setEnabledDefaultFields(['date', 'class_name', 'student_id', 'grade', 'name', 'department', 'feedback']);
         }
 
         // 位置情報設定を反映
@@ -390,8 +358,7 @@ export default function DynamicAttendanceForm() {
       if (courseId) {
         fetchTargetCourse();
       } else {
-        // courseIdがない場合は講義データ取得不要 → デフォルトフィールドを全て有効にしてロード完了
-        setEnabledDefaultFields(['date', 'class_name', 'student_id', 'grade', 'name', 'department', 'feedback']);
+        // courseIdがない場合は講義データ取得不要 → 即座にロード完了
         setCourseDataLoaded(true);
       }
     }
@@ -544,28 +511,36 @@ export default function DynamicAttendanceForm() {
     const latitude = locationInfo.latitude || campusCenter?.latitude || 33.1751332;
     const longitude = locationInfo.longitude || campusCenter?.longitude || 131.6138803;
 
-    // Supabase v2 API用のリクエストボディ
-    const requestBody = {
+    // Supabase v2 API用のリクエストボディ（有効なフィールドのみ送信）
+    const enabledKeys = new Set(normalizeDefaultFields(enabledDefaultFields).map(d => d.key));
+    const requestBody: Record<string, any> = {
       courseCode: courseId, // QRコードのコード
       courseId: targetCourse?.id, // Supabase内部ID
-      student_id: values.student_id,
-      name: values.name,
-      grade: values.grade,
-      department: values.department,
-      feedback: values.feedback,
       latitude,
       longitude,
-      customFields: (() => {
-        // カスタムフィールドのデータを抽出
-        const customData: Record<string, any> = {};
-        customFields.forEach(field => {
-          if (values[field.name] !== undefined) {
-            customData[field.name] = values[field.name];
-          }
-        });
-        return customData;
-      })(),
     };
+    // 有効なデフォルトフィールドのみリクエストに含める
+    if (enabledKeys.has('student_id')) requestBody.student_id = values.student_id || '';
+    if (enabledKeys.has('name')) requestBody.name = values.name || '';
+    if (enabledKeys.has('grade')) requestBody.grade = values.grade || '';
+    if (enabledKeys.has('department')) requestBody.department = values.department || '';
+    if (enabledKeys.has('feedback')) requestBody.feedback = values.feedback || '';
+
+    // カスタムフィールドのデータを抽出
+    const customData: Record<string, any> = {};
+    customFields.forEach(field => {
+      if (values[field.name] !== undefined) {
+        customData[field.name] = values[field.name];
+      }
+    });
+    requestBody.customFields = customData;
+
+    // customFieldsに含まれるデフォルトフィールド相当の値もトップレベルに設定（データ整合性のため）
+    if (customData.student_id && !requestBody.student_id) requestBody.student_id = customData.student_id;
+    if (customData.name && !requestBody.name) requestBody.name = customData.name;
+    if (customData.grade && !requestBody.grade) requestBody.grade = customData.grade;
+    if (customData.department && !requestBody.department) requestBody.department = customData.department;
+    if (customData.feedback && !requestBody.feedback) requestBody.feedback = customData.feedback;
 
     // API送信 (Supabase v2 API) - 1回のみ送信
     try {
@@ -832,7 +807,7 @@ export default function DynamicAttendanceForm() {
                           name: field.key,
                           label: field.label,
                           type: field.type,
-                          required: requiredMap.get(field.key) ?? false,
+                          required: requiredMap.get(field.key) ?? true,
                           placeholder: '',
                           description: '',
                           options: [],
