@@ -106,16 +106,48 @@ export async function GET(req: NextRequest) {
     const customFieldDefs: Array<{ name: string; label: string }> = course.custom_fields || [];
     const isCustomForm = customFieldDefs.length > 0;
 
+    // regionフィールドのJSON値をパースするヘルパー
+    const parseRegionValue = (val: any): { prefecture: string; city: string } => {
+      if (!val) return { prefecture: '', city: '' };
+      if (typeof val === 'string') {
+        try {
+          const parsed = JSON.parse(val);
+          return { prefecture: parsed.prefecture || '', city: parsed.city || '' };
+        } catch {
+          return { prefecture: val, city: '' };
+        }
+      }
+      if (typeof val === 'object') {
+        return { prefecture: val.prefecture || '', city: val.city || '' };
+      }
+      return { prefecture: '', city: '' };
+    };
+
     if (isCustomForm) {
       // カスタムフォーム: custom_fieldsに定義された項目のみ出力
-      const headers = customFieldDefs.map((f: any) => f.label || f.name);
+      // regionフィールドは都道府県・市区町村の2列に分割
+      const headers: string[] = [];
+      customFieldDefs.forEach((f: any) => {
+        if (f.type === 'region') {
+          headers.push('都道府県', '市区町村');
+        } else {
+          headers.push(f.label || f.name);
+        }
+      });
       headers.push('出席日', '登録日時');
       csvRows.push(headers.map(h => `"${h}"`).join(','));
 
       records.forEach(r => {
-        const row = customFieldDefs.map((f: any) => {
+        const row: string[] = [];
+        customFieldDefs.forEach((f: any) => {
           const val = r.custom_data?.[f.name] ?? '';
-          return String(val).replace(/"/g, '""').replace(/\n/g, ' ');
+          if (f.type === 'region') {
+            const region = parseRegionValue(val);
+            row.push(region.prefecture.replace(/"/g, '""'));
+            row.push(region.city.replace(/"/g, '""'));
+          } else {
+            row.push(String(val).replace(/"/g, '""').replace(/\n/g, ' '));
+          }
         });
         row.push(r.attended_at || '', r.created_at || '');
         csvRows.push(row.map(v => `"${v}"`).join(','));
