@@ -26,7 +26,7 @@ const features = [
     description:
       '参加者からの質問をリアルタイムで受け付け、いいね機能により注目度の高いトピックを自動的に上位表示します。匿名投稿にも対応しているため、普段は発言しにくい参加者からも本音の質問が集まり、講演やセミナーの質を大幅に向上させます。',
     image:
-      'https://images.unsplash.com/photo-1591115765373-5207764f72e7?auto=format&fit=crop&w=800&q=80',
+'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto/v1774358294/felicia-buitenwerf-Qs_Zkak27Jk-unsplash_ljjxwq.jpg',
     icon: MessageCircleQuestion,
     reverse: false,
   },
@@ -35,7 +35,7 @@ const features = [
     description:
       'ライブ投票機能で、参加者の意見やフィードバックを瞬時に集計・可視化します。選択肢型からスケール評価まで多様な形式に対応し、会議やワークショップでの意思決定をその場で加速。データに基づいた議論が即座に始められます。',
     image:
-      'https://images.unsplash.com/photo-1560439514-4e9645039924?auto=format&fit=crop&w=800&q=80',
+'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto/v1774358337/flipsnack-LUqSTRx3_Ig-unsplash_b4hkct.jpg',
     icon: BarChart3,
     reverse: true,
   },
@@ -44,7 +44,7 @@ const features = [
     description:
       'プレゼンテーションモードを使えば、Q&Aの質問一覧や投票結果をプロジェクターやモニターにライブ表示できます。会場全体で情報を共有することで、参加者のエンゲージメントが高まり、一体感のあるインタラクティブな空間を演出します。',
     image:
-      'https://images.unsplash.com/photo-1505373877841-8d25f7d46678?auto=format&fit=crop&w=800&q=80',
+'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto/v1774358479/product-school-lVTtqIY6pL0-unsplash_pfrzxn.jpg',
     icon: Monitor,
     reverse: false,
   },
