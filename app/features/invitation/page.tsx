@@ -19,7 +19,7 @@ const features = [
     description:
       'イベントの参加確認を招待フォームで効率化。招待フォーム→事前登録→QRコード発行→当日受付の一気通貫フローを実現できます。SNSやメールでフォームのURLを共有するだけで参加者が簡単に登録でき、主催者の手作業を大幅に削減します。',
     image:
-      'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto/v1774357984/annie-spratt-vgbLaqJGEbY-unsplash_r4m6mq.jpg',
+      'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774357984/annie-spratt-vgbLaqJGEbY-unsplash_r4m6mq.jpg',
     reverse: false,
   },
   {
@@ -27,7 +27,7 @@ const features = [
     description:
       '事前登録が完了した参加者には、個別のQRコードが自動で発行されます。当日はスマートフォンに表示されたQRコードをスキャンするだけで受付が完了するため、長蛇の列や紙の名簿チェックはもう不要。受付スタッフの負担も最小限に抑えられます。',
     image:
-'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto/v1774402426/helena-lopes-yIcm3DWRz-c-unsplash_ezy6vc.jpg',
+'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774402426/helena-lopes-yIcm3DWRz-c-unsplash_ezy6vc.jpg',
     reverse: true,
   },
   {
@@ -35,7 +35,7 @@ const features = [
     description:
       '誰が事前登録し、誰が当日実際に出席したかをリアルタイムで一元管理できます。ダッシュボードで参加状況を即座に確認でき、CSVエクスポート機能で社内報告やマーケティング分析にも活用可能。イベント後のフォローアップも効率的に行えます。',
     image:
-'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto/v1774402502/myriam-jessier-eveI7MOcSmw-unsplash_zw0jks.jpg',
+'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774402502/myriam-jessier-eveI7MOcSmw-unsplash_zw0jks.jpg',
     reverse: false,
   },
   {
@@ -43,7 +43,7 @@ const features = [
     description:
       '参加者の所属・役職・食事制限・Tシャツサイズなど、イベントの内容に合わせた入力項目を自由に追加できます。必要な情報を事前に漏れなく収集できるため、当日の準備や手配がスムーズになり、参加者の満足度向上にもつながります。',
     image:
-'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto/v1774358129/headway-5QgIuuBxKwM-unsplash_xabba5.jpg',
+'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774358129/headway-5QgIuuBxKwM-unsplash_xabba5.jpg',
     reverse: true,
   },
 ];
@@ -89,10 +89,11 @@ export default function InvitationFeaturePage() {
 
             <motion.div {...fadeIn} transition={{ ...fadeIn.transition, delay: 0.1 }}>
               <img
-src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto/v1774402879/jakob-dalbjorn-cuKJre3nyYc-unsplash_usnazo.jpg"
+src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774402879/jakob-dalbjorn-cuKJre3nyYc-unsplash_usnazo.jpg"
                 alt="イベント受付のイメージ"
                 className="rounded-2xl shadow-xl w-full h-auto object-cover aspect-[4/3]"
                 loading="lazy"
+                decoding="async"
               />
             </motion.div>
           </div>
@@ -129,6 +130,7 @@ src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto/v1774402879
                   alt={feature.title}
                   className="rounded-2xl shadow-xl w-full h-auto object-cover aspect-[4/3]"
                   loading="lazy"
+                  decoding="async"
                 />
               </motion.div>
             </div>

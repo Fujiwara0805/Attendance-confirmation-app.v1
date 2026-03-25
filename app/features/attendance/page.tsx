@@ -19,7 +19,7 @@ const features = [
     description:
       'GPS連携により、対象エリア内にいる参加者だけが出席登録を行えます。代理出席やなりすましを技術的に防止し、正確な出席データを確保します。ジオフェンス機能で対象エリアを柔軟に設定でき、教室・会場・オフィスなどあらゆるシーンに対応可能です。',
     image:
-      'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto/v1774357308/charlesdeluvio-Lks7vei-eAg-unsplash_offkod.jpg',
+      'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774357308/charlesdeluvio-Lks7vei-eAg-unsplash_offkod.jpg',
     alt: '位置情報による不正防止のイメージ',
   },
   {
@@ -27,7 +27,7 @@ const features = [
     description:
       '参加者はアプリのダウンロードもログインも不要。QRコードをスマートフォンで読み取るだけで、わずか数秒で出席登録が完了します。受付の混雑を解消し、イベントや授業の開始をスムーズにします。',
     image:
-      'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto/v1774357428/marc-pineda-FT5kTEisT4k-unsplash_jfhitk.jpg',
+      'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774357428/marc-pineda-FT5kTEisT4k-unsplash_jfhitk.jpg',
     alt: 'QRコードスキャンのイメージ',
   },
   {
@@ -35,7 +35,7 @@ const features = [
     description:
       'すべての出席データを自動で集計し、ダッシュボード上でリアルタイムに可視化します。出席率の推移や参加者の傾向を一目で把握でき、CSVエクスポート機能で外部ツールでの詳細な分析にもスムーズに連携できます。',
     image:
-      'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto/v1774357507/stephen-dawson-qwtCeJ5cLYs-unsplash_mobp9w.jpg',
+      'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774357507/stephen-dawson-qwtCeJ5cLYs-unsplash_mobp9w.jpg',
     alt: 'リアルタイムデータ集計のイメージ',
   },
   {
@@ -43,7 +43,7 @@ const features = [
     description:
       '数百人から1,000人を超える大規模イベントでも、遅延やダウンタイムなく安定して動作します。堅牢なクラウドインフラによるオートスケーリングで、参加者が急増しても快適なレスポンスを維持。大学の講義からカンファレンスまで、あらゆる規模に対応します。',
     image:
-      'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto/v1774357569/alexandre-pellaes-6vAjp0pscX0-unsplash_dfsotz.jpg',
+      'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774357569/alexandre-pellaes-6vAjp0pscX0-unsplash_dfsotz.jpg',
     alt: '大規模イベントのイメージ',
   },
 ];
@@ -91,10 +91,11 @@ export default function AttendanceFeaturePage() {
                 transition={{ ...fadeIn.transition, delay: 0.1 }}
               >
                 <img
-src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto/v1774357674/dom-fou-YRMWVcdyhmI-unsplash_sq9hvg.jpg"
+src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774357674/dom-fou-YRMWVcdyhmI-unsplash_sq9hvg.jpg"
                   alt="教室での出席管理のイメージ"
                   className="rounded-2xl shadow-xl w-full h-auto object-cover aspect-[4/3]"
                   loading="lazy"
+                  decoding="async"
                 />
               </motion.div>
             </div>
@@ -135,6 +136,7 @@ src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto/v1774357674
                       alt={feature.alt}
                       className="rounded-2xl shadow-xl w-full h-auto object-cover aspect-[4/3]"
                       loading="lazy"
+                      decoding="async"
                     />
                   </motion.div>
                 </div>

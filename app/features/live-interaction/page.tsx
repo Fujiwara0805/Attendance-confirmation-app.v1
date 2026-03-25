@@ -26,7 +26,7 @@ const features = [
     description:
       '参加者からの質問をリアルタイムで受け付け、いいね機能により注目度の高いトピックを自動的に上位表示します。匿名投稿にも対応しているため、普段は発言しにくい参加者からも本音の質問が集まり、講演やセミナーの質を大幅に向上させます。',
     image:
-'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto/v1774358294/felicia-buitenwerf-Qs_Zkak27Jk-unsplash_ljjxwq.jpg',
+'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774358294/felicia-buitenwerf-Qs_Zkak27Jk-unsplash_ljjxwq.jpg',
     icon: MessageCircleQuestion,
     reverse: false,
   },
@@ -35,7 +35,7 @@ const features = [
     description:
       'ライブ投票機能で、参加者の意見やフィードバックを瞬時に集計・可視化します。選択肢型からスケール評価まで多様な形式に対応し、会議やワークショップでの意思決定をその場で加速。データに基づいた議論が即座に始められます。',
     image:
-'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto/v1774358337/flipsnack-LUqSTRx3_Ig-unsplash_b4hkct.jpg',
+'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774358337/flipsnack-LUqSTRx3_Ig-unsplash_b4hkct.jpg',
     icon: BarChart3,
     reverse: true,
   },
@@ -44,7 +44,7 @@ const features = [
     description:
       'プレゼンテーションモードを使えば、Q&Aの質問一覧や投票結果をプロジェクターやモニターにライブ表示できます。会場全体で情報を共有することで、参加者のエンゲージメントが高まり、一体感のあるインタラクティブな空間を演出します。',
     image:
-'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto/v1774358479/product-school-lVTtqIY6pL0-unsplash_pfrzxn.jpg',
+'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774358479/product-school-lVTtqIY6pL0-unsplash_pfrzxn.jpg',
     icon: Monitor,
     reverse: false,
   },
@@ -53,7 +53,7 @@ const features = [
     description:
       '参加者はアカウント登録やログインが一切不要。QRコードを読み取るだけで匿名のまま質問や投票に参加できます。心理的なハードルを取り除くことで、より多くの参加者から率直なフィードバックや質問を引き出すことが可能です。',
     image:
-'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto/v1774403129/redd-francisco-5U_28ojjgms-unsplash_blguut.jpg',
+'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774403129/redd-francisco-5U_28ojjgms-unsplash_blguut.jpg',
     icon: UserRoundX,
     reverse: true,
   },
@@ -62,7 +62,7 @@ const features = [
     description:
       '受付端末、スクリーン投影端末、管理端末を同一アカウントで同時に運用できます。それぞれの端末が役割に最適化された画面を表示するため、セミナーやカンファレンスの運営チーム全体がリアルタイムに連携し、スムーズなイベント進行を実現します。',
     image:
-'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto/v1774403542/adam-nowakowski-D4LDw5eXhgg-unsplash_v7clmg.jpg',
+'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774403542/adam-nowakowski-D4LDw5eXhgg-unsplash_v7clmg.jpg',
     icon: Laptop,
     reverse: false,
   },
@@ -111,10 +111,11 @@ export default function LiveInteractionPage() {
               transition={{ ...fadeIn.transition, delay: 0.15 }}
             >
               <img
-src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto/v1774403349/israel-palacio-Y20JJ_ddy9M-unsplash_hkanai.jpg"
+src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774403349/israel-palacio-Y20JJ_ddy9M-unsplash_hkanai.jpg"
                 alt="リアルタイムQ&A・ライブ投票のイメージ"
                 className="rounded-2xl shadow-xl w-full h-auto object-cover aspect-[4/3]"
                 loading="lazy"
+                decoding="async"
               />
             </motion.div>
           </div>
@@ -157,6 +158,7 @@ src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto/v1774403349
                     alt={feature.title}
                     className="rounded-2xl shadow-xl w-full h-auto object-cover aspect-[4/3]"
                     loading="lazy"
+                    decoding="async"
                   />
                 </motion.div>
               </div>
