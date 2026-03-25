@@ -53,7 +53,7 @@ const features = [
     description:
       '参加者はアカウント登録やログインが一切不要。QRコードを読み取るだけで匿名のまま質問や投票に参加できます。心理的なハードルを取り除くことで、より多くの参加者から率直なフィードバックや質問を引き出すことが可能です。',
     image:
-      'https://images.unsplash.com/photo-1528605248644-14dd04022da1?auto=format&fit=crop&w=800&q=80',
+'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto/v1774403129/redd-francisco-5U_28ojjgms-unsplash_blguut.jpg',
     icon: UserRoundX,
     reverse: true,
   },
@@ -62,7 +62,7 @@ const features = [
     description:
       '受付端末、スクリーン投影端末、管理端末を同一アカウントで同時に運用できます。それぞれの端末が役割に最適化された画面を表示するため、セミナーやカンファレンスの運営チーム全体がリアルタイムに連携し、スムーズなイベント進行を実現します。',
     image:
-      'https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=800&q=80',
+'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto/v1774403542/adam-nowakowski-D4LDw5eXhgg-unsplash_v7clmg.jpg',
     icon: Laptop,
     reverse: false,
   },
@@ -111,7 +111,7 @@ export default function LiveInteractionPage() {
               transition={{ ...fadeIn.transition, delay: 0.15 }}
             >
               <img
-                src="https://images.unsplash.com/photo-1475721027785-f74eccf877e2?auto=format&fit=crop&w=800&q=80"
+src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto/v1774403349/israel-palacio-Y20JJ_ddy9M-unsplash_hkanai.jpg"
                 alt="リアルタイムQ&A・ライブ投票のイメージ"
                 className="rounded-2xl shadow-xl w-full h-auto object-cover aspect-[4/3]"
                 loading="lazy"

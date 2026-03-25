@@ -27,7 +27,7 @@ const features = [
     description:
       '事前登録が完了した参加者には、個別のQRコードが自動で発行されます。当日はスマートフォンに表示されたQRコードをスキャンするだけで受付が完了するため、長蛇の列や紙の名簿チェックはもう不要。受付スタッフの負担も最小限に抑えられます。',
     image:
-'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto/v1774357922/markus-winkler-nP9WOiM41WE-unsplash_dhjlkk.jpg',
+'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto/v1774402426/helena-lopes-yIcm3DWRz-c-unsplash_ezy6vc.jpg',
     reverse: true,
   },
   {
@@ -35,7 +35,7 @@ const features = [
     description:
       '誰が事前登録し、誰が当日実際に出席したかをリアルタイムで一元管理できます。ダッシュボードで参加状況を即座に確認でき、CSVエクスポート機能で社内報告やマーケティング分析にも活用可能。イベント後のフォローアップも効率的に行えます。',
     image:
-      'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto/v1774358028/juan-jose-garcia-_3JolVX-X8U-unsplash_d47hqo.jpg',
+'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto/v1774402502/myriam-jessier-eveI7MOcSmw-unsplash_zw0jks.jpg',
     reverse: false,
   },
   {
@@ -89,7 +89,7 @@ export default function InvitationFeaturePage() {
 
             <motion.div {...fadeIn} transition={{ ...fadeIn.transition, delay: 0.1 }}>
               <img
-                src="https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=800&q=80"
+src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto/v1774402879/jakob-dalbjorn-cuKJre3nyYc-unsplash_usnazo.jpg"
                 alt="イベント受付のイメージ"
                 className="rounded-2xl shadow-xl w-full h-auto object-cover aspect-[4/3]"
                 loading="lazy"

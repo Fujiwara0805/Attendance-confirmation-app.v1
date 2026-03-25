@@ -171,7 +171,7 @@ const products = [
     title: '出席管理フォーム',
     description: '位置情報×QRコードで、不正のない正確な出席管理を実現。',
     href: '/features/attendance',
-    image: 'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?auto=format&fit=crop&w=600&q=80',
+    image: 'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto/v1774357674/dom-fou-YRMWVcdyhmI-unsplash_sq9hvg.jpg',
     color: 'from-blue-600 to-indigo-600',
   },
   {
@@ -179,7 +179,7 @@ const products = [
     title: '招待フォーム・参加者管理',
     description: 'SNS告知から事前登録、QRコード発行、当日受付まで一気通貫。',
     href: '/features/invitation',
-    image: 'https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=600&q=80',
+    image: 'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto/v1774402879/jakob-dalbjorn-cuKJre3nyYc-unsplash_usnazo.jpg',
     color: 'from-teal-600 to-emerald-600',
   },
   {
@@ -187,7 +187,7 @@ const products = [
     title: 'リアルタイムQ&A・ライブ投票',
     description: '参加者全員が声を届けられる、双方向コミュニケーションを実現。',
     href: '/features/live-interaction',
-    image: 'https://images.unsplash.com/photo-1475721027785-f74eccf877e2?auto=format&fit=crop&w=600&q=80',
+image:'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto/v1774403349/israel-palacio-Y20JJ_ddy9M-unsplash_hkanai.jpg',
     color: 'from-orange-600 to-pink-600',
   },
 ];
@@ -454,7 +454,7 @@ export default function LandingPage() {
             >
               <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-slate-300/40">
                 <img
-                  src="https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=800&q=80"
+                  src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto/v1774357569/alexandre-pellaes-6vAjp0pscX0-unsplash_dfsotz.jpg"
                   alt="カンファレンス会場"
                   className="w-full h-auto object-cover aspect-[4/3]"
                   loading="eager"
