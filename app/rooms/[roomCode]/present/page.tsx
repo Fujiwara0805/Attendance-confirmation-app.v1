@@ -37,7 +37,7 @@ export default function PresentPage() {
     if (typeof window === 'undefined') return;
     const joinUrl = `${window.location.origin}/rooms/${roomCode}`;
     import('qrcode').then((QRCode) => {
-      QRCode.toDataURL(joinUrl, { width: 160, margin: 1, color: { dark: '#ffffff', light: '#00000000' } }).then(setQrUrl);
+      QRCode.toDataURL(joinUrl, { width: 160, margin: 1, color: { dark: '#334155', light: '#00000000' } }).then(setQrUrl);
     });
   }, [roomCode]);
 
@@ -66,7 +66,7 @@ export default function PresentPage() {
   }, []);
 
   if (!room) {
-    return <div className="min-h-screen bg-slate-900 flex items-center justify-center text-slate-400">読み込み中...</div>;
+    return <div className="min-h-screen bg-gray-50 flex items-center justify-center text-gray-400">読み込み中...</div>;
   }
 
   const topQuestions = questions
@@ -76,30 +76,30 @@ export default function PresentPage() {
   return (
     <div
       ref={containerRef}
-      className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950 text-white flex flex-col"
+      className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-indigo-50 text-gray-800 flex flex-col"
     >
       {/* Header */}
-      <header className="flex items-center justify-between px-8 py-4 border-b border-white/10 sticky top-0 z-40 bg-gradient-to-r from-slate-900 via-slate-900 to-indigo-950 backdrop-blur-xl">
+      <header className="flex items-center justify-between px-8 py-4 border-b border-gray-200 sticky top-0 z-40 bg-white/80 backdrop-blur-xl">
         <div className="flex items-center gap-4">
           {/* QR Code for room participation */}
           {qrUrl && (
-            <div className="shrink-0 bg-white/10 rounded-lg p-1.5">
+            <div className="shrink-0 bg-gray-100 rounded-lg p-1.5">
               <img src={qrUrl} alt="参加QRコード" className="w-12 h-12" />
             </div>
           )}
           <div>
-            <h1 className="text-xl font-bold">{room.title}</h1>
-            <p className="text-sm text-slate-400">
-              参加コード: <span className="font-mono text-indigo-400">{room.code}</span>
+            <h1 className="text-xl font-bold text-gray-800">{room.title}</h1>
+            <p className="text-sm text-gray-500">
+              参加コード: <span className="font-mono text-indigo-600">{room.code}</span>
             </p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex bg-white/10 rounded-xl p-1">
+          <div className="flex bg-gray-100 rounded-xl p-1">
             <button
               onClick={() => setView('qa')}
               className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                view === 'qa' ? 'bg-white/20 text-white' : 'text-slate-400 hover:text-white'
+                view === 'qa' ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-800'
               }`}
             >
               <MessageSquare className="w-4 h-4" />
@@ -108,7 +108,7 @@ export default function PresentPage() {
             <button
               onClick={() => setView('poll')}
               className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                view === 'poll' ? 'bg-white/20 text-white' : 'text-slate-400 hover:text-white'
+                view === 'poll' ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-800'
               }`}
             >
               <BarChart3 className="w-4 h-4" />
@@ -117,7 +117,7 @@ export default function PresentPage() {
           </div>
           <button
             onClick={toggleFullscreen}
-            className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+            className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors"
           >
             {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
           </button>
@@ -137,10 +137,10 @@ export default function PresentPage() {
             >
               {topQuestions.length === 0 ? (
                 <div className="text-center py-20">
-                  <MessageSquare className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-                  <p className="text-xl text-slate-500">質問を待っています...</p>
-                  <p className="text-sm text-slate-600 mt-2">
-                    参加者はコード <span className="font-mono text-indigo-400">{room.code}</span> で参加できます
+                  <MessageSquare className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                  <p className="text-xl text-gray-400">質問を待っています...</p>
+                  <p className="text-sm text-gray-400 mt-2">
+                    参加者はコード <span className="font-mono text-indigo-600">{room.code}</span> で参加できます
                   </p>
                 </div>
               ) : (
@@ -150,17 +150,17 @@ export default function PresentPage() {
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.05 }}
-                    className={`flex items-start gap-5 p-5 rounded-2xl ${
-                      q.is_pinned ? 'bg-indigo-500/20 ring-1 ring-indigo-400/30' : 'bg-white/5'
+                    className={`flex items-start gap-5 p-5 rounded-2xl shadow-sm ${
+                      q.is_pinned ? 'bg-indigo-50 ring-1 ring-indigo-200' : 'bg-white border border-gray-100'
                     }`}
                   >
                     <div className="flex flex-col items-center gap-1 min-w-[48px]">
-                      <ThumbsUp className="w-5 h-5 text-indigo-400" />
-                      <span className="text-lg font-bold text-indigo-300">{q.upvote_count}</span>
+                      <ThumbsUp className="w-5 h-5 text-indigo-500" />
+                      <span className="text-lg font-bold text-indigo-600">{q.upvote_count}</span>
                     </div>
                     <div>
-                      <p className="text-lg leading-relaxed">{q.text}</p>
-                      <p className="text-sm text-slate-500 mt-1">{q.author_name}</p>
+                      <p className="text-lg leading-relaxed text-gray-800">{q.text}</p>
+                      <p className="text-sm text-gray-400 mt-1">{q.author_name}</p>
                     </div>
                   </motion.div>
                 ))
@@ -180,10 +180,10 @@ export default function PresentPage() {
                 <div>
                   <div className="flex items-center gap-2 mb-4">
                     <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-sm font-semibold text-emerald-400 uppercase tracking-wide">Live</span>
+                    <span className="text-sm font-semibold text-emerald-600 uppercase tracking-wide">Live</span>
                   </div>
-                  <h2 className="text-3xl font-bold mb-8">{activePoll.question}</h2>
-                  <div className="bg-white/5 rounded-2xl p-8">
+                  <h2 className="text-3xl font-bold text-gray-800 mb-8">{activePoll.question}</h2>
+                  <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
                     <PollResultsChart
                       options={activePoll.options}
                       votes={pollVotes[activePoll.id] || []}
@@ -194,8 +194,8 @@ export default function PresentPage() {
                 </div>
               ) : (
                 <div className="text-center py-20">
-                  <BarChart3 className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-                  <p className="text-xl text-slate-500">アクティブな投票はありません</p>
+                  <BarChart3 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                  <p className="text-xl text-gray-400">アクティブな投票はありません</p>
                 </div>
               )}
             </motion.div>
@@ -204,7 +204,7 @@ export default function PresentPage() {
       </div>
 
       {/* Footer */}
-      <footer className="px-8 py-3 border-t border-white/10 flex items-center justify-between text-xs text-slate-500">
+      <footer className="px-8 py-3 border-t border-gray-200 flex items-center justify-between text-xs text-gray-400">
         <span>ざせきくん Interactive</span>
         <span>参加コード: {room.code}</span>
       </footer>
