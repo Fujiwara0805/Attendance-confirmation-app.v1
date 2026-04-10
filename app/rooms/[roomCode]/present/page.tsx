@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, BarChart3, ThumbsUp, Maximize, Minimize } from 'lucide-react';
+import { MessageSquare, BarChart3, ThumbsUp, Maximize, Minimize, X, Loader2 } from 'lucide-react';
 import { useRealtimeQuestions } from '@/lib/hooks/useRealtimeQuestions';
 import { useRealtimePolls } from '@/lib/hooks/useRealtimePolls';
 import PollResultsChart from '../../components/PollResultsChart';
@@ -25,6 +25,9 @@ export default function PresentPage() {
   const [view, setView] = useState<View>('qa');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [qrUrl, setQrUrl] = useState<string | null>(null);
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [qrModalMode, setQrModalMode] = useState<'join' | 'upload' | null>(null);
+  const [modalQrUrl, setModalQrUrl] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`/api/rooms/${roomCode}`)
@@ -40,6 +43,67 @@ export default function PresentPage() {
       QRCode.toDataURL(joinUrl, { width: 160, margin: 1, color: { dark: '#334155', light: '#00000000' } }).then(setQrUrl);
     });
   }, [roomCode]);
+
+  const closeQrModal = useCallback(() => {
+    setQrModalOpen(false);
+    setQrModalMode(null);
+    setModalQrUrl((prev) => {
+      if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+      return null;
+    });
+  }, []);
+
+  const openJoinQrModal = useCallback(() => {
+    setModalQrUrl((prev) => {
+      if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+      return null;
+    });
+    setQrModalMode('join');
+    setQrModalOpen(true);
+  }, []);
+
+  // モーダル（参加URL生成）: 画面いっぱいに収まる解像度でQRを生成
+  useEffect(() => {
+    if (!qrModalOpen || qrModalMode !== 'join' || typeof window === 'undefined') return;
+    const joinUrl = `${window.location.origin}/rooms/${roomCode}`;
+    const size = Math.min(window.innerWidth, window.innerHeight, 900);
+    // 表示は約 vmin の 45% 相当に合わせ、生成解像度も同スケール（従来比 2 段階ほど小さく）
+    const pixelSize = Math.max(160, Math.floor(size * 0.45));
+    let cancelled = false;
+    import('qrcode').then((QRCode) => {
+      QRCode.toDataURL(joinUrl, {
+        width: pixelSize,
+        margin: 2,
+        color: { dark: '#0f172a', light: '#ffffff' },
+      }).then((url) => {
+        if (!cancelled) setModalQrUrl(url);
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [qrModalOpen, qrModalMode, roomCode]);
+
+  const openQrModalFromUpload = useCallback((file: File) => {
+    if (!file.type.startsWith('image/')) return;
+    setModalQrUrl((prev) => {
+      if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+      return null;
+    });
+    const blobUrl = URL.createObjectURL(file);
+    setModalQrUrl(blobUrl);
+    setQrModalMode('upload');
+    setQrModalOpen(true);
+  }, []);
+
+  useEffect(() => {
+    if (!qrModalOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeQrModal();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [qrModalOpen, closeQrModal]);
 
   const { questions } = useRealtimeQuestions(room?.id || null);
   const { activePoll, pollVotes } = useRealtimePolls(room?.id || null);
@@ -83,8 +147,30 @@ export default function PresentPage() {
         <div className="flex items-center gap-4">
           {/* QR Code for room participation */}
           {qrUrl && (
-            <div className="shrink-0 bg-gray-100 rounded-lg p-1.5">
-              <img src={qrUrl} alt="参加QRコード" className="w-12 h-12" />
+            <div className="flex items-center gap-2 shrink-0">
+              <motion.button
+                type="button"
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={openJoinQrModal}
+                className="bg-gray-100 rounded-lg p-1.5 cursor-pointer ring-offset-2 hover:ring-2 hover:ring-indigo-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                title="タップでQRを拡大表示"
+              >
+                <img src={qrUrl} alt="参加QRコード" className="w-12 h-12 pointer-events-none" />
+              </motion.button>
+              <label className="cursor-pointer text-xs font-medium text-indigo-600 hover:text-indigo-800 whitespace-nowrap">
+                画像をアップ
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) openQrModalFromUpload(f);
+                    e.target.value = '';
+                  }}
+                />
+              </label>
             </div>
           )}
           <div>
@@ -208,6 +294,69 @@ export default function PresentPage() {
         <span>ざせきくん Interactive</span>
         <span>参加コード: {room.code}</span>
       </footer>
+
+      <AnimatePresence>
+        {qrModalOpen && (
+          <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-label="参加QRコード"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-4 sm:p-8 pt-16 sm:pt-20 bg-black/85 backdrop-blur-sm"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) closeQrModal();
+            }}
+          >
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                closeQrModal();
+              }}
+              className="fixed top-3 right-3 sm:top-5 sm:right-5 z-[110] flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl bg-white text-gray-900 shadow-lg border border-gray-200 hover:bg-gray-50 active:bg-gray-100 font-medium text-sm"
+              aria-label="閉じる"
+            >
+              <X className="w-5 h-5 shrink-0" aria-hidden />
+              閉じる
+            </button>
+            <motion.div
+              initial={{ scale: 0.92, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.92, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 380, damping: 28 }}
+              className="relative flex items-center justify-center w-full flex-1 min-h-0"
+            >
+              {!modalQrUrl && qrModalMode === 'join' && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="flex flex-col items-center gap-3 text-white"
+                >
+                  <Loader2 className="w-10 h-10 animate-spin text-white/90" aria-hidden />
+                  <span className="text-sm text-white/80">QRを表示しています…</span>
+                </motion.div>
+              )}
+              {modalQrUrl && (
+                <motion.img
+                  layout
+                  src={modalQrUrl}
+                  alt={qrModalMode === 'upload' ? 'アップロードしたQR画像' : '参加用QRコード（拡大）'}
+                  className="max-w-[min(100%,45vmin)] max-h-[min(100%,45vmin)] w-auto h-auto object-contain rounded-xl shadow-2xl bg-white p-3 sm:p-4"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.05 }}
+                />
+              )}
+            </motion.div>
+            <p className="mt-4 text-sm text-white/80 text-center max-w-md">
+              スマートフォンで読み取ってください
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
