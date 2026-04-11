@@ -246,7 +246,9 @@ export default function PresentPage() {
                     </div>
                     <div>
                       <p className="text-lg leading-relaxed text-gray-800">{q.text}</p>
-                      <p className="text-sm text-gray-400 mt-1">{q.author_name}</p>
+                      <p className="text-sm text-gray-400 mt-1">
+                        {q.author_name === 'Anonymous' ? '匿名' : q.author_name}
+                      </p>
                     </div>
                   </motion.div>
                 ))

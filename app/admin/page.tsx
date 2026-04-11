@@ -273,6 +273,7 @@ export default function AdminPage() {
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
   const [editRoomTitle, setEditRoomTitle] = useState<string>('');
   const [savingEditRoom, setSavingEditRoom] = useState<boolean>(false);
+  const [roomStatusPendingCode, setRoomStatusPendingCode] = useState<string | null>(null);
 
   // 削除確認モーダル用の状態
   const [deleteConfirm, setDeleteConfirm] = useState<{
@@ -2052,9 +2053,11 @@ export default function AdminPage() {
                           <div className="flex items-center gap-1.5 sm:gap-1">
                             <button
                               type="button"
+                              disabled={roomStatusPendingCode === room.code}
                               onClick={async (e) => {
                                 e.stopPropagation();
                                 const newStatus = room.status === 'active' ? 'closed' : 'active';
+                                setRoomStatusPendingCode(room.code);
                                 try {
                                   const res = await fetch(`/api/rooms/${room.code}`, {
                                     method: 'PATCH',
@@ -2067,22 +2070,29 @@ export default function AdminPage() {
                                   }
                                 } catch {
                                   showToast("更新失敗", "ステータスの変更に失敗しました。", "destructive");
+                                } finally {
+                                  setRoomStatusPendingCode(null);
                                 }
                               }}
-                              className={`h-9 px-3 sm:h-7 sm:px-2 text-xs rounded-md inline-flex items-center transition-colors ${
+                              className={`h-9 px-3 sm:h-7 sm:px-2 text-xs rounded-md inline-flex items-center justify-center gap-1 transition-colors disabled:opacity-60 disabled:pointer-events-none ${
                                 room.status === 'active'
                                   ? 'text-red-500 hover:text-red-600 hover:bg-red-50 active:bg-red-100'
                                   : 'text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 active:bg-emerald-100'
                               }`}
                             >
-                              {room.status === 'active' ? (
+                              {roomStatusPendingCode === room.code ? (
                                 <>
-                                  <StopCircle className="h-3.5 w-3.5 sm:h-3 sm:w-3 mr-1" />
+                                  <Loader2 className="h-3.5 w-3.5 sm:h-3 sm:w-3 animate-spin shrink-0" />
+                                  <span>{room.status === 'active' ? '終了中…' : '開始中…'}</span>
+                                </>
+                              ) : room.status === 'active' ? (
+                                <>
+                                  <StopCircle className="h-3.5 w-3.5 sm:h-3 sm:w-3 shrink-0" />
                                   終了
                                 </>
                               ) : (
                                 <>
-                                  <Play className="h-3.5 w-3.5 sm:h-3 sm:w-3 mr-1" />
+                                  <Play className="h-3.5 w-3.5 sm:h-3 sm:w-3 shrink-0" />
                                   開始
                                 </>
                               )}

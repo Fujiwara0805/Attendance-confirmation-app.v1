@@ -48,6 +48,7 @@ export default function QuestionCard({
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(text);
   const timeAgo = formatDistanceToNow(new Date(createdAt), { addSuffix: true, locale: ja });
+  const authorLabel = authorName === 'Anonymous' ? '匿名' : authorName;
 
   return (
     <motion.div
@@ -110,7 +111,7 @@ export default function QuestionCard({
             )}
           </div>
           <div className="flex items-center gap-2 mt-2">
-            <span className="text-xs text-slate-400">{authorName}</span>
+            <span className="text-xs text-slate-400">{authorLabel}</span>
             <span className="text-xs text-slate-300">·</span>
             <span className="text-xs text-slate-400">{timeAgo}</span>
           </div>

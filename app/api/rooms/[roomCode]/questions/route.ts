@@ -67,7 +67,7 @@ export async function POST(
       .insert({
         room_id: room.id,
         text: text.trim(),
-        author_name: isAnonymous ? 'Anonymous' : (authorName || 'Anonymous'),
+        author_name: isAnonymous ? '匿名' : (authorName || '匿名'),
         is_anonymous: isAnonymous !== false,
         ...(participantId ? { participant_id: participantId } : {}),
       })

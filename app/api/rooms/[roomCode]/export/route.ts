@@ -135,11 +135,16 @@ export async function GET(
   }
 }
 
+function displayAuthorForExport(name: string) {
+  return name === 'Anonymous' ? '匿名' : name;
+}
+
 function questionsToCSV(questions: Array<{ text: string; author_name: string; upvote_count: number; is_answered: boolean; created_at: string }>) {
   const header = '質問,投稿者,いいね数,回答済み,投稿日時\n';
-  const rows = questions.map((q) =>
-    `"${q.text.replace(/"/g, '""')}","${q.author_name}",${q.upvote_count},${q.is_answered ? 'はい' : 'いいえ'},"${new Date(q.created_at).toLocaleString('ja-JP')}"`
-  ).join('\n');
+  const rows = questions.map((q) => {
+    const author = displayAuthorForExport(q.author_name).replace(/"/g, '""');
+    return `"${q.text.replace(/"/g, '""')}","${author}",${q.upvote_count},${q.is_answered ? 'はい' : 'いいえ'},"${new Date(q.created_at).toLocaleString('ja-JP')}"`;
+  }).join('\n');
   return '\uFEFF' + header + rows; // BOM for Excel
 }
 

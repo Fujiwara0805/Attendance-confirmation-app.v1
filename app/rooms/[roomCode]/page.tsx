@@ -82,7 +82,7 @@ export default function ParticipantPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           text: questionText.trim(),
-          authorName: isAnonymous ? 'Anonymous' : (displayName || 'Anonymous'),
+          authorName: isAnonymous ? '匿名' : (displayName || '匿名'),
           isAnonymous,
           participantId,
         }),

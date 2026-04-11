@@ -6,7 +6,7 @@ import { useSession } from 'next-auth/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   MessageSquare, BarChart3, Plus, QrCode, Copy, Check,
-  Download, ExternalLink, StopCircle, Trash2, Monitor,
+  Download, ExternalLink, StopCircle, Trash2, Monitor, Loader2,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -51,6 +51,8 @@ export default function HostPage() {
   // Export
   const [exportData, setExportData] = useState<{ stats?: Record<string, number>; topQuestions?: Array<{ text: string; upvote_count: number }> } | null>(null);
   const [showAllQuestions, setShowAllQuestions] = useState(false);
+  const [roomStatusLoading, setRoomStatusLoading] = useState(false);
+  const [pollStatusPendingId, setPollStatusPendingId] = useState<string | null>(null);
 
   // Fetch room
   useEffect(() => {
@@ -116,11 +118,16 @@ export default function HostPage() {
   };
 
   const handlePollStatus = async (pollId: string, status: string) => {
-    await fetch(`/api/rooms/${roomCode}/polls/${pollId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status }),
-    });
+    setPollStatusPendingId(pollId);
+    try {
+      await fetch(`/api/rooms/${roomCode}/polls/${pollId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+    } finally {
+      setPollStatusPendingId(null);
+    }
   };
 
   const handleDeletePoll = async (pollId: string) => {
@@ -130,13 +137,19 @@ export default function HostPage() {
   };
 
   const handleToggleRoomStatus = async () => {
-    const newStatus = room?.status === 'active' ? 'closed' : 'active';
-    await fetch(`/api/rooms/${roomCode}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: newStatus }),
-    });
-    setRoom((prev) => prev ? { ...prev, status: newStatus } : null);
+    if (!room || roomStatusLoading) return;
+    const newStatus = room.status === 'active' ? 'closed' : 'active';
+    setRoomStatusLoading(true);
+    try {
+      const res = await fetch(`/api/rooms/${roomCode}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (res.ok) setRoom((prev) => (prev ? { ...prev, status: newStatus } : null));
+    } finally {
+      setRoomStatusLoading(false);
+    }
   };
 
   const handleExportCSV = (type: 'questions' | 'polls') => {
@@ -211,21 +224,27 @@ export default function HostPage() {
             </a>
             <button
               type="button"
+              disabled={roomStatusLoading}
               onClick={handleToggleRoomStatus}
-              className={`flex items-center gap-1.5 text-xs font-medium px-4 py-2.5 sm:px-3 sm:py-2 rounded-lg transition-colors ${
+              className={`flex items-center justify-center gap-1.5 text-xs font-medium px-4 py-2.5 sm:px-3 sm:py-2 rounded-lg transition-colors min-w-[5.5rem] disabled:opacity-60 disabled:pointer-events-none ${
                 room.status === 'active'
                   ? 'text-red-600 bg-red-50 hover:bg-red-100 active:bg-red-200'
                   : 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200'
               }`}
             >
-              {room.status === 'active' ? (
+              {roomStatusLoading ? (
                 <>
-                  <StopCircle className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+                  <Loader2 className="w-4 h-4 sm:w-3.5 sm:h-3.5 animate-spin shrink-0" />
+                  <span>{room.status === 'active' ? '終了中…' : '再開中…'}</span>
+                </>
+              ) : room.status === 'active' ? (
+                <>
+                  <StopCircle className="w-4 h-4 sm:w-3.5 sm:h-3.5 shrink-0" />
                   終了
                 </>
               ) : (
                 <>
-                  <ExternalLink className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+                  <ExternalLink className="w-4 h-4 sm:w-3.5 sm:h-3.5 shrink-0" />
                   再開
                 </>
               )}
@@ -393,19 +412,35 @@ export default function HostPage() {
                       {poll.status === 'draft' && (
                         <button
                           type="button"
+                          disabled={pollStatusPendingId === poll.id}
                           onClick={() => handlePollStatus(poll.id, 'active')}
-                          className="text-xs bg-emerald-50 text-emerald-600 hover:bg-emerald-100 active:bg-emerald-200 px-4 py-2.5 sm:px-3 sm:py-1.5 rounded-lg transition-colors"
+                          className="text-xs bg-emerald-50 text-emerald-600 hover:bg-emerald-100 active:bg-emerald-200 px-4 py-2.5 sm:px-3 sm:py-1.5 rounded-lg transition-colors inline-flex items-center justify-center gap-1 min-w-[4.5rem] disabled:opacity-60 disabled:pointer-events-none"
                         >
-                          開始
+                          {pollStatusPendingId === poll.id ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+                              開始中…
+                            </>
+                          ) : (
+                            '開始'
+                          )}
                         </button>
                       )}
                       {poll.status === 'active' && (
                         <button
                           type="button"
+                          disabled={pollStatusPendingId === poll.id}
                           onClick={() => handlePollStatus(poll.id, 'closed')}
-                          className="text-xs bg-red-50 text-red-600 hover:bg-red-100 active:bg-red-200 px-4 py-2.5 sm:px-3 sm:py-1.5 rounded-lg transition-colors"
+                          className="text-xs bg-red-50 text-red-600 hover:bg-red-100 active:bg-red-200 px-4 py-2.5 sm:px-3 sm:py-1.5 rounded-lg transition-colors inline-flex items-center justify-center gap-1 min-w-[4.5rem] disabled:opacity-60 disabled:pointer-events-none"
                         >
-                          終了
+                          {pollStatusPendingId === poll.id ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+                              終了中…
+                            </>
+                          ) : (
+                            '終了'
+                          )}
                         </button>
                       )}
                       <button
