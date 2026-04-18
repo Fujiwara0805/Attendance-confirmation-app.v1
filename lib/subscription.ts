@@ -2,7 +2,7 @@ import { createServerClient } from '@/lib/supabase';
 
 // プラン制限
 export const PLAN_LIMITS = {
-  free: { maxForms: 3, maxRooms: 2 },
+  free: { maxForms: 2, maxRooms: 1 },
   paid: { maxForms: Infinity, maxRooms: Infinity },
   enterprise: { maxForms: Infinity, maxRooms: Infinity },
 } as const;

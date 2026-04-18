@@ -402,8 +402,8 @@ export default function AdminRegisterPage() {
               </div>
               <ul className="space-y-2.5 mt-4">
                 {[
-                  'フォーム 3個まで作成',
-                  'ルーム 2個まで作成',
+                  'フォーム 2個まで作成',
+                  'ルーム 1個まで作成',
                   'Q&A・投票機能',
                   'CSV / Excelエクスポート',
                 ].map((item) => (
