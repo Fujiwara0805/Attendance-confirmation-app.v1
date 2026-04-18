@@ -171,7 +171,7 @@ src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774
       <section className="bg-gradient-to-br from-indigo-600 to-blue-700">
         <div className="mx-auto max-w-3xl px-5 py-20 lg:py-28 text-center">
           <motion.div {...fadeIn}>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white leading-tight">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-white leading-tight">
               次の講演を、もっとインタラクティブに。
             </h2>
             <p className="mt-4 text-base sm:text-lg text-indigo-100 leading-relaxed">

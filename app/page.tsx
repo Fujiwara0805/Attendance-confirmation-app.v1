@@ -404,9 +404,7 @@ export default function LandingPage() {
               >
                 全ての学習機会を
                 <br />
-                「受け取る」から
-                <br className="sm:hidden" />
-                「共に作る」へ
+                インタラクティブに
               </motion.h1>
 
               <motion.p

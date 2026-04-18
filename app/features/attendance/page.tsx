@@ -152,7 +152,7 @@ src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774
               {...fadeIn}
               className="text-center max-w-2xl mx-auto"
             >
-              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-slate-900 leading-tight">
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-slate-900 leading-tight">
                 出席管理を、もっとスマートに。
               </h2>
               <p className="mt-5 text-base sm:text-lg text-slate-600 leading-relaxed">

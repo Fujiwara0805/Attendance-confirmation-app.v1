@@ -342,9 +342,7 @@ export default function AdminLoginPage() {
               <h2 className="mt-6 text-4xl xl:text-5xl font-extrabold text-white leading-[1.15] tracking-tight">
                 全ての学習機会を
                 <br />
-                「受け取る」から
-                <br />
-                「共に作る」へ。
+                インタラクティブに
               </h2>
               <p className="mt-5 text-base text-indigo-100/90 leading-relaxed max-w-md">
                 出席管理・招待フォーム・
