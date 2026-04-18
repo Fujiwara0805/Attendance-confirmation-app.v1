@@ -81,13 +81,16 @@ export default function FAQPage() {
         <section className="pt-24 pb-12">
           <div className="mx-auto max-w-3xl px-5 pt-16 text-center">
             <motion.div {...fadeIn}>
-              <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-100">
-                <HelpCircle className="h-7 w-7 text-indigo-600" />
+              <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-indigo-50 to-blue-50 ring-1 ring-indigo-100 shadow-sm">
+                <HelpCircle className="h-8 w-8 text-indigo-600" />
               </div>
-              <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+              <p className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold tracking-wide uppercase text-indigo-600 bg-indigo-50 ring-1 ring-indigo-100 px-3.5 py-1.5 rounded-full mb-4">
+                FAQ
+              </p>
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-900 leading-[1.1]">
                 よくある質問
               </h1>
-              <p className="mt-4 text-base text-slate-600 sm:text-lg">
+              <p className="mt-5 text-base sm:text-lg text-slate-600 leading-relaxed">
                 ざせきくんに関するよくあるご質問をまとめました。
                 <br className="hidden sm:block" />
                 お探しの回答が見つからない場合は、お気軽にお問い合わせください。
@@ -110,12 +113,12 @@ export default function FAQPage() {
                     delay: index * 0.04,
                   }}
                 >
-                  <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md">
+                  <div className="overflow-hidden rounded-2xl ring-1 ring-black/5 bg-white shadow-sm transition-all hover:shadow-md">
                     <button
                       onClick={() => toggleItem(index)}
                       className="flex w-full items-center justify-between gap-4 px-6 py-5 text-left"
                     >
-                      <span className="text-sm font-semibold text-slate-900 sm:text-base">
+                      <span className="text-sm sm:text-base font-semibold text-slate-900 leading-snug">
                         {item.question}
                       </span>
                       <motion.div
@@ -136,7 +139,7 @@ export default function FAQPage() {
                           className="overflow-hidden"
                         >
                           <div className="border-t border-slate-100 px-6 pb-5 pt-4">
-                            <p className="text-sm leading-relaxed text-slate-600">
+                            <p className="text-sm sm:text-base leading-relaxed text-slate-600">
                               {item.answer}
                             </p>
                           </div>
@@ -155,17 +158,17 @@ export default function FAQPage() {
           <div className="mx-auto max-w-3xl px-5">
             <motion.div
               {...fadeIn}
-              className="rounded-2xl bg-gradient-to-br from-indigo-600 to-indigo-700 px-8 py-12 text-center shadow-lg"
+              className="rounded-2xl bg-gradient-to-br from-indigo-600 via-indigo-600 to-blue-700 px-8 py-12 text-center shadow-xl ring-1 ring-black/5"
             >
-              <h2 className="text-xl font-bold text-white sm:text-2xl">
+              <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white leading-tight">
                 他にご質問はありますか？
               </h2>
-              <p className="mt-3 text-sm text-indigo-100 sm:text-base">
+              <p className="mt-3 text-base sm:text-lg text-indigo-100 leading-relaxed">
                 お気軽にメールでお問い合わせください。サポートチームが迅速にお答えいたします。
               </p>
               <a
                 href="mailto:support@zasekikun.com"
-                className="mt-6 inline-flex items-center justify-center rounded-lg bg-white px-6 py-3 text-sm font-semibold text-indigo-600 shadow-sm transition-colors hover:bg-indigo-50"
+                className="mt-6 inline-flex items-center justify-center rounded-xl bg-white px-6 h-12 text-sm sm:text-base font-semibold text-indigo-600 shadow-lg transition-all hover:bg-indigo-50 active:scale-[0.98]"
               >
                 お問い合わせはこちら
               </a>

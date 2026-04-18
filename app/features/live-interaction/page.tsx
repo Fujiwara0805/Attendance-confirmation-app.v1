@@ -78,28 +78,28 @@ export default function LiveInteractionPage() {
         <div className="mx-auto max-w-6xl px-5 py-20 lg:py-28">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <motion.div {...fadeIn}>
-              <span className="inline-block rounded-full bg-indigo-100 px-4 py-1.5 text-xs font-semibold text-indigo-700 mb-6">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 ring-1 ring-indigo-100 px-3.5 py-1.5 text-xs sm:text-sm font-semibold tracking-wide uppercase text-indigo-600 mb-6">
                 リアルタイムQ&A・ライブ投票
               </span>
-              <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl lg:text-[3.25rem] leading-[1.15]">
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-900 leading-[1.1]">
                 リアルタイムQ&A・
                 <br className="hidden sm:block" />
                 ライブ投票
               </h1>
-              <p className="mt-5 text-lg text-slate-600 leading-relaxed max-w-lg">
+              <p className="mt-5 text-base sm:text-lg text-slate-600 leading-relaxed max-w-lg">
                 参加者全員が声を届けられる、双方向コミュニケーションを実現
               </p>
-              <div className="mt-8 flex flex-wrap gap-4">
+              <div className="mt-8 flex flex-wrap gap-3">
                 <Link
                   href="/admin/login"
-                  className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition hover:bg-indigo-700"
+                  className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-6 h-12 text-sm sm:text-base font-semibold text-white shadow-lg shadow-indigo-200/50 transition-all hover:bg-indigo-700 active:scale-[0.98]"
                 >
                   無料で始める
                   <ArrowRight className="h-4 w-4" />
                 </Link>
                 <Link
                   href="/#features"
-                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 transition hover:border-indigo-200 hover:text-indigo-600"
+                  className="inline-flex items-center gap-2 rounded-xl ring-1 ring-slate-200 bg-white px-6 h-12 text-sm sm:text-base font-semibold text-slate-700 transition-all hover:ring-indigo-200 hover:text-indigo-600"
                 >
                   他の機能を見る
                 </Link>
@@ -113,7 +113,7 @@ export default function LiveInteractionPage() {
               <img
 src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774403349/israel-palacio-Y20JJ_ddy9M-unsplash_hkanai.jpg"
                 alt="リアルタイムQ&A・ライブ投票のイメージ"
-                className="rounded-2xl shadow-xl w-full h-auto object-cover aspect-[4/3]"
+                className="rounded-2xl shadow-xl ring-1 ring-black/5 w-full h-auto object-cover aspect-[4/3]"
                 loading="lazy"
                 decoding="async"
               />
@@ -136,13 +136,13 @@ src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774
                   {...fadeIn}
                   className={feature.reverse ? 'lg:order-2' : undefined}
                 >
-                  <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600">
+                  <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-50 to-blue-50 ring-1 ring-indigo-100 text-indigo-600 shadow-sm">
                     <Icon className="h-5 w-5" />
                   </div>
-                  <h2 className="text-2xl font-bold text-slate-900 sm:text-3xl">
+                  <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-slate-900 leading-tight">
                     {feature.title}
                   </h2>
-                  <p className="mt-4 text-base text-slate-600 leading-relaxed max-w-md">
+                  <p className="mt-4 text-sm sm:text-base lg:text-lg text-slate-600 leading-relaxed max-w-md">
                     {feature.description}
                   </p>
                 </motion.div>
@@ -156,7 +156,7 @@ src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774
                   <img
                     src={feature.image}
                     alt={feature.title}
-                    className="rounded-2xl shadow-xl w-full h-auto object-cover aspect-[4/3]"
+                    className="rounded-2xl shadow-xl ring-1 ring-black/5 w-full h-auto object-cover aspect-[4/3]"
                     loading="lazy"
                     decoding="async"
                   />
@@ -171,16 +171,16 @@ src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774
       <section className="bg-gradient-to-br from-indigo-600 to-blue-700">
         <div className="mx-auto max-w-3xl px-5 py-20 lg:py-28 text-center">
           <motion.div {...fadeIn}>
-            <h2 className="text-3xl font-bold text-white sm:text-4xl">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white leading-tight">
               次の講演を、もっとインタラクティブに。
             </h2>
-            <p className="mt-4 text-indigo-100 text-lg leading-relaxed">
+            <p className="mt-4 text-base sm:text-lg text-indigo-100 leading-relaxed">
               初期費用ゼロ、セットアップは1分。まずは無料プランで始めてみてください。
             </p>
             <div className="mt-8">
               <Link
                 href="/admin/login"
-                className="inline-flex items-center gap-2 rounded-xl bg-white px-8 py-3.5 text-sm font-semibold text-indigo-700 shadow-lg transition hover:bg-indigo-50"
+                className="inline-flex items-center gap-2 rounded-xl bg-white px-8 h-12 text-sm sm:text-base font-semibold text-indigo-700 shadow-lg transition-all hover:bg-indigo-50 active:scale-[0.98]"
               >
                 無料で始める
                 <ArrowRight className="h-4 w-4" />

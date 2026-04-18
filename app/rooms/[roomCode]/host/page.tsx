@@ -168,13 +168,13 @@ export default function HostPage() {
 
   // Auth check
   if (authStatus === 'loading' || loading) {
-    return <div className="min-h-screen flex items-center justify-center text-slate-400">読み込み中...</div>;
+    return <div className="min-h-screen flex items-center justify-center text-sm sm:text-base text-slate-400">読み込み中...</div>;
   }
   if (!session || !room || room.host_id !== session.user?.email) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4">
-        <p className="text-slate-500">このルームへのアクセス権がありません</p>
-        <Link href="/rooms" className="text-indigo-600 hover:underline text-sm">戻る</Link>
+        <p className="text-sm sm:text-base text-slate-500">このルームへのアクセス権がありません</p>
+        <Link href="/rooms" className="text-sm sm:text-base text-indigo-600 hover:underline font-semibold">戻る</Link>
       </div>
     );
   }
@@ -187,10 +187,10 @@ export default function HostPage() {
           <div className="flex items-center gap-2.5">
             <Image src={LOGO_URL} alt="" width={28} height={28} className="rounded-lg" />
             <div>
-              <h1 className="text-sm font-bold text-slate-900">{room.title}</h1>
+              <h1 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight">{room.title}</h1>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-400 font-mono">{room.code}</span>
-                <button onClick={handleCopyCode} className="text-slate-400 hover:text-slate-600">
+                <span className="text-xs sm:text-sm text-slate-400 font-mono tracking-wider">{room.code}</span>
+                <button onClick={handleCopyCode} className="text-slate-400 hover:text-slate-600 transition-colors">
                   {copied ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
                 </button>
               </div>
@@ -210,7 +210,7 @@ export default function HostPage() {
                 className="flex items-center justify-center text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 w-10 h-10 sm:w-auto sm:h-auto sm:px-3 sm:py-2 rounded-lg transition-colors"
                 title="QRコードをダウンロード"
               >
-                <QrCode className="w-4.5 h-4.5 sm:w-3.5 sm:h-3.5" />
+                <QrCode className="w-[18px] h-[18px] sm:w-3.5 sm:h-3.5" />
               </a>
             )}
             <a
@@ -268,7 +268,7 @@ export default function HostPage() {
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+              className={`flex items-center gap-1.5 px-4 py-2.5 text-sm sm:text-base font-semibold border-b-2 transition-colors ${
                 tab === t ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400 hover:text-slate-600'
               }`}
             >
@@ -285,9 +285,9 @@ export default function HostPage() {
         {/* Questions Tab */}
         {tab === 'questions' && (
           qLoading ? (
-            <p className="text-center text-sm text-slate-400 py-8">読み込み中...</p>
+            <p className="text-center text-sm sm:text-base text-slate-400 py-8">読み込み中...</p>
           ) : questions.length === 0 ? (
-            <p className="text-center text-sm text-slate-400 py-8">まだ質問はありません</p>
+            <p className="text-center text-sm sm:text-base text-slate-400 py-8">まだ質問はありません</p>
           ) : (
             <motion.div variants={staggerContainer} initial="initial" animate="animate" className="space-y-3">
               <AnimatePresence>
@@ -395,18 +395,18 @@ export default function HostPage() {
 
             {/* Poll list */}
             {pLoading ? (
-              <p className="text-center text-sm text-slate-400 py-8">読み込み中...</p>
+              <p className="text-center text-sm sm:text-base text-slate-400 py-8">読み込み中...</p>
             ) : (
               polls.map((poll) => (
                 <div key={poll.id} className="glass-card p-5">
                   <div className="flex items-start justify-between mb-3">
                     <div>
-                      <span className={`text-xs font-semibold uppercase tracking-wide ${
+                      <span className={`text-xs sm:text-sm font-semibold uppercase tracking-wide ${
                         poll.status === 'active' ? 'text-emerald-600' : poll.status === 'draft' ? 'text-amber-600' : 'text-slate-400'
                       }`}>
                         {poll.status === 'active' ? '受付中' : poll.status === 'draft' ? '下書き' : '終了'}
                       </span>
-                      <h3 className="text-base font-bold text-slate-900 mt-1">{poll.question}</h3>
+                      <h3 className="text-base sm:text-lg font-semibold text-slate-900 mt-1 leading-snug">{poll.question}</h3>
                     </div>
                     <div className="flex gap-1.5 sm:gap-1">
                       {poll.status === 'draft' && (
@@ -470,7 +470,7 @@ export default function HostPage() {
             {/* Summary */}
             {exportData?.stats && (
               <div className="glass-card p-6">
-                <h3 className="text-lg font-bold text-slate-900 mb-4">ルームサマリー</h3>
+                <h3 className="text-lg sm:text-xl font-extrabold tracking-tight text-slate-900 mb-4">ルームサマリー</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   {[
                     { label: '質問数', value: exportData.stats.totalQuestions },
@@ -479,8 +479,8 @@ export default function HostPage() {
                     { label: '参加者数', value: exportData.stats.uniqueParticipants },
                   ].map((s) => (
                     <div key={s.label} className="text-center p-3 bg-slate-50 rounded-xl">
-                      <p className="text-2xl font-extrabold text-gradient">{s.value ?? 0}</p>
-                      <p className="text-xs text-slate-500 mt-1">{s.label}</p>
+                      <p className="text-2xl sm:text-3xl font-extrabold tracking-tight tabular-nums text-gradient">{s.value ?? 0}</p>
+                      <p className="text-xs sm:text-sm text-slate-500 mt-1 font-medium">{s.label}</p>
                     </div>
                   ))}
                 </div>
@@ -490,11 +490,11 @@ export default function HostPage() {
             {/* Top questions */}
             {exportData?.topQuestions && exportData.topQuestions.length > 0 && (
               <div className="glass-card p-6">
-                <h3 className="text-base font-bold text-slate-900 mb-3">質問一覧（いいね順）</h3>
+                <h3 className="text-base sm:text-lg font-semibold text-slate-900 mb-3">質問一覧（いいね順）</h3>
                 <div className="space-y-2">
                   {(showAllQuestions ? exportData.topQuestions : exportData.topQuestions.slice(0, 5)).map((q, i) => (
-                    <div key={i} className="flex items-center gap-3 text-sm">
-                      <span className="text-indigo-600 font-bold w-6">{q.upvote_count}</span>
+                    <div key={i} className="flex items-center gap-3 text-sm sm:text-base">
+                      <span className="text-indigo-600 font-bold w-6 tabular-nums">{q.upvote_count}</span>
                       <span className="text-slate-700">{q.text}</span>
                     </div>
                   ))}
@@ -502,7 +502,7 @@ export default function HostPage() {
                 {exportData.topQuestions.length > 5 && (
                   <button
                     onClick={() => setShowAllQuestions(!showAllQuestions)}
-                    className="mt-3 text-sm font-medium text-indigo-600 hover:text-indigo-700 transition-colors"
+                    className="mt-3 text-sm sm:text-base font-semibold text-indigo-600 hover:text-indigo-700 transition-colors"
                   >
                     {showAllQuestions
                       ? '閉じる'
@@ -514,18 +514,18 @@ export default function HostPage() {
 
             {/* Download buttons */}
             <div className="glass-card p-6">
-              <h3 className="text-base font-bold text-slate-900 mb-4">データダウンロード</h3>
+              <h3 className="text-base sm:text-lg font-semibold text-slate-900 mb-4">データダウンロード</h3>
               <div className="flex flex-col sm:flex-row gap-3">
                 <button
                   onClick={() => handleExportCSV('questions')}
-                  className="modern-button-secondary rounded-xl px-4 py-3 flex items-center justify-center gap-2 text-sm"
+                  className="modern-button-secondary rounded-xl px-4 h-12 flex items-center justify-center gap-2 text-sm sm:text-base font-semibold"
                 >
                   <Download className="w-4 h-4" />
                   Q&Aデータ (CSV)
                 </button>
                 <button
                   onClick={() => handleExportCSV('polls')}
-                  className="modern-button-secondary rounded-xl px-4 py-3 flex items-center justify-center gap-2 text-sm"
+                  className="modern-button-secondary rounded-xl px-4 h-12 flex items-center justify-center gap-2 text-sm sm:text-base font-semibold"
                 >
                   <Download className="w-4 h-4" />
                   投票結果 (CSV)

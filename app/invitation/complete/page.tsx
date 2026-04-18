@@ -63,7 +63,7 @@ export default function InvitationCompletePage() {
   if (!responseData) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white flex items-center justify-center">
-        <div className="animate-pulse text-sm text-slate-500">読み込み中...</div>
+        <div className="animate-pulse text-sm sm:text-base text-slate-500">読み込み中...</div>
       </div>
     );
   }
@@ -81,7 +81,7 @@ export default function InvitationCompletePage() {
               height={28}
               className="rounded-lg"
             />
-            <span className="text-sm font-semibold text-slate-900">ざせきくん</span>
+            <span className="text-sm sm:text-base font-semibold text-slate-900">ざせきくん</span>
           </a>
         </div>
       </header>
@@ -94,8 +94,8 @@ export default function InvitationCompletePage() {
           transition={{ type: 'spring', stiffness: 200, damping: 12 }}
           className="flex justify-center mb-6"
         >
-          <div className="w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center">
-            <CheckCircle className="h-10 w-10 text-emerald-600" />
+          <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-emerald-100 to-teal-100 ring-1 ring-emerald-200 shadow-sm flex items-center justify-center">
+            <CheckCircle className="h-11 w-11 text-emerald-600" />
           </div>
         </motion.div>
 
@@ -105,8 +105,8 @@ export default function InvitationCompletePage() {
           transition={{ delay: 0.2 }}
           className="text-center mb-8"
         >
-          <h1 className="text-xl font-bold text-slate-900 mb-2">参加申込が完了しました</h1>
-          <p className="text-sm text-slate-500">
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 mb-2">参加申込が完了しました</h1>
+          <p className="text-sm sm:text-base text-slate-500 leading-relaxed">
             当日は以下のQRコードを受付で提示してください
           </p>
         </motion.div>
@@ -116,11 +116,11 @@ export default function InvitationCompletePage() {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6"
+          className="bg-white rounded-2xl ring-1 ring-black/5 shadow-sm p-6 mb-6"
         >
           <div className="flex flex-col items-center gap-4">
             {qrDataUrl ? (
-              <div className="bg-white p-3 rounded-xl border border-slate-100">
+              <div className="bg-white p-3 rounded-xl ring-1 ring-slate-100">
                 <img src={qrDataUrl} alt="受付用QRコード" className="w-56 h-56" />
               </div>
             ) : (
@@ -130,24 +130,24 @@ export default function InvitationCompletePage() {
             )}
 
             <div className="text-center space-y-2 w-full">
-              <div className="flex items-center justify-center gap-2 text-sm text-slate-600">
+              <div className="flex items-center justify-center gap-2 text-sm sm:text-base text-slate-700">
                 <User className="h-4 w-4" />
-                <span className="font-medium">{responseData.respondentName}</span>
+                <span className="font-semibold">{responseData.respondentName}</span>
               </div>
               {responseData.selectedTimeLabel && (
-                <div className="flex items-center justify-center gap-2 text-sm text-slate-500">
+                <div className="flex items-center justify-center gap-2 text-sm sm:text-base text-slate-500">
                   <Calendar className="h-4 w-4" />
                   <span>{responseData.selectedTimeLabel}</span>
                 </div>
               )}
-              <p className="text-xs text-slate-400">{responseData.courseName}</p>
+              <p className="text-xs sm:text-sm text-slate-400">{responseData.courseName}</p>
             </div>
 
             <div className="flex items-center gap-2 w-full">
               <Button
                 variant="outline"
                 onClick={handleCopyUrl}
-                className="flex-1 h-10 text-sm"
+                className="flex-1 h-11 text-sm sm:text-base font-semibold rounded-xl"
               >
                 <Copy className="h-3.5 w-3.5 mr-1.5" />
                 {copied ? 'コピーしました' : 'URLコピー'}
@@ -155,7 +155,7 @@ export default function InvitationCompletePage() {
               <Button
                 onClick={handleDownloadQr}
                 disabled={!qrDataUrl}
-                className="flex-1 h-10 text-sm bg-indigo-600 hover:bg-indigo-700 text-white"
+                className="flex-1 h-11 text-sm sm:text-base font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-200/50 transition-all active:scale-[0.98]"
               >
                 <Download className="h-3.5 w-3.5 mr-1.5" />
                 QRダウンロード
@@ -169,10 +169,10 @@ export default function InvitationCompletePage() {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="bg-amber-50 border border-amber-200 rounded-xl p-4"
+          className="bg-gradient-to-br from-amber-50 to-orange-50/60 ring-1 ring-amber-200 rounded-2xl shadow-sm p-5"
         >
-          <h3 className="text-sm font-semibold text-amber-800 mb-2">当日の受付について</h3>
-          <ul className="text-xs text-amber-700 space-y-1.5 leading-relaxed">
+          <h3 className="text-sm sm:text-base font-semibold text-amber-800 mb-2">当日の受付について</h3>
+          <ul className="text-xs sm:text-sm text-amber-700 space-y-1.5 leading-relaxed">
             <li>- このQRコードをスクリーンショットで保存しておくことをおすすめします</li>
             <li>- 受付時にスタッフにQRコードを提示し、お名前を確認してください</li>
             <li>- QRコードは本人確認用のため、他の方への共有はご遠慮ください</li>

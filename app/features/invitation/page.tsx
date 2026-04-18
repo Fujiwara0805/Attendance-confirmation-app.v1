@@ -58,10 +58,10 @@ export default function InvitationFeaturePage() {
         <div className="mx-auto max-w-6xl px-5">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <motion.div {...fadeIn}>
-              <p className="inline-block text-xs font-semibold tracking-wider uppercase text-indigo-600 bg-indigo-100 px-3 py-1 rounded-full mb-5">
+              <p className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold tracking-wide uppercase text-indigo-600 bg-indigo-50 ring-1 ring-indigo-100 px-3.5 py-1.5 rounded-full mb-5">
                 招待フォーム・参加者管理
               </p>
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-slate-900 leading-[1.15]">
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-900 leading-[1.1]">
                 招待フォーム・
                 <br className="hidden sm:block" />
                 参加者管理
@@ -72,14 +72,14 @@ export default function InvitationFeaturePage() {
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link
                   href="/admin/login"
-                  className="inline-flex items-center gap-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.97] transition-all px-6 py-3 rounded-xl shadow-sm"
+                  className="inline-flex items-center gap-2 text-sm sm:text-base font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] transition-all px-6 h-12 rounded-xl shadow-lg shadow-indigo-200/50"
                 >
                   無料で始める
                   <ArrowRight className="w-4 h-4" />
                 </Link>
                 <Link
                   href="/#features"
-                  className="inline-flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700 bg-white hover:bg-indigo-50 border border-indigo-200 transition-all px-6 py-3 rounded-xl"
+                  className="inline-flex items-center gap-2 text-sm sm:text-base font-semibold text-indigo-600 hover:text-indigo-700 bg-white hover:bg-indigo-50 ring-1 ring-indigo-200 transition-all px-6 h-12 rounded-xl"
                 >
                   <ChevronLeft className="w-4 h-4" />
                   他の機能を見る
@@ -91,7 +91,7 @@ export default function InvitationFeaturePage() {
               <img
 src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774402879/jakob-dalbjorn-cuKJre3nyYc-unsplash_usnazo.jpg"
                 alt="イベント受付のイメージ"
-                className="rounded-2xl shadow-xl w-full h-auto object-cover aspect-[4/3]"
+                className="rounded-2xl shadow-xl ring-1 ring-black/5 w-full h-auto object-cover aspect-[4/3]"
                 loading="lazy"
                 decoding="async"
               />
@@ -112,10 +112,10 @@ src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774
                 {...fadeIn}
                 className={feature.reverse ? 'lg:order-2' : ''}
               >
-                <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
+                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-slate-900 leading-tight">
                   {feature.title}
                 </h2>
-                <p className="mt-4 text-base sm:text-lg text-slate-600 leading-relaxed">
+                <p className="mt-4 text-sm sm:text-base lg:text-lg text-slate-600 leading-relaxed">
                   {feature.description}
                 </p>
               </motion.div>
@@ -128,7 +128,7 @@ src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774
                 <img
                   src={feature.image}
                   alt={feature.title}
-                  className="rounded-2xl shadow-xl w-full h-auto object-cover aspect-[4/3]"
+                  className="rounded-2xl shadow-xl ring-1 ring-black/5 w-full h-auto object-cover aspect-[4/3]"
                   loading="lazy"
                   decoding="async"
                 />
@@ -142,7 +142,7 @@ src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774
       <section className="bg-gradient-to-b from-white to-indigo-50">
         <div className="mx-auto max-w-3xl px-5 py-20 md:py-28 text-center">
           <motion.div {...fadeIn}>
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight text-slate-900">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-slate-900 leading-tight">
               イベント受付を、シームレスに。
             </h2>
             <p className="mt-4 text-base sm:text-lg text-slate-600 leading-relaxed">
@@ -151,7 +151,7 @@ src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774
             <div className="mt-8">
               <Link
                 href="/admin/login"
-                className="inline-flex items-center gap-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.97] transition-all px-8 py-3.5 rounded-xl shadow-sm"
+                className="inline-flex items-center gap-2 text-sm sm:text-base font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] transition-all px-8 h-12 rounded-xl shadow-lg shadow-indigo-200/50"
               >
                 無料で始める
                 <ArrowRight className="w-4 h-4" />

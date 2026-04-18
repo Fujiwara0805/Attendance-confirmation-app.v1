@@ -38,8 +38,8 @@ export default function AttendanceComplete() {
           transition={{ delay: 0.2 }}
           className="flex justify-center mb-6"
         >
-          <div className="w-20 h-20 rounded-full bg-emerald-50 flex items-center justify-center ring-1 ring-emerald-100">
-            <CheckCircle size={40} strokeWidth={1.5} className="text-emerald-500" />
+          <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-emerald-50 to-teal-50 flex items-center justify-center ring-1 ring-emerald-100 shadow-sm">
+            <CheckCircle size={44} strokeWidth={1.5} className="text-emerald-500" />
           </div>
         </motion.div>
 
@@ -47,7 +47,7 @@ export default function AttendanceComplete() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="text-2xl font-bold text-gray-900 tracking-tight"
+          className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900"
         >
           ありがとうございました
         </motion.h1>
@@ -56,7 +56,7 @@ export default function AttendanceComplete() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="mt-3 text-sm text-slate-500"
+          className="mt-3 text-sm sm:text-base text-slate-500 leading-relaxed"
         >
           出席が正常に登録されました
         </motion.p>
@@ -65,7 +65,7 @@ export default function AttendanceComplete() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.6 }}
-          className="mt-4 text-xs text-slate-400"
+          className="mt-4 text-xs sm:text-sm text-slate-400 tabular-nums"
         >
           {countdown}秒後にトップページへ移動します...
         </motion.p>

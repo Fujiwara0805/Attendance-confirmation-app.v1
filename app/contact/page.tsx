@@ -78,17 +78,22 @@ export default function ContactPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
           >
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center">
-                <Building2 className="w-5 h-5 text-indigo-600" />
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-50 to-blue-50 ring-1 ring-indigo-100 shadow-sm flex items-center justify-center">
+                <Building2 className="w-6 h-6 text-indigo-600" />
               </div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
-                お問い合わせ
-              </h1>
+              <div>
+                <p className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-semibold tracking-wide uppercase text-indigo-600 bg-indigo-50 ring-1 ring-indigo-100 px-2.5 py-1 rounded-full mb-1.5">
+                  Contact
+                </p>
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-slate-900 leading-tight">
+                  お問い合わせ
+                </h1>
+              </div>
             </div>
-            <p className="text-sm text-slate-500 mt-3 mb-8 leading-relaxed">
+            <p className="text-sm sm:text-base text-slate-500 mt-3 mb-8 leading-relaxed">
               Enterprise プランの導入やその他のご相談について、お気軽にお問い合わせください。
-              <br />
+              <br className="hidden sm:block" />
               担当者より2営業日以内にご連絡いたします。
             </p>
 
@@ -98,15 +103,15 @@ export default function ContactPage() {
                 animate={{ opacity: 1, scale: 1 }}
                 className="text-center py-16"
               >
-                <div className="w-16 h-16 mx-auto rounded-full bg-emerald-50 flex items-center justify-center mb-4">
-                  <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+                <div className="w-24 h-24 mx-auto rounded-3xl bg-gradient-to-br from-emerald-50 to-teal-50 ring-1 ring-emerald-100 shadow-sm flex items-center justify-center mb-5">
+                  <CheckCircle2 className="w-12 h-12 text-emerald-500" />
                 </div>
-                <h2 className="text-xl font-bold text-slate-900 mb-2">
+                <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 mb-3">
                   お問い合わせありがとうございます
                 </h2>
-                <p className="text-sm text-slate-500 mb-6">
+                <p className="text-sm sm:text-base text-slate-500 mb-6 leading-relaxed">
                   メールクライアントが開きます。内容をご確認の上、送信してください。
-                  <br />
+                  <br className="hidden sm:block" />
                   担当者より折り返しご連絡いたします。
                 </p>
                 <Link
@@ -121,7 +126,7 @@ export default function ContactPage() {
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-700">
+                    <label className="text-xs sm:text-sm font-semibold text-slate-700">
                       お名前 <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -130,12 +135,12 @@ export default function ContactPage() {
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       placeholder="山田 太郎"
-                      className="w-full h-11 px-4 text-sm border-2 border-slate-200 rounded-xl focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
+                      className="w-full h-11 sm:h-12 px-4 text-sm sm:text-base border border-slate-200 rounded-xl focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 outline-none transition-all"
                       style={{ fontSize: '16px' }}
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-700">
+                    <label className="text-xs sm:text-sm font-semibold text-slate-700">
                       メールアドレス <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -144,7 +149,7 @@ export default function ContactPage() {
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                       placeholder="taro@example.com"
-                      className="w-full h-11 px-4 text-sm border-2 border-slate-200 rounded-xl focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
+                      className="w-full h-11 sm:h-12 px-4 text-sm sm:text-base border border-slate-200 rounded-xl focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 outline-none transition-all"
                       style={{ fontSize: '16px' }}
                     />
                   </div>
@@ -152,35 +157,35 @@ export default function ContactPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-700">会社名・団体名</label>
+                    <label className="text-xs sm:text-sm font-semibold text-slate-700">会社名・団体名</label>
                     <input
                       type="text"
                       value={formData.company}
                       onChange={(e) => setFormData({ ...formData, company: e.target.value })}
                       placeholder="株式会社○○"
-                      className="w-full h-11 px-4 text-sm border-2 border-slate-200 rounded-xl focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
+                      className="w-full h-11 sm:h-12 px-4 text-sm sm:text-base border border-slate-200 rounded-xl focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 outline-none transition-all"
                       style={{ fontSize: '16px' }}
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-700">電話番号</label>
+                    <label className="text-xs sm:text-sm font-semibold text-slate-700">電話番号</label>
                     <input
                       type="tel"
                       value={formData.phone}
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                       placeholder="090-1234-5678"
-                      className="w-full h-11 px-4 text-sm border-2 border-slate-200 rounded-xl focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
+                      className="w-full h-11 sm:h-12 px-4 text-sm sm:text-base border border-slate-200 rounded-xl focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 outline-none transition-all"
                       style={{ fontSize: '16px' }}
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-700">お問い合わせ種別</label>
+                  <label className="text-xs sm:text-sm font-semibold text-slate-700">お問い合わせ種別</label>
                   <select
                     value={formData.subject}
                     onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                    className="w-full h-11 px-4 text-sm border-2 border-slate-200 rounded-xl focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all bg-white"
+                    className="w-full h-11 sm:h-12 px-4 text-sm sm:text-base border border-slate-200 rounded-xl focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 outline-none transition-all bg-white"
                     style={{ fontSize: '16px' }}
                   >
                     {subjectOptions.map((opt) => (
@@ -190,7 +195,7 @@ export default function ContactPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-700">
+                  <label className="text-xs sm:text-sm font-semibold text-slate-700">
                     お問い合わせ内容 <span className="text-red-500">*</span>
                   </label>
                   <textarea
@@ -199,7 +204,7 @@ export default function ContactPage() {
                     value={formData.message}
                     onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                     placeholder="Enterprise プランの導入をご検討中の場合は、ご利用予定の規模（人数・拠点数など）やご要望をご記入ください。"
-                    className="w-full px-4 py-3 text-sm border-2 border-slate-200 rounded-xl focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all resize-none"
+                    className="w-full px-4 py-3 text-sm sm:text-base border border-slate-200 rounded-xl focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 outline-none transition-all resize-none leading-relaxed"
                     style={{ fontSize: '16px' }}
                   />
                 </div>
@@ -207,7 +212,7 @@ export default function ContactPage() {
                 <button
                   type="submit"
                   disabled={sending || !formData.name || !formData.email || !formData.message}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.97] transition-all px-8 py-3.5 rounded-xl shadow-lg shadow-indigo-200/50 disabled:opacity-40"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 text-sm sm:text-base font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] transition-all h-12 px-8 rounded-xl shadow-lg shadow-indigo-200/50 disabled:opacity-40"
                 >
                   {sending ? (
                     <>

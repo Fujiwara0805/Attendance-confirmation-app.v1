@@ -80,13 +80,16 @@ export default function NewsPage() {
 
       <main className="mx-auto max-w-3xl px-6 py-12">
         <motion.div {...fadeIn} className="mb-10 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-200">
-            <Megaphone className="h-7 w-7 text-white" />
+          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-200/60 ring-1 ring-white/20">
+            <Megaphone className="h-8 w-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+          <p className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold tracking-wide uppercase text-indigo-600 bg-indigo-50 ring-1 ring-indigo-100 px-3.5 py-1.5 rounded-full mb-4">
+            News
+          </p>
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-slate-900 leading-tight">
             お知らせ
           </h1>
-          <p className="mt-2 text-sm text-slate-500">
+          <p className="mt-3 text-base sm:text-lg text-slate-500 leading-relaxed">
             ざせきくんの最新情報をお届けします
           </p>
         </motion.div>
@@ -98,20 +101,20 @@ export default function NewsPage() {
 
             return (
               <motion.div key={idx} {...child}>
-                <Card className="overflow-hidden border-slate-200/80 bg-white/70 backdrop-blur-sm transition-shadow hover:shadow-md">
+                <Card className="overflow-hidden ring-1 ring-black/5 border-0 bg-white/90 backdrop-blur-sm transition-all hover:shadow-lg hover:-translate-y-0.5 rounded-2xl">
                   <CardContent className="p-5 sm:p-6">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-4">
-                      <span className="shrink-0 text-sm font-medium text-slate-400">
+                      <span className="shrink-0 text-xs sm:text-sm font-semibold text-slate-400 tabular-nums">
                         {item.date}
                       </span>
                       <div className="flex-1 space-y-2">
                         <span
-                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${tag.bg} ${tag.color}`}
+                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs sm:text-sm font-semibold ${tag.bg} ${tag.color}`}
                         >
                           <TagIcon className="h-3 w-3" />
                           {item.tag}
                         </span>
-                        <p className="text-sm leading-relaxed text-slate-700">
+                        <p className="text-sm sm:text-base leading-relaxed text-slate-700">
                           {item.description}
                         </p>
                       </div>

@@ -18,8 +18,8 @@ export default function ThanksPage() {
           transition={{ delay: 0.2 }}
           className="flex justify-center mb-6"
         >
-          <div className="w-16 h-16 rounded-full bg-indigo-50 flex items-center justify-center ring-1 ring-indigo-100">
-            <Heart size={32} strokeWidth={1.5} className="text-indigo-500" />
+          <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-indigo-50 to-blue-50 flex items-center justify-center ring-1 ring-indigo-100 shadow-sm">
+            <Heart size={40} strokeWidth={1.5} className="text-indigo-500" />
           </div>
         </motion.div>
 
@@ -27,7 +27,7 @@ export default function ThanksPage() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="text-2xl font-bold text-gray-900 tracking-tight"
+          className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900"
         >
           ありがとうございました
         </motion.h1>
@@ -36,7 +36,7 @@ export default function ThanksPage() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="mt-3 text-sm text-slate-500"
+          className="mt-3 text-sm sm:text-base text-slate-500 leading-relaxed"
         >
           出席登録が完了しました。このページは閉じて構いません。
         </motion.p>

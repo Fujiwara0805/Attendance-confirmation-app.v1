@@ -187,7 +187,7 @@ export default function CheckinPage() {
       <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
-          <p className="text-sm text-slate-500">読み込み中...</p>
+          <p className="text-sm sm:text-base text-slate-500">読み込み中...</p>
         </div>
       </div>
     );
@@ -197,9 +197,11 @@ export default function CheckinPage() {
     return (
       <div className="min-h-screen bg-gradient-to-b from-red-50 to-white flex items-center justify-center p-4">
         <div className="text-center">
-          <AlertCircle className="h-12 w-12 text-red-400 mx-auto mb-3" />
-          <h2 className="text-lg font-semibold text-slate-900 mb-1">エラー</h2>
-          <p className="text-sm text-slate-500">{error}</p>
+          <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-red-50 to-rose-50 ring-1 ring-red-100 shadow-sm flex items-center justify-center mx-auto mb-4">
+            <AlertCircle className="h-9 w-9 text-red-400" />
+          </div>
+          <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900 mb-1">エラー</h2>
+          <p className="text-sm sm:text-base text-slate-500 leading-relaxed">{error}</p>
         </div>
       </div>
     );
@@ -220,7 +222,7 @@ export default function CheckinPage() {
               height={28}
               className="rounded-lg"
             />
-            <span className="text-sm font-semibold text-slate-900">ざせきくん</span>
+            <span className="text-sm sm:text-base font-semibold text-slate-900">ざせきくん</span>
           </a>
         </div>
       </header>
@@ -231,13 +233,13 @@ export default function CheckinPage() {
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4"
+            className="bg-gradient-to-br from-amber-50 to-orange-50/60 ring-1 ring-amber-200 rounded-2xl shadow-sm p-4 mb-4"
           >
             <div className="flex items-start gap-2.5">
               <ShieldAlert className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-bold text-amber-800 mb-1">受付時間外です</p>
-                <p className="text-sm text-amber-700 leading-relaxed">{checkinStatus.reason}</p>
+                <p className="text-sm sm:text-base font-bold text-amber-800 mb-1">受付時間外です</p>
+                <p className="text-sm sm:text-base text-amber-700 leading-relaxed">{checkinStatus.reason}</p>
               </div>
             </div>
           </motion.div>
@@ -248,10 +250,10 @@ export default function CheckinPage() {
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 mb-4 flex items-center gap-2"
+            className="bg-gradient-to-br from-indigo-50 to-blue-50/60 ring-1 ring-indigo-200 rounded-2xl shadow-sm p-3 mb-4 flex items-center gap-2"
           >
             <Calendar className="h-4 w-4 text-indigo-600 shrink-0" />
-            <p className="text-sm text-indigo-700 font-medium">
+            <p className="text-sm sm:text-base text-indigo-700 font-semibold">
               受付時間内です。下のボタンから受付を行ってください。
             </p>
           </motion.div>
@@ -263,8 +265,8 @@ export default function CheckinPage() {
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-6"
         >
-          <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">受付確認</p>
-          <h1 className="text-lg font-bold text-slate-900">{courseName}</h1>
+          <p className="text-xs sm:text-sm text-indigo-600 font-semibold tracking-wide uppercase mb-2">受付確認</p>
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 leading-tight">{courseName}</h1>
         </motion.div>
 
         {/* 参加者情報カード */}
@@ -272,30 +274,34 @@ export default function CheckinPage() {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className={`rounded-2xl border-2 shadow-sm p-6 mb-6 ${
+          className={`rounded-2xl ring-1 shadow-sm p-6 mb-6 ${
             checkedIn
-              ? 'bg-emerald-50 border-emerald-300'
+              ? 'bg-gradient-to-br from-emerald-50 to-teal-50/60 ring-emerald-200'
               : !checkinStatus.canCheckin
-                ? 'bg-slate-50 border-slate-200'
-                : 'bg-white border-slate-200'
+                ? 'bg-slate-50 ring-slate-200'
+                : 'bg-white ring-black/5'
           }`}
         >
           <div className="flex flex-col items-center gap-4">
             {/* アイコン */}
-            <div className={`w-16 h-16 rounded-full flex items-center justify-center ${
-              checkedIn ? 'bg-emerald-100' : !checkinStatus.canCheckin ? 'bg-slate-100' : 'bg-indigo-100'
+            <div className={`w-20 h-20 rounded-3xl flex items-center justify-center ring-1 shadow-sm ${
+              checkedIn
+                ? 'bg-gradient-to-br from-emerald-100 to-teal-100 ring-emerald-200'
+                : !checkinStatus.canCheckin
+                  ? 'bg-slate-100 ring-slate-200'
+                  : 'bg-gradient-to-br from-indigo-50 to-blue-50 ring-indigo-100'
             }`}>
               {checkedIn ? (
-                <UserCheck className="h-8 w-8 text-emerald-600" />
+                <UserCheck className="h-9 w-9 text-emerald-600" />
               ) : !checkinStatus.canCheckin ? (
-                <Clock className="h-8 w-8 text-slate-400" />
+                <Clock className="h-9 w-9 text-slate-400" />
               ) : (
-                <User className="h-8 w-8 text-indigo-600" />
+                <User className="h-9 w-9 text-indigo-600" />
               )}
             </div>
 
             {/* 名前 */}
-            <h2 className={`text-2xl font-bold ${
+            <h2 className={`text-2xl sm:text-3xl font-extrabold tracking-tight ${
               checkedIn ? 'text-emerald-800' : 'text-slate-900'
             }`}>
               {responseData.respondent_name}
@@ -304,13 +310,13 @@ export default function CheckinPage() {
             {/* 詳細情報 */}
             <div className="space-y-2 text-center">
               {responseData.selected_date && (
-                <div className="flex items-center justify-center gap-2 text-sm text-slate-500">
+                <div className="flex items-center justify-center gap-2 text-sm sm:text-base text-slate-500">
                   <Calendar className="h-4 w-4" />
                   <span>{responseData.selected_date}</span>
                 </div>
               )}
               {responseData.selected_time_label && (
-                <div className="flex items-center justify-center gap-2 text-sm text-slate-500">
+                <div className="flex items-center justify-center gap-2 text-sm sm:text-base text-slate-500">
                   <Clock className="h-4 w-4" />
                   <span>{responseData.selected_time_label}</span>
                 </div>
@@ -319,9 +325,9 @@ export default function CheckinPage() {
 
             {/* チェックイン状態 */}
             {checkedIn && checkedInAt && (
-              <div className="flex items-center gap-2 text-sm text-emerald-600 bg-emerald-100 rounded-full px-4 py-2">
+              <div className="flex items-center gap-2 text-xs sm:text-sm text-emerald-600 bg-emerald-100 rounded-full px-4 py-2">
                 <CheckCircle className="h-4 w-4" />
-                <span className="font-medium">受付済み</span>
+                <span className="font-semibold">受付済み</span>
                 <span className="text-emerald-500">({formatDateTime(checkedInAt)})</span>
               </div>
             )}
@@ -340,7 +346,7 @@ export default function CheckinPage() {
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ type: 'spring', stiffness: 200, damping: 12 }}
-                className="inline-flex items-center gap-2 bg-emerald-100 text-emerald-700 rounded-xl px-6 py-3 text-sm font-medium"
+                className="inline-flex items-center gap-2 bg-emerald-100 text-emerald-700 rounded-xl px-6 h-12 text-sm sm:text-base font-semibold"
               >
                 <CheckCircle className="h-5 w-5" />
                 受付が完了しました
@@ -351,9 +357,9 @@ export default function CheckinPage() {
               <Button
                 onClick={handleCheckin}
                 disabled={checking || !checkinStatus.canCheckin}
-                className={`w-full h-14 font-bold text-lg rounded-xl shadow-lg ${
+                className={`w-full h-14 font-semibold text-base sm:text-lg rounded-xl shadow-lg transition-all ${
                   checkinStatus.canCheckin
-                    ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                    ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-200/50 active:scale-[0.98]'
                     : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
                 }`}
               >
@@ -375,12 +381,12 @@ export default function CheckinPage() {
                 )}
               </Button>
               {checkinStatus.canCheckin && (
-                <p className="text-xs text-slate-400 text-center mt-3">
+                <p className="text-xs sm:text-sm text-slate-400 text-center mt-3 leading-relaxed">
                   上記のお名前に間違いがなければ、ボタンを押して受付を完了してください
                 </p>
               )}
               {!checkinStatus.canCheckin && (
-                <p className="text-xs text-slate-400 text-center mt-3">
+                <p className="text-xs sm:text-sm text-slate-400 text-center mt-3 leading-relaxed">
                   申し込み時に選択した日付・時間帯にのみ受付が可能です
                 </p>
               )}
@@ -393,10 +399,10 @@ export default function CheckinPage() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="mt-4 bg-red-50 border border-red-200 rounded-xl p-3 flex items-start gap-2"
+            className="mt-4 bg-gradient-to-br from-red-50 to-rose-50/60 ring-1 ring-red-200 rounded-2xl shadow-sm p-3 flex items-start gap-2"
           >
             <AlertCircle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
-            <p className="text-sm text-red-600">{error}</p>
+            <p className="text-sm sm:text-base text-red-600 leading-relaxed">{error}</p>
           </motion.div>
         )}
       </main>

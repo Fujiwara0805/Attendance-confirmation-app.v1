@@ -59,26 +59,26 @@ export default function AttendanceFeaturePage() {
           <div className="mx-auto max-w-6xl px-5 py-24 lg:py-32">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
               <motion.div {...fadeIn}>
-                <p className="inline-block text-sm font-semibold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full mb-6">
+                <p className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold tracking-wide uppercase text-indigo-600 bg-indigo-50 ring-1 ring-indigo-100 px-3.5 py-1.5 rounded-full mb-6">
                   出席管理
                 </p>
-                <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-slate-900 leading-[1.15]">
+                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-900 leading-[1.1]">
                   出席管理フォーム
                 </h1>
-                <p className="mt-5 text-lg text-slate-600 leading-relaxed max-w-lg">
+                <p className="mt-5 text-base sm:text-lg text-slate-600 leading-relaxed max-w-lg">
                   位置情報×QRコードで、不正のない正確な出席管理を実現
                 </p>
                 <div className="mt-8 flex flex-wrap gap-3">
                   <Link
                     href="/admin/login"
-                    className="inline-flex items-center gap-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.97] transition-all px-6 py-3 rounded-xl shadow-sm"
+                    className="inline-flex items-center gap-2 text-sm sm:text-base font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] transition-all px-6 h-12 rounded-xl shadow-lg shadow-indigo-200/50"
                   >
                     無料で始める
                     <ArrowRight className="w-4 h-4" />
                   </Link>
                   <Link
                     href="/#features"
-                    className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 transition-all px-6 py-3 rounded-xl"
+                    className="inline-flex items-center gap-2 text-sm sm:text-base font-semibold text-slate-700 bg-white hover:bg-slate-50 ring-1 ring-slate-200 transition-all px-6 h-12 rounded-xl"
                   >
                     <ChevronLeft className="w-4 h-4" />
                     他の機能を見る
@@ -93,7 +93,7 @@ export default function AttendanceFeaturePage() {
                 <img
 src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774357674/dom-fou-YRMWVcdyhmI-unsplash_sq9hvg.jpg"
                   alt="教室での出席管理のイメージ"
-                  className="rounded-2xl shadow-xl w-full h-auto object-cover aspect-[4/3]"
+                  className="rounded-2xl shadow-xl ring-1 ring-black/5 w-full h-auto object-cover aspect-[4/3]"
                   loading="lazy"
                   decoding="async"
                 />
@@ -117,10 +117,10 @@ src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774
                     {...fadeIn}
                     className={isReversed ? 'lg:order-2' : ''}
                   >
-                    <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900">
+                    <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-slate-900 leading-tight">
                       {feature.title}
                     </h2>
-                    <p className="mt-4 text-lg text-slate-600 leading-relaxed max-w-md">
+                    <p className="mt-4 text-sm sm:text-base lg:text-lg text-slate-600 leading-relaxed max-w-md">
                       {feature.description}
                     </p>
                   </motion.div>
@@ -134,7 +134,7 @@ src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774
                     <img
                       src={feature.image}
                       alt={feature.alt}
-                      className="rounded-2xl shadow-xl w-full h-auto object-cover aspect-[4/3]"
+                      className="rounded-2xl shadow-xl ring-1 ring-black/5 w-full h-auto object-cover aspect-[4/3]"
                       loading="lazy"
                       decoding="async"
                     />
@@ -152,16 +152,16 @@ src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774
               {...fadeIn}
               className="text-center max-w-2xl mx-auto"
             >
-              <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900">
+              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-slate-900 leading-tight">
                 出席管理を、もっとスマートに。
               </h2>
-              <p className="mt-5 text-lg text-slate-600 leading-relaxed">
+              <p className="mt-5 text-base sm:text-lg text-slate-600 leading-relaxed">
                 初期費用ゼロ、セットアップは1分。まずは無料プランで始めてみてください。
               </p>
               <div className="mt-8">
                 <Link
                   href="/admin/login"
-                  className="inline-flex items-center gap-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.97] transition-all px-8 py-3.5 rounded-xl shadow-sm"
+                  className="inline-flex items-center gap-2 text-sm sm:text-base font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] transition-all px-8 h-12 rounded-xl shadow-lg shadow-indigo-200/50"
                 >
                   無料で始める
                   <ArrowRight className="w-4 h-4" />

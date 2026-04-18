@@ -884,27 +884,100 @@ export default function AdminPage() {
 
       {/* Main content */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        {/* KPI summary */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
+          className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8"
+        >
+          {/* Forms KPI */}
+          <div className="bg-white rounded-2xl ring-1 ring-black/5 shadow-sm p-4 sm:p-5 flex items-center gap-4 hover:shadow-md transition-shadow duration-300">
+            <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+              <FileText className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs sm:text-sm font-semibold tracking-wide uppercase text-slate-400">出席フォーム</p>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight tabular-nums">{courses.length}</span>
+                {planInfo && (
+                  <span className="text-xs text-slate-400 tabular-nums">/ {planInfo.limits.maxForms === Infinity ? '∞' : planInfo.limits.maxForms}</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Rooms KPI */}
+          <div className="bg-white rounded-2xl ring-1 ring-black/5 shadow-sm p-4 sm:p-5 flex items-center gap-4 hover:shadow-md transition-shadow duration-300">
+            <div className="w-11 h-11 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
+              <MessageSquare className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs sm:text-sm font-semibold tracking-wide uppercase text-slate-400">ルーム</p>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight tabular-nums">{rooms.length}</span>
+                {planInfo && (
+                  <span className="text-xs text-slate-400 tabular-nums">/ {planInfo.limits.maxRooms === Infinity ? '∞' : planInfo.limits.maxRooms}</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Plan KPI */}
+          <div className={`rounded-2xl shadow-sm p-4 sm:p-5 flex items-center gap-4 transition-shadow duration-300 hover:shadow-md ${
+            planInfo?.subscription.plan === 'enterprise'
+              ? 'bg-slate-900 ring-1 ring-slate-900/40 text-white'
+              : planInfo?.subscription.plan === 'paid'
+                ? 'bg-gradient-to-br from-indigo-600 via-indigo-600 to-blue-700 ring-1 ring-indigo-700/30 text-white'
+                : 'bg-white ring-1 ring-black/5'
+          }`}>
+            <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${
+              planInfo?.subscription.plan === 'enterprise' || planInfo?.subscription.plan === 'paid'
+                ? 'bg-white/15 text-white backdrop-blur-sm'
+                : 'bg-emerald-50 text-emerald-600'
+            }`}>
+              <Sparkles className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className={`text-xs sm:text-sm font-semibold tracking-wide uppercase ${
+                planInfo?.subscription.plan === 'enterprise' || planInfo?.subscription.plan === 'paid'
+                  ? 'text-white/70'
+                  : 'text-slate-400'
+              }`}>プラン</p>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className={`text-2xl sm:text-3xl font-extrabold tracking-tight ${
+                  planInfo?.subscription.plan === 'enterprise' || planInfo?.subscription.plan === 'paid'
+                    ? 'text-white'
+                    : 'text-slate-900'
+                }`}>
+                  {planInfo?.subscription.plan === 'enterprise' ? 'Enterprise' : planInfo?.subscription.plan === 'paid' ? 'Pro' : 'Free'}
+                </span>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
         <Tabs defaultValue="courses" className="w-full">
-          {/* Clean pill tabs -- 2 tabs only */}
-          <div className="flex items-center justify-between mb-6">
-            <TabsList className="bg-slate-100/80 p-0.5 rounded-lg h-9">
+          {/* Pill tabs */}
+          <div className="flex items-center justify-between mb-6 overflow-x-auto -mx-1 px-1">
+            <TabsList className="bg-white/80 backdrop-blur-sm ring-1 ring-black/5 shadow-sm p-1 rounded-xl h-11">
               <TabsTrigger
                 value="courses"
-                className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 h-8 text-sm font-medium transition-all gap-1.5"
+                className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-indigo-200/50 rounded-lg px-4 h-9 text-sm sm:text-base font-semibold text-slate-500 transition-all gap-1.5"
               >
                 <BookOpen className="w-3.5 h-3.5" />
                 出席管理
               </TabsTrigger>
               <TabsTrigger
                 value="export"
-                className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 h-8 text-sm font-medium transition-all gap-1.5"
+                className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-indigo-200/50 rounded-lg px-4 h-9 text-sm sm:text-base font-semibold text-slate-500 transition-all gap-1.5"
               >
                 <BarChart3 className="w-3.5 h-3.5" />
                 出席データ
               </TabsTrigger>
               <TabsTrigger
                 value="rooms"
-                className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 h-8 text-sm font-medium transition-all gap-1.5"
+                className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-indigo-200/50 rounded-lg px-4 h-9 text-sm sm:text-base font-semibold text-slate-500 transition-all gap-1.5"
               >
                 <MessageSquare className="w-3.5 h-3.5" />
                 ルーム管理
@@ -917,8 +990,12 @@ export default function AdminPage() {
             {/* Section header */}
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
               <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">出席管理</h1>
-                <p className="text-sm text-slate-500 mt-0.5">
+                <span className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold tracking-wide uppercase text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-full px-3 py-1 mb-2">
+                  <BookOpen className="h-3 w-3" />
+                  Forms
+                </span>
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">出席管理</h1>
+                <p className="text-sm sm:text-base text-slate-500 mt-1">
                   {courses.length > 0
                     ? `${courses.length} 件の出席フォームを管理中`
                     : '出席フォームを作成して始めましょう'}
@@ -971,12 +1048,12 @@ export default function AdminPage() {
             </div>
 
             {/* 機能紹介 */}
-            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-4">
-              <h3 className="text-sm font-semibold text-blue-900 mb-2 flex items-center gap-1.5">
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50/60 ring-1 ring-blue-100 rounded-2xl p-5 mb-5 shadow-sm">
+              <h3 className="text-sm sm:text-base font-semibold text-blue-900 mb-2 flex items-center gap-1.5">
                 <BookOpen className="h-4 w-4" />
                 出席管理について
               </h3>
-              <ul className="text-xs text-blue-800 space-y-1.5 leading-relaxed">
+              <ul className="text-xs sm:text-sm text-blue-800 space-y-1.5 leading-relaxed">
                 <li>• <strong>出席フォーム</strong>：日付・フォーム名・ID・学年・名前・所属・レポートなど、標準の出席項目が含まれたフォームです。すぐに使い始められます。</li>
                 <li>• <strong>カスタムフォーム</strong>：項目を自由に追加・削除・並び替えできます。不要な項目を無効化して、用途に合わせたフォームを作成できます。</li>
                 <li>• <strong>招待フォーム</strong>：イベント参加申込用。日時選択＋個人QRコードを発行し、当日の受付確認に使えます。</li>
@@ -1586,8 +1663,8 @@ export default function AdminPage() {
                 transition={{ duration: 0.3 }}
                 className="flex flex-col items-center justify-center py-20 px-4"
               >
-                <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
-                  <Inbox className="h-8 w-8 text-slate-400" />
+                <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-indigo-50 to-blue-50 ring-1 ring-indigo-100 flex items-center justify-center mb-5 shadow-sm">
+                  <Inbox className="h-9 w-9 text-indigo-400" />
                 </div>
                 <h3 className="text-lg font-semibold text-slate-900 mb-1">出席フォームがまだありません</h3>
                 <p className="text-sm text-slate-500 text-center max-w-sm mb-6">
@@ -1617,13 +1694,13 @@ export default function AdminPage() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.05, duration: 0.25 }}
                       className={`
-                        group relative bg-white rounded-xl border transition-all duration-200
-                        hover:shadow-md hover:border-slate-300
+                        group relative bg-white rounded-2xl ring-1 transition-all duration-300
+                        hover:shadow-lg hover:-translate-y-0.5
                         ${course.formType === 'invitation'
-                          ? 'border-emerald-200/80 shadow-sm shadow-emerald-100/50'
+                          ? 'ring-emerald-200/80 shadow-sm shadow-emerald-100/50'
                           : course.isCustomForm
-                            ? 'border-purple-200/80 shadow-sm shadow-purple-100/50'
-                            : 'border-slate-200 shadow-sm'
+                            ? 'ring-purple-200/80 shadow-sm shadow-purple-100/50'
+                            : 'ring-black/5 shadow-sm'
                         }
                       `}
                     >
@@ -1649,7 +1726,7 @@ export default function AdminPage() {
                             </div>
                             <div className="min-w-0">
                               <div className="flex items-center gap-1.5">
-                                <h3 className="font-semibold text-slate-900 text-sm truncate">
+                                <h3 className="font-semibold text-slate-900 text-sm sm:text-base truncate">
                                   {course.courseName}
                                 </h3>
                                 {course.formType === 'invitation' ? (
@@ -1751,7 +1828,7 @@ export default function AdminPage() {
 
                         {/* Date */}
                         <div className="mt-2.5 flex items-center justify-end">
-                          <span className="text-[11px] text-slate-400">
+                          <span className="text-xs text-slate-400">
                             更新: {new Date(course.lastUpdated).toLocaleDateString('ja-JP')}
                           </span>
                         </div>
@@ -1768,8 +1845,12 @@ export default function AdminPage() {
             {/* Section header */}
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
               <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">ルーム管理</h1>
-                <p className="text-sm text-slate-500 mt-0.5">
+                <span className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold tracking-wide uppercase text-purple-600 bg-purple-50 border border-purple-100 rounded-full px-3 py-1 mb-2">
+                  <MessageSquare className="h-3 w-3" />
+                  Live Rooms
+                </span>
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">ルーム管理</h1>
+                <p className="text-sm sm:text-base text-slate-500 mt-1">
                   {rooms.length > 0
                     ? `${rooms.length} 件のルームを管理中`
                     : 'ルームを作成してインタラクティブなQ&Aや投票を始めましょう'}
@@ -1828,12 +1909,12 @@ export default function AdminPage() {
             </div>
 
             {/* ルーム機能紹介 */}
-            <div className="bg-purple-50 border border-purple-100 rounded-xl p-4 mb-4">
-              <h3 className="text-sm font-semibold text-purple-900 mb-2 flex items-center gap-1.5">
+            <div className="bg-gradient-to-br from-purple-50 to-fuchsia-50/60 ring-1 ring-purple-100 rounded-2xl p-5 mb-5 shadow-sm">
+              <h3 className="text-sm sm:text-base font-semibold text-purple-900 mb-2 flex items-center gap-1.5">
                 <MessageSquare className="h-4 w-4" />
                 ルーム機能について
               </h3>
-              <ul className="text-xs text-purple-800 space-y-1.5 leading-relaxed">
+              <ul className="text-xs sm:text-sm text-purple-800 space-y-1.5 leading-relaxed">
                 <li>• <strong>リアルタイムQ&A</strong>：参加者から匿名で質問を受付。いいね機能で重要な質問を可視化。</li>
                 <li>• <strong>ライブ投票</strong>：理解度チェックやアンケートをリアルタイムで集計・表示。</li>
                 <li>• ルーム作成後、参加者にコードやURLを共有するだけで誰でも参加可能。ログイン不要です。</li>
@@ -1949,8 +2030,8 @@ export default function AdminPage() {
                 transition={{ duration: 0.3 }}
                 className="flex flex-col items-center justify-center py-20 px-4"
               >
-                <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
-                  <MessageSquare className="h-8 w-8 text-slate-400" />
+                <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-purple-50 to-fuchsia-50 ring-1 ring-purple-100 flex items-center justify-center mb-5 shadow-sm">
+                  <MessageSquare className="h-9 w-9 text-purple-400" />
                 </div>
                 <h3 className="text-lg font-semibold text-slate-900 mb-1">ルームがまだありません</h3>
                 <p className="text-sm text-slate-500 text-center max-w-sm mb-6">
@@ -1981,7 +2062,7 @@ export default function AdminPage() {
                       initial={{ opacity: 0, y: 12 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.05, duration: 0.25 }}
-                      className="group relative bg-white rounded-xl border border-slate-200 shadow-sm transition-all duration-200 hover:shadow-md hover:border-slate-300"
+                      className="group relative bg-white rounded-2xl ring-1 ring-black/5 shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5"
                     >
                       <div className="p-4 sm:p-5">
                         {/* Top row: title + status */}
@@ -1990,7 +2071,7 @@ export default function AdminPage() {
                             <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
                               <MessageSquare className="h-4 w-4 text-indigo-600" />
                             </div>
-                            <h3 className="text-sm font-semibold text-slate-900 truncate">{room.title}</h3>
+                            <h3 className="text-sm sm:text-base font-semibold text-slate-900 truncate">{room.title}</h3>
                           </div>
                           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium shrink-0 ${
                             room.status === 'active'
@@ -2114,7 +2195,7 @@ export default function AdminPage() {
                               削除
                             </button>
                           </div>
-                          <span className="text-[11px] text-slate-400">
+                          <span className="text-xs text-slate-400">
                             作成: {new Date(room.created_at).toLocaleDateString('ja-JP')}
                           </span>
                         </div>
@@ -2129,18 +2210,22 @@ export default function AdminPage() {
           {/* ===== ATTENDANCE DATA TAB ===== */}
           <TabsContent value="export" className="mt-0">
             <div className="mb-6">
-              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">出席データ</h1>
-              <p className="text-sm text-slate-500 mt-0.5">
+              <span className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold tracking-wide uppercase text-emerald-600 bg-emerald-50 border border-emerald-100 rounded-full px-3 py-1 mb-2">
+                <BarChart3 className="h-3 w-3" />
+                Export
+              </span>
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">出席データ</h1>
+              <p className="text-sm text-slate-500 mt-1">
                 フォームごとの出席データをCSV形式でエクスポートできます
               </p>
             </div>
             {/* エクスポート機能紹介 */}
-            <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 mb-4">
-              <h3 className="text-sm font-semibold text-emerald-900 mb-2 flex items-center gap-1.5">
+            <div className="bg-gradient-to-br from-emerald-50 to-teal-50/60 ring-1 ring-emerald-100 rounded-2xl p-5 mb-5 shadow-sm">
+              <h3 className="text-sm sm:text-base font-semibold text-emerald-900 mb-2 flex items-center gap-1.5">
                 <BarChart3 className="h-4 w-4" />
                 出席データエクスポートについて
               </h3>
-              <p className="text-xs text-emerald-800 leading-relaxed">
+              <p className="text-xs sm:text-sm text-emerald-800 leading-relaxed">
                 出席フォームに登録されたデータをCSV（Excel対応）またはJSON形式でダウンロードできます。日付フィルタで特定期間のデータを絞り込むことも可能です。
               </p>
             </div>

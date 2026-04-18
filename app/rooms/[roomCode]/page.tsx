@@ -181,7 +181,7 @@ export default function ParticipantPage() {
   if (roomLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="loading-pulse text-slate-400">読み込み中...</div>
+        <div className="loading-pulse text-sm sm:text-base text-slate-400">読み込み中...</div>
       </div>
     );
   }
@@ -189,8 +189,8 @@ export default function ParticipantPage() {
   if (!room) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-5">
-        <p className="text-slate-500">ルームが見つかりませんでした</p>
-        <Link href="/rooms" className="text-indigo-600 hover:underline text-sm">
+        <p className="text-sm sm:text-base text-slate-500">ルームが見つかりませんでした</p>
+        <Link href="/rooms" className="text-sm sm:text-base text-indigo-600 hover:underline font-semibold">
           ルーム一覧に戻る
         </Link>
       </div>
@@ -205,12 +205,12 @@ export default function ParticipantPage() {
           <div className="flex items-center gap-2.5">
             <Image src={LOGO_URL} alt="" width={28} height={28} className="rounded-lg" />
             <div>
-              <h1 className="text-sm font-bold text-slate-900 leading-tight">{room.title}</h1>
-              <p className="text-xs text-slate-400">Code: {room.code}</p>
+              <h1 className="text-sm sm:text-base font-bold text-slate-900 leading-tight tracking-tight">{room.title}</h1>
+              <p className="text-xs sm:text-sm text-slate-400 font-mono">Code: {room.code}</p>
             </div>
           </div>
           {room.status === 'closed' && (
-            <span className="text-xs bg-red-50 text-red-600 px-2 py-1 rounded-lg font-medium">終了</span>
+            <span className="text-xs sm:text-sm bg-red-50 text-red-600 px-2 py-1 rounded-lg font-semibold">終了</span>
           )}
         </div>
 
@@ -218,7 +218,7 @@ export default function ParticipantPage() {
         <div className="mx-auto max-w-2xl flex px-5">
           <button
             onClick={() => setTab('qa')}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm sm:text-base font-semibold border-b-2 transition-colors ${
               tab === 'qa'
                 ? 'border-indigo-600 text-indigo-600'
                 : 'border-transparent text-slate-400 hover:text-slate-600'
@@ -229,7 +229,7 @@ export default function ParticipantPage() {
           </button>
           <button
             onClick={() => setTab('polls')}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm sm:text-base font-semibold border-b-2 transition-colors ${
               tab === 'polls'
                 ? 'border-indigo-600 text-indigo-600'
                 : 'border-transparent text-slate-400 hover:text-slate-600'
@@ -269,20 +269,20 @@ export default function ParticipantPage() {
                     onChange={(e) => setQuestionText(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSubmitQuestion()}
                     placeholder="質問を入力..."
-                    className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-2.5 text-sm focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
+                    className="flex-1 h-12 bg-slate-50 border border-slate-200 rounded-xl px-4 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 outline-none transition-all"
                     style={{ fontSize: '16px' }}
                   />
                   <button
                     onClick={handleSubmitQuestion}
                     disabled={!questionText.trim() || sending}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-4 py-2.5 transition-all active:scale-95 disabled:opacity-40"
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl h-12 w-12 flex items-center justify-center transition-all active:scale-[0.95] disabled:opacity-40 shadow-lg shadow-indigo-200/50"
                   >
                     {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                   </button>
                 </div>
                 <button
                   onClick={() => setIsAnonymous(!isAnonymous)}
-                  className="flex items-center gap-1.5 mt-2 text-xs text-slate-400 hover:text-slate-600 transition-colors"
+                  className="flex items-center gap-1.5 mt-2 text-xs sm:text-sm text-slate-400 hover:text-slate-600 transition-colors"
                 >
                   {isAnonymous ? <ToggleLeft className="w-4 h-4" /> : <ToggleRight className="w-4 h-4 text-indigo-600" />}
                   {isAnonymous ? '匿名で投稿' : `${displayName || '名前を入力'} として投稿`}
@@ -292,9 +292,9 @@ export default function ParticipantPage() {
 
             {/* Questions list */}
             {qLoading ? (
-              <p className="text-center text-sm text-slate-400 py-8">読み込み中...</p>
+              <p className="text-center text-sm sm:text-base text-slate-400 py-8">読み込み中...</p>
             ) : questions.length === 0 ? (
-              <p className="text-center text-sm text-slate-400 py-8">まだ質問はありません。最初の質問を投稿しましょう!</p>
+              <p className="text-center text-sm sm:text-base text-slate-400 py-8">まだ質問はありません。最初の質問を投稿しましょう!</p>
             ) : (
               <motion.div variants={staggerContainer} initial="initial" animate="animate" className="space-y-3">
                 <AnimatePresence>
@@ -332,9 +332,9 @@ export default function ParticipantPage() {
               >
                 <div className="flex items-center gap-2 mb-3">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-xs font-semibold text-emerald-600 uppercase tracking-wide">投票受付中</span>
+                  <span className="text-xs sm:text-sm font-semibold text-emerald-600 uppercase tracking-wide">投票受付中</span>
                 </div>
-                <h3 className="text-lg font-bold text-slate-900 mb-4">{activePoll.question}</h3>
+                <h3 className="text-lg sm:text-xl font-extrabold tracking-tight text-slate-900 mb-4 leading-snug">{activePoll.question}</h3>
 
                 {hasVotedPoll.has(activePoll.id) ? (
                   <PollResultsChart
@@ -348,13 +348,13 @@ export default function ParticipantPage() {
                       <button
                         key={i}
                         onClick={() => handlePollVote(activePoll.id, i)}
-                        className={`w-full text-left px-4 py-3 rounded-xl border-2 transition-all active:scale-[0.98] ${
+                        className={`w-full text-left px-4 py-3 rounded-xl ring-1 transition-all active:scale-[0.98] ${
                           selectedOption === i
-                            ? 'border-indigo-400 bg-indigo-50'
-                            : 'border-slate-100 bg-slate-50 hover:border-slate-200'
+                            ? 'ring-indigo-400 bg-indigo-50'
+                            : 'ring-slate-100 bg-slate-50 hover:ring-slate-200'
                         }`}
                       >
-                        <span className="text-sm font-medium text-slate-700">{option}</span>
+                        <span className="text-sm sm:text-base font-semibold text-slate-700">{option}</span>
                       </button>
                     ))}
                   </div>
@@ -364,7 +364,7 @@ export default function ParticipantPage() {
 
             {/* Closed polls */}
             {pLoading ? (
-              <p className="text-center text-sm text-slate-400 py-8">読み込み中...</p>
+              <p className="text-center text-sm sm:text-base text-slate-400 py-8">読み込み中...</p>
             ) : (
               polls
                 .filter((p) => p.status === 'closed')
@@ -375,8 +375,8 @@ export default function ParticipantPage() {
                     animate={{ opacity: 1, y: 0 }}
                     className="glass-card p-5"
                   >
-                    <span className="text-xs text-slate-400 mb-1 block">終了済み</span>
-                    <h3 className="text-base font-bold text-slate-900 mb-3">{poll.question}</h3>
+                    <span className="text-xs sm:text-sm text-slate-400 mb-1 block font-semibold uppercase tracking-wide">終了済み</span>
+                    <h3 className="text-base sm:text-lg font-semibold text-slate-900 mb-3 leading-snug">{poll.question}</h3>
                     <PollResultsChart
                       options={poll.options}
                       votes={pollVotes[poll.id] || []}
@@ -387,7 +387,7 @@ export default function ParticipantPage() {
             )}
 
             {!activePoll && polls.filter((p) => p.status === 'closed').length === 0 && !pLoading && (
-              <p className="text-center text-sm text-slate-400 py-8">まだ投票はありません</p>
+              <p className="text-center text-sm sm:text-base text-slate-400 py-8">まだ投票はありません</p>
             )}
           </div>
         )}

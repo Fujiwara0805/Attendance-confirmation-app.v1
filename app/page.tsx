@@ -452,7 +452,10 @@ export default function LandingPage() {
               transition={{ duration: 0.6, delay: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
               className="relative"
             >
-              <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-slate-300/40">
+              {/* Decorative backdrop */}
+              <div className="absolute -inset-4 bg-gradient-to-br from-indigo-100/60 via-blue-50/40 to-transparent rounded-3xl -z-10 blur-2xl" />
+
+              <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-indigo-300/30 ring-1 ring-black/5">
                 <img
                   src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774357569/alexandre-pellaes-6vAjp0pscX0-unsplash_dfsotz.jpg"
                   alt="カンファレンス会場"
@@ -462,19 +465,78 @@ export default function LandingPage() {
                   fetchPriority="high"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-indigo-900/30 to-transparent" />
-                {/* Floating badge */}
-                <div className="absolute bottom-4 left-4 right-4 sm:bottom-6 sm:left-6 sm:right-auto">
-                  <div className="inline-flex items-center gap-2 bg-white/90 backdrop-blur-sm rounded-xl px-4 py-2.5 shadow-lg">
-                    <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
-                      <CheckCircle2 className="w-4 h-4 text-indigo-600" />
+              </div>
+
+              {/* Floating: Attendance counter (top-right) */}
+              <motion.div
+                initial={{ opacity: 0, y: -8, scale: 0.9 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ duration: 0.5, delay: 0.5 }}
+                className="hidden sm:flex absolute -top-4 -right-4 sm:-top-5 sm:-right-5 items-center gap-2.5 bg-white rounded-2xl px-4 py-3 shadow-xl ring-1 ring-black/5"
+              >
+                <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center">
+                  <Users className="w-[18px] h-[18px] text-emerald-600" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-600">Live</p>
+                  <p className="text-sm font-bold text-slate-900">128 / 150 人 出席中</p>
+                </div>
+              </motion.div>
+
+              {/* Floating: Q&A notification (middle-left) */}
+              <motion.div
+                initial={{ opacity: 0, x: -8, scale: 0.9 }}
+                animate={{ opacity: 1, x: 0, scale: 1 }}
+                transition={{ duration: 0.5, delay: 0.65 }}
+                className="hidden md:flex absolute top-1/3 -left-6 items-center gap-2.5 bg-white rounded-2xl px-4 py-3 shadow-xl ring-1 ring-black/5 max-w-[220px]"
+              >
+                <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+                  <MessageSquare className="w-[18px] h-[18px] text-amber-600" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-slate-900">新しい質問</p>
+                  <p className="text-[11px] text-slate-500 leading-tight">Q&Aルーム · 2分前</p>
+                </div>
+              </motion.div>
+
+              {/* Floating: Vote result (bottom-right) */}
+              <motion.div
+                initial={{ opacity: 0, y: 8, scale: 0.9 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ duration: 0.5, delay: 0.8 }}
+                className="hidden md:flex absolute -bottom-5 right-6 items-center gap-2.5 bg-white rounded-2xl px-4 py-3 shadow-xl ring-1 ring-black/5"
+              >
+                <div className="w-9 h-9 rounded-xl bg-pink-100 flex items-center justify-center">
+                  <Vote className="w-[18px] h-[18px] text-pink-600" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-slate-900">ライブ投票 結果集計中</p>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <div className="h-1 flex-1 rounded-full bg-slate-100 overflow-hidden w-16">
+                      <div className="h-full w-3/4 bg-gradient-to-r from-indigo-500 to-blue-500" />
                     </div>
-                    <div>
-                      <p className="text-xs font-bold text-slate-900">アプリ不要・ログイン不要</p>
-                      <p className="text-[10px] text-slate-500">QRコードですぐにスタート</p>
-                    </div>
+                    <span className="text-[10px] text-slate-500 font-mono">75%</span>
                   </div>
                 </div>
-              </div>
+              </motion.div>
+
+              {/* Floating: Badge (bottom-left, keeps original message) */}
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.35 }}
+                className="absolute bottom-4 left-4 sm:bottom-5 sm:-left-5"
+              >
+                <div className="inline-flex items-center gap-2 bg-white/95 backdrop-blur-sm rounded-xl px-4 py-2.5 shadow-xl ring-1 ring-black/5">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
+                    <CheckCircle2 className="w-4 h-4 text-indigo-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-900">アプリ不要・ログイン不要</p>
+                    <p className="text-[10px] text-slate-500">QRコードですぐにスタート</p>
+                  </div>
+                </div>
+              </motion.div>
             </motion.div>
           </div>
         </div>
