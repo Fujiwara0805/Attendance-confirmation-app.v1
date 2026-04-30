@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, BarChart3, ThumbsUp, Maximize, Minimize, X, Loader2 } from 'lucide-react';
+import { MessageSquare, BarChart3, ThumbsUp, Maximize, Minimize, X, Loader2, WifiOff } from 'lucide-react';
 import { useRealtimeQuestions } from '@/lib/hooks/useRealtimeQuestions';
 import { useRealtimePolls } from '@/lib/hooks/useRealtimePolls';
 import PollResultsChart from '../../components/PollResultsChart';
@@ -105,8 +105,8 @@ export default function PresentPage() {
     return () => window.removeEventListener('keydown', onKey);
   }, [qrModalOpen, closeQrModal]);
 
-  const { questions } = useRealtimeQuestions(room?.id || null);
-  const { activePoll, pollVotes } = useRealtimePolls(room?.id || null);
+  const { questions, connected: qConnected } = useRealtimeQuestions(room?.id || null);
+  const { activePoll, pollVotes, connected: pConnected } = useRealtimePolls(room?.id || null);
 
   // Auto-switch to poll when one becomes active
   useEffect(() => {
@@ -133,9 +133,16 @@ export default function PresentPage() {
     return <div className="min-h-screen bg-gray-50 flex items-center justify-center text-sm sm:text-base text-gray-400">読み込み中...</div>;
   }
 
+  // モデレーション対応: pending / rejected はプレゼン投影から除外
   const topQuestions = questions
-    .filter((q) => !q.is_answered)
+    .filter(
+      (q) =>
+        !q.is_answered &&
+        (q.status === undefined || q.status === 'approved')
+    )
     .slice(0, 8);
+
+  const realtimeOffline = !qConnected && !pConnected;
 
   return (
     <div
@@ -201,6 +208,15 @@ export default function PresentPage() {
               投票
             </button>
           </div>
+          {realtimeOffline && (
+            <span
+              title="接続が不安定なためポーリングモードで動作中"
+              className="hidden sm:inline-flex items-center gap-1 text-xs font-semibold bg-amber-50 text-amber-600 px-2.5 py-1 rounded-full"
+            >
+              <WifiOff className="w-3.5 h-3.5" />
+              再接続中
+            </span>
+          )}
           <button
             onClick={toggleFullscreen}
             className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors"

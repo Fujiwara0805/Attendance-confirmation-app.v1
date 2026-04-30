@@ -2049,13 +2049,6 @@ export default function AdminPage() {
               /* Room cards grid */
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {rooms.map((room, index) => {
-                  const roomUrl = typeof window !== 'undefined'
-                    ? `${window.location.origin}/rooms/${room.code}`
-                    : `/rooms/${room.code}`;
-                  const hostUrl = typeof window !== 'undefined'
-                    ? `${window.location.origin}/rooms/${room.code}/host`
-                    : `/rooms/${room.code}/host`;
-
                   return (
                     <motion.div
                       key={room.id}
@@ -2104,7 +2097,7 @@ export default function AdminPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => window.open(roomUrl, '_blank')}
+                            onClick={() => router.push(`/rooms/${room.code}`)}
                             className="h-8 px-3 text-xs border-slate-200 text-slate-600 hover:text-indigo-600 hover:border-indigo-300"
                           >
                             <Globe className="h-3 w-3 mr-1.5" />
@@ -2112,7 +2105,7 @@ export default function AdminPage() {
                           </Button>
                           <Button
                             size="sm"
-                            onClick={() => window.open(hostUrl, '_blank')}
+                            onClick={() => router.push(`/rooms/${room.code}/host`)}
                             className="h-8 px-3 text-xs bg-indigo-600 hover:bg-indigo-700 text-white"
                           >
                             <Settings className="h-3 w-3 mr-1.5" />
@@ -2121,7 +2114,7 @@ export default function AdminPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => window.open(`/rooms/${room.code}/host?tab=export`, '_blank')}
+                            onClick={() => router.push(`/rooms/${room.code}/host?tab=export`)}
                             className="h-8 px-3 text-xs border-slate-200 text-slate-600 hover:text-indigo-600 hover:border-indigo-300"
                           >
                             <Download className="h-3 w-3 mr-1.5" />

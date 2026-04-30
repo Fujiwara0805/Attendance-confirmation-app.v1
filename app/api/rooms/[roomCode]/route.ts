@@ -11,7 +11,7 @@ export async function GET(
     const supabase = createServerClient();
     const { data, error } = await supabase
       .from('rooms')
-      .select('id, code, title, status, host_id, created_at')
+      .select('id, code, title, status, host_id, created_at, moderation_enabled')
       .eq('code', params.roomCode.toUpperCase())
       .single();
 
@@ -54,6 +54,9 @@ export async function PATCH(
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (body.title) updates.title = body.title;
     if (body.status) updates.status = body.status;
+    if (typeof body.moderationEnabled === 'boolean') {
+      updates.moderation_enabled = body.moderationEnabled;
+    }
 
     const { data, error } = await supabase
       .from('rooms')

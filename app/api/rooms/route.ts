@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { title } = await req.json();
+    const { title, moderationEnabled } = await req.json();
     if (!title || typeof title !== 'string') {
       return NextResponse.json({ error: 'Title is required' }, { status: 400 });
     }
@@ -38,6 +38,7 @@ export async function POST(req: NextRequest) {
         code,
         host_id: session.email,
         title: title.trim(),
+        moderation_enabled: !!moderationEnabled,
       })
       .select()
       .single();

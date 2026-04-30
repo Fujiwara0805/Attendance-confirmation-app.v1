@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getCurrentUser } from '@/lib/auth';
 import { createServerClient } from '@/lib/supabase';
 
-// PATCH: Update question text (participant edit — device ownership required)
+// PATCH: Update question (text edit by participant, or status/answered/pinned by host)
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { roomCode: string; questionId: string } }
@@ -19,12 +20,43 @@ export async function PATCH(
       return NextResponse.json({ error: 'Room not found' }, { status: 404 });
     }
 
-    const { text, participantId } = await req.json();
+    const body = await req.json();
+    const { text, participantId, status, isAnswered, isPinned } = body;
+
+    // ホスト操作（status / is_answered / is_pinned）の場合
+    if (status !== undefined || isAnswered !== undefined || isPinned !== undefined) {
+      const session = await getCurrentUser();
+      if (!session?.email || session.email !== room.host_id) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+
+      const updates: Record<string, unknown> = {};
+      if (status !== undefined) {
+        if (!['pending', 'approved', 'rejected'].includes(status)) {
+          return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
+        }
+        updates.status = status;
+      }
+      if (typeof isAnswered === 'boolean') updates.is_answered = isAnswered;
+      if (typeof isPinned === 'boolean') updates.is_pinned = isPinned;
+
+      const { data, error } = await supabase
+        .from('questions')
+        .update(updates)
+        .eq('id', params.questionId)
+        .eq('room_id', room.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return NextResponse.json(data);
+    }
+
+    // 参加者によるテキスト編集
     if (!text || typeof text !== 'string' || text.trim().length === 0) {
       return NextResponse.json({ error: 'Question text is required' }, { status: 400 });
     }
 
-    // Verify ownership: participant_id must match the question's participant_id
     if (participantId) {
       const { data: question } = await supabase
         .from('questions')

@@ -82,10 +82,15 @@ export async function POST(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { question, type, options, allowMultiple } = await req.json();
+    const { question, type, options, allowMultiple, maxSelections } = await req.json();
     if (!question || !type) {
       return NextResponse.json({ error: 'Question and type are required' }, { status: 400 });
     }
+
+    const optionCount = Array.isArray(options) ? options.length : 0;
+    const rawMax = Number.isFinite(maxSelections) ? Number(maxSelections) : 1;
+    const clampedMax = Math.max(1, Math.min(rawMax, Math.max(1, optionCount)));
+    const isMulti = allowMultiple || clampedMax > 1;
 
     const { data, error } = await supabase
       .from('polls')
@@ -94,7 +99,8 @@ export async function POST(
         question: question.trim(),
         type,
         options: options || [],
-        allow_multiple: allowMultiple || false,
+        allow_multiple: isMulti,
+        max_selections: isMulti ? clampedMax : 1,
       })
       .select()
       .single();

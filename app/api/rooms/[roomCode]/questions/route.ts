@@ -46,7 +46,7 @@ export async function POST(
 
     const { data: room } = await supabase
       .from('rooms')
-      .select('id, status')
+      .select('id, status, moderation_enabled')
       .eq('code', params.roomCode.toUpperCase())
       .single();
 
@@ -62,6 +62,9 @@ export async function POST(
       return NextResponse.json({ error: 'Question text is required' }, { status: 400 });
     }
 
+    // モデレーション有効時は pending、無効時は即時 approved
+    const initialStatus = room.moderation_enabled ? 'pending' : 'approved';
+
     const { data, error } = await supabase
       .from('questions')
       .insert({
@@ -69,6 +72,7 @@ export async function POST(
         text: text.trim(),
         author_name: isAnonymous ? '匿名' : (authorName || '匿名'),
         is_anonymous: isAnonymous !== false,
+        status: initialStatus,
         ...(participantId ? { participant_id: participantId } : {}),
       })
       .select()

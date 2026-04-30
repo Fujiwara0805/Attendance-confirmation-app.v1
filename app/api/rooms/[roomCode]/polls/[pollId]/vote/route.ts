@@ -7,7 +7,13 @@ export async function POST(
   { params }: { params: { roomCode: string; pollId: string } }
 ) {
   try {
-    const { participantId, optionIndex, value } = await req.json();
+    const body = await req.json();
+    const { participantId, optionIndex, optionIndexes, value } = body as {
+      participantId?: string;
+      optionIndex?: number;
+      optionIndexes?: number[];
+      value?: string | null;
+    };
     if (!participantId) {
       return NextResponse.json({ error: 'participantId is required' }, { status: 400 });
     }
@@ -17,7 +23,7 @@ export async function POST(
     // Verify poll exists and is active
     const { data: poll } = await supabase
       .from('polls')
-      .select('id, room_id, status')
+      .select('id, room_id, status, max_selections, options')
       .eq('id', params.pollId)
       .single();
 
@@ -28,24 +34,67 @@ export async function POST(
       return NextResponse.json({ error: 'Poll is not active' }, { status: 400 });
     }
 
-    const { data, error } = await supabase
-      .from('poll_votes')
-      .upsert(
-        {
+    const maxSelections = Math.max(1, Number(poll.max_selections ?? 1));
+    const optionCount = Array.isArray(poll.options) ? poll.options.length : 0;
+
+    // 複数選択リスト or 単一選択 を統一して配列で扱う
+    const indexes: number[] = Array.isArray(optionIndexes) && optionIndexes.length > 0
+      ? Array.from(new Set(optionIndexes.filter((i) => Number.isInteger(i) && i >= 0 && i < optionCount)))
+      : typeof optionIndex === 'number' && optionIndex >= 0 && optionIndex < optionCount
+      ? [optionIndex]
+      : [];
+
+    // 自由記述: indexes が空、value のみ
+    if (indexes.length === 0 && value) {
+      const { data, error } = await supabase
+        .from('poll_votes')
+        .insert({
           poll_id: params.pollId,
           room_id: poll.room_id,
           participant_id: participantId,
-          option_index: optionIndex ?? null,
-          value: value ?? null,
-        },
-        { onConflict: 'poll_id,participant_id' }
-      )
-      .select()
-      .single();
+          option_index: null,
+          value,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return NextResponse.json(data, { status: 201 });
+    }
+
+    if (indexes.length === 0) {
+      return NextResponse.json({ error: 'optionIndex(es) required' }, { status: 400 });
+    }
+    if (indexes.length > maxSelections) {
+      return NextResponse.json(
+        { error: `最大 ${maxSelections} 件まで選択できます` },
+        { status: 400 }
+      );
+    }
+
+    // 既存票を一旦削除 → 新しい選択肢で置換（投票やり直しもサポート）
+    await supabase
+      .from('poll_votes')
+      .delete()
+      .eq('poll_id', params.pollId)
+      .eq('participant_id', participantId);
+
+    const rows = indexes.map((idx) => ({
+      poll_id: params.pollId,
+      room_id: poll.room_id,
+      participant_id: participantId,
+      option_index: idx,
+      value: null as string | null,
+    }));
+
+    const { data, error } = await supabase
+      .from('poll_votes')
+      .insert(rows)
+      .select();
 
     if (error) throw error;
 
-    return NextResponse.json(data, { status: 201 });
+    return NextResponse.json({ votes: data ?? [], count: rows.length }, { status: 201 });
   } catch (err) {
     console.error('Poll vote error:', err);
     return NextResponse.json({ error: 'Failed to submit vote' }, { status: 500 });
