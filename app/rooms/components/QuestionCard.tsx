@@ -88,9 +88,9 @@ export default function QuestionCard({
       } ${isAnswered ? 'opacity-70' : ''}`}
     >
       <div className="p-4">
-        {/* Header row: avatar + name + time */}
-        <div className="flex items-center justify-between gap-2 mb-2">
-          <div className="flex items-center gap-2 min-w-0">
+        {/* Header row: avatar + name + (time / like) */}
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <div className="flex items-center gap-2 min-w-0 pt-0.5">
             <div
               className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${tone}`}
               aria-hidden
@@ -103,7 +103,21 @@ export default function QuestionCard({
             {isPinned && <Pin className="w-3.5 h-3.5 text-emerald-500 shrink-0" />}
             {isAnswered && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />}
           </div>
-          <span className="text-[11px] sm:text-xs text-slate-400 shrink-0">{timeAgo}</span>
+          <div className="flex flex-col items-end gap-1.5 shrink-0">
+            <span className="text-[11px] sm:text-xs text-slate-400">{timeAgo}</span>
+            <button
+              onClick={() => onVote(id)}
+              aria-pressed={hasVoted}
+              className={`inline-flex items-center gap-1 px-2.5 h-7 rounded-full text-xs font-semibold transition-all active:scale-[0.95] tabular-nums ${
+                hasVoted
+                  ? 'bg-rose-50 text-rose-600 ring-1 ring-rose-200'
+                  : 'bg-slate-50 text-slate-500 hover:bg-slate-100 ring-1 ring-slate-200'
+              }`}
+            >
+              {likeIcon ?? <ThumbsUp className={`w-3.5 h-3.5 ${hasVoted ? 'fill-current' : ''}`} />}
+              {upvoteCount}
+            </button>
+          </div>
         </div>
 
         {/* Body */}
@@ -146,22 +160,8 @@ export default function QuestionCard({
           </p>
         )}
 
-        {/* Footer row: like + actions */}
-        <div className="mt-3 flex items-center justify-between gap-2">
-          <button
-            onClick={() => onVote(id)}
-            aria-pressed={hasVoted}
-            className={`inline-flex items-center gap-1.5 px-3 h-8 rounded-full text-xs sm:text-sm font-semibold transition-all active:scale-[0.95] tabular-nums ${
-              hasVoted
-                ? 'bg-rose-50 text-rose-600 ring-1 ring-rose-200'
-                : 'bg-slate-50 text-slate-500 hover:bg-slate-100 ring-1 ring-slate-200'
-            }`}
-          >
-            {likeIcon ?? <ThumbsUp className={`w-4 h-4 ${hasVoted ? 'fill-current' : ''}`} />}
-            {upvoteCount}
-          </button>
-
-          <div className="flex items-center gap-1">
+        {/* Footer row: actions */}
+        <div className="mt-3 flex items-center justify-end gap-1 empty:hidden">
             {/* Host moderation */}
             {isHost && status === 'pending' && (
               <>
@@ -248,7 +248,6 @@ export default function QuestionCard({
                 </button>
               </>
             )}
-          </div>
         </div>
       </div>
     </motion.div>
