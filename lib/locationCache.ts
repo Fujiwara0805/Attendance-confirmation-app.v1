@@ -13,6 +13,24 @@ interface LocationSettings {
   locationName?: string;
 }
 
+export type LocationErrorCode =
+  | 'permission_denied'    // ブラウザ/OSで位置情報がブロックされている
+  | 'position_unavailable' // 端末のGPSがOFF・圏外などで測位不能
+  | 'timeout'              // タイムアウト（屋内・電波弱）
+  | 'unsupported'          // ブラウザがGeolocation APIに非対応
+  | 'insecure_context';    // HTTPS以外でアクセスしている
+
+export class LocationError extends Error {
+  code: LocationErrorCode;
+  constructor(code: LocationErrorCode, message: string) {
+    super(message);
+    this.code = code;
+    this.name = 'LocationError';
+  }
+}
+
+export type LocationPermissionState = 'granted' | 'prompt' | 'denied' | 'unknown';
+
 export class LocationCacheManager {
   private static readonly CACHE_KEY = 'attendance_location_cache';
   private static readonly SETTINGS_KEY = 'attendance_location_settings';
@@ -128,23 +146,25 @@ export class LocationCacheManager {
   }
 
   /**
-   * 高精度位置情報を取得（キャッシュ優先）
+   * Permissions APIで位置情報の許可状態を事前判定
+   * Safari等で未対応の場合は 'unknown' を返す
    */
-  static async getCurrentLocation(): Promise<CachedLocation> {
-    // まずキャッシュをチェック
-    const cached = this.getCachedLocation();
-    if (cached) {
-      // キャッシュから位置情報を取得（ログを削減）
-      return cached;
+  static async checkPermission(): Promise<LocationPermissionState> {
+    if (typeof navigator === 'undefined' || !navigator.permissions) return 'unknown';
+    try {
+      const result = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
+      return result.state;
+    } catch {
+      return 'unknown';
     }
+  }
 
-    // キャッシュがない場合は新規取得
+  /**
+   * 単発の getCurrentPosition 呼び出し（オプション指定可）
+   * GeolocationPositionError を LocationError に変換する
+   */
+  private static requestPosition(options: PositionOptions): Promise<CachedLocation> {
     return new Promise((resolve, reject) => {
-      if (!navigator.geolocation) {
-        reject(new Error('位置情報がサポートされていません'));
-        return;
-      }
-
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const location: CachedLocation = {
@@ -153,22 +173,78 @@ export class LocationCacheManager {
             timestamp: Date.now(),
             accuracy: position.coords.accuracy
           };
-          
-          // キャッシュに保存
           this.saveLocation(location);
-          // 新しい位置情報を取得してキャッシュに保存（ログを削減）
           resolve(location);
         },
         (error) => {
-          reject(error);
+          let code: LocationErrorCode;
+          let message: string;
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              code = 'permission_denied';
+              message = '位置情報の利用が許可されていません。ブラウザと端末の両方で位置情報を許可してください。';
+              break;
+            case error.POSITION_UNAVAILABLE:
+              code = 'position_unavailable';
+              message = '位置情報を取得できませんでした。端末の位置情報サービス(GPS)がONになっているか確認してください。';
+              break;
+            case error.TIMEOUT:
+              code = 'timeout';
+              message = '位置情報の取得がタイムアウトしました。屋外への移動またはWiFi接続をお試しください。';
+              break;
+            default:
+              code = 'position_unavailable';
+              message = '位置情報を取得できませんでした。';
+          }
+          reject(new LocationError(code, message));
         },
-        {
-          enableHighAccuracy: true,
-          maximumAge: 0,
-          timeout: 10000
-        }
+        options
       );
     });
+  }
+
+  /**
+   * 位置情報を取得（キャッシュ優先 + TIMEOUT 時の低精度フォールバック）
+   */
+  static async getCurrentLocation(): Promise<CachedLocation> {
+    // まずキャッシュをチェック
+    const cached = this.getCachedLocation();
+    if (cached) return cached;
+
+    // セキュアコンテキスト確認（HTTPS or localhost でないと取得不可）
+    if (typeof window !== 'undefined') {
+      const { protocol, hostname } = window.location;
+      const isSecure = protocol === 'https:' || hostname === 'localhost' || hostname === '127.0.0.1';
+      if (!isSecure) {
+        throw new LocationError(
+          'insecure_context',
+          '安全な接続(HTTPS)でないため位置情報を取得できません。URLが正しいかご確認ください。'
+        );
+      }
+    }
+
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      throw new LocationError('unsupported', 'お使いのブラウザは位置情報に対応していません。');
+    }
+
+    // 1回目: 高精度（10秒）
+    try {
+      return await this.requestPosition({
+        enableHighAccuracy: true,
+        maximumAge: 0,
+        timeout: 10000,
+      });
+    } catch (err) {
+      // TIMEOUT のみ低精度にフォールバック（屋内・電波弱対策）
+      if (err instanceof LocationError && err.code === 'timeout') {
+        return await this.requestPosition({
+          enableHighAccuracy: false,
+          maximumAge: 60_000,
+          timeout: 30_000,
+        });
+      }
+      throw err;
+    }
   }
 
   /**

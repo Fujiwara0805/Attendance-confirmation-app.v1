@@ -34,7 +34,7 @@ import { createDynamicSchema, createDefaultValues, defaultFields, normalizeDefau
 import DynamicFormField from './DynamicFormField';
 import LocationPermissionModal from './LocationPermissionModal';
 import { fetchJsonWithRetry } from '@/lib/fetchWithRetry';
-import { LocationCacheManager } from '@/lib/locationCache';
+import { LocationCacheManager, LocationError, type LocationErrorCode } from '@/lib/locationCache';
 
 // 講義情報の型定義
 interface Course {
@@ -102,6 +102,7 @@ export default function DynamicAttendanceForm() {
     longitude?: number;
     distance?: number;
     isOnCampus?: boolean;
+    errorCode?: LocationErrorCode;
   }>({
     status: 'loading',
     message: '位置情報を取得中...',
@@ -399,6 +400,19 @@ export default function DynamicAttendanceForm() {
     setShowLocationModal(false);
     setLocationInfo({ status: 'loading', message: '位置情報を取得中...' });
 
+    // 事前にPermissions APIで状態を判定し、deniedなら無駄な呼び出しをスキップ
+    const permission = await LocationCacheManager.checkPermission();
+    if (permission === 'denied') {
+      setLocationInfo({
+        status: 'error',
+        message: '位置情報がブロックされています。ブラウザの設定から位置情報を許可してください。',
+        errorCode: 'permission_denied',
+      });
+      setShowLocationPermissionModal(true);
+      setLocationFetched(true);
+      return;
+    }
+
     try {
       // キャッシュをクリアしてから新鮮な位置情報を取得（古い位置データでの誤判定を防止）
       LocationCacheManager.clearLocationCache();
@@ -419,11 +433,18 @@ export default function DynamicAttendanceForm() {
 
       setLocationFetched(true);
     } catch (error) {
-      setLocationInfo({
-        status: 'error',
-        message: `位置情報を取得できませんでした: ${error instanceof Error ? error.message : '不明なエラー'}`,
-      });
-      setShowLocationPermissionModal(true);
+      const errorCode: LocationErrorCode =
+        error instanceof LocationError ? error.code : 'position_unavailable';
+      const message =
+        error instanceof Error
+          ? error.message
+          : '位置情報を取得できませんでした。';
+
+      setLocationInfo({ status: 'error', message, errorCode });
+      // 許可拒否の場合のみ手順モーダルを自動表示（その他はメッセージのみで誘導）
+      if (errorCode === 'permission_denied') {
+        setShowLocationPermissionModal(true);
+      }
       setLocationFetched(true);
     }
   }, [campusCenter]);
@@ -703,35 +724,88 @@ export default function DynamicAttendanceForm() {
                   必要項目を入力して、出席登録をしましょう
                 </p>
 
-                {/* 位置情報エラー時のみ表示 */}
-                {campusCenter && locationInfo.status === 'error' && (
-                  <motion.div
-                    variants={scaleIn}
-                    className="w-full max-w-sm bg-red-50/80 border border-red-200/60 rounded-xl p-3 text-center"
-                  >
-                    <div className="flex items-center justify-center gap-1.5 mb-1.5">
-                      <AlertCircle className="h-3.5 w-3.5 text-red-500" />
-                      <span className="text-xs font-medium text-red-700">位置情報を取得できませんでした</span>
-                    </div>
-                    <p className="text-[11px] text-red-600/80 leading-relaxed mb-2">
-                      出席登録には位置情報の許可が必要です。
-                      <br />
-                      ブラウザの設定から位置情報を許可してください。
-                    </p>
-                    <button
-                      onClick={() => {
-                        LocationCacheManager.clearLocationCache();
-                        setLocationFetched(false);
-                        setLocationInfo({ status: 'loading', message: '位置情報を再取得中...' });
-                        requestLocationPermission();
-                      }}
-                      className="inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-700 bg-red-100 hover:bg-red-200 px-3 py-1.5 rounded-lg transition-colors"
+                {/* 位置情報エラー時のみ表示（エラーコードごとに出し分け） */}
+                {campusCenter && locationInfo.status === 'error' && (() => {
+                  const code = locationInfo.errorCode ?? 'position_unavailable';
+                  const errorMeta: Record<LocationErrorCode, {
+                    title: string;
+                    description: string;
+                    showRetry: boolean;
+                    showHelp: boolean;
+                  }> = {
+                    permission_denied: {
+                      title: '位置情報がブロックされています',
+                      description: 'ブラウザの設定から位置情報を「許可」に変更してから、ページを再読み込みしてください。',
+                      showRetry: true,
+                      showHelp: true,
+                    },
+                    position_unavailable: {
+                      title: '位置情報を取得できません',
+                      description: '端末の位置情報サービス(GPS)がONになっているか確認してください。屋内の場合は窓際や屋外でお試しください。',
+                      showRetry: true,
+                      showHelp: true,
+                    },
+                    timeout: {
+                      title: '位置情報の取得がタイムアウトしました',
+                      description: '電波の良い場所(屋外・WiFi接続)へ移動してから再取得してください。',
+                      showRetry: true,
+                      showHelp: false,
+                    },
+                    insecure_context: {
+                      title: '安全な接続でないため取得できません',
+                      description: 'URLが「https://」で始まっているかご確認ください。配布されたQRコード/URLが正しいかも併せて確認してください。',
+                      showRetry: false,
+                      showHelp: false,
+                    },
+                    unsupported: {
+                      title: 'お使いのブラウザは位置情報に対応していません',
+                      description: 'Safari(iOS) / Chrome(Android) など最新ブラウザで開き直してください。',
+                      showRetry: false,
+                      showHelp: false,
+                    },
+                  };
+                  const meta = errorMeta[code];
+
+                  return (
+                    <motion.div
+                      variants={scaleIn}
+                      className="w-full max-w-sm bg-red-50/80 border border-red-200/60 rounded-xl p-3 text-center"
                     >
-                      <RefreshCw className="h-3 w-3" />
-                      再取得する
-                    </button>
-                  </motion.div>
-                )}
+                      <div className="flex items-center justify-center gap-1.5 mb-1.5">
+                        <AlertCircle className="h-3.5 w-3.5 text-red-500" />
+                        <span className="text-xs font-medium text-red-700">{meta.title}</span>
+                      </div>
+                      <p className="text-[11px] text-red-600/80 leading-relaxed mb-2">
+                        {meta.description}
+                      </p>
+                      <div className="flex items-center justify-center gap-2 flex-wrap">
+                        {meta.showRetry && (
+                          <button
+                            onClick={() => {
+                              LocationCacheManager.clearLocationCache();
+                              setLocationFetched(false);
+                              setLocationInfo({ status: 'loading', message: '位置情報を再取得中...' });
+                              requestLocationPermission();
+                            }}
+                            className="inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-700 bg-red-100 hover:bg-red-200 px-3 py-1.5 rounded-lg transition-colors"
+                          >
+                            <RefreshCw className="h-3 w-3" />
+                            再取得する
+                          </button>
+                        )}
+                        {meta.showHelp && (
+                          <button
+                            onClick={() => setShowLocationPermissionModal(true)}
+                            className="inline-flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition-colors"
+                          >
+                            <HelpCircle className="h-3 w-3" />
+                            設定方法を見る
+                          </button>
+                        )}
+                      </div>
+                    </motion.div>
+                  );
+                })()}
                 {campusCenter && locationInfo.status === 'loading' && (
                   <motion.div variants={scaleIn} className="inline-flex items-center gap-1.5 text-xs text-slate-400">
                     <Loader2 className="h-3 w-3 animate-spin" />

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -118,6 +118,19 @@ export default function LocationSettingsForm({ initialSettings, onSave }: Locati
   const [isSaving, setIsSaving] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  // 半径入力欄は編集中の中間状態（空・"0."など）を許容するため文字列で保持し、
+  // 有効な数値になったタイミングで settings.radius に反映する
+  const [radiusText, setRadiusText] = useState<string>(() => String(settings.radius));
+
+  // settings.radius が外部要因（初期値・住所検索など）で変わった場合に表示も同期
+  useEffect(() => {
+    const parsed = parseFloat(radiusText);
+    if (!Number.isFinite(parsed) || Math.abs(parsed - settings.radius) > 1e-9) {
+      setRadiusText(String(settings.radius));
+    }
+    // radiusText を依存に含めると編集ごとに同期判定が走るため意図的に除外
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.radius]);
 
   // 住所から緯度・経度を取得する関数
   const searchByAddress = async () => {
@@ -334,8 +347,29 @@ export default function LocationSettingsForm({ initialSettings, onSave }: Locati
             step="0.1"
             min="0.1"
             max="10"
-            value={settings.radius}
-            onChange={(e) => setSettings(prev => ({ ...prev, radius: parseFloat(e.target.value) || 0.5 }))}
+            value={radiusText}
+            onChange={(e) => {
+              const raw = e.target.value;
+              setRadiusText(raw);
+              // 空欄や中間状態は settings に反映しない（フォーカスアウト時に正規化）
+              if (raw === '') return;
+              const parsed = parseFloat(raw);
+              if (Number.isFinite(parsed) && parsed > 0) {
+                setSettings(prev => ({ ...prev, radius: parsed }));
+              }
+            }}
+            onBlur={(e) => {
+              const parsed = parseFloat(e.target.value);
+              if (!Number.isFinite(parsed) || parsed <= 0) {
+                // 不正値はデフォルトに戻す
+                setRadiusText('0.5');
+                setSettings(prev => ({ ...prev, radius: 0.5 }));
+              } else {
+                // 表示を正規化して反映
+                setRadiusText(String(parsed));
+                setSettings(prev => ({ ...prev, radius: parsed }));
+              }
+            }}
             label="許可範囲（km）"
             disabled={isSaving}
             icon={Target}

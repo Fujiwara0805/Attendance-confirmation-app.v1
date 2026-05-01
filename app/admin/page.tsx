@@ -958,32 +958,36 @@ export default function AdminPage() {
         </motion.div>
 
         <Tabs defaultValue="courses" className="w-full">
-          {/* Pill tabs */}
-          <div className="flex items-center justify-between mb-6 overflow-x-auto -mx-1 px-1">
-            <TabsList className="bg-white/80 backdrop-blur-sm ring-1 ring-black/5 shadow-sm p-1 rounded-xl h-11">
-              <TabsTrigger
-                value="courses"
-                className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-indigo-200/50 rounded-lg px-4 h-9 text-sm sm:text-base font-semibold text-slate-500 transition-all gap-1.5"
-              >
-                <BookOpen className="w-3.5 h-3.5" />
-                出席管理
-              </TabsTrigger>
-              <TabsTrigger
-                value="export"
-                className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-indigo-200/50 rounded-lg px-4 h-9 text-sm sm:text-base font-semibold text-slate-500 transition-all gap-1.5"
-              >
-                <BarChart3 className="w-3.5 h-3.5" />
-                出席データ
-              </TabsTrigger>
-              <TabsTrigger
-                value="rooms"
-                className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-indigo-200/50 rounded-lg px-4 h-9 text-sm sm:text-base font-semibold text-slate-500 transition-all gap-1.5"
-              >
-                <MessageSquare className="w-3.5 h-3.5" />
-                ルーム管理
-              </TabsTrigger>
-            </TabsList>
-          </div>
+          {/* Card-style tabs (KPIカードと揃えたグリッドレイアウト) */}
+          <TabsList className="grid grid-cols-3 gap-2 sm:gap-4 mb-6 sm:mb-8 bg-transparent p-0 h-auto w-full">
+            <TabsTrigger
+              value="courses"
+              className="group bg-white ring-1 ring-black/5 shadow-sm rounded-2xl p-3 sm:p-4 flex items-center gap-2.5 sm:gap-3 justify-start text-slate-700 hover:shadow-md transition-all duration-300 data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-indigo-200/50 h-auto"
+            >
+              <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 transition-colors group-data-[state=active]:bg-white/15 group-data-[state=active]:text-white group-data-[state=active]:backdrop-blur-sm">
+                <FileText className="h-4 w-4 sm:h-5 sm:w-5" />
+              </div>
+              <span className="text-xs sm:text-base font-bold tracking-tight truncate">出席管理</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="export"
+              className="group bg-white ring-1 ring-black/5 shadow-sm rounded-2xl p-3 sm:p-4 flex items-center gap-2.5 sm:gap-3 justify-start text-slate-700 hover:shadow-md transition-all duration-300 data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-indigo-200/50 h-auto"
+            >
+              <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 transition-colors group-data-[state=active]:bg-white/15 group-data-[state=active]:text-white group-data-[state=active]:backdrop-blur-sm">
+                <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5" />
+              </div>
+              <span className="text-xs sm:text-base font-bold tracking-tight truncate">出席データ</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="rooms"
+              className="group bg-white ring-1 ring-black/5 shadow-sm rounded-2xl p-3 sm:p-4 flex items-center gap-2.5 sm:gap-3 justify-start text-slate-700 hover:shadow-md transition-all duration-300 data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-indigo-200/50 h-auto"
+            >
+              <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0 transition-colors group-data-[state=active]:bg-white/15 group-data-[state=active]:text-white group-data-[state=active]:backdrop-blur-sm">
+                <MessageSquare className="h-4 w-4 sm:h-5 sm:w-5" />
+              </div>
+              <span className="text-xs sm:text-base font-bold tracking-tight truncate">ルーム管理</span>
+            </TabsTrigger>
+          </TabsList>
 
           {/* ===== COURSES TAB ===== */}
           <TabsContent value="courses" className="mt-0">
