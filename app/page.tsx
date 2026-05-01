@@ -17,7 +17,7 @@ import {
   Globe,
   Sparkles,
   ChevronDown,
-  MessageSquare,
+  Airplay,
   Vote,
   Building2,
   Crown,
@@ -104,7 +104,7 @@ const features = [
     bg: 'bg-cyan-50',
   },
   {
-    icon: MessageSquare,
+    icon: Airplay,
     title: 'Q&Aで対話を生み出す',
     description: '参加者の質問をリアルタイム受付。いいね機能で注目トピックを可視化。匿名投稿にも対応。',
     color: 'text-orange-600',
@@ -343,7 +343,7 @@ export default function LandingPage() {
               href="/rooms"
               className="hidden sm:inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-700 transition-colors px-3 py-2"
             >
-              <MessageSquare className="w-3.5 h-3.5" />
+              <Airplay className="w-3.5 h-3.5" />
               ルームに参加
             </Link>
             <Link
@@ -525,7 +525,7 @@ export default function LandingPage() {
                 className="hidden md:flex absolute top-1/3 -left-6 items-center gap-2.5 bg-white rounded-2xl px-4 py-3 shadow-xl ring-1 ring-black/5 max-w-[220px]"
               >
                 <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
-                  <MessageSquare className="w-[18px] h-[18px] text-amber-600" />
+                  <Airplay className="w-[18px] h-[18px] text-amber-600" />
                 </div>
                 <div>
                   <p className="text-xs font-bold text-slate-900">新しい質問</p>

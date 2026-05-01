@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, MessageSquare } from 'lucide-react';
+import { ArrowRight, Airplay } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -56,7 +56,7 @@ export default function RoomsPage() {
           <div className="bg-white rounded-2xl ring-1 ring-black/5 shadow-xl p-8">
             <div className="flex items-center gap-3 mb-5">
               <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-50 to-blue-50 ring-1 ring-indigo-100 shadow-sm flex items-center justify-center">
-                <MessageSquare className="w-5 h-5 text-indigo-600" />
+                <Airplay className="w-5 h-5 text-indigo-600" />
               </div>
               <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900">ルームに参加</h2>
             </div>
