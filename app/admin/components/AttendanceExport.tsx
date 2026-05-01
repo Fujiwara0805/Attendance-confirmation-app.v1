@@ -51,7 +51,7 @@ export default function AttendanceExport() {
   const [dateFrom, setDateFrom] = useState<string>('');
   const [dateTo, setDateTo] = useState<string>('');
   const [dateMode, setDateMode] = useState<'single' | 'range' | 'all'>('single');
-  const [loading, setLoading] = useState(false);
+  const [loadingFormat, setLoadingFormat] = useState<'csv' | 'json' | null>(null);
   const [loadingCourses, setLoadingCourses] = useState(true);
   const [previewData, setPreviewData] = useState<any>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
@@ -128,7 +128,7 @@ export default function AttendanceExport() {
       return;
     }
 
-    setLoading(true);
+    setLoadingFormat(format);
     try {
       const params = new URLSearchParams({ course_id: selectedCourse, format });
       if (dateMode === 'single' && exportDate) {
@@ -161,7 +161,7 @@ export default function AttendanceExport() {
       console.error('Export error:', error);
       toast({ title: 'エラー', description: 'エクスポート中にエラーが発生しました', variant: 'destructive', duration: 3000 });
     } finally {
-      setLoading(false);
+      setLoadingFormat(null);
     }
   };
 
@@ -347,10 +347,10 @@ export default function AttendanceExport() {
           <div className="flex flex-col sm:flex-row gap-3 pt-2">
             <Button
               onClick={() => handleExport('csv')}
-              disabled={!selectedCourse || loading}
+              disabled={!selectedCourse || loadingFormat !== null}
               className="flex-1 bg-green-600 hover:bg-green-700 text-white"
             >
-              {loading ? (
+              {loadingFormat === 'csv' ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
               ) : (
                 <FileSpreadsheet className="h-4 w-4 mr-2" />
@@ -360,11 +360,11 @@ export default function AttendanceExport() {
             </Button>
             <Button
               onClick={() => handleExport('json')}
-              disabled={!selectedCourse || loading}
+              disabled={!selectedCourse || loadingFormat !== null}
               variant="outline"
               className="flex-1 border-slate-300"
             >
-              {loading ? (
+              {loadingFormat === 'json' ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
               ) : (
                 <FileJson className="h-4 w-4 mr-2" />

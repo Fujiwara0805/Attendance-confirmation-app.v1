@@ -985,7 +985,7 @@ export default function AdminPage() {
               value="courses"
               className="group bg-white ring-1 ring-black/5 shadow-sm rounded-2xl p-3 sm:p-4 flex items-center gap-2.5 sm:gap-3 justify-start text-slate-700 hover:shadow-md transition-all duration-300 data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-indigo-200/50 h-auto"
             >
-              <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 transition-colors group-data-[state=active]:bg-white/15 group-data-[state=active]:text-white group-data-[state=active]:backdrop-blur-sm">
+              <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 transition-colors group-data-[state=active]:bg-white group-data-[state=active]:text-indigo-600 group-data-[state=active]:shadow-sm">
                 <FileText className="h-4 w-4 sm:h-5 sm:w-5" />
               </div>
               <span className="text-xs sm:text-base font-bold tracking-tight truncate">出席管理</span>
@@ -994,7 +994,7 @@ export default function AdminPage() {
               value="export"
               className="group bg-white ring-1 ring-black/5 shadow-sm rounded-2xl p-3 sm:p-4 flex items-center gap-2.5 sm:gap-3 justify-start text-slate-700 hover:shadow-md transition-all duration-300 data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-indigo-200/50 h-auto"
             >
-              <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 transition-colors group-data-[state=active]:bg-white/15 group-data-[state=active]:text-white group-data-[state=active]:backdrop-blur-sm">
+              <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 transition-colors group-data-[state=active]:bg-white group-data-[state=active]:text-emerald-600 group-data-[state=active]:shadow-sm">
                 <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5" />
               </div>
               <span className="text-xs sm:text-base font-bold tracking-tight truncate">出席データ</span>
@@ -1003,7 +1003,7 @@ export default function AdminPage() {
               value="rooms"
               className="group bg-white ring-1 ring-black/5 shadow-sm rounded-2xl p-3 sm:p-4 flex items-center gap-2.5 sm:gap-3 justify-start text-slate-700 hover:shadow-md transition-all duration-300 data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-indigo-200/50 h-auto"
             >
-              <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0 transition-colors group-data-[state=active]:bg-white/15 group-data-[state=active]:text-white group-data-[state=active]:backdrop-blur-sm">
+              <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0 transition-colors group-data-[state=active]:bg-white group-data-[state=active]:text-purple-600 group-data-[state=active]:shadow-sm">
                 <Airplay className="h-4 w-4 sm:h-5 sm:w-5" />
               </div>
               <span className="text-xs sm:text-base font-bold tracking-tight truncate">ルーム管理</span>

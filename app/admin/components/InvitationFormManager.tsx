@@ -289,10 +289,15 @@ export default function InvitationFormManager({ onCourseAdded, onClose, editingI
     }));
   };
 
+  // 招待フォームには氏名・メール・電話番号が標準で含まれるため、
+  // プリセット選択肢から重複する項目を除外する
+  const STANDARD_FIELD_NAMES = ['name', 'email', 'phone'];
+  const invitationPresets = presetFields.filter(p => !STANDARD_FIELD_NAMES.includes(p.name));
+
   // フィルタされたプリセット
   const filteredPresets = selectedCategory === 'all'
-    ? presetFields
-    : presetFields.filter(p => p.category === selectedCategory);
+    ? invitationPresets
+    : invitationPresets.filter(p => p.category === selectedCategory);
 
   // 保存
   const handleSave = async (data: InvitationFormData) => {
