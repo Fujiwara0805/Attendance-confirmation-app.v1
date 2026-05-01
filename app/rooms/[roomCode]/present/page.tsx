@@ -6,7 +6,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquare, BarChart3, ThumbsUp, Maximize, Minimize, X, Loader2, WifiOff } from 'lucide-react';
 import { useRealtimeQuestions } from '@/lib/hooks/useRealtimeQuestions';
 import { useRealtimePolls } from '@/lib/hooks/useRealtimePolls';
-import PollResultsChart from '../../components/PollResultsChart';
 
 type View = 'qa' | 'poll';
 
@@ -283,21 +282,58 @@ export default function PresentPage() {
               className="w-full max-w-3xl"
             >
               {activePoll ? (
-                <div>
-                  <div className="flex items-center gap-2 mb-4">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-xs sm:text-sm font-semibold text-emerald-600 uppercase tracking-wide">Live</span>
-                  </div>
-                  <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-gray-800 mb-8 leading-tight">{activePoll.question}</h2>
-                  <div className="bg-white rounded-2xl p-8 shadow-sm ring-1 ring-black/5">
-                    <PollResultsChart
-                      options={activePoll.options}
-                      votes={pollVotes[activePoll.id] || []}
-                      totalVotes={(pollVotes[activePoll.id] || []).length}
-                      large
-                    />
-                  </div>
-                </div>
+                (() => {
+                  const votes = pollVotes[activePoll.id] || [];
+                  const counts = activePoll.options.map(
+                    (_, i) => votes.filter((v) => v.option_index === i).length
+                  );
+                  const totalCast = counts.reduce((s, c) => s + c, 0);
+                  return (
+                    <div>
+                      <div className="flex items-center justify-between gap-3 mb-4">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                          <span className="text-xs sm:text-sm font-semibold text-emerald-600 uppercase tracking-wide">Live</span>
+                        </div>
+                        <span className="text-sm sm:text-base text-slate-500 tabular-nums">
+                          回答数: <span className="font-semibold text-slate-700">{totalCast}</span>
+                        </span>
+                      </div>
+                      <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-gray-800 mb-8 leading-tight">{activePoll.question}</h2>
+                      <div className="space-y-3">
+                        {activePoll.options.map((option, i) => {
+                          const count = counts[i];
+                          const pct = totalCast > 0 ? Math.round((count / totalCast) * 100) : 0;
+                          return (
+                            <div
+                              key={i}
+                              className="relative overflow-hidden rounded-xl ring-1 ring-slate-200 bg-white"
+                            >
+                              <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: `${pct}%` }}
+                                transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
+                                className="absolute left-0 top-0 bottom-0 bg-emerald-100/80"
+                                aria-hidden
+                              />
+                              <div className="relative flex items-center justify-between gap-3 px-5 py-4">
+                                <span className="flex items-center gap-3 min-w-0 text-lg sm:text-xl lg:text-2xl text-slate-800">
+                                  <span className="text-emerald-700 font-semibold">
+                                    {i < 20 ? String.fromCharCode(0x2460 + i) : `(${i + 1})`}
+                                  </span>
+                                  <span className="truncate">{option}</span>
+                                </span>
+                                <span className="text-base sm:text-lg text-slate-600 tabular-nums shrink-0 font-semibold">
+                                  {count} ({pct}%)
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()
               ) : (
                 <div className="text-center py-20">
                   <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-indigo-50 to-blue-50 ring-1 ring-indigo-100 shadow-sm mx-auto mb-5 flex items-center justify-center">
