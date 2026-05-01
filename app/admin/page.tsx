@@ -33,7 +33,7 @@ import {
   Search,
   CheckCircle,
   Settings,
-  MessageSquare,
+  Airplay,
   FileText,
   Zap,
   Globe,
@@ -931,7 +931,7 @@ export default function AdminPage() {
           {/* Rooms KPI */}
           <div className="bg-white rounded-2xl ring-1 ring-black/5 shadow-sm p-4 sm:p-5 flex items-center gap-4 hover:shadow-md transition-shadow duration-300">
             <div className="w-11 h-11 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
-              <MessageSquare className="h-5 w-5" />
+              <Airplay className="h-5 w-5" />
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-xs sm:text-sm font-semibold tracking-wide uppercase text-slate-400">ルーム</p>
@@ -1004,7 +1004,7 @@ export default function AdminPage() {
               className="group bg-white ring-1 ring-black/5 shadow-sm rounded-2xl p-3 sm:p-4 flex items-center gap-2.5 sm:gap-3 justify-start text-slate-700 hover:shadow-md transition-all duration-300 data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-indigo-200/50 h-auto"
             >
               <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0 transition-colors group-data-[state=active]:bg-white/15 group-data-[state=active]:text-white group-data-[state=active]:backdrop-blur-sm">
-                <MessageSquare className="h-4 w-4 sm:h-5 sm:w-5" />
+                <Airplay className="h-4 w-4 sm:h-5 sm:w-5" />
               </div>
               <span className="text-xs sm:text-base font-bold tracking-tight truncate">ルーム管理</span>
             </TabsTrigger>
@@ -1871,7 +1871,7 @@ export default function AdminPage() {
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
               <div>
                 <span className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold tracking-wide uppercase text-purple-600 bg-purple-50 border border-purple-100 rounded-full px-3 py-1 mb-2">
-                  <MessageSquare className="h-3 w-3" />
+                  <Airplay className="h-3 w-3" />
                   Live Rooms
                 </span>
                 <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">ルーム管理</h1>
@@ -1936,7 +1936,7 @@ export default function AdminPage() {
             {/* ルーム機能紹介 */}
             <div className="bg-gradient-to-br from-purple-50 to-fuchsia-50/60 ring-1 ring-purple-100 rounded-2xl p-5 mb-5 shadow-sm">
               <h3 className="text-sm sm:text-base font-semibold text-purple-900 mb-2 flex items-center gap-1.5">
-                <MessageSquare className="h-4 w-4" />
+                <Airplay className="h-4 w-4" />
                 ルーム機能について
               </h3>
               <ul className="text-xs sm:text-sm text-purple-800 space-y-1.5 leading-relaxed">
@@ -2056,7 +2056,7 @@ export default function AdminPage() {
                 className="flex flex-col items-center justify-center py-20 px-4"
               >
                 <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-purple-50 to-fuchsia-50 ring-1 ring-purple-100 flex items-center justify-center mb-5 shadow-sm">
-                  <MessageSquare className="h-9 w-9 text-purple-400" />
+                  <Airplay className="h-9 w-9 text-purple-400" />
                 </div>
                 <h3 className="text-lg font-semibold text-slate-900 mb-1">ルームがまだありません</h3>
                 <p className="text-sm text-slate-500 text-center max-w-sm mb-6">
@@ -2087,7 +2087,7 @@ export default function AdminPage() {
                         <div className="flex items-start justify-between gap-2 mb-2">
                           <div className="flex items-center gap-2 min-w-0 flex-1">
                             <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
-                              <MessageSquare className="h-4 w-4 text-indigo-600" />
+                              <Airplay className="h-4 w-4 text-indigo-600" />
                             </div>
                             <h3 className="text-sm sm:text-base font-semibold text-slate-900 truncate">{room.title}</h3>
                           </div>
