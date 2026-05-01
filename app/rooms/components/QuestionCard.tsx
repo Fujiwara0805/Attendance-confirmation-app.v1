@@ -88,7 +88,7 @@ export default function QuestionCard({
       } ${isAnswered ? 'opacity-70' : ''}`}
     >
       <div className="p-4">
-        {/* Header row: avatar + name + (time + like) */}
+        {/* Header row: avatar + name + own actions + (time + like) */}
         <div className="flex items-center justify-between gap-2 mb-2">
           <div className="flex items-center gap-2 min-w-0">
             <div
@@ -102,6 +102,31 @@ export default function QuestionCard({
             </span>
             {isPinned && <Pin className="w-3.5 h-3.5 text-emerald-500 shrink-0" />}
             {isAnswered && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />}
+            {isOwn && !isHost && !isEditing && (
+              <span className="inline-flex items-center gap-0.5 ml-0.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditing(true);
+                    setEditText(text);
+                  }}
+                  className="p-1 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+                  title="編集"
+                  aria-label="編集"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onDeleteOwn?.(id)}
+                  className="p-1 rounded-full hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors"
+                  title="削除"
+                  aria-label="削除"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <span className="text-[11px] sm:text-xs text-slate-400">{timeAgo}</span>
@@ -224,30 +249,6 @@ export default function QuestionCard({
               </>
             )}
 
-            {/* Participant own */}
-            {isOwn && !isHost && !isEditing && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsEditing(true);
-                    setEditText(text);
-                  }}
-                  className="p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
-                  title="編集"
-                >
-                  <Edit2 className="w-4 h-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onDeleteOwn?.(id)}
-                  className="p-2 rounded-full hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors"
-                  title="削除"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </>
-            )}
         </div>
       </div>
     </motion.div>

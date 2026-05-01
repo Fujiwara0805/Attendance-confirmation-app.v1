@@ -524,29 +524,55 @@ export default function HostPage() {
         {/* === Questions Tab === */}
         {tab === 'questions' && (
           <div className="space-y-4">
-            {/* Moderation toggle hint */}
-            {!room.moderation_enabled && (
-              <div className="flex items-start gap-2 rounded-xl bg-white ring-1 ring-slate-200 px-3 py-2.5 text-xs sm:text-sm text-slate-600">
-                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0 text-slate-400" />
-                <p className="flex-1">
-                  承認制は OFF です。新規質問は即時公開されます。
-                </p>
-                <button
-                  type="button"
-                  disabled={moderationLoading}
-                  onClick={handleToggleModeration}
-                  className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 inline-flex items-center gap-1 disabled:opacity-60"
-                >
-                  {moderationLoading && <Loader2 className="w-3 h-3 animate-spin" />}
-                  ONにする
-                </button>
+            {/* Moderation toggle (always visible) */}
+            <div className="flex items-center gap-3 rounded-xl bg-white ring-1 ring-slate-200 px-4 py-3">
+              <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                {room.moderation_enabled ? (
+                  <ShieldCheck className="w-5 h-5 shrink-0 text-emerald-600" />
+                ) : (
+                  <ShieldOff className="w-5 h-5 shrink-0 text-slate-400" />
+                )}
+                <div className="min-w-0">
+                  <p className="text-xs sm:text-sm font-bold text-slate-800">
+                    承認制：
+                    <span className={room.moderation_enabled ? 'text-emerald-700' : 'text-slate-500'}>
+                      {room.moderation_enabled ? 'ON' : 'OFF'}
+                    </span>
+                  </p>
+                  <p className="text-[11px] sm:text-xs text-slate-500 leading-tight mt-0.5">
+                    {room.moderation_enabled
+                      ? '新規質問は承認後に公開されます'
+                      : '新規質問は即時公開されます'}
+                  </p>
+                </div>
               </div>
-            )}
+              <button
+                type="button"
+                role="switch"
+                aria-checked={!!room.moderation_enabled}
+                disabled={moderationLoading}
+                onClick={handleToggleModeration}
+                title={room.moderation_enabled ? '承認制をOFFにする' : '承認制をONにする'}
+                className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
+                  room.moderation_enabled ? 'bg-emerald-500' : 'bg-slate-300'
+                }`}
+              >
+                <span
+                  className={`inline-flex items-center justify-center h-5 w-5 rounded-full bg-white shadow transform transition-transform ${
+                    room.moderation_enabled ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                >
+                  {moderationLoading && (
+                    <Loader2 className="w-3 h-3 animate-spin text-slate-400" />
+                  )}
+                </span>
+              </button>
+            </div>
             {room.moderation_enabled && counts.pending > 0 && (
               <div className="flex items-center gap-2 rounded-xl bg-amber-50 ring-1 ring-amber-200 px-3 py-2.5 text-xs sm:text-sm text-amber-800">
-                <ShieldCheck className="w-4 h-4 shrink-0 text-amber-600" />
+                <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
                 <p className="flex-1">
-                  承認制 ON ・ <span className="font-bold">{counts.pending}</span> 件が承認待ちです
+                  <span className="font-bold">{counts.pending}</span> 件が承認待ちです
                 </p>
                 <button
                   type="button"
