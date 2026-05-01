@@ -1444,7 +1444,7 @@ function SummaryTab({
                         回答済
                       </span>
                     )}
-                    <span className="inline-flex flex-col items-center text-rose-500">
+                    <span className="inline-flex items-center gap-1 text-rose-500">
                       <Heart className="w-4 h-4 fill-current" />
                       <span className="text-xs font-bold tabular-nums">{q.upvote_count}</span>
                     </span>

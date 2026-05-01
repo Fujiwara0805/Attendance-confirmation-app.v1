@@ -274,6 +274,9 @@ export default function AdminPage() {
   const [editRoomTitle, setEditRoomTitle] = useState<string>('');
   const [savingEditRoom, setSavingEditRoom] = useState<boolean>(false);
   const [roomStatusPendingCode, setRoomStatusPendingCode] = useState<string | null>(null);
+  const [copyPendingCode, setCopyPendingCode] = useState<string | null>(null);
+  const [viewPendingCode, setViewPendingCode] = useState<string | null>(null);
+  const [hostPendingCode, setHostPendingCode] = useState<string | null>(null);
 
   // 削除確認モーダル用の状態
   const [deleteConfirm, setDeleteConfirm] = useState<{
@@ -701,13 +704,31 @@ export default function AdminPage() {
 
   // ルームURLをコピー
   const copyRoomUrl = async (code: string, title: string) => {
+    if (copyPendingCode) return;
+    setCopyPendingCode(code);
     try {
       const url = `${window.location.origin}/rooms/${code}`;
       await navigator.clipboard.writeText(url);
       showToast("コピー完了", `${title}のルームURLをコピーしました。`);
     } catch {
       showToast("コピー失敗", "URLのコピーに失敗しました。", "destructive");
+    } finally {
+      setCopyPendingCode(null);
     }
+  };
+
+  // 参加者ビューへ遷移
+  const handleOpenParticipantView = (code: string) => {
+    if (viewPendingCode) return;
+    setViewPendingCode(code);
+    router.push(`/rooms/${code}`);
+  };
+
+  // ホスト管理画面へ遷移
+  const handleOpenHostView = (code: string, withExportTab = false) => {
+    if (hostPendingCode) return;
+    setHostPendingCode(code);
+    router.push(withExportTab ? `/rooms/${code}/host?tab=export` : `/rooms/${code}/host`);
   };
 
   // ルーム編集ダイアログを開く
@@ -2092,27 +2113,42 @@ export default function AdminPage() {
                           <Button
                             variant="outline"
                             size="sm"
+                            disabled={copyPendingCode === room.code}
                             onClick={() => copyRoomUrl(room.code, room.title)}
-                            className="h-8 px-3 text-xs border-slate-200 text-slate-600 hover:text-indigo-600 hover:border-indigo-300"
+                            className="h-8 px-3 text-xs border-slate-200 text-slate-600 hover:text-indigo-600 hover:border-indigo-300 disabled:opacity-60 disabled:pointer-events-none"
                           >
-                            <Copy className="h-3 w-3 mr-1.5" />
+                            {copyPendingCode === room.code ? (
+                              <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                            ) : (
+                              <Copy className="h-3 w-3 mr-1.5" />
+                            )}
                             URLコピー
                           </Button>
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => router.push(`/rooms/${room.code}`)}
-                            className="h-8 px-3 text-xs border-slate-200 text-slate-600 hover:text-indigo-600 hover:border-indigo-300"
+                            disabled={viewPendingCode === room.code}
+                            onClick={() => handleOpenParticipantView(room.code)}
+                            className="h-8 px-3 text-xs border-slate-200 text-slate-600 hover:text-indigo-600 hover:border-indigo-300 disabled:opacity-60 disabled:pointer-events-none"
                           >
-                            <Globe className="h-3 w-3 mr-1.5" />
+                            {viewPendingCode === room.code ? (
+                              <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                            ) : (
+                              <Globe className="h-3 w-3 mr-1.5" />
+                            )}
                             参加者ビュー
                           </Button>
                           <Button
                             size="sm"
-                            onClick={() => router.push(`/rooms/${room.code}/host`)}
-                            className="h-8 px-3 text-xs bg-indigo-600 hover:bg-indigo-700 text-white"
+                            disabled={hostPendingCode === room.code}
+                            onClick={() => handleOpenHostView(room.code)}
+                            className="h-8 px-3 text-xs bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-60 disabled:pointer-events-none"
                           >
-                            <Settings className="h-3 w-3 mr-1.5" />
+                            {hostPendingCode === room.code ? (
+                              <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                            ) : (
+                              <Settings className="h-3 w-3 mr-1.5" />
+                            )}
                             ホスト管理
                           </Button>
                           <Button
