@@ -94,9 +94,26 @@ export async function POST(req: NextRequest) {
     // customFieldsからデフォルトフィールド相当の値をフォールバック取得（NOT NULL制約対応: 空文字列をデフォルトに）
     const resolvedStudentId = student_id || customFields?.student_id || '';
     const resolvedName = name || customFields?.name || '';
-    const resolvedGrade = grade || customFields?.grade || '';
+    const rawGrade = grade ?? customFields?.grade;
     const resolvedDepartment = department || customFields?.department || '';
     const resolvedFeedback = feedback || customFields?.feedback || '';
+
+    // 学年は半角/全角・"年"接尾辞・前後空白を許容して堅牢に整数化
+    const parseGrade = (value: unknown): number | null => {
+      if (value === null || value === undefined) return null;
+      const normalized = String(value)
+        .normalize('NFKC')
+        .replace(/[^\d-]/g, '')
+        .trim();
+      if (!normalized) return null;
+      const n = Number.parseInt(normalized, 10);
+      return Number.isFinite(n) ? n : null;
+    };
+    const resolvedGrade = parseGrade(rawGrade);
+
+    if (rawGrade !== undefined && rawGrade !== null && String(rawGrade).trim() !== '' && resolvedGrade === null) {
+      console.warn('[attendance] 不正な grade 値を受信したため null として保存します:', rawGrade);
+    }
 
     // 出席データ挿入
     const { data: attendance, error: insertError } = await supabase
@@ -105,7 +122,7 @@ export async function POST(req: NextRequest) {
         course_id: course.id,
         student_id: resolvedStudentId,
         student_name: resolvedName,
-        grade: resolvedGrade ? parseInt(resolvedGrade) : null,
+        grade: resolvedGrade,
         department: resolvedDepartment,
         feedback: resolvedFeedback,
         custom_data: customFields,

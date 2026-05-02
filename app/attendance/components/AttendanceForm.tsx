@@ -543,7 +543,11 @@ export default function DynamicAttendanceForm() {
     // 有効なデフォルトフィールドのみリクエストに含める
     if (enabledKeys.has('student_id')) requestBody.student_id = values.student_id || '';
     if (enabledKeys.has('name')) requestBody.name = values.name || '';
-    if (enabledKeys.has('grade')) requestBody.grade = values.grade || '';
+    // grade は有効化されていれば送信（バリデーションで必須化済み）。値は文字列化してAPI側でパース
+    if (enabledKeys.has('grade')) {
+      const rawGrade = values.grade;
+      requestBody.grade = rawGrade === undefined || rawGrade === null ? '' : String(rawGrade);
+    }
     if (enabledKeys.has('department')) requestBody.department = values.department || '';
     if (enabledKeys.has('feedback')) requestBody.feedback = values.feedback || '';
 

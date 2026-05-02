@@ -25,13 +25,17 @@ const defaultFieldMessages: Record<string, string> = {
 export function createDynamicSchema(fields: CustomFormField[], enabledDefaultFields: DefaultFieldEntry[] = []) {
   const schemaObject: Record<string, z.ZodTypeAny> = {};
 
+  // 有効化された場合に常に必須として扱うフィールド（データ整合性のため空文字保存を禁止）
+  const ALWAYS_REQUIRED_KEYS = new Set(['grade']);
+
   // デフォルトフィールドの追加（required 状態を反映）
   const normalized = normalizeDefaultFields(enabledDefaultFields);
   for (const { key, required } of normalized) {
     if (key === 'class_name') {
       schemaObject.class_name = z.string().optional();
     } else {
-      schemaObject[key] = required
+      const effectiveRequired = required || ALWAYS_REQUIRED_KEYS.has(key);
+      schemaObject[key] = effectiveRequired
         ? z.string().min(1, { message: defaultFieldMessages[key] || `${key}を入力してください` })
         : z.string().optional();
     }
