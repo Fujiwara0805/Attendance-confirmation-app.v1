@@ -1,10 +1,7 @@
 import './globals.css';
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
 import { Providers } from './providers';
 import { Toaster } from '@/components/ui/toaster';
-
-const inter = Inter({ subsets: ['latin'], display: 'swap' });
 
 export const metadata: Metadata = {
   title: 'ざせきくん - 出席管理・Q&A・投票をワンストップで',
@@ -67,9 +64,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ja">
-      <body className={inter.className}>
+      <body>
         <Providers>
-          <main className="min-h-screen bg-[hsl(var(--surface,226_100%_98%))]">
+          <main className="min-h-screen bg-[hsl(var(--surface,0_11%_96%))]">
             {children}
           </main>
           <Toaster />

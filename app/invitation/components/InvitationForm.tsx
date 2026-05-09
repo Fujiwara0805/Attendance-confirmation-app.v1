@@ -53,9 +53,9 @@ const fadeInUp = {
 /* ── SVG ornamental corner (gold flourish) ── */
 const GoldCorner = ({ className }: { className?: string }) => (
   <svg className={className} width="40" height="40" viewBox="0 0 40 40" fill="none">
-    <path d="M0 0 C0 0 8 0 12 4 C16 8 16 12 20 16 C24 12 24 8 28 4 C32 0 40 0 40 0" stroke="#c9a96e" strokeWidth="1" fill="none" />
-    <path d="M0 0 C0 0 0 8 4 12 C8 16 12 16 16 20 C12 24 8 24 4 28 C0 32 0 40 0 40" stroke="#c9a96e" strokeWidth="1" fill="none" />
-    <circle cx="4" cy="4" r="1.5" fill="#c9a96e" />
+    <path d="M0 0 C0 0 8 0 12 4 C16 8 16 12 20 16 C24 12 24 8 28 4 C32 0 40 0 40 0" stroke="#2864f0" strokeWidth="1" fill="none" />
+    <path d="M0 0 C0 0 0 8 4 12 C8 16 12 16 16 20 C12 24 8 24 4 28 C0 32 0 40 0 40" stroke="#2864f0" strokeWidth="1" fill="none" />
+    <circle cx="4" cy="4" r="1.5" fill="#2864f0" />
   </svg>
 );
 
@@ -199,8 +199,8 @@ export default function InvitationForm() {
           animate={{ opacity: 1, scale: 1 }}
           className="flex flex-col items-center gap-4"
         >
-          <div className="w-12 h-12 rounded-full border-2 border-[#c9a96e]/30 border-t-[#c9a96e] animate-spin" />
-          <p className="text-sm text-[#0f1629]/50 tracking-[0.2em] font-light">招待状を準備しています...</p>
+          <div className="w-12 h-12 rounded-full border-2 border-[#2864f0]/30 border-t-[#2864f0] animate-spin" />
+          <p className="text-sm text-slate-500 font-light">招待状を準備しています...</p>
         </motion.div>
       </div>
     );
@@ -254,7 +254,7 @@ export default function InvitationForm() {
             transition={{ delay: 0.3, duration: 0.6 }}
             className="text-center"
           >
-            <p className="text-[#c9a96e] text-[10px] tracking-[0.4em] uppercase font-medium mb-3">
+            <p className="text-[#2864f0] text-[10px] uppercase font-medium mb-3">
               ─── Invitation ───
             </p>
             <h1 className="text-2xl sm:text-3xl font-bold text-white leading-tight tracking-wide drop-shadow-lg">
@@ -274,10 +274,8 @@ export default function InvitationForm() {
           animate="visible"
           className="relative mb-6"
         >
-          {/* Navy card with gold border */}
-          <div className="relative bg-[#141d35] rounded-xl border border-[#c9a96e]/30 overflow-hidden shadow-2xl shadow-black/40">
-            {/* Gold top line */}
-            <div className="h-[2px] bg-gradient-to-r from-transparent via-[#c9a96e] to-transparent" />
+          <div className="relative bg-white rounded-2xl border border-blue-100 overflow-hidden shadow-card">
+            <div className="h-[2px] bg-gradient-to-r from-transparent via-[#2864f0] to-transparent" />
 
             {/* Corner ornaments */}
             <GoldCorner className="absolute top-1 left-1" />
@@ -289,70 +287,70 @@ export default function InvitationForm() {
               {/* Card title */}
               <div className="text-center mb-6">
                 <div className="flex items-center justify-center gap-3 mb-3">
-                  <div className="h-px w-10 bg-gradient-to-r from-transparent to-[#c9a96e]/60" />
+                  <div className="h-px w-10 bg-gradient-to-r from-transparent to-[#2864f0]/60" />
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <path d="M8 0L9.8 6.2L16 8L9.8 9.8L8 16L6.2 9.8L0 8L6.2 6.2Z" fill="#c9a96e" />
+                    <path d="M8 0L9.8 6.2L16 8L9.8 9.8L8 16L6.2 9.8L0 8L6.2 6.2Z" fill="#2864f0" />
                   </svg>
-                  <div className="h-px w-10 bg-gradient-to-l from-transparent to-[#c9a96e]/60" />
+                  <div className="h-px w-10 bg-gradient-to-l from-transparent to-[#2864f0]/60" />
                 </div>
-                <p className="text-base text-[#c9a96e] tracking-[0.2em] font-semibold">招待カード</p>
+                <p className="text-base text-[#2864f0] font-semibold">招待カード</p>
               </div>
 
               {/* Card content - labeled items */}
               <div className="space-y-5">
                 {/* イベント名 */}
                 <div>
-                  <p className="text-xs text-[#c9a96e] tracking-[0.15em] font-medium mb-1.5">イベント名</p>
-                  <p className="text-lg font-bold text-white/95 leading-relaxed">
+                  <p className="text-xs text-[#2864f0] font-medium mb-1.5">イベント名</p>
+                  <p className="text-lg font-bold text-slate-900 leading-relaxed">
                     {courseData.name}
                   </p>
                 </div>
 
                 {/* Divider */}
-                <div className="h-px bg-gradient-to-r from-transparent via-[#c9a96e]/20 to-transparent" />
+                <div className="h-px bg-gradient-to-r from-transparent via-[#2864f0]/20 to-transparent" />
 
                 {/* 開催地 */}
                 <div>
-                  <p className="text-xs text-[#c9a96e] tracking-[0.15em] font-medium mb-1.5">開催地</p>
+                  <p className="text-xs text-[#2864f0] font-medium mb-1.5">開催地</p>
                   {eventLocation ? (
                     <>
                       <a
                         href={getGoogleMapsUrl(eventLocation)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-base text-[#c9a96e] hover:text-[#d4b87a] transition-colors leading-relaxed"
+                        className="text-base text-[#2864f0] hover:text-[#285ac8] transition-colors leading-relaxed"
                       >
                         {eventLocation}
                       </a>
                       {eventLocationDetail && (
-                        <p className="text-sm text-white/50 mt-1">
+                        <p className="text-sm text-slate-500 mt-1">
                           （{eventLocationDetail}）
                         </p>
                       )}
                     </>
                   ) : (
-                    <p className="text-base text-white/40">未定</p>
+                    <p className="text-base text-slate-400">未定</p>
                   )}
                 </div>
 
                 {/* Divider */}
-                <div className="h-px bg-gradient-to-r from-transparent via-[#c9a96e]/20 to-transparent" />
+                <div className="h-px bg-gradient-to-r from-transparent via-[#2864f0]/20 to-transparent" />
 
                 {/* 概要 */}
                 <div>
-                  <p className="text-xs text-[#c9a96e] tracking-[0.15em] font-medium mb-1.5">概要</p>
-                  <p className="text-base text-white/75 leading-relaxed whitespace-pre-wrap">
+                  <p className="text-xs text-[#2864f0] font-medium mb-1.5">概要</p>
+                  <p className="text-base text-slate-600 leading-relaxed whitespace-pre-wrap">
                     {invitationSettings?.eventDescription || '─'}
                   </p>
                 </div>
 
                 {/* Divider */}
-                <div className="h-px bg-gradient-to-r from-transparent via-[#c9a96e]/20 to-transparent" />
+                <div className="h-px bg-gradient-to-r from-transparent via-[#2864f0]/20 to-transparent" />
 
                 {/* 備考・注意喚起 */}
                 <div>
-                  <p className="text-xs text-[#c9a96e] tracking-[0.15em] font-medium mb-1.5">備考・注意喚起</p>
-                  <p className="text-sm text-white/60 leading-relaxed whitespace-pre-wrap">
+                  <p className="text-xs text-[#2864f0] font-medium mb-1.5">備考・注意喚起</p>
+                  <p className="text-sm text-slate-500 leading-relaxed whitespace-pre-wrap">
                     {invitationSettings?.eventNotes || '─'}
                   </p>
                 </div>
@@ -361,17 +359,17 @@ export default function InvitationForm() {
               {/* Ornamental footer */}
               <div className="text-center mt-7">
                 <div className="flex items-center justify-center gap-3">
-                  <div className="h-px w-10 bg-gradient-to-r from-transparent to-[#c9a96e]/60" />
+                  <div className="h-px w-10 bg-gradient-to-r from-transparent to-[#2864f0]/60" />
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <path d="M8 0L9.8 6.2L16 8L9.8 9.8L8 16L6.2 9.8L0 8L6.2 6.2Z" fill="#c9a96e" />
+                    <path d="M8 0L9.8 6.2L16 8L9.8 9.8L8 16L6.2 9.8L0 8L6.2 6.2Z" fill="#2864f0" />
                   </svg>
-                  <div className="h-px w-10 bg-gradient-to-l from-transparent to-[#c9a96e]/60" />
+                  <div className="h-px w-10 bg-gradient-to-l from-transparent to-[#2864f0]/60" />
                 </div>
               </div>
             </div>
 
             {/* Gold bottom line */}
-            <div className="h-[2px] bg-gradient-to-r from-transparent via-[#c9a96e] to-transparent" />
+            <div className="h-[2px] bg-gradient-to-r from-transparent via-[#2864f0] to-transparent" />
           </div>
         </motion.div>
 
@@ -389,8 +387,8 @@ export default function InvitationForm() {
               >
                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
                   <div className="flex items-center gap-2.5 mb-4">
-                    <div className="w-7 h-7 rounded-full bg-[#0f1629] flex items-center justify-center">
-                      <Calendar className="h-3.5 w-3.5 text-[#c9a96e]" />
+                    <div className="w-7 h-7 rounded-full bg-[#1e46aa] flex items-center justify-center">
+                      <Calendar className="h-3.5 w-3.5 text-white" />
                     </div>
                     <h2 className="text-sm font-semibold text-slate-800 tracking-wide">
                       ご希望の日時 <span className="text-red-500 text-xs">*</span>
@@ -418,8 +416,8 @@ export default function InvitationForm() {
             >
               <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-5">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded-full bg-[#0f1629] flex items-center justify-center">
-                    <User className="h-3.5 w-3.5 text-[#c9a96e]" />
+                  <div className="w-7 h-7 rounded-full bg-[#1e46aa] flex items-center justify-center">
+                    <User className="h-3.5 w-3.5 text-white" />
                   </div>
                   <h2 className="text-sm font-semibold text-slate-800 tracking-wide">
                     ご参加者情報
@@ -438,7 +436,7 @@ export default function InvitationForm() {
                         <Input
                           {...field}
                           placeholder="例: 田中太郎"
-                          className="border-slate-200 bg-slate-50/50 focus:border-[#c9a96e]/50 focus:ring-[#c9a96e]/10 rounded-lg h-11"
+                          className="border-slate-200 bg-slate-50/50 focus:border-[#2864f0]/50 focus:ring-[#2864f0]/10 rounded-lg h-11"
                           style={{ fontSize: '16px' }}
                         />
                       </FormControl>
@@ -454,7 +452,7 @@ export default function InvitationForm() {
                     <FormItem>
                       <FormLabel className="text-slate-700 text-xs font-medium tracking-wide">
                         <span className="flex items-center gap-1.5">
-                          <Mail className="h-3 w-3 text-[#c9a96e]" />
+                          <Mail className="h-3 w-3 text-[#2864f0]" />
                           メールアドレス
                         </span>
                       </FormLabel>
@@ -463,7 +461,7 @@ export default function InvitationForm() {
                           {...field}
                           type="email"
                           placeholder="example@email.com"
-                          className="border-slate-200 bg-slate-50/50 focus:border-[#c9a96e]/50 focus:ring-[#c9a96e]/10 rounded-lg h-11"
+                          className="border-slate-200 bg-slate-50/50 focus:border-[#2864f0]/50 focus:ring-[#2864f0]/10 rounded-lg h-11"
                           style={{ fontSize: '16px' }}
                         />
                       </FormControl>
@@ -479,7 +477,7 @@ export default function InvitationForm() {
                     <FormItem>
                       <FormLabel className="text-slate-700 text-xs font-medium tracking-wide">
                         <span className="flex items-center gap-1.5">
-                          <Phone className="h-3 w-3 text-[#c9a96e]" />
+                          <Phone className="h-3 w-3 text-[#2864f0]" />
                           電話番号
                         </span>
                       </FormLabel>
@@ -488,7 +486,7 @@ export default function InvitationForm() {
                           {...field}
                           type="tel"
                           placeholder="090-1234-5678"
-                          className="border-slate-200 bg-slate-50/50 focus:border-[#c9a96e]/50 focus:ring-[#c9a96e]/10 rounded-lg h-11"
+                          className="border-slate-200 bg-slate-50/50 focus:border-[#2864f0]/50 focus:ring-[#2864f0]/10 rounded-lg h-11"
                           style={{ fontSize: '16px' }}
                         />
                       </FormControl>
@@ -541,7 +539,7 @@ export default function InvitationForm() {
               <Button
                 type="submit"
                 disabled={submitting}
-                className="w-full h-13 bg-gradient-to-r from-[#0f1629] to-[#1a2744] hover:from-[#1a2744] hover:to-[#253556] text-[#c9a96e] font-bold text-base rounded-xl shadow-lg shadow-[#0f1629]/30 hover:shadow-[#0f1629]/40 transition-all duration-300 border border-[#c9a96e]/30 tracking-wide"
+                className="w-full h-12 bg-[#2864f0] hover:bg-[#285ac8] text-white font-bold text-base rounded-xl shadow-card transition-all duration-200 border-2 border-[#2864f0]"
               >
                 {submitting ? (
                   <>

@@ -3,74 +3,74 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
+  --foreground-rgb: 89, 89, 89;
+  --background-start-rgb: 247, 245, 245;
   --background-end-rgb: 255, 255, 255;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
+    --foreground-rgb: 89, 89, 89;
+    --background-start-rgb: 247, 245, 245;
+    --background-end-rgb: 255, 255, 255;
   }
 }
 
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 230 25% 12%;
+    --foreground: 0 0% 35%;
     --card: 0 0% 100%;
-    --card-foreground: 230 25% 12%;
+    --card-foreground: 0 0% 20%;
     --popover: 0 0% 100%;
-    --popover-foreground: 230 25% 12%;
-    --primary: 234 85% 55%;
+    --popover-foreground: 0 0% 20%;
+    --primary: 222 87% 55%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 230 25% 96%;
-    --secondary-foreground: 230 25% 12%;
-    --muted: 230 15% 96%;
-    --muted-foreground: 230 10% 46%;
-    --accent: 230 25% 96%;
-    --accent-foreground: 230 25% 12%;
-    --destructive: 0 84% 60%;
+    --secondary: 0 11% 96%;
+    --secondary-foreground: 222 70% 39%;
+    --muted: 0 9% 94%;
+    --muted-foreground: 0 1% 54%;
+    --accent: 216 100% 96%;
+    --accent-foreground: 222 70% 39%;
+    --destructive: 354 76% 49%;
     --destructive-foreground: 0 0% 98%;
-    --border: 230 15% 92%;
-    --input: 230 15% 92%;
-    --ring: 234 85% 55%;
-    --surface: 226 100% 98%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    --radius: 0.75rem;
+    --border: 0 4% 91%;
+    --input: 0 0% 80%;
+    --ring: 222 87% 55%;
+    --surface: 0 11% 96%;
+    --chart-1: 222 87% 55%;
+    --chart-2: 144 100% 29%;
+    --chart-3: 41 100% 56%;
+    --chart-4: 19 96% 53%;
+    --chart-5: 354 76% 49%;
+    --radius: 0.5rem;
   }
   .dark {
-    --background: 230 15% 6%;
-    --foreground: 0 0% 98%;
-    --card: 230 15% 8%;
-    --card-foreground: 0 0% 98%;
-    --popover: 230 15% 8%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 234 85% 65%;
+    --background: 0 0% 100%;
+    --foreground: 0 0% 35%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 20%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 20%;
+    --primary: 222 87% 55%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 230 15% 14%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 230 15% 14%;
-    --muted-foreground: 230 10% 64%;
-    --accent: 230 15% 14%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62% 30%;
+    --secondary: 0 11% 96%;
+    --secondary-foreground: 222 70% 39%;
+    --muted: 0 9% 94%;
+    --muted-foreground: 0 1% 54%;
+    --accent: 216 100% 96%;
+    --accent-foreground: 222 70% 39%;
+    --destructive: 354 76% 49%;
     --destructive-foreground: 0 0% 98%;
-    --border: 230 15% 16%;
-    --input: 230 15% 16%;
-    --ring: 234 85% 65%;
-    --surface: 230 15% 4%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+    --border: 0 4% 91%;
+    --input: 0 0% 80%;
+    --ring: 222 87% 55%;
+    --surface: 0 11% 96%;
+    --chart-1: 222 87% 55%;
+    --chart-2: 144 100% 29%;
+    --chart-3: 41 100% 56%;
+    --chart-4: 19 96% 53%;
+    --chart-5: 354 76% 49%;
   }
 }
 
@@ -80,6 +80,44 @@
   }
   body {
     @apply bg-background text-foreground;
+    color: #595959;
+    font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue',
+      'ヒラギノ角ゴ ProN', 'Hiragino Kaku Gothic ProN', Arial, 'メイリオ',
+      Meiryo, sans-serif;
+    line-height: 1.5;
+    letter-spacing: 0;
+    overflow-wrap: break-word;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  strong {
+    color: #323232;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-weight: 500;
+    line-height: 1.5;
+    letter-spacing: 0;
+  }
+
+  a {
+    @apply text-primary transition-colors;
+  }
+
+  a:hover {
+    color: #285ac8;
+  }
+
+  ::selection {
+    background: #dce8ff;
+    color: #143278;
   }
   
   /* iOS Safari ズームアップ防止 - 16px以上のフォントサイズ */
@@ -124,19 +162,20 @@
   /* iOS対応の入力フィールドスタイル */
   .ios-input {
     font-size: 16px !important;
+    appearance: none;
     -webkit-appearance: none;
-    border-radius: 8px;
+    border-radius: 4px;
   }
   
   /* モダンな入力フィールドスタイル */
   .modern-input {
     @apply transition-all duration-200 ease-in-out;
-    @apply border-2 border-slate-200 rounded-xl;
-    @apply bg-white/80 backdrop-blur-sm;
+    @apply border border-input rounded-md;
+    @apply bg-white;
     @apply px-4 py-3 text-slate-700;
     @apply placeholder:text-slate-400;
-    @apply focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100;
-    @apply hover:border-slate-300 hover:bg-white;
+    @apply focus:border-primary focus:ring-4 focus:ring-blue-100;
+    @apply hover:border-slate-300;
     font-size: 16px !important;
     min-height: 48px;
   }
@@ -171,7 +210,7 @@
   }
   
   .floating-label.active {
-    @apply -top-2 left-3 text-xs text-indigo-600;
+    @apply -top-2 left-3 text-xs text-primary;
     @apply bg-white shadow-sm;
   }
   
@@ -229,27 +268,25 @@
   .modern-button {
     @apply relative overflow-hidden;
     @apply transition-all duration-200 ease-in-out;
-    @apply transform hover:scale-[1.02] active:scale-[0.98];
     @apply focus:outline-none focus:ring-4 focus:ring-offset-2;
-    @apply disabled:transform-none disabled:opacity-50;
+    @apply disabled:opacity-50;
     min-height: 48px;
   }
   
   .modern-button-primary {
     @apply modern-button;
-    @apply bg-indigo-600 hover:bg-indigo-700;
+    @apply bg-primary hover:bg-blue-700 border-2 border-primary;
     @apply text-white font-medium;
-    @apply shadow-md hover:shadow-lg;
-    @apply focus:ring-indigo-300;
-    @apply active:scale-[0.97];
+    @apply shadow-card;
+    @apply focus:ring-blue-200;
   }
   
   .modern-button-secondary {
     @apply modern-button;
-    @apply bg-white border-2 border-slate-200;
-    @apply hover:border-slate-300 hover:bg-slate-50;
-    @apply text-slate-700 font-medium;
-    @apply shadow-sm hover:shadow-md;
+    @apply bg-white border border-primary;
+    @apply hover:bg-blue-50;
+    @apply text-primary font-bold;
+    @apply shadow-sm;
     @apply focus:ring-slate-300;
   }
   
@@ -264,23 +301,23 @@
   
   /* チェックボックスのカスタムスタイル */
   .modern-checkbox {
-    @apply w-5 h-5 rounded border-2 border-slate-300;
+    @apply w-5 h-5 rounded border border-input;
     @apply transition-all duration-200 ease-in-out;
-    @apply focus:ring-4 focus:ring-indigo-100 focus:ring-offset-0;
-    @apply checked:bg-indigo-600 checked:border-indigo-600;
-    @apply hover:border-indigo-400;
+    @apply focus:ring-4 focus:ring-blue-100 focus:ring-offset-0;
+    @apply checked:bg-primary checked:border-primary;
+    @apply hover:border-primary;
   }
   
   /* トグルスイッチスタイル */
   .modern-toggle {
     @apply relative inline-flex h-6 w-11 items-center rounded-full;
     @apply transition-colors duration-200 ease-in-out;
-    @apply focus:outline-none focus:ring-4 focus:ring-indigo-100 focus:ring-offset-2;
+    @apply focus:outline-none focus:ring-4 focus:ring-blue-100 focus:ring-offset-2;
     @apply bg-slate-200 hover:bg-slate-300;
   }
   
   .modern-toggle[data-state="checked"] {
-    @apply bg-indigo-600;
+    @apply bg-primary;
   }
   
   .modern-toggle-thumb {
@@ -345,26 +382,26 @@
   
   /* グラスモーフィズム効果 */
   .glass-effect {
-    @apply bg-white/10 backdrop-blur-xl border border-white/20;
-    @apply shadow-lg shadow-black/5 ring-1 ring-white/10;
+    @apply bg-white/90 backdrop-blur-xl border border-slate-200;
+    @apply shadow-card ring-1 ring-white/70;
   }
 
   /* グラスモーフィズムカード */
   .glass-card {
-    @apply bg-white/80 backdrop-blur-xl rounded-2xl;
-    @apply shadow-lg ring-1 ring-black/5;
+    @apply bg-white/95 backdrop-blur-xl rounded-2xl;
+    @apply shadow-card ring-1 ring-slate-200;
   }
   
   /* カードホバー効果 */
   .card-hover {
     @apply transition-all duration-300 ease-out;
-    @apply hover:shadow-xl hover:-translate-y-1;
-    @apply hover:bg-white/80;
+    @apply hover:shadow-floating;
+    @apply hover:bg-white;
   }
   
   /* テキストグラデーション */
   .text-gradient {
-    @apply bg-gradient-to-r from-indigo-600 to-blue-600;
+    @apply bg-gradient-to-r from-primary to-blue-800;
     @apply bg-clip-text text-transparent;
   }
 }
@@ -392,7 +429,7 @@
 /* カスタムスクロールバー */
 .custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: #cbd5e1 #f1f5f9;
+  scrollbar-color: #e1dcdc #f7f5f5;
 }
 
 .custom-scrollbar::-webkit-scrollbar {
@@ -400,22 +437,22 @@
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: #f7f5f5;
   border-radius: 3px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #e1dcdc;
   border-radius: 3px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #8c8989;
 }
 
 /* フォーカス可視性の改善 */
 .focus-visible {
-  @apply outline-none ring-4 ring-indigo-300 ring-offset-2;
+  @apply outline-none ring-4 ring-blue-200 ring-offset-2;
 }
 
 /* ローディング状態のアニメーション */
