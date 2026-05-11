@@ -997,7 +997,7 @@ export default function AdminPage() {
               <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 transition-colors group-data-[state=active]:bg-white group-data-[state=active]:text-emerald-600 group-data-[state=active]:shadow-sm">
                 <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5" />
               </div>
-              <span className="text-xs sm:text-base font-bold tracking-tight truncate">出席データ</span>
+              <span className="text-xs sm:text-base font-bold tracking-tight truncate">データ管理</span>
             </TabsTrigger>
             <TabsTrigger
               value="rooms"
@@ -2247,16 +2247,16 @@ export default function AdminPage() {
                 <BarChart3 className="h-3 w-3" />
                 Export
               </span>
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">出席データ</h1>
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">データ管理</h1>
               <p className="text-sm text-slate-500 mt-1">
-                フォームごとの出席データをCSV形式でエクスポートできます
+                フォームごとのデータをCSV形式でエクスポートできます
               </p>
             </div>
             {/* エクスポート機能紹介 */}
             <div className="bg-gradient-to-br from-emerald-50 to-teal-50/60 ring-1 ring-emerald-100 rounded-2xl p-5 mb-5 shadow-sm">
               <h3 className="text-sm sm:text-base font-semibold text-emerald-900 mb-2 flex items-center gap-1.5">
                 <BarChart3 className="h-4 w-4" />
-                出席データエクスポートについて
+                データエクスポートについて
               </h3>
               <p className="text-xs sm:text-sm text-emerald-800 leading-relaxed">
                 出席フォームに登録されたデータをCSV（Excel対応）またはJSON形式でダウンロードできます。日付フィルタで特定期間のデータを絞り込むことも可能です。
