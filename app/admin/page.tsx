@@ -2109,13 +2109,13 @@ export default function AdminPage() {
                         </div>
 
                         {/* Actions row 1: main actions */}
-                        <div className="flex items-center gap-2 flex-wrap">
+                        <div className="grid grid-cols-2 gap-2">
                           <Button
                             variant="outline"
                             size="sm"
                             disabled={copyPendingCode === room.code}
                             onClick={() => copyRoomUrl(room.code, room.title)}
-                            className="h-8 px-3 text-xs border-slate-200 text-slate-600 hover:text-indigo-600 hover:border-indigo-300 disabled:opacity-60 disabled:pointer-events-none"
+                            className="h-8 w-full px-3 text-xs border-slate-200 text-slate-600 hover:text-indigo-600 hover:border-indigo-300 disabled:opacity-60 disabled:pointer-events-none"
                           >
                             {copyPendingCode === room.code ? (
                               <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
@@ -2129,7 +2129,7 @@ export default function AdminPage() {
                             size="sm"
                             disabled={viewPendingCode === room.code}
                             onClick={() => handleOpenParticipantView(room.code)}
-                            className="h-8 px-3 text-xs border-slate-200 text-slate-600 hover:text-indigo-600 hover:border-indigo-300 disabled:opacity-60 disabled:pointer-events-none"
+                            className="h-8 w-full px-3 text-xs border-slate-200 text-slate-600 hover:text-indigo-600 hover:border-indigo-300 disabled:opacity-60 disabled:pointer-events-none"
                           >
                             {viewPendingCode === room.code ? (
                               <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
@@ -2142,7 +2142,7 @@ export default function AdminPage() {
                             size="sm"
                             disabled={hostPendingCode === room.code}
                             onClick={() => handleOpenHostView(room.code)}
-                            className="h-8 px-3 text-xs bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-60 disabled:pointer-events-none"
+                            className="h-8 w-full px-3 text-xs bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-60 disabled:pointer-events-none"
                           >
                             {hostPendingCode === room.code ? (
                               <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
@@ -2155,7 +2155,7 @@ export default function AdminPage() {
                             variant="outline"
                             size="sm"
                             onClick={() => router.push(`/rooms/${room.code}/host?tab=export`)}
-                            className="h-8 px-3 text-xs border-slate-200 text-slate-600 hover:text-indigo-600 hover:border-indigo-300"
+                            className="h-8 w-full px-3 text-xs border-slate-200 text-slate-600 hover:text-indigo-600 hover:border-indigo-300"
                           >
                             <Download className="h-3 w-3 mr-1.5" />
                             データ出力

@@ -354,7 +354,7 @@ export default function LandingPage() {
             </Link>
             <Link
               href="/admin/login"
-              className="hidden sm:inline-flex items-center gap-1.5 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 active:scale-[0.97] transition-all px-4 py-2 rounded-xl shadow-lg shadow-indigo-200/50"
+              className="hidden sm:inline-flex items-center gap-1.5 text-sm font-semibold text-white hover:text-white bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 active:scale-[0.97] transition-all px-4 py-2 rounded-xl shadow-lg shadow-indigo-200/50"
             >
               無料で始める
               <ArrowRight className="w-3.5 h-3.5" />
@@ -402,7 +402,7 @@ export default function LandingPage() {
                   <Link
                     href="/admin/login"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="block w-full text-center text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 active:scale-[0.97] transition-all px-4 py-2.5 rounded-xl shadow-lg shadow-indigo-200/50"
+                    className="block w-full text-center text-sm font-semibold text-white hover:text-white bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 active:scale-[0.97] transition-all px-4 py-2.5 rounded-xl shadow-lg shadow-indigo-200/50"
                   >
                     無料で始める
                   </Link>
@@ -468,7 +468,7 @@ export default function LandingPage() {
               >
                 <Link
                   href="/admin/login"
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 text-base lg:text-lg font-semibold text-white bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 active:scale-[0.97] transition-all px-7 py-3.5 rounded-xl shadow-lg shadow-indigo-200/50"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 text-base lg:text-lg font-semibold text-white hover:text-white bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 active:scale-[0.97] transition-all px-7 py-3.5 rounded-xl shadow-lg shadow-indigo-200/50"
                 >
                   無料で始める
                   <ArrowRight className="w-4 h-4" />
