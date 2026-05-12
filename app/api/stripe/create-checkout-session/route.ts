@@ -7,6 +7,17 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-07-30.basil',
 });
 
+function appendCheckoutSessionId(url: string) {
+  if (url.includes('session_id=')) return url;
+
+  const hashIndex = url.indexOf('#');
+  const baseUrl = hashIndex >= 0 ? url.slice(0, hashIndex) : url;
+  const hash = hashIndex >= 0 ? url.slice(hashIndex) : '';
+  const separator = baseUrl.includes('?') ? '&' : '?';
+
+  return `${baseUrl}${separator}session_id={CHECKOUT_SESSION_ID}${hash}`;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -78,12 +89,19 @@ export async function POST(request: NextRequest) {
         },
       ],
       mode: 'subscription',
-      success_url: successUrl,
+      success_url: appendCheckoutSessionId(successUrl),
       cancel_url: cancelUrl,
       metadata: {
         userId: session.user.email,
         productType,
         service: 'zaseki_kun',
+      },
+      subscription_data: {
+        metadata: {
+          userId: session.user.email,
+          productType,
+          service: 'zaseki_kun',
+        },
       },
       locale: 'ja',
       automatic_tax: {

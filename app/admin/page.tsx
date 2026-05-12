@@ -314,10 +314,12 @@ export default function AdminPage() {
       if (response.ok) {
         const data = await response.json();
         setPlanInfo(data);
+        return data;
       }
     } catch (error) {
       console.error('Failed to fetch plan info:', error);
     }
+    return null;
   }, []);
 
   // Proプランにアップグレード
@@ -454,7 +456,17 @@ export default function AdminPage() {
     
     if (paymentStatus === 'success') {
       showToast('決済完了', 'Proプランへのアップグレードが完了しました！', 'default');
-      fetchPlanInfo(); // プラン情報を更新
+      const refreshPlanInfo = async () => {
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const latestPlanInfo = await fetchPlanInfo();
+          if (latestPlanInfo?.subscription?.plan !== 'free') {
+            break;
+          }
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        }
+      };
+
+      refreshPlanInfo();
       // URLパラメータをクリア
       window.history.replaceState({}, document.title, window.location.pathname);
     } else if (paymentStatus === 'cancelled') {
@@ -462,7 +474,7 @@ export default function AdminPage() {
       // URLパラメータをクリア
       window.history.replaceState({}, document.title, window.location.pathname);
     }
-  }, [showToast]);
+  }, [fetchPlanInfo, showToast]);
 
   // ローディング表示
   if (status === 'loading') {

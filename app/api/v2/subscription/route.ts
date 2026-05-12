@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { getUserPlanInfo } from '@/lib/subscription';
+import { getUserPlanInfo, syncUserSubscriptionFromStripe } from '@/lib/subscription';
 import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -16,7 +16,15 @@ export async function GET() {
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
     }
 
-    const planInfo = await getUserPlanInfo(session.user.email);
+    let planInfo = await getUserPlanInfo(session.user.email);
+
+    if (
+      planInfo.subscription.plan === 'free' ||
+      planInfo.subscription.status === 'incomplete'
+    ) {
+      await syncUserSubscriptionFromStripe(session.user.email, stripe);
+      planInfo = await getUserPlanInfo(session.user.email);
+    }
 
     return NextResponse.json(planInfo);
   } catch (error) {
@@ -37,7 +45,12 @@ export async function POST(request: Request) {
 
     if (action === 'portal') {
       // カスタマーポータルセッションを作成
-      const planInfo = await getUserPlanInfo(session.user.email);
+      let planInfo = await getUserPlanInfo(session.user.email);
+
+      if (!planInfo.subscription.stripeCustomerId) {
+        await syncUserSubscriptionFromStripe(session.user.email, stripe);
+        planInfo = await getUserPlanInfo(session.user.email);
+      }
 
       if (!planInfo.subscription.stripeCustomerId) {
         return NextResponse.json({ error: 'サブスクリプションが見つかりません' }, { status: 404 });
