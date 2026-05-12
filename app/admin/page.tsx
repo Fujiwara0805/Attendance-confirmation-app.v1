@@ -300,12 +300,18 @@ export default function AdminPage() {
 
   // サブスクリプション情報の状態
   const [planInfo, setPlanInfo] = useState<{
-    subscription: { plan: 'free' | 'paid' | 'enterprise'; status: string };
+    subscription: {
+      plan: 'free' | 'paid' | 'enterprise';
+      status: 'active' | 'cancelled' | 'past_due' | 'incomplete';
+      currentPeriodEnd?: string;
+    };
     usage: { formCount: number; roomCount: number };
     limits: { maxForms: number; maxRooms: number };
     canCreateForm: boolean;
     canCreateRoom: boolean;
   } | null>(null);
+  const [isSubscriptionActionPending, setIsSubscriptionActionPending] = useState<boolean>(false);
+  const [isCancelSubscriptionModalOpen, setIsCancelSubscriptionModalOpen] = useState<boolean>(false);
 
   // サブスクリプション情報を取得
   const fetchPlanInfo = useCallback(async () => {
@@ -347,6 +353,35 @@ export default function AdminPage() {
       setIsProcessingPayment(false);
     }
   };
+
+  const handleCancelSubscription = async () => {
+    setIsSubscriptionActionPending(true);
+    try {
+      const response = await fetch('/api/v2/subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'cancel' }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || '解約処理に失敗しました');
+      }
+
+      setPlanInfo(data);
+      setIsCancelSubscriptionModalOpen(false);
+      showToast('解約を受け付けました', '現在の請求期間が終了するまでProプランを利用できます。');
+    } catch (error) {
+      console.error('Cancel subscription error:', error);
+      showToast('エラー', error instanceof Error ? error.message : '解約処理に失敗しました', 'destructive');
+    } finally {
+      setIsSubscriptionActionPending(false);
+    }
+  };
+
+  const currentPeriodEndLabel = planInfo?.subscription.currentPeriodEnd
+    ? new Date(planInfo.subscription.currentPeriodEnd).toLocaleDateString('ja-JP')
+    : null;
 
   // カスタムフォームダイアログを開く（上限チェック付き）
   const handleCustomFormDialog = () => {
@@ -986,6 +1021,15 @@ export default function AdminPage() {
                   {planInfo?.subscription.plan === 'enterprise' ? 'Enterprise' : planInfo?.subscription.plan === 'paid' ? 'Pro' : 'Free'}
                 </span>
               </div>
+              {planInfo?.subscription.status === 'cancelled' && currentPeriodEndLabel && (
+                <p className={`mt-1 text-xs ${
+                  planInfo.subscription.plan === 'enterprise' || planInfo.subscription.plan === 'paid'
+                    ? 'text-white/80'
+                    : 'text-slate-500'
+                }`}>
+                  {currentPeriodEndLabel}で解約予定
+                </p>
+              )}
             </div>
           </div>
         </motion.div>
@@ -1053,6 +1097,17 @@ export default function AdminPage() {
                       {planInfo.usage.formCount}/{planInfo.limits.maxForms === Infinity ? '∞' : planInfo.limits.maxForms}
                     </span>
                   </div>
+                )}
+                {planInfo && (planInfo.subscription.plan === 'paid' || planInfo.subscription.plan === 'enterprise') && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsCancelSubscriptionModalOpen(true)}
+                    disabled={isSubscriptionActionPending || planInfo.subscription.status === 'cancelled'}
+                    className="h-9 px-3 text-slate-600 border-slate-200"
+                  >
+                    {planInfo.subscription.status === 'cancelled' ? '解約予約済み' : 'プランを解約'}
+                  </Button>
                 )}
                 <Button
                   variant="outline"
@@ -1909,6 +1964,11 @@ export default function AdminPage() {
                     </span>
                   </div>
                 )}
+                {planInfo && planInfo.subscription.status === 'cancelled' && currentPeriodEndLabel && (
+                  <div className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700">
+                    {currentPeriodEndLabel}で解約予定
+                  </div>
+                )}
                 <Button
                   variant="outline"
                   size="sm"
@@ -2278,6 +2338,51 @@ export default function AdminPage() {
           </TabsContent>
         </Tabs>
       </main>
+
+      <CustomModal
+        isOpen={isCancelSubscriptionModalOpen}
+        onClose={() => { if (!isSubscriptionActionPending) setIsCancelSubscriptionModalOpen(false); }}
+        title="プランを解約"
+        description="解約後も現在の請求期間が終了するまでは、Proプランの機能を引き続き利用できます。"
+        className="max-w-sm"
+      >
+        <div className="space-y-4">
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+            <p className="text-sm font-medium text-amber-900">
+              {currentPeriodEndLabel
+                ? `${currentPeriodEndLabel}までは現在のプランを利用できます。`
+                : '次回更新を停止し、期間終了時に解約します。'}
+            </p>
+          </div>
+          <p className="text-sm text-slate-600">
+            本当に解約を予約しますか？
+          </p>
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => setIsCancelSubscriptionModalOpen(false)}
+              disabled={isSubscriptionActionPending}
+            >
+              キャンセル
+            </Button>
+            <Button
+              className="flex-1 bg-slate-900 hover:bg-slate-800 text-white"
+              onClick={handleCancelSubscription}
+              disabled={isSubscriptionActionPending}
+            >
+              {isSubscriptionActionPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  処理中...
+                </>
+              ) : (
+                '解約する'
+              )}
+            </Button>
+          </div>
+        </div>
+      </CustomModal>
 
       {/* 削除確認モーダル */}
       <CustomModal

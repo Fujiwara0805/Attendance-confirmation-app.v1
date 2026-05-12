@@ -1,12 +1,25 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { getUserPlanInfo, syncUserSubscriptionFromStripe } from '@/lib/subscription';
+import { getUserPlanInfo, syncUserSubscriptionFromStripe, upsertSubscription } from '@/lib/subscription';
 import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-07-30.basil',
 });
+
+function getSubscriptionPeriod(subscription: Stripe.Subscription) {
+  const stripeSubscription = subscription as any;
+
+  return {
+    current_period_start: stripeSubscription.current_period_start
+      ? new Date(stripeSubscription.current_period_start * 1000).toISOString()
+      : undefined,
+    current_period_end: stripeSubscription.current_period_end
+      ? new Date(stripeSubscription.current_period_end * 1000).toISOString()
+      : undefined,
+  };
+}
 
 // GET: ユーザーのサブスクリプション・使用量情報を取得
 export async function GET() {
@@ -62,6 +75,35 @@ export async function POST(request: Request) {
       });
 
       return NextResponse.json({ url: portalSession.url });
+    }
+
+    if (action === 'cancel') {
+      let planInfo = await getUserPlanInfo(session.user.email);
+
+      if (!planInfo.subscription.stripeSubscriptionId || !planInfo.subscription.stripeCustomerId) {
+        await syncUserSubscriptionFromStripe(session.user.email, stripe);
+        planInfo = await getUserPlanInfo(session.user.email);
+      }
+
+      if (!planInfo.subscription.stripeSubscriptionId || !planInfo.subscription.stripeCustomerId) {
+        return NextResponse.json({ error: 'サブスクリプションが見つかりません' }, { status: 404 });
+      }
+
+      const subscription = await stripe.subscriptions.update(
+        planInfo.subscription.stripeSubscriptionId,
+        { cancel_at_period_end: true }
+      );
+
+      await upsertSubscription(session.user.email, {
+        plan: planInfo.subscription.plan,
+        status: 'cancelled',
+        stripe_customer_id: planInfo.subscription.stripeCustomerId,
+        stripe_subscription_id: subscription.id,
+        ...getSubscriptionPeriod(subscription),
+      });
+
+      const updatedPlanInfo = await getUserPlanInfo(session.user.email);
+      return NextResponse.json(updatedPlanInfo);
     }
 
     return NextResponse.json({ error: '不明なアクションです' }, { status: 400 });
