@@ -107,11 +107,6 @@ export default function PresentPage() {
   const { questions, connected: qConnected } = useRealtimeQuestions(room?.id || null);
   const { activePoll, pollVotes, connected: pConnected } = useRealtimePolls(room?.id || null);
 
-  // Auto-switch to poll when one becomes active
-  useEffect(() => {
-    if (activePoll) setView('poll');
-  }, [activePoll]);
-
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
       containerRef.current?.requestFullscreen();
