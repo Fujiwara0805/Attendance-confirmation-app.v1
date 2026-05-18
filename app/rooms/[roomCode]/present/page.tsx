@@ -134,6 +134,11 @@ export default function PresentPage() {
         !q.is_answered &&
         (q.status === undefined || q.status === 'approved')
     )
+    .sort(
+      (a, b) =>
+        b.upvote_count - a.upvote_count ||
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    )
     .slice(0, 8);
 
   const realtimeOffline = !qConnected && !pConnected;

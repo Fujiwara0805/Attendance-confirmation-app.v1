@@ -76,8 +76,12 @@ export default function StagePage() {
   const visibleQuestions = useMemo(() => {
     return questions
       .filter((q) => !q.is_answered && (q.status === undefined || q.status === 'approved'))
-      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-      .slice(-14);
+      .sort(
+        (a, b) =>
+          b.upvote_count - a.upvote_count ||
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      )
+      .slice(0, 14);
   }, [questions]);
 
   const activePollStats = useMemo(() => {
@@ -254,9 +258,9 @@ export default function StagePage() {
   }
 
   return (
-    <div ref={stageRef} className="min-h-screen bg-slate-950 text-slate-100">
-      <div ref={splitRef} className="grid min-h-screen grid-cols-1 lg:grid-cols-[minmax(0,7fr)_10px_minmax(340px,3fr)]" style={layoutStyle}>
-        <main className="relative min-h-[55vh] lg:min-h-screen bg-black flex items-center justify-center overflow-hidden">
+    <div ref={stageRef} className="h-screen overflow-hidden bg-slate-950 text-slate-100">
+      <div ref={splitRef} className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-[minmax(0,7fr)_10px_minmax(340px,3fr)]" style={layoutStyle}>
+        <main className="relative h-[55vh] min-h-0 lg:h-full bg-black flex items-center justify-center overflow-hidden">
           {captureStream ? (
             <>
               <video
@@ -400,8 +404,8 @@ export default function StagePage() {
           <div className="h-16 w-1 rounded-full bg-white/50" />
         </div>
 
-        <aside className="min-h-screen border-l border-slate-800 bg-slate-50 text-slate-900 flex flex-col">
-          <header className="border-b border-slate-200 bg-white px-5 py-4">
+        <aside className="h-[45vh] min-h-0 overflow-hidden border-l border-slate-800 bg-slate-50 text-slate-900 flex flex-col lg:h-full">
+          <header className="shrink-0 border-b border-slate-200 bg-white px-5 py-4">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <p className="text-xs font-semibold uppercase tracking-wide text-indigo-500">資料投影画面</p>
@@ -441,7 +445,7 @@ export default function StagePage() {
           </header>
 
           {activePoll && activePollStats && (
-            <section className="border-b border-slate-200 bg-white px-5 py-4">
+            <section className="shrink-0 border-b border-slate-200 bg-white px-5 py-4">
               <div className="mb-3 flex items-center justify-between gap-3">
                 <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-emerald-600">
                   <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
