@@ -120,6 +120,17 @@ export default function StagePage() {
 
     try {
       captureStream?.getTracks().forEach((track) => track.stop());
+      // CaptureController で「共有先にフォーカスを移さない」よう指示する。
+      // これを使わないと Chrome/Edge は共有対象のタブ/ウィンドウへ自動でフォーカスを移し、
+      // ざせきくんの画面から離れてしまう。
+      const CaptureControllerCtor = (
+        window as unknown as {
+          CaptureController?: new () => {
+            setFocusBehavior: (behavior: 'focus-captured-surface' | 'no-focus-change') => void;
+          };
+        }
+      ).CaptureController;
+      const controller = CaptureControllerCtor ? new CaptureControllerCtor() : undefined;
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: {
           width: { ideal: 1920 },
@@ -132,7 +143,14 @@ export default function StagePage() {
         selfBrowserSurface: 'exclude',
         surfaceSwitching: 'include',
         systemAudio: 'exclude',
+        controller,
       } as DisplayMediaStreamOptions);
+      try {
+        // 一度しか呼べず、呼び出しが遅すぎると例外になるため握りつぶす。
+        controller?.setFocusBehavior('no-focus-change');
+      } catch {
+        /* CaptureController 非対応／呼び出しタイミング超過時は無視 */
+      }
       const [track] = stream.getVideoTracks();
       const settings = track?.getSettings() as MediaTrackSettings & { displaySurface?: string };
       setCaptureSurface(settings?.displaySurface || null);
@@ -143,7 +161,10 @@ export default function StagePage() {
         if (videoRef.current) videoRef.current.srcObject = null;
       });
       setCaptureStream(stream);
-      window.setTimeout(() => window.focus(), 200);
+      // CaptureController 非対応ブラウザ向けのフォールバック（従来挙動を維持）
+      if (!controller) {
+        window.setTimeout(() => window.focus(), 200);
+      }
     } catch (error) {
       const isAbort = error instanceof DOMException && error.name === 'NotAllowedError';
       setCaptureError(isAbort ? '資料の取り込みがキャンセルされました。' : '資料画面の取り込みに失敗しました。');
