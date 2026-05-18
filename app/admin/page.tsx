@@ -2037,7 +2037,6 @@ export default function AdminPage() {
                     value={newRoomTitle}
                     onChange={(e) => setNewRoomTitle(e.target.value)}
                     className="h-10"
-                    onKeyDown={(e) => { if (e.key === 'Enter' && newRoomTitle.trim()) handleCreateRoom(); }}
                   />
                 </div>
                 <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end pt-2">
@@ -2083,7 +2082,6 @@ export default function AdminPage() {
                     value={editRoomTitle}
                     onChange={(e) => setEditRoomTitle(e.target.value)}
                     className="h-10"
-                    onKeyDown={(e) => { if (e.key === 'Enter' && editRoomTitle.trim()) handleUpdateRoom(); }}
                   />
                 </div>
                 <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end pt-2">
