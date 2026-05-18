@@ -358,7 +358,7 @@ export default function PresentPage() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-4 sm:p-8 pt-16 sm:pt-20 bg-black/85 backdrop-blur-sm"
+            className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-4 sm:p-8 pt-16 sm:pt-20 bg-white/85 backdrop-blur-3xl"
             onClick={(e) => {
               if (e.target === e.currentTarget) closeQrModal();
             }}
@@ -386,10 +386,10 @@ export default function PresentPage() {
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="flex flex-col items-center gap-3 text-white"
+                  className="flex flex-col items-center gap-3 text-slate-700"
                 >
-                  <Loader2 className="w-10 h-10 animate-spin text-white/90" aria-hidden />
-                  <span className="text-sm text-white/80">QRを表示しています…</span>
+                  <Loader2 className="w-10 h-10 animate-spin text-slate-500" aria-hidden />
+                  <span className="text-sm text-slate-500">QRを表示しています…</span>
                 </motion.div>
               )}
               {modalQrUrl && (
@@ -404,7 +404,7 @@ export default function PresentPage() {
                 />
               )}
             </motion.div>
-            <p className="mt-4 text-sm text-white/80 text-center max-w-md">
+            <p className="mt-4 text-sm text-slate-500 text-center max-w-md">
               スマートフォンで読み取ってください
             </p>
           </motion.div>
