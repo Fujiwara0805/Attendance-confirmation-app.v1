@@ -13,7 +13,6 @@ import {
   Copy,
   Check,
   Download,
-  ExternalLink,
   StopCircle,
   Trash2,
   Monitor,
@@ -444,15 +443,6 @@ export default function HostPage() {
                 <span className="hidden sm:inline">QR</span>
               </a>
             )}
-            <a
-              href={`/rooms/${roomCode}/stage`}
-              target={`zasekikun-stage-${roomCode}`}
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center text-slate-600 bg-white ring-1 ring-slate-200 hover:bg-slate-50 w-9 h-9 rounded-lg transition-colors"
-              title="資料投影画面を開く"
-            >
-              <ExternalLink className="w-4 h-4" />
-            </a>
             <a
               href={`/rooms/${roomCode}/present`}
               target={`zasekikun-present-${roomCode}`}
