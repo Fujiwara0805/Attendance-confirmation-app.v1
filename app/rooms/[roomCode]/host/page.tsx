@@ -445,13 +445,22 @@ export default function HostPage() {
               </a>
             )}
             <a
+              href={`/rooms/${roomCode}/stage`}
+              target={`zasekikun-stage-${roomCode}`}
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center text-slate-600 bg-white ring-1 ring-slate-200 hover:bg-slate-50 w-9 h-9 rounded-lg transition-colors"
+              title="資料投影画面を開く"
+            >
+              <ExternalLink className="w-4 h-4" />
+            </a>
+            <a
               href={`/rooms/${roomCode}/present`}
               target={`zasekikun-present-${roomCode}`}
               rel="noopener noreferrer"
               className="inline-flex items-center justify-center text-slate-600 bg-white ring-1 ring-slate-200 hover:bg-slate-50 w-9 h-9 rounded-lg transition-colors"
-              title="プレゼンを開く"
+              title="スクリーン画面を開く"
             >
-              <ExternalLink className="w-4 h-4" />
+              <Monitor className="w-4 h-4" />
             </a>
             <button
               type="button"

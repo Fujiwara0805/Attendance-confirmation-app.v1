@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, BarChart3, ThumbsUp, Maximize, Minimize, X, Loader2, WifiOff } from 'lucide-react';
+import { MessageSquare, BarChart3, ThumbsUp, Maximize, Minimize, X, Loader2, WifiOff, MonitorUp } from 'lucide-react';
 import { useRealtimeQuestions } from '@/lib/hooks/useRealtimeQuestions';
 import { useRealtimePolls } from '@/lib/hooks/useRealtimePolls';
 
@@ -181,7 +181,16 @@ export default function PresentPage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          <a
+            href={`/rooms/${roomCode}/stage`}
+            className="inline-flex h-10 min-w-[160px] shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-indigo-600 px-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-indigo-700"
+            title="資料投影画面へ切り替え"
+            aria-label="資料投影画面へ切り替え"
+          >
+            <MonitorUp className="w-4 h-4" />
+            資料投影画面
+          </a>
           <div className="flex bg-gray-100 rounded-xl p-1 ring-1 ring-black/5">
             <button
               onClick={() => setView('qa')}

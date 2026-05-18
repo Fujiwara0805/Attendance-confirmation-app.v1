@@ -4,6 +4,7 @@ import { Providers } from './providers';
 import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://zaseki-kun.com'),
   title: 'ざせきくん - 出席管理・Q&A・投票をワンストップで',
   description: 'ざせきくんは、出席管理・リアルタイムQ&A・ライブ投票をひとつにまとめたイベント運営プラットフォームです。アプリ不要・ログイン不要で、10,000人規模の同時アクセスにも対応。QRコード共有ですぐに始められます。',
   keywords: ['出席管理', 'リアルタイムQ&A', 'ライブ投票', 'イベント運営', 'QRコード出席', 'Webアプリ', '授業管理', 'アンケート'],

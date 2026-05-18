@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth';
 import { createServerClient } from '@/lib/supabase';
+
+async function getCurrentUserForMutation() {
+  const { getCurrentUser } = await import('@/lib/auth');
+  return getCurrentUser();
+}
 
 // GET: Fetch room by code (public)
 export async function GET(
@@ -32,7 +36,7 @@ export async function PATCH(
   { params }: { params: { roomCode: string } }
 ) {
   try {
-    const session = await getCurrentUser();
+    const session = await getCurrentUserForMutation();
     if (!session?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -80,7 +84,7 @@ export async function DELETE(
   { params }: { params: { roomCode: string } }
 ) {
   try {
-    const session = await getCurrentUser();
+    const session = await getCurrentUserForMutation();
     if (!session?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
