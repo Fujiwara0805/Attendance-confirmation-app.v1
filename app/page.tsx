@@ -983,8 +983,7 @@ export default function LandingPage() {
                 <p className="text-sm lg:text-base text-slate-500 mt-1">法人・大規模イベント運用に</p>
               </div>
               <div className="mb-6">
-                <span className="text-4xl font-extrabold text-slate-900">¥2,000</span>
-                <span className="text-sm lg:text-base text-slate-400 ml-1">/ 月（税込）</span>
+                <span className="text-4xl font-extrabold text-slate-900">要相談</span>
               </div>
               <ul className="space-y-3 mb-8">
                 {[
