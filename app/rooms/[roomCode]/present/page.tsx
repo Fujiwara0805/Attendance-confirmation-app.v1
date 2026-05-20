@@ -258,7 +258,7 @@ export default function PresentPage() {
               }`}
             >
               <BarChart3 className="w-4 h-4" />
-              インタラクティブ
+              ライブ機能
             </button>
           </div>
           {realtimeOffline && (

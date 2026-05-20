@@ -321,7 +321,7 @@ export default function StagePage() {
                     className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-emerald-500 px-3 text-xs font-semibold text-white shadow-sm hover:bg-emerald-400"
                   >
                     <BarChart3 className="w-4 h-4" />
-                    インタラクティブ画面
+                    ライブ機能画面
                   </button>
                   <button
                     type="button"
@@ -387,7 +387,7 @@ export default function StagePage() {
                 className="mt-3 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 text-sm font-bold text-white ring-1 ring-emerald-400 hover:bg-emerald-400"
               >
                 <BarChart3 className="w-4 h-4" />
-                インタラクティブ画面を開く
+                ライブ機能画面を開く
               </button>
               <button
                 type="button"

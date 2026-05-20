@@ -660,6 +660,7 @@ export default function HostPage() {
   const totalPolls = polls.length;
   const totalParticipants =
     exportData?.stats?.uniqueParticipants ?? Math.max(presenceCount, 0);
+  const visiblePolls = editingPollId ? polls.filter((poll) => poll.id !== editingPollId) : polls;
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50/60">
@@ -770,7 +771,7 @@ export default function HostPage() {
           {(
             [
               { key: 'questions', icon: <MessageSquare className="w-4 h-4" />, label: '質問' },
-              { key: 'polls', icon: <BarChart3 className="w-4 h-4" />, label: 'インタラクティブ' },
+              { key: 'polls', icon: <BarChart3 className="w-4 h-4" />, label: 'ライブ機能' },
               { key: 'summary', icon: <PieChart className="w-4 h-4" />, label: 'サマリー' },
               { key: 'export', icon: <Download className="w-4 h-4" />, label: 'エクスポート' },
             ] as const
@@ -937,7 +938,7 @@ export default function HostPage() {
           <div className="space-y-5">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-2xl font-extrabold tracking-tight text-slate-900">インタラクティブ</h2>
+                <h2 className="text-2xl font-extrabold tracking-tight text-slate-900">ライブ機能</h2>
                 <p className="mt-0.5 text-xs text-slate-500">通常投票 / 出題形式 / 希望順位投票</p>
               </div>
               {room.status === 'active' && (
@@ -1423,11 +1424,11 @@ export default function HostPage() {
                 <div className="w-14 h-14 rounded-2xl bg-emerald-50 ring-1 ring-emerald-100 flex items-center justify-center mb-3">
                   <BarChart3 className="w-7 h-7 text-emerald-300" />
                 </div>
-                <p className="text-sm font-semibold text-slate-700">まだインタラクティブはありません</p>
+                <p className="text-sm font-semibold text-slate-700">まだライブ機能はありません</p>
                 <p className="text-xs text-slate-400 mt-1">右上の「新規作成」から作成できます</p>
               </div>
-            ) : (
-              polls.map((poll) => (
+            ) : visiblePolls.length > 0 ? (
+              visiblePolls.map((poll) => (
                 <PollResultCard
                   key={poll.id}
                   poll={poll}
@@ -1442,7 +1443,7 @@ export default function HostPage() {
                   resetting={pollResettingId === poll.id}
                 />
               ))
-            )}
+            ) : null}
           </div>
         )}
 
@@ -2304,7 +2305,7 @@ function SummaryTab({
           accent="bg-sky-50 ring-sky-100"
         />
         <KpiCard
-          label="インタラクティブ"
+          label="ライブ機能"
           value={totalPolls}
           icon={<BarChart3 className="w-4 h-4 text-amber-600" />}
           accent="bg-amber-50 ring-amber-100"

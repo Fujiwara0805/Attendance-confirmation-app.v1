@@ -393,7 +393,7 @@ export default function ParticipantPage() {
               active={tab === 'polls'}
               onClick={() => setTab('polls')}
               icon={<BarChart3 className="w-4 h-4" />}
-              label="投票"
+              label="投票・回答"
               dot={!!activePoll}
             />
             <TabButton
@@ -878,7 +878,7 @@ function ActivePollCard({
             <Clock className="h-3.5 w-3.5" />
             {quizStartMs
               ? `全${quizQuestions.length}問を${quizTimeLimit}秒で回答してください`
-              : `全${quizQuestions.length}問を${quizTimeLimit}秒で回答（スクリーン側の開始待ち）`}
+              : `全${quizQuestions.length}問を${quizTimeLimit}秒で回答（開始待ち）`}
           </span>
           <span
             className={`tabular-nums text-base sm:text-lg font-extrabold ${
@@ -1240,26 +1240,6 @@ function ActivePollCard({
               </div>
             </div>
 
-            <div className="mt-3 flex items-center justify-center gap-1.5">
-              {quizQuestions.map((question, i) => {
-                const answered = isAnswered(question);
-                return (
-                  <button
-                    key={question.id}
-                    type="button"
-                    onClick={() => setActiveQuizIndex(i)}
-                    className={`h-2.5 rounded-full transition-all ${
-                      i === activeQuizIndex
-                        ? 'w-6 bg-emerald-500'
-                        : answered
-                        ? 'w-2.5 bg-emerald-300'
-                        : 'w-2.5 bg-slate-300'
-                    }`}
-                    aria-label={`問題 ${i + 1} を表示`}
-                  />
-                );
-              })}
-            </div>
           </div>
           {quizSubmittable && (
             <div className="mt-3 rounded-xl bg-emerald-50 px-3 py-3 ring-1 ring-emerald-200">
