@@ -185,7 +185,11 @@ export async function PATCH(
 
       // 構造が変わるため、依頼どおり既存の回答をリセットしてから更新
       if (body.resetVotes) {
-        await supabase.from('poll_votes').delete().eq('poll_id', params.pollId);
+        await supabase
+          .from('poll_votes')
+          .delete()
+          .eq('poll_id', params.pollId)
+          .is('cleared_at', null);
       }
 
       const { data, error } = await supabase

@@ -246,6 +246,17 @@ function pollsToRichCSV(polls: PollRow[], votes: VoteRow[]) {
       if (!runs.has(key)) runs.set(key, []);
       runs.get(key)!.push(v);
     }
+    const archivedRunKeys = new Set([
+      ...Object.keys(meta.runStartedAtByClearedAt || {}),
+      ...Object.keys(meta.runStartedAtClientAtByClearedAt || {}),
+      ...Object.keys(meta.runStartedAtTimeZoneByClearedAt || {}),
+    ]);
+    archivedRunKeys.forEach((key) => {
+      if (!runs.has(key)) runs.set(key, []);
+    });
+    if (poll.status === 'active' && poll.started_at && !runs.has(null)) {
+      runs.set(null, []);
+    }
     if (runs.size === 0) runs.set(null, []); // \u6295\u7968\u306A\u3057\u3067\u3082\u51FA\u984C\u81EA\u4F53\u306F1\u884C\u51FA\u3059
 
     // \u53E4\u3044\u9806\uFF08archived ASC\uFF09\u2192 \u6700\u5F8C\u306B\u73FE\u5728

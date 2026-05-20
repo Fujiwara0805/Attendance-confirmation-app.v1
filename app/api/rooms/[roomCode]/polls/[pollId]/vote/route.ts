@@ -122,7 +122,8 @@ export async function POST(
       .from('poll_votes')
       .delete()
       .eq('poll_id', params.pollId)
-      .eq('participant_id', participantId);
+      .eq('participant_id', participantId)
+      .is('cleared_at', null);
 
     const quizQuestions = pollMode === 'quiz' ? getQuizQuestions(meta, options) : [];
     const rows = indexes.map((idx, rank) => {
