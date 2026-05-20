@@ -1125,20 +1125,6 @@ export default function HostPage() {
               )}
             </AnimatePresence>
 
-            <AnimatePresence>
-              {showPollExportPicker && (
-                <PollExportPickerModal
-                  polls={polls}
-                  exporting={exportLoadingType === 'polls'}
-                  onClose={() => setShowPollExportPicker(false)}
-                  onConfirm={async (pollId) => {
-                    setShowPollExportPicker(false);
-                    await downloadExportCSV('polls', pollId);
-                  }}
-                />
-              )}
-            </AnimatePresence>
-
             {/* Create poll form */}
             <AnimatePresence>
               {showCreatePoll && (
@@ -1864,6 +1850,21 @@ export default function HostPage() {
           </div>
         )}
       </div>
+
+      {/* CSV出力対象カード選択モーダル: タブをまたいで動作させたいので最上位で描画 */}
+      <AnimatePresence>
+        {showPollExportPicker && (
+          <PollExportPickerModal
+            polls={polls}
+            exporting={exportLoadingType === 'polls'}
+            onClose={() => setShowPollExportPicker(false)}
+            onConfirm={async (pollId) => {
+              setShowPollExportPicker(false);
+              await downloadExportCSV('polls', pollId);
+            }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -2003,9 +2004,9 @@ function PollExportPickerModal({
           </button>
         </div>
 
-        <div className="max-h-[60vh] space-y-2 overflow-y-auto pr-1">
+        <div className="max-h-[60vh] space-y-2 overflow-y-auto">
           <label
-            className={`flex items-center gap-3 rounded-xl p-3 ring-1 cursor-pointer transition-colors ${
+            className={`mx-3 sm:mx-4 flex items-center gap-3 rounded-xl p-3 ring-1 cursor-pointer transition-colors ${
               selected === 'all'
                 ? 'bg-emerald-50 ring-emerald-300'
                 : 'bg-white ring-slate-200 hover:bg-slate-50'
@@ -2042,7 +2043,7 @@ function PollExportPickerModal({
               return (
                 <label
                   key={poll.id}
-                  className={`flex items-center gap-3 rounded-xl p-3 ring-1 cursor-pointer transition-colors ${
+                  className={`mx-3 sm:mx-4 flex items-center gap-3 rounded-xl p-3 ring-1 cursor-pointer transition-colors ${
                     isSelected
                       ? 'bg-emerald-50 ring-emerald-300'
                       : 'bg-white ring-slate-200 hover:bg-slate-50'
