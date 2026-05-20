@@ -12,6 +12,7 @@ import {
   getPollOptionImageUrl,
   getPollOptionLabel,
   getQuizQuestions,
+  getRankingDisplayMode,
   optionLetter,
 } from '@/lib/pollModes';
 import RankingResults from '../../components/RankingResults';
@@ -136,7 +137,7 @@ export default function PresentPage() {
   // 出題タイマーをサーバー時刻で開始（present の「開始」ボタン）。
   // realtime UPDATE が他端末（参加者・他の投影）にも propagate する。
   const [startingTimer, setStartingTimer] = useState(false);
-  const startQuizTimer = useCallback(async () => {
+  const startPollTimer = useCallback(async () => {
     if (!activePoll || startingTimer) return;
     setStartingTimer(true);
     try {
@@ -344,24 +345,45 @@ export default function PresentPage() {
                     (_, i) => votes.filter((v) => v.option_index === i).length
                   );
                   const totalCast = counts.reduce((s, c) => s + c, 0);
+                  const totalRespondents =
+                    mode === 'ranking' ? new Set(votes.map((v) => v.participant_id)).size : totalCast;
                   const maxSelections = Math.max(1, Number(activePoll.max_selections ?? 1));
                   const quizQuestions = mode === 'quiz' ? getQuizQuestions(meta, options) : [];
-                  // 全問共通の制限時間をカウントダウン。回答中は正解・集計を伏せ、時間切れで開示。
+                  // 制限時間をカウントダウン。回答中は集計を伏せ、時間切れで開示。
+                  const standardTimeLimit = mode === 'standard' ? meta.timeLimitSeconds || 0 : 0;
                   const quizTimeLimit = mode === 'quiz' ? meta.timeLimitSeconds || 0 : 0;
+                  const rankingTimeLimit = mode === 'ranking' ? meta.timeLimitSeconds || 0 : 0;
+                  const activeTimeLimit =
+                    mode === 'standard'
+                      ? standardTimeLimit
+                      : mode === 'quiz'
+                      ? quizTimeLimit
+                      : rankingTimeLimit;
                   // サーバー時刻ベース: poll.started_at（active 化時に DB がセット）を全端末で共有
-                  const quizStartMs = activePoll.started_at ? new Date(activePoll.started_at).getTime() : null;
-                  const quizRemaining =
-                    quizTimeLimit > 0 && quizStartMs
-                      ? Math.max(0, Math.ceil(quizTimeLimit - (nowMs - quizStartMs) / 1000))
+                  const timerStartMs = activePoll.started_at ? new Date(activePoll.started_at).getTime() : null;
+                  const timerRemaining =
+                    activeTimeLimit > 0 && timerStartMs
+                      ? Math.max(0, Math.ceil(activeTimeLimit - (nowMs - timerStartMs) / 1000))
                       : null;
                   // 未開始（started_at 未セット） / 回答中 / 開示 の 3 状態
-                  const quizNotStarted = mode === 'quiz' && quizTimeLimit > 0 && !quizStartMs;
+                  const timedMode = activeTimeLimit > 0;
+                  const timerNotStarted = timedMode && !timerStartMs;
+                  const standardRevealed =
+                    mode === 'standard' &&
+                    (standardTimeLimit === 0 || (!!timerStartMs && timerRemaining !== null && timerRemaining <= 0));
+                  const standardAnswering =
+                    mode === 'standard' && standardTimeLimit > 0 && !!timerStartMs && !standardRevealed;
                   const quizRevealed =
                     mode === 'quiz' &&
-                    !quizNotStarted &&
-                    (quizTimeLimit === 0 || (quizRemaining !== null && quizRemaining <= 0));
+                    !timerNotStarted &&
+                    (quizTimeLimit === 0 || (timerRemaining !== null && timerRemaining <= 0));
                   const quizAnswering =
-                    mode === 'quiz' && quizTimeLimit > 0 && !!quizStartMs && !quizRevealed;
+                    mode === 'quiz' && quizTimeLimit > 0 && !!timerStartMs && !quizRevealed;
+                  const rankingRevealed =
+                    mode === 'ranking' &&
+                    (rankingTimeLimit === 0 || (!!timerStartMs && timerRemaining !== null && timerRemaining <= 0));
+                  const rankingAnswering =
+                    mode === 'ranking' && rankingTimeLimit > 0 && !!timerStartMs && !rankingRevealed;
                   const fmtTime = (s: number) =>
                     `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
                   return (
@@ -372,22 +394,23 @@ export default function PresentPage() {
                           <span className="text-xs sm:text-sm font-semibold text-emerald-600 uppercase tracking-wide">Live</span>
                         </div>
                         <span className="text-sm sm:text-base text-slate-500 tabular-nums">
-                          回答数: <span className="font-semibold text-slate-700">{totalCast}</span>
+                          回答数: <span className="font-semibold text-slate-700">{totalRespondents}</span>
                         </span>
                       </div>
                       <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
                         <h2 className="min-w-0 flex-1 text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-gray-800 leading-tight">{activePoll.question}</h2>
-                        {mode === 'quiz' && quizTimeLimit > 0 && (
+                        {timedMode && (
                           /* タイマー＆コンパクトページャー＆開始ボタンを出題タイトルと同じ行の右端に */
                           <div
                             className={`ml-auto inline-flex flex-wrap items-center gap-2 rounded-xl px-3 py-2 ring-1 ${
-                              quizAnswering
+                              quizAnswering || rankingAnswering || standardAnswering
                                 ? 'bg-emerald-50 ring-emerald-200'
-                                : quizNotStarted
+                                : timerNotStarted
                                 ? 'bg-white ring-slate-200'
                                 : 'bg-slate-50 ring-slate-200'
                             }`}
                           >
+                            {mode === 'quiz' && (
                             <div className="inline-flex items-center gap-1.5 rounded-lg bg-white px-2 py-1 ring-1 ring-slate-200">
                               <button
                                 type="button"
@@ -424,10 +447,16 @@ export default function PresentPage() {
                                 ))}
                               </div>
                             </div>
-                            {quizNotStarted ? (
+                            )}
+                            {timerNotStarted ? (
+                              mode === 'standard' ? (
+                                <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-50 px-3 py-1.5 text-sm font-bold text-slate-500 ring-1 ring-slate-200">
+                                  開始待ち
+                                </span>
+                              ) : (
                               <button
                                 type="button"
-                                onClick={startQuizTimer}
+                                onClick={startPollTimer}
                                 disabled={startingTimer}
                                 className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-extrabold text-white shadow-sm ring-1 ring-emerald-600 transition-colors hover:bg-emerald-700 disabled:opacity-60"
                               >
@@ -436,17 +465,18 @@ export default function PresentPage() {
                                 ) : (
                                   <Play className="h-4 w-4" />
                                 )}
-                                開始（{fmtTime(quizTimeLimit)}）
+                                開始（{fmtTime(activeTimeLimit)}）
                               </button>
+                              )
                             ) : (
                               <span className="inline-flex items-center gap-1.5">
-                                <Clock className={`h-4 w-4 ${quizAnswering ? 'text-emerald-600' : 'text-slate-400'}`} />
+                                <Clock className={`h-4 w-4 ${quizAnswering || rankingAnswering || standardAnswering ? 'text-emerald-600' : 'text-slate-400'}`} />
                                 <span
                                   className={`tabular-nums font-extrabold leading-none ${
-                                    quizAnswering ? 'text-2xl sm:text-3xl text-emerald-600' : 'text-lg sm:text-xl text-slate-400'
+                                    quizAnswering || rankingAnswering || standardAnswering ? 'text-2xl sm:text-3xl text-emerald-600' : 'text-lg sm:text-xl text-slate-400'
                                   }`}
                                 >
-                                  {quizAnswering ? fmtTime(quizRemaining ?? quizTimeLimit) : '0:00'}
+                                  {quizAnswering || rankingAnswering || standardAnswering ? fmtTime(timerRemaining ?? activeTimeLimit) : '0:00'}
                                 </span>
                               </span>
                             )}
@@ -460,7 +490,7 @@ export default function PresentPage() {
                               回答受付中です。スマートフォンから解答してください（正解・集計は締切後に表示します）
                             </p>
                           )}
-                          {quizNotStarted && (
+                          {timerNotStarted && (
                             <p className="text-sm sm:text-base font-semibold text-slate-500">
                               全{quizQuestions.length}問を{quizTimeLimit}秒で回答する形式です。準備ができたら右上の「開始」を押してください。
                             </p>
@@ -549,14 +579,25 @@ export default function PresentPage() {
                           </div>
                         </div>
                       ) : mode === 'ranking' ? (
+                        rankingRevealed ? (
                         <RankingResults
                           options={options}
                           votes={votes}
                           rankCount={maxSelections}
+                          weights={meta.rankingWeights}
+                          displayMode={getRankingDisplayMode(meta.rankingDisplayMode)}
                           size="large"
                         />
-                      ) : (
-                      <div className="space-y-3">
+                        ) : (
+                          <p className="rounded-2xl bg-slate-50 px-5 py-8 text-center text-base font-semibold text-slate-500 ring-1 ring-slate-200">
+                            {timerNotStarted
+                              ? `投票時間は${rankingTimeLimit}秒です。準備ができたら右上の「開始」を押してください。`
+                              : '回答受付中です。ランキングは投票時間後に表示します。'}
+                          </p>
+                        )
+	                      ) : (
+                        standardRevealed ? (
+	                      <div className="space-y-3">
                         {options.map((option, i) => {
                           const count = counts[i];
                           const pct = totalCast > 0 ? Math.round((count / totalCast) * 100) : 0;
@@ -588,8 +629,15 @@ export default function PresentPage() {
                             </div>
                           );
                         })}
-                      </div>
-                      )}
+	                      </div>
+                        ) : (
+                          <p className="rounded-2xl bg-slate-50 px-5 py-8 text-center text-base font-semibold text-slate-500 ring-1 ring-slate-200">
+                            {timerNotStarted
+                              ? `投票時間は${standardTimeLimit}秒です。ホスト側の開始を待っています。`
+                              : '回答受付中です。結果は投票時間後に表示します。'}
+                          </p>
+                        )
+	                      )}
                     </div>
                   );
                 })()
@@ -608,7 +656,7 @@ export default function PresentPage() {
 
       {/* Footer */}
       <footer className="px-8 py-3 border-t border-gray-200 flex items-center justify-between text-xs text-gray-400">
-        <span>ざせきくん Interactive</span>
+        <span>ざせきくん ライブ機能</span>
         <span>参加コード: {room.code}</span>
       </footer>
 

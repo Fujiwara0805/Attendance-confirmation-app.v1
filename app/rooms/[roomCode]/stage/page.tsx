@@ -384,18 +384,10 @@ export default function StagePage() {
               <button
                 type="button"
                 onClick={openPollScreen}
-                className="mt-3 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 text-sm font-bold text-white ring-1 ring-emerald-400 hover:bg-emerald-400"
+                className="mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 text-sm font-bold text-white ring-1 ring-emerald-400 hover:bg-emerald-400"
               >
                 <BarChart3 className="w-4 h-4" />
                 ライブ機能画面を開く
-              </button>
-              <button
-                type="button"
-                onClick={openClassicScreen}
-                className="mt-3 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-white/10 px-4 text-sm font-bold text-white ring-1 ring-white/15 hover:bg-white/15"
-              >
-                <MonitorUp className="w-4 h-4" />
-                スクリーン画面を開く
               </button>
               {captureError && (
                 <p className="mt-4 rounded-lg bg-rose-500/15 px-4 py-3 text-sm text-rose-100 ring-1 ring-rose-300/20">

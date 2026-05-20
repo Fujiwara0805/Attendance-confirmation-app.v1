@@ -42,6 +42,8 @@ import {
   getPollOptionDetail,
   getQuizQuestions,
   getQuizScore,
+  getRankingDisplayMode,
+  getRankingOptionLabel,
   optionLetter,
   rankLabel,
 } from '@/lib/pollModes';
@@ -770,11 +772,12 @@ function ActivePollCard({
   const isMulti = maxSelections > 1 || poll.allow_multiple;
   const isRanking = mode === 'ranking';
   const isQuiz = mode === 'quiz';
+  const isStandard = mode === 'standard';
   const [selected, setSelected] = useState<number[]>([]);
   const [activeQuizIndex, setActiveQuizIndex] = useState(0);
   const [now, setNow] = useState(() => Date.now());
-  // 出題の解答時間は「全問合計」。開始時刻は DB の poll.started_at（サーバー時刻）を全端末で共有してカウントダウン。
-  const quizStartMs = poll.started_at ? new Date(poll.started_at).getTime() : null;
+  // タイマー開始時刻は DB の poll.started_at（サーバー時刻）を全端末で共有してカウントダウン。
+  const timerStartMs = poll.started_at ? new Date(poll.started_at).getTime() : null;
 
   const toggle = (i: number) => {
     setSelected((prev) => {
@@ -807,20 +810,40 @@ function ActivePollCard({
   const answeredQuizCount = quizQuestions.filter(isAnswered).length;
 
   // 全問共通の制限時間でカウントダウン（管理者設定）。時間切れで送信不可・解答開示。
+  const standardTimeLimit = isStandard ? meta.timeLimitSeconds || 0 : 0;
   const quizTimeLimit = isQuiz ? meta.timeLimitSeconds || 0 : 0;
+  const rankingTimeLimit = isRanking ? meta.timeLimitSeconds || 0 : 0;
+  const hasStandardTimer = isStandard && standardTimeLimit > 0;
   const hasQuizTimer = isQuiz && quizTimeLimit > 0;
-  const quizRemaining =
-    hasQuizTimer && quizStartMs
-      ? Math.max(0, Math.ceil(quizTimeLimit - (now - quizStartMs) / 1000))
+  const hasRankingTimer = isRanking && rankingTimeLimit > 0;
+  const standardRemaining =
+    hasStandardTimer && timerStartMs
+      ? Math.max(0, Math.ceil(standardTimeLimit - (now - timerStartMs) / 1000))
       : null;
+  const quizRemaining =
+    hasQuizTimer && timerStartMs
+      ? Math.max(0, Math.ceil(quizTimeLimit - (now - timerStartMs) / 1000))
+      : null;
+  const rankingRemaining =
+    hasRankingTimer && timerStartMs
+      ? Math.max(0, Math.ceil(rankingTimeLimit - (now - timerStartMs) / 1000))
+      : null;
+  const standardNotStarted = hasStandardTimer && !timerStartMs;
+  const standardExpired =
+    hasStandardTimer && standardRemaining !== null && standardRemaining <= 0;
   const quizExpired =
     hasQuizTimer && quizRemaining !== null && quizRemaining <= 0;
+  const rankingNotStarted = hasRankingTimer && !timerStartMs;
+  const rankingExpired = hasRankingTimer && rankingRemaining !== null && rankingRemaining <= 0;
   // サーバー側のライブ票（cleared_at IS NULL）が 0 ならリセット後とみなし、
   // 楽観 hasVoted は無視して未投票扱いに戻す → スクリーンの状態と同期
   const hasLiveOwnVote = ownVotes.length > 0;
   const effectiveHasVoted = hasVoted && hasLiveOwnVote;
   // 開示（結果・正解を表示）= 送信済み(ライブ票あり) or 時間切れ
   const quizRevealed = isQuiz && (effectiveHasVoted || quizExpired);
+  const rankingRevealed = isRanking && (hasRankingTimer ? rankingExpired : effectiveHasVoted);
+  const standardRevealed = isStandard && (hasStandardTimer ? standardExpired : effectiveHasVoted);
+  const showResults = isQuiz ? quizRevealed : isRanking ? rankingRevealed : standardRevealed;
   // 送信可能: 未送信 && 時間切れでない && 1問以上回答
   const quizSubmittable =
     isQuiz && !effectiveHasVoted && !quizExpired && answeredQuizCount > 0;
@@ -834,10 +857,25 @@ function ActivePollCard({
 
   // タイマー稼働（未送信 && 未締切のときのみ）
   useEffect(() => {
-    if (!hasQuizTimer || effectiveHasVoted || quizExpired) return;
+    if (
+      (!hasStandardTimer && !hasQuizTimer && !hasRankingTimer) ||
+      (isQuiz && effectiveHasVoted) ||
+      quizExpired ||
+      rankingExpired ||
+      standardExpired
+    ) return;
     const id = setInterval(() => setNow(Date.now()), 250);
     return () => clearInterval(id);
-  }, [hasQuizTimer, effectiveHasVoted, quizExpired]);
+  }, [
+    hasStandardTimer,
+    hasQuizTimer,
+    hasRankingTimer,
+    isQuiz,
+    effectiveHasVoted,
+    quizExpired,
+    rankingExpired,
+    standardExpired,
+  ]);
 
   return (
     <motion.div
@@ -862,32 +900,90 @@ function ActivePollCard({
       <h3 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 mb-1 leading-snug">
         {poll.question}
       </h3>
-      {hasQuizTimer && !effectiveHasVoted && !quizExpired && (
+      {hasStandardTimer && !standardExpired && (
         <div
           className={`mt-2 flex items-center justify-between gap-3 rounded-xl px-3 py-2 ring-1 ${
-            quizStartMs
+            timerStartMs
               ? 'bg-emerald-50 ring-emerald-200'
               : 'bg-slate-50 ring-slate-200'
           }`}
         >
           <span
             className={`inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold ${
-              quizStartMs ? 'text-emerald-700' : 'text-slate-600'
+              timerStartMs ? 'text-emerald-700' : 'text-slate-600'
             }`}
           >
             <Clock className="h-3.5 w-3.5" />
-            {quizStartMs
+            {timerStartMs
+              ? `${standardTimeLimit}秒で投票してください`
+              : `${standardTimeLimit}秒で回答（開始待ち）`}
+          </span>
+          <span
+            className={`tabular-nums text-base sm:text-lg font-extrabold ${
+              timerStartMs ? 'text-emerald-700' : 'text-slate-400'
+            }`}
+          >
+            {timerStartMs ? '残り ' : ''}
+            {Math.floor((standardRemaining ?? standardTimeLimit) / 60)}:
+            {String(Math.floor((standardRemaining ?? standardTimeLimit) % 60)).padStart(2, '0')}
+          </span>
+        </div>
+      )}
+      {hasQuizTimer && !effectiveHasVoted && !quizExpired && (
+        <div
+          className={`mt-2 flex items-center justify-between gap-3 rounded-xl px-3 py-2 ring-1 ${
+            timerStartMs
+              ? 'bg-emerald-50 ring-emerald-200'
+              : 'bg-slate-50 ring-slate-200'
+          }`}
+        >
+          <span
+            className={`inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold ${
+              timerStartMs ? 'text-emerald-700' : 'text-slate-600'
+            }`}
+          >
+            <Clock className="h-3.5 w-3.5" />
+            {timerStartMs
               ? `全${quizQuestions.length}問を${quizTimeLimit}秒で回答してください`
               : `全${quizQuestions.length}問を${quizTimeLimit}秒で回答（開始待ち）`}
           </span>
           <span
             className={`tabular-nums text-base sm:text-lg font-extrabold ${
-              quizStartMs ? 'text-emerald-700' : 'text-slate-400'
+              timerStartMs ? 'text-emerald-700' : 'text-slate-400'
             }`}
           >
-            {quizStartMs ? '残り ' : ''}
+            {timerStartMs ? '残り ' : ''}
             {Math.floor((quizRemaining ?? quizTimeLimit) / 60)}:
             {String(Math.floor((quizRemaining ?? quizTimeLimit) % 60)).padStart(2, '0')}
+          </span>
+        </div>
+      )}
+      {hasRankingTimer && !effectiveHasVoted && !rankingExpired && (
+        <div
+          className={`mt-2 flex items-center justify-between gap-3 rounded-xl px-3 py-2 ring-1 ${
+            timerStartMs
+              ? 'bg-emerald-50 ring-emerald-200'
+              : 'bg-slate-50 ring-slate-200'
+          }`}
+        >
+          <span
+            className={`inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold ${
+              timerStartMs ? 'text-emerald-700' : 'text-slate-600'
+            }`}
+          >
+            <Clock className="h-3.5 w-3.5" />
+            {timerStartMs
+              ? `${rankingTimeLimit}秒でランキングを送信してください`
+              : `${rankingTimeLimit}秒で回答（開始待ち）`}
+          </span>
+          <span
+            className={`tabular-nums text-base sm:text-lg font-extrabold ${
+              timerStartMs ? 'text-emerald-700' : 'text-slate-400'
+            }`}
+          >
+            {timerStartMs ? '残り ' : ''}
+            {Math.floor((rankingRemaining ?? rankingTimeLimit) / 60)}:
+            {String(Math.floor((rankingRemaining ?? rankingTimeLimit) % 60)).padStart(2, '0')}
           </span>
         </div>
       )}
@@ -897,11 +993,23 @@ function ActivePollCard({
           時間切れ — 解答を表示しています
         </div>
       )}
+      {isRanking && rankingExpired && !effectiveHasVoted && (
+        <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-3 py-1 text-xs sm:text-sm font-bold text-rose-600 ring-1 ring-rose-200">
+          <Clock className="h-3.5 w-3.5" />
+          投票時間が終了しました
+        </div>
+      )}
+      {isStandard && standardExpired && !effectiveHasVoted && (
+        <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-3 py-1 text-xs sm:text-sm font-bold text-rose-600 ring-1 ring-rose-200">
+          <Clock className="h-3.5 w-3.5" />
+          投票時間が終了しました
+        </div>
+      )}
       {isMulti && !isQuiz && (
         <p className="text-xs sm:text-sm text-slate-500 mb-3">
           {isRanking ? (
             <>
-              <span className="font-bold text-slate-700">{maxSelections}</span> 件を第1希望から順に選択してください
+              <span className="font-bold text-slate-700">{maxSelections}</span> 件を1位から順に選択してください
             </>
           ) : (
             <>
@@ -911,13 +1019,13 @@ function ActivePollCard({
         </p>
       )}
 
-      {(isQuiz ? quizRevealed : effectiveHasVoted) ? (
+      {showResults ? (
         <div className="space-y-4 mt-3">
           {isRanking ? (
             <>
               {ownVotes.length > 0 && (
                 <div className="rounded-xl bg-emerald-50 px-3 py-3 ring-1 ring-emerald-200">
-                  <p className="text-xs font-bold text-emerald-700">あなたの希望</p>
+                  <p className="text-xs font-bold text-emerald-700">あなたのランキング</p>
                   <div className="mt-2 space-y-1.5">
                     {ownVotes
                       .slice()
@@ -932,10 +1040,11 @@ function ActivePollCard({
                           </span>
                           <span className="min-w-0 flex-1 truncate">
                             {typeof v.option_index === 'number'
-                              ? `${v.option_index + 1}. ${getPollOptionLabel(
+                              ? getRankingOptionLabel(
                                   options[v.option_index],
-                                  `候補 ${v.option_index + 1}`
-                                )}`
+                                  v.option_index,
+                                  getRankingDisplayMode(meta.rankingDisplayMode)
+                                )
                               : '—'}
                           </span>
                         </div>
@@ -948,6 +1057,8 @@ function ActivePollCard({
                 options={options}
                 votes={votes}
                 rankCount={maxSelections}
+                weights={meta.rankingWeights}
+                displayMode={getRankingDisplayMode(meta.rankingDisplayMode)}
                 size="compact"
               />
             </>
@@ -1009,7 +1120,8 @@ function ActivePollCard({
                         const i = question.optionStart + offset;
                         const count = counts[i];
                         const pct = questionTotal > 0 ? Math.round((count / questionTotal) * 100) : 0;
-                        const isCorrect = question.correctOptionOffset === offset;
+                        const hasKey = typeof question.correctOptionOffset === 'number';
+                        const isCorrect = hasKey && question.correctOptionOffset === offset;
                         return (
                           <div
                             key={i}
@@ -1079,6 +1191,15 @@ function ActivePollCard({
           )}
         </div>
       ) : isRanking ? (
+        rankingNotStarted ? (
+          <div className="mt-3 rounded-xl bg-slate-50 px-3 py-4 text-center text-sm font-semibold text-slate-500 ring-1 ring-slate-200">
+            開始待ちです
+          </div>
+        ) : effectiveHasVoted ? (
+          <div className="mt-3 rounded-xl bg-emerald-50 px-3 py-4 text-center text-sm font-semibold text-emerald-700 ring-1 ring-emerald-200">
+            ランキングを送信しました。集計結果は投票時間後に表示されます。
+          </div>
+        ) : (
         <>
           <div className="mt-3">
             <RankingPicker
@@ -1086,6 +1207,7 @@ function ActivePollCard({
               maxSelections={maxSelections}
               value={rankingValue}
               onChange={setSelected}
+              displayMode={getRankingDisplayMode(meta.rankingDisplayMode)}
             />
           </div>
 
@@ -1110,11 +1232,12 @@ function ActivePollCard({
                         }`}
                       >
                         {filled
-                          ? `${optionIndex + 1}. ${getPollOptionLabel(
+                          ? `${getRankingOptionLabel(
                               options[optionIndex],
-                              `候補 ${optionIndex + 1}`
+                              optionIndex,
+                              getRankingDisplayMode(meta.rankingDisplayMode)
                             )}${
-                              getPollOptionDetail(options[optionIndex])
+                              getRankingDisplayMode(meta.rankingDisplayMode) === 'number_text' && getPollOptionDetail(options[optionIndex])
                                 ? `（${getPollOptionDetail(options[optionIndex])}）`
                                 : ''
                             }`
@@ -1130,15 +1253,16 @@ function ActivePollCard({
           <button
             type="button"
             onClick={() => onSubmit(rankingFilled)}
-            disabled={rankingFilled.length !== maxSelections}
+            disabled={rankingFilled.length !== maxSelections || rankingExpired}
             className="mt-4 inline-flex items-center justify-center gap-1.5 w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-semibold h-11 rounded-xl text-sm sm:text-base transition-colors"
           >
-            希望順位を送信
+            ランキングを送信
             <span className="text-xs font-bold tabular-nums">
               ({rankingFilled.length}/{maxSelections})
             </span>
           </button>
         </>
+        )
       ) : isQuiz ? (
         <>
           <div className="mt-3 rounded-2xl bg-slate-50/70 p-3 ring-1 ring-slate-200">
@@ -1282,11 +1406,23 @@ function ActivePollCard({
           </button>
         </>
       ) : (
+        standardNotStarted ? (
+          <div className="mt-3 rounded-xl bg-slate-50 px-3 py-4 text-center text-sm font-semibold text-slate-500 ring-1 ring-slate-200">
+            開始待ちです
+          </div>
+        ) : effectiveHasVoted && hasStandardTimer ? (
+          <div className="mt-3 rounded-xl bg-emerald-50 px-3 py-4 text-center text-sm font-semibold text-emerald-700 ring-1 ring-emerald-200">
+            投票を送信しました。結果は投票時間後に表示されます。
+          </div>
+        ) : (
         <>
           <div className="space-y-2 mt-3">
             {options.map((option, i) => {
               const checked = selected.includes(i);
-              const disabled = isMulti && !checked && selected.length >= maxSelections;
+              const disabled =
+                standardNotStarted ||
+                standardExpired ||
+                (isMulti && !checked && selected.length >= maxSelections);
               const imageUrl = getPollOptionImageUrl(option);
               return (
                 <button
@@ -1327,10 +1463,10 @@ function ActivePollCard({
           <button
             type="button"
             onClick={() => onSubmit(selected)}
-            disabled={selected.length === 0}
+            disabled={selected.length === 0 || standardNotStarted || standardExpired}
             className="mt-4 inline-flex items-center justify-center gap-1.5 w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-semibold h-11 rounded-xl text-sm sm:text-base transition-colors"
           >
-            投票する
+            {standardExpired ? '投票時間終了' : '投票する'}
             {isMulti && selected.length > 0 && (
               <span className="text-xs font-bold tabular-nums">
                 ({selected.length}/{maxSelections})
@@ -1338,6 +1474,7 @@ function ActivePollCard({
             )}
           </button>
         </>
+        )
       )}
     </motion.div>
   );

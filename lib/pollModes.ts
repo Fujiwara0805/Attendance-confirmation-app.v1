@@ -31,6 +31,9 @@ export interface PollMeta {
   quizQuestions?: QuizQuestionConfig[];
   rankCount?: number;
   candidateCount?: number;
+  rankingWeights?: number[];
+  rankingDisplayMode?: 'number' | 'number_text';
+  runStartedAtByClearedAt?: Record<string, string>;
 }
 
 type PollMetaEntry = PollMeta & { __pollMeta: true };
@@ -38,7 +41,7 @@ type PollMetaEntry = PollMeta & { __pollMeta: true };
 export const POLL_MODE_LABELS: Record<PollMode, string> = {
   standard: '通常投票',
   quiz: '出題形式',
-  ranking: '希望順位投票',
+  ranking: 'ランキング形式',
 };
 
 export const QUIZ_OPTION_COUNTS = [2, 4, 6, 8] as const;
@@ -70,7 +73,12 @@ export function extractPollPayload(
 }
 
 export function buildPollOptionsPayload(meta: PollMeta, options: PollOption[]) {
-  if (getPollMode(meta.mode) === 'standard') return options;
+  const mode = getPollMode(meta.mode);
+  const shouldStoreMeta =
+    mode !== 'standard' ||
+    !!meta.timeLimitSeconds ||
+    !!meta.runStartedAtByClearedAt;
+  if (!shouldStoreMeta) return options;
   return [{ __pollMeta: true, ...meta }, ...options];
 }
 
@@ -85,6 +93,27 @@ export function getPollOptionImageUrl(option: PollOption) {
 
 export function getPollOptionDetail(option: PollOption) {
   return typeof option === 'string' ? undefined : option.detail;
+}
+
+export function getRankingWeights(rankCount: number, weights?: number[]) {
+  return Array.from({ length: rankCount }, (_, rankIndex) => {
+    const weight = weights?.[rankIndex];
+    return Number.isFinite(weight) ? Math.max(0, Number(weight)) : rankCount - rankIndex;
+  });
+}
+
+export function getRankingDisplayMode(mode?: string | null): 'number' | 'number_text' {
+  return mode === 'number' ? 'number' : 'number_text';
+}
+
+export function getRankingOptionLabel(
+  option: PollOption,
+  optionIndex: number,
+  displayMode: 'number' | 'number_text' = 'number_text'
+) {
+  const number = String(optionIndex + 1);
+  if (displayMode === 'number') return number;
+  return `${number}: ${getPollOptionLabel(option, `候補 ${number}`)}`;
 }
 
 export function getQuizQuestions(meta: PollMeta, options: PollOption[]) {
@@ -124,8 +153,7 @@ export function circledNumber(i: number) {
 }
 
 export function rankLabel(rankIndex: number) {
-  const labels = ['第1希望', '第2希望', '第3希望'];
-  return labels[rankIndex] ?? `第${rankIndex + 1}希望`;
+  return `${rankIndex + 1}位`;
 }
 
 export function optionLetter(i: number) {
@@ -135,7 +163,8 @@ export function optionLetter(i: number) {
 export function getRankingScores(
   votes: Array<{ option_index: number | null; value?: string | null }>,
   optionCount: number,
-  rankCount: number
+  rankCount: number,
+  weights = getRankingWeights(rankCount)
 ) {
   return Array.from({ length: optionCount }, (_, optionIndex) => {
     const rankCounts = Array.from({ length: rankCount }, (_, rankIndex) =>
@@ -144,7 +173,7 @@ export function getRankingScores(
       ).length
     );
     const score = rankCounts.reduce(
-      (sum, count, rankIndex) => sum + count * (rankCount - rankIndex),
+      (sum, count, rankIndex) => sum + count * (weights[rankIndex] ?? 0),
       0
     );
     return {
@@ -168,14 +197,15 @@ export interface RankingLeaderboardEntry {
 }
 
 /**
- * Borda スコア降順に並べた順位表。スコア同点は同順位（標準競技順位法）。
+ * 重み付けスコア降順に並べた順位表。スコア同点は同順位（標準競技順位法）。
  */
 export function getRankingLeaderboard(
   votes: Array<{ option_index: number | null; value?: string | null }>,
   optionCount: number,
-  rankCount: number
+  rankCount: number,
+  weights = getRankingWeights(rankCount)
 ): RankingLeaderboardEntry[] {
-  const scored = getRankingScores(votes, optionCount, rankCount);
+  const scored = getRankingScores(votes, optionCount, rankCount, weights);
   const sorted = [...scored].sort(
     (a, b) => b.score - a.score || b.firstChoice - a.firstChoice || a.optionIndex - b.optionIndex
   );

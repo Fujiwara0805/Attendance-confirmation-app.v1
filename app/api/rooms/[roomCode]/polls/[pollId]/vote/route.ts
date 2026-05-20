@@ -24,7 +24,7 @@ export async function POST(
     // Verify poll exists and is active
     const { data: poll } = await supabase
       .from('polls')
-      .select('id, room_id, status, max_selections, options')
+      .select('id, room_id, status, max_selections, options, started_at')
       .eq('id', params.pollId)
       .single();
 
@@ -39,6 +39,16 @@ export async function POST(
     const { meta, options } = extractPollPayload(poll.options);
     const pollMode = getPollMode(meta.mode);
     const optionCount = options.length;
+    const timeLimitSeconds = Number(meta.timeLimitSeconds || 0);
+    if (timeLimitSeconds > 0) {
+      if (!poll.started_at) {
+        return NextResponse.json({ error: '投票はまだ開始されていません' }, { status: 400 });
+      }
+      const startedAtMs = new Date(poll.started_at).getTime();
+      if (Number.isFinite(startedAtMs) && Date.now() - startedAtMs >= timeLimitSeconds * 1000) {
+        return NextResponse.json({ error: '投票時間が終了しました' }, { status: 400 });
+      }
+    }
 
     // 複数選択リスト or 単一選択 を統一して配列で扱う
     const indexes: number[] = Array.isArray(optionIndexes) && optionIndexes.length > 0
@@ -76,7 +86,7 @@ export async function POST(
     }
     if (pollMode === 'ranking' && indexes.length !== maxSelections) {
       return NextResponse.json(
-        { error: `${maxSelections} 件の希望順位を選択してください` },
+        { error: `${maxSelections} 件のランキングを選択してください` },
         { status: 400 }
       );
     }

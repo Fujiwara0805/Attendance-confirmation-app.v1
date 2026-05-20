@@ -4,6 +4,7 @@ import { createServerClient } from '@/lib/supabase';
 import {
   buildPollOptionsPayload,
   clampNumber,
+  extractPollPayload,
   getPollMode,
   type PollMeta,
   type PollMode,
@@ -52,14 +53,40 @@ export async function PATCH(
     // --- Reset path: 同じ出題形式を繰り返し使うためのリセット ---
     // 投票結果は削除せず cleared_at=now() でアーカイブ（CSV では過去回として出力可）。
     if (body.reset) {
+      const clearedAt = new Date().toISOString();
+      const { data: currentPoll } = await supabase
+        .from('polls')
+        .select('options, started_at')
+        .eq('id', params.pollId)
+        .eq('room_id', room.id)
+        .single();
+      let nextOptions: unknown | undefined;
+      if (currentPoll?.options && currentPoll.started_at) {
+        const { meta, options } = extractPollPayload(currentPoll.options);
+        nextOptions = buildPollOptionsPayload(
+          {
+            ...meta,
+            runStartedAtByClearedAt: {
+              ...(meta.runStartedAtByClearedAt || {}),
+              [clearedAt]: currentPoll.started_at,
+            },
+          },
+          options
+        );
+      }
       await supabase
         .from('poll_votes')
-        .update({ cleared_at: new Date().toISOString() })
+        .update({ cleared_at: clearedAt })
         .eq('poll_id', params.pollId)
         .is('cleared_at', null);
+      const resetUpdate: { started_at: null; status: 'draft'; options?: unknown } = {
+        started_at: null,
+        status: 'draft',
+      };
+      if (nextOptions) resetUpdate.options = nextOptions;
       const { data, error } = await supabase
         .from('polls')
-        .update({ started_at: null, status: 'draft' })
+        .update(resetUpdate)
         .eq('id', params.pollId)
         .eq('room_id', room.id)
         .select()
@@ -137,8 +164,40 @@ export async function PATCH(
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
     }
 
+    let nextOptionsForStart: unknown | undefined;
+    let nextStartedAt: string | null | undefined;
+
     // If activating, close any other active poll in this room
     if (status === 'active') {
+      const { data: currentPoll } = await supabase
+        .from('polls')
+        .select('options, started_at')
+        .eq('id', params.pollId)
+        .eq('room_id', room.id)
+        .single();
+      if (currentPoll?.options) {
+        const clearedAt = new Date().toISOString();
+        const { meta, options } = extractPollPayload(currentPoll.options);
+        const pollMode = getPollMode(meta.mode);
+        await supabase
+          .from('poll_votes')
+          .update({ cleared_at: clearedAt })
+          .eq('poll_id', params.pollId)
+          .is('cleared_at', null);
+        if (currentPoll.started_at) {
+          nextOptionsForStart = buildPollOptionsPayload(
+            {
+              ...meta,
+              runStartedAtByClearedAt: {
+                ...(meta.runStartedAtByClearedAt || {}),
+                [clearedAt]: currentPoll.started_at,
+              },
+            },
+            options
+          );
+        }
+        nextStartedAt = pollMode === 'standard' ? new Date().toISOString() : null;
+      }
       await supabase
         .from('polls')
         .update({ status: 'closed' })
@@ -146,12 +205,10 @@ export async function PATCH(
         .eq('status', 'active');
     }
 
-    // ステータス変更のみ。出題タイマーの開始は startTimer フラグで明示する（present 画面の開始ボタン由来）。
-    // 再度 active へ遷移した場合に時刻を残したくない場合は started_at を null にリセット。
-    const update: { status: string; started_at?: string | null } = { status };
-    if (status === 'active') {
-      update.started_at = null;
-    }
+    // 通常投票は開始ボタンで started_at を記録。出題形式・ランキング形式は投影画面の開始ボタンで開始する。
+    const update: { status: string; started_at?: string | null; options?: unknown } = { status };
+    if (status === 'active') update.started_at = nextStartedAt ?? null;
+    if (nextOptionsForStart) update.options = nextOptionsForStart;
 
     const { data, error } = await supabase
       .from('polls')

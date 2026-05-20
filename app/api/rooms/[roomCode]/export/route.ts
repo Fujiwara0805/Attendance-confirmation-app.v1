@@ -7,6 +7,7 @@ import {
   getPollOptionLabel,
   getQuizQuestions,
   getRankingLeaderboard,
+  getRankingWeights,
   POLL_MODE_LABELS,
   type PollOption,
 } from '@/lib/pollModes';
@@ -69,7 +70,7 @@ export async function GET(
       if (pollIds.length > 0) {
         const { data } = await supabase
           .from('poll_votes')
-          .select('poll_id, option_index, value, participant_id, cleared_at')
+          .select('poll_id, option_index, value, participant_id, created_at, cleared_at')
           .in('poll_id', pollIds);
         votes = data || [];
       }
@@ -166,6 +167,7 @@ type PollRow = {
   options: unknown;
   max_selections?: number | null;
   created_at: string;
+  started_at?: string | null;
 };
 
 type VoteRow = {
@@ -173,6 +175,7 @@ type VoteRow = {
   option_index: number | null;
   value: string | null;
   participant_id: string;
+  created_at?: string | null;
   cleared_at: string | null;
 };
 
@@ -187,6 +190,13 @@ function csvEscape(v: string | number | null | undefined) {
 // 1 \u884C = 1 \u9078\u629E\u80A2\uFF08\u51FA\u984C\u5F62\u5F0F\u306F\u554F\u984C\u3054\u3068\u306B\u5206\u5272\u3001\u9806\u4F4D\u6295\u7968\u306F\u5019\u88DC\u3054\u3068\uFF09\u3002
 // \u51FA\u984C\u30EA\u30BB\u30C3\u30C8\u5C65\u6B74\u306F cleared_at \u3067\u30B0\u30EB\u30FC\u30D7\u5206\u3051\u3057\u300C\u5B9F\u65BD\u56DE\u300D\u5217\u3067\u533A\u5225\u3002
 function pollsToRichCSV(polls: PollRow[], votes: VoteRow[]) {
+  const maxRankColumns = Math.max(
+    3,
+    ...polls.map((poll) => {
+      const { meta } = extractPollPayload(poll.options);
+      return Math.max(1, Number(poll.max_selections ?? meta.rankCount ?? 3));
+    })
+  );
   const headers = [
     '\u5B9F\u65BD\u56DE',
     '\u6295\u7968\u5F62\u5F0F',
@@ -198,12 +208,10 @@ function pollsToRichCSV(polls: PollRow[], votes: VoteRow[]) {
     '\u6B63\u89E3',
     '\u5F97\u7968\u6570',
     '\u5F97\u7968\u7387(%)',
-    '1\u4F4D\u7968',
-    '2\u4F4D\u7968',
-    '3\u4F4D\u7968',
-    'Borda\u30B9\u30B3\u30A2',
+    ...Array.from({ length: maxRankColumns }, (_, i) => `${i + 1}\u4F4D\u7968`),
+    '\u30E9\u30F3\u30AD\u30F3\u30B0\u30B9\u30B3\u30A2',
     '\u56DE\u7B54\u8005\u6570',
-    '\u4F5C\u6210\u65E5\u6642',
+    '\u958B\u59CB\u65E5\u6642',
   ];
   const lines: string[] = [headers.join(',')];
 
@@ -211,7 +219,6 @@ function pollsToRichCSV(polls: PollRow[], votes: VoteRow[]) {
     const { meta, options } = extractPollPayload(poll.options);
     const mode = getPollMode(meta.mode);
     const modeLabel = POLL_MODE_LABELS[mode] || '\u901A\u5E38\u6295\u7968';
-    const createdAt = new Date(poll.created_at).toLocaleString('ja-JP');
     const allPollVotes = votes.filter((v) => v.poll_id === poll.id);
 
     // \u5B9F\u65BD\u56DE\u3054\u3068\u306B\u30B0\u30EB\u30FC\u30D7\u5316\uFF08cleared_at NULL = \u73FE\u5728 / \u305D\u308C\u4EE5\u5916 = \u30A2\u30FC\u30AB\u30A4\u30D6\uFF09
@@ -235,6 +242,15 @@ function pollsToRichCSV(polls: PollRow[], votes: VoteRow[]) {
       const runLabel = runKey
         ? `\u30EA\u30BB\u30C3\u30C8 ${new Date(runKey).toLocaleString('ja-JP')}`
         : '\u73FE\u5728';
+      const fallbackStartedAt = pollVotes
+        .map((v) => v.created_at)
+        .filter((v): v is string => !!v)
+        .sort()[0];
+      const runStartedAt =
+        (runKey ? meta.runStartedAtByClearedAt?.[runKey] : poll.started_at) ||
+        fallbackStartedAt ||
+        (runKey ?? poll.started_at ?? poll.created_at);
+      const startedAtLabel = runStartedAt ? new Date(runStartedAt).toLocaleString('ja-JP') : '';
       const respondents = new Set(pollVotes.map((v) => v.participant_id)).size;
       const counts = options.map((_, i) => pollVotes.filter((v) => v.option_index === i).length);
       const totalVotes = counts.reduce((s, c) => s + c, 0);
@@ -262,22 +278,22 @@ function pollsToRichCSV(polls: PollRow[], votes: VoteRow[]) {
                 csvEscape(isCorrect ? '\u25EF' : ''),
                 csvEscape(c),
                 csvEscape(pct),
-                '',
-                '',
-                '',
+                ...Array.from({ length: maxRankColumns }, () => ''),
                 '',
                 csvEscape(qTotal),
-                csvEscape(createdAt),
+                csvEscape(startedAtLabel),
               ].join(',')
             );
           });
         });
       } else if (mode === 'ranking') {
         const rankCount = Math.max(1, Number(poll.max_selections ?? meta.rankCount ?? 3));
+        const weights = getRankingWeights(rankCount, meta.rankingWeights);
         const board = getRankingLeaderboard(
           pollVotes.map((v) => ({ option_index: v.option_index, value: v.value })),
           options.length,
-          rankCount
+          rankCount,
+          weights
         );
         const byIndex = [...board].sort((a, b) => a.optionIndex - b.optionIndex);
         byIndex.forEach((entry) => {
@@ -296,12 +312,12 @@ function pollsToRichCSV(polls: PollRow[], votes: VoteRow[]) {
               '',
               csvEscape(firstChoice),
               csvEscape(pct),
-              csvEscape(entry.rankCounts[0] ?? 0),
-              csvEscape(entry.rankCounts[1] ?? 0),
-              csvEscape(entry.rankCounts[2] ?? 0),
+              ...Array.from({ length: maxRankColumns }, (_, rankIndex) =>
+                csvEscape(entry.rankCounts[rankIndex] ?? 0)
+              ),
               csvEscape(entry.score),
               csvEscape(respondents),
-              csvEscape(createdAt),
+              csvEscape(startedAtLabel),
             ].join(',')
           );
         });
@@ -322,12 +338,10 @@ function pollsToRichCSV(polls: PollRow[], votes: VoteRow[]) {
               '',
               csvEscape(c),
               csvEscape(pct),
-              '',
-              '',
-              '',
+              ...Array.from({ length: maxRankColumns }, () => ''),
               '',
               csvEscape(respondents),
-              csvEscape(createdAt),
+              csvEscape(startedAtLabel),
             ].join(',')
           );
         });

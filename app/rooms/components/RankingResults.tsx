@@ -1,10 +1,12 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import { Medal } from 'lucide-react';
 import {
   getPollOptionDetail,
-  getPollOptionLabel,
   getRankingLeaderboard,
+  getRankingOptionLabel,
+  getRankingWeights,
   rankLabel,
   type PollOption,
 } from '@/lib/pollModes';
@@ -13,29 +15,40 @@ interface RankingResultsProps {
   options: PollOption[];
   votes: Array<{ option_index: number | null; value?: string | null }>;
   rankCount: number;
+  weights?: number[];
+  displayMode?: 'number' | 'number_text';
   size?: 'compact' | 'large';
 }
 
-/** 第1希望ほど濃い emerald。希望順位数に依存せず連続的に色を割り当てる。 */
+/** 上位ほど濃い emerald。順位数に依存せず連続的に色を割り当てる。 */
 function rankColor(rankIndex: number, rankCount: number) {
   const alpha = 0.9 - (rankIndex / Math.max(rankCount, 1)) * 0.65;
   return `rgba(16, 185, 129, ${alpha.toFixed(3)})`;
 }
 
 function rankBadge(rank: number) {
-  if (rank === 1) return { label: '1', cls: 'bg-amber-100 text-amber-700 ring-amber-300' };
-  if (rank === 2) return { label: '2', cls: 'bg-slate-100 text-slate-600 ring-slate-300' };
-  if (rank === 3) return { label: '3', cls: 'bg-orange-100 text-orange-700 ring-orange-300' };
-  return { label: String(rank), cls: 'bg-slate-50 text-slate-500 ring-slate-200' };
+  if (rank === 1) {
+    return { label: '金メダル', medal: true, cls: 'bg-amber-50 text-amber-500 ring-amber-300' };
+  }
+  if (rank === 2) {
+    return { label: '銀メダル', medal: true, cls: 'bg-slate-50 text-slate-500 ring-slate-300' };
+  }
+  if (rank === 3) {
+    return { label: '銅メダル', medal: true, cls: 'bg-orange-50 text-orange-500 ring-orange-300' };
+  }
+  return { label: String(rank), medal: false, cls: 'bg-slate-50 text-slate-500 ring-slate-200' };
 }
 
 export default function RankingResults({
   options,
   votes,
   rankCount,
+  weights,
+  displayMode = 'number_text',
   size = 'compact',
 }: RankingResultsProps) {
-  const leaderboard = getRankingLeaderboard(votes, options.length, rankCount);
+  const normalizedWeights = getRankingWeights(rankCount, weights);
+  const leaderboard = getRankingLeaderboard(votes, options.length, rankCount, normalizedWeights);
   const maxTotal = Math.max(...leaderboard.map((e) => e.total), 1);
   const large = size === 'large';
 
@@ -53,14 +66,14 @@ export default function RankingResults({
           </span>
         ))}
         <span className="ml-auto inline-flex items-center gap-1 font-semibold text-slate-400">
-          スコアは Borda 集計（{rankCount}点→1点）
+          スコアは重み付け集計（{normalizedWeights.join(' / ')}点）
         </span>
       </div>
 
       {leaderboard.map((entry) => {
         const option = options[entry.optionIndex];
-        const label = getPollOptionLabel(option, `候補 ${entry.optionIndex + 1}`);
-        const detail = getPollOptionDetail(option);
+        const label = getRankingOptionLabel(option, entry.optionIndex, displayMode);
+        const detail = displayMode === 'number_text' ? getPollOptionDetail(option) : undefined;
         const badge = rankBadge(entry.rank);
         return (
           <div
@@ -72,8 +85,13 @@ export default function RankingResults({
                 className={`inline-flex shrink-0 items-center justify-center rounded-full font-extrabold tabular-nums ring-1 ${badge.cls} ${
                   large ? 'h-10 w-10 text-lg' : 'h-7 w-7 text-xs'
                 }`}
+                aria-label={badge.label}
               >
-                {badge.label}
+                {badge.medal ? (
+                  <Medal className={large ? 'h-6 w-6' : 'h-4 w-4'} strokeWidth={2.4} aria-hidden />
+                ) : (
+                  badge.label
+                )}
               </span>
               <div className="min-w-0 flex-1">
                 <p className={`truncate font-bold text-slate-900 ${large ? 'text-lg' : 'text-sm'}`}>
@@ -91,7 +109,7 @@ export default function RankingResults({
                   <span className={`ml-0.5 font-semibold text-emerald-600 ${large ? 'text-sm' : 'text-[11px]'}`}>点</span>
                 </p>
                 <p className={`tabular-nums text-slate-400 ${large ? 'text-xs' : 'text-[10px]'}`}>
-                  第1希望 {entry.firstChoice}人
+                  1位 {entry.firstChoice}人
                 </p>
               </div>
             </div>

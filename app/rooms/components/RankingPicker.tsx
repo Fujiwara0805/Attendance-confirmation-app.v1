@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { ChevronDown, Search, Check, X } from 'lucide-react';
 import {
   getPollOptionDetail,
-  getPollOptionLabel,
+  getRankingOptionLabel,
   rankLabel,
   type PollOption,
 } from '@/lib/pollModes';
@@ -12,9 +12,10 @@ import {
 interface RankingPickerProps {
   options: PollOption[];
   maxSelections: number;
-  /** rank 順（index = 希望順位）の選択候補 index 配列 */
+  /** rank 順（index = 順位）の選択候補 index 配列 */
   value: number[];
   onChange: (next: number[]) => void;
+  displayMode?: 'number' | 'number_text';
 }
 
 /**
@@ -26,6 +27,7 @@ export default function RankingPicker({
   maxSelections,
   value,
   onChange,
+  displayMode = 'number_text',
 }: RankingPickerProps) {
   const [openRank, setOpenRank] = useState<number | null>(null);
   const [query, setQuery] = useState('');
@@ -61,7 +63,7 @@ export default function RankingPicker({
           .map((option, optionIndex) => ({ option, optionIndex }))
           .filter(({ option, optionIndex }) => {
             if (!normalizedQuery) return true;
-            const label = getPollOptionLabel(option, `候補 ${optionIndex + 1}`).toLowerCase();
+            const label = getRankingOptionLabel(option, optionIndex, 'number_text').toLowerCase();
             const detail = (getPollOptionDetail(option) || '').toLowerCase();
             return (
               String(optionIndex + 1).includes(normalizedQuery) ||
@@ -106,9 +108,9 @@ export default function RankingPicker({
                     </span>
                     <span className="min-w-0">
                       <span className="block truncate text-slate-800">
-                        {getPollOptionLabel(selectedOption!, `候補 ${selectedIndex + 1}`)}
+                        {getRankingOptionLabel(selectedOption!, selectedIndex, displayMode)}
                       </span>
-                      {getPollOptionDetail(selectedOption!) && (
+                      {displayMode === 'number_text' && getPollOptionDetail(selectedOption!) && (
                         <span className="block truncate text-[11px] font-normal text-slate-500">
                           {getPollOptionDetail(selectedOption!)}
                         </span>
@@ -175,9 +177,9 @@ export default function RankingPicker({
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-sm font-semibold text-slate-800">
-                            {getPollOptionLabel(option, `候補 ${optionIndex + 1}`)}
+                            {getRankingOptionLabel(option, optionIndex, displayMode)}
                           </span>
-                          {getPollOptionDetail(option) && (
+                          {displayMode === 'number_text' && getPollOptionDetail(option) && (
                             <span className="block truncate text-[11px] text-slate-500">
                               {getPollOptionDetail(option)}
                             </span>

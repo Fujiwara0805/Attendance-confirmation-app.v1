@@ -57,7 +57,10 @@ import {
   getPollOptionImageUrl,
   getPollOptionLabel,
   getQuizQuestions,
+  getRankingDisplayMode,
+  getRankingWeights,
   optionLetter,
+  rankLabel,
   type PollMode,
   type PollOption,
 } from '@/lib/pollModes';
@@ -138,6 +141,7 @@ export default function HostPage() {
   const [pollQuestion, setPollQuestion] = useState('');
   const [pollOptions, setPollOptions] = useState(['', '']);
   const [pollMaxSelections, setPollMaxSelections] = useState(1);
+  const [standardTimeLimit, setStandardTimeLimit] = useState(60);
   // 解答時間は全問題共通（1出題につき1つ）
   const [quizTimeLimit, setQuizTimeLimit] = useState(60);
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestionDraft[]>([
@@ -147,7 +151,12 @@ export default function HostPage() {
   const [pollOptionImages, setPollOptionImages] = useState<string[]>(['', '']);
   const [rankingCandidateCount, setRankingCandidateCount] = useState(50);
   const [rankingRankCount, setRankingRankCount] = useState(3);
-  const [rankingCandidatesText, setRankingCandidatesText] = useState('');
+  const [rankingWeights, setRankingWeights] = useState([3, 2, 1]);
+  const [rankingTimeLimit, setRankingTimeLimit] = useState(60);
+  const [rankingDisplayMode, setRankingDisplayMode] = useState<'number' | 'number_text'>('number_text');
+  const [rankingCandidateTexts, setRankingCandidateTexts] = useState<string[]>(
+    Array.from({ length: 50 }, () => '')
+  );
   const [creatingPoll, setCreatingPoll] = useState(false);
   // 出題形式の編集・更新（null=新規作成 / pollId=編集中）
   const [editingPollId, setEditingPollId] = useState<string | null>(null);
@@ -182,12 +191,16 @@ export default function HostPage() {
     setPollOptions(Array.from({ length: initialCount }, () => ''));
     setPollOptionImages(Array.from({ length: initialCount }, () => ''));
     setPollMaxSelections(1);
+    setStandardTimeLimit(60);
     setQuizTimeLimit(60);
     setQuizQuestions([makeQuizQuestionDraft(0)]);
     setActiveQuizQuestionIndex(0);
     setRankingCandidateCount(50);
     setRankingRankCount(3);
-    setRankingCandidatesText('');
+    setRankingWeights([3, 2, 1]);
+    setRankingTimeLimit(60);
+    setRankingDisplayMode('number_text');
+    setRankingCandidateTexts(Array.from({ length: 50 }, () => ''));
     setEditingPollId(null);
   }, []);
 
@@ -196,6 +209,24 @@ export default function HostPage() {
     setShowPollTypeModal(false);
     setShowCreatePoll(true);
   }, [resetPollForm]);
+
+  const handleRankingRankCountChange = useCallback((value: unknown) => {
+    const nextCount = clampNumber(value, 1, 10, 3);
+    setRankingRankCount(nextCount);
+    setRankingWeights((prev) =>
+      Array.from({ length: nextCount }, (_, i) =>
+        Number.isFinite(prev[i]) ? prev[i] : Math.max(1, nextCount - i)
+      )
+    );
+  }, []);
+
+  const handleRankingCandidateCountChange = useCallback((value: unknown) => {
+    const nextCount = clampNumber(value, 10, 100, 50);
+    setRankingCandidateCount(nextCount);
+    setRankingCandidateTexts((prev) =>
+      Array.from({ length: nextCount }, (_, i) => prev[i] || '')
+    );
+  }, []);
 
   // 選択肢画像は Supabase Storage (`poll-images` バケット) にアップロードして URL を保存。
   // 旧 base64 経路（polls.options に埋め込み）は Disk IO 肥大の原因のため廃止。
@@ -340,23 +371,11 @@ export default function HostPage() {
   }, [room, roomCode, moderationLoading]);
 
   const handleCreatePoll = async () => {
-    const rankingCandidates = rankingCandidatesText
-      .split('\n')
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .slice(0, 100);
-    // 「候補名｜詳細」または「候補名 | 詳細」形式を許可（詳細は確認用に表示）
-    const parseCandidate = (line: string): PollOption => {
-      const parts = line.split(/\s*[｜|]\s*/);
-      if (parts.length >= 2 && parts[1]) {
-        return { text: parts[0], detail: parts.slice(1).join(' / ') };
-      }
-      return line;
-    };
     const rankingOptions: PollOption[] =
-      rankingCandidates.length > 0
-        ? rankingCandidates.map(parseCandidate)
-        : Array.from({ length: rankingCandidateCount }, (_, i) => `候補 ${i + 1}`);
+      Array.from({ length: rankingCandidateCount }, (_, i) => {
+        const text = rankingCandidateTexts[i]?.trim();
+        return text || `候補 ${i + 1}`;
+      });
     const validQuizQuestions = quizQuestions
       .map((q) => {
         const kept = q.options
@@ -419,11 +438,23 @@ export default function HostPage() {
         mode: pollMode,
         meta: {
           mode: pollMode,
-          timeLimitSeconds: pollMode === 'quiz' ? quizTimeLimit : undefined,
+          timeLimitSeconds:
+            pollMode === 'standard'
+              ? standardTimeLimit
+              : pollMode === 'quiz'
+              ? quizTimeLimit
+              : pollMode === 'ranking'
+              ? rankingTimeLimit
+              : undefined,
           quizQuestions: pollMode === 'quiz' ? quizQuestionMeta : undefined,
           optionCount: pollMode === 'quiz' ? validOptions.length : undefined,
           rankCount: pollMode === 'ranking' ? finalMaxSelections : undefined,
           candidateCount: pollMode === 'ranking' ? validOptions.length : undefined,
+          rankingWeights:
+            pollMode === 'ranking'
+              ? getRankingWeights(finalMaxSelections, rankingWeights)
+              : undefined,
+          rankingDisplayMode: pollMode === 'ranking' ? rankingDisplayMode : undefined,
         },
         options: optionsPayload,
         maxSelections: finalMaxSelections,
@@ -508,10 +539,42 @@ export default function HostPage() {
     [roomCode]
   );
 
-  // 出題形式を編集フォームに読み込む（編集・更新）
+  // 通常投票・出題形式・ランキング形式を編集フォームに読み込む（編集・更新）
   const handleEditPoll = useCallback((poll: Poll) => {
     const { meta, options } = extractPollPayload(poll.options);
-    if (getPollMode(meta.mode) !== 'quiz') return;
+    const mode = getPollMode(meta.mode);
+    if (mode === 'standard') {
+      setPollMode('standard');
+      setPollQuestion(poll.question || '');
+      setPollOptions(options.map((o) => getPollOptionLabel(o, '')));
+      setPollOptionImages(options.map((o) => getPollOptionImageUrl(o) || ''));
+      setPollMaxSelections(Math.max(1, Number(poll.max_selections ?? 1)));
+      setStandardTimeLimit(meta.timeLimitSeconds || 60);
+      setEditingPollId(poll.id);
+      setShowPollTypeModal(false);
+      setShowCreatePoll(true);
+      return;
+    }
+    if (mode === 'ranking') {
+      const rankCount = Math.max(1, Number(poll.max_selections ?? meta.rankCount ?? 3));
+      setPollMode('ranking');
+      setPollQuestion(poll.question || '');
+      setRankingCandidateCount(clampNumber(meta.candidateCount ?? options.length, 10, 100, 50));
+      setRankingRankCount(rankCount);
+      setRankingWeights(getRankingWeights(rankCount, meta.rankingWeights));
+      setRankingTimeLimit(meta.timeLimitSeconds || 60);
+      setRankingDisplayMode(getRankingDisplayMode(meta.rankingDisplayMode));
+      setRankingCandidateTexts(
+        Array.from({ length: clampNumber(meta.candidateCount ?? options.length, 10, 100, 50) }, (_, i) =>
+          getPollOptionLabel(options[i], '')
+        )
+      );
+      setEditingPollId(poll.id);
+      setShowPollTypeModal(false);
+      setShowCreatePoll(true);
+      return;
+    }
+    if (mode !== 'quiz') return;
     const qs = getQuizQuestions(meta, options);
     const drafts: QuizQuestionDraft[] = qs.map((q, i) => {
       const slice = options.slice(q.optionStart, q.optionStart + q.optionCount);
@@ -939,7 +1002,7 @@ export default function HostPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-2xl font-extrabold tracking-tight text-slate-900">ライブ機能</h2>
-                <p className="mt-0.5 text-xs text-slate-500">通常投票 / 出題形式 / 希望順位投票</p>
+                <p className="mt-0.5 text-xs text-slate-500">通常投票 / 出題形式 / ランキング形式</p>
               </div>
               {room.status === 'active' && (
                 <button
@@ -977,12 +1040,16 @@ export default function HostPage() {
                       </span>
                       <h3 className="mt-2 text-base font-bold text-slate-900">
                         {editingPollId
-                          ? '出題形式を編集'
+                          ? pollMode === 'standard'
+                            ? '通常投票を編集'
+                            : pollMode === 'quiz'
+                            ? '出題形式を編集'
+                            : 'ランキング形式を編集'
                           : pollMode === 'standard'
                           ? '通常投票を作成'
                           : pollMode === 'quiz'
                           ? '出題形式を作成'
-                          : '希望順位投票を作成'}
+                          : 'ランキング形式を作成'}
                       </h3>
                     </div>
                     {!editingPollId && (
@@ -1000,7 +1067,7 @@ export default function HostPage() {
                       type="text"
                       value={pollQuestion}
                       onChange={(e) => setPollQuestion(e.target.value)}
-                      placeholder={pollMode === 'quiz' ? '出題タイトル（例: 確認問題）' : pollMode === 'ranking' ? '投票タイトル（例: 希望テーマを選んでください）' : '質問文（例: 今日の授業の理解度は？）'}
+                      placeholder={pollMode === 'quiz' ? '出題タイトル（例: 確認問題）' : pollMode === 'ranking' ? '投票タイトル（例: ランキングテーマを選んでください）' : '質問文（例: 今日の授業の理解度は？）'}
                       className={`h-11 rounded-xl bg-slate-50 px-3 ring-1 ring-slate-200 focus:bg-white focus:ring-emerald-300 outline-none transition-colors text-sm ${
                         pollMode === 'quiz' ? 'min-w-[180px] flex-1' : 'w-full'
                       }`}
@@ -1140,7 +1207,7 @@ export default function HostPage() {
                           <div className="mt-3 flex items-center justify-between">
                             <p className="text-[11px] font-semibold text-slate-500">解答の選択肢（画像添付可）</p>
                             <p className="text-[11px] text-slate-400">
-                              ✓で正解を設定（問題ごとに保持）
+                              任意: ✓で正解を設定（未設定でも出題できます）
                             </p>
                           </div>
                           <div className="mt-1.5 space-y-2">
@@ -1318,7 +1385,7 @@ export default function HostPage() {
                           候補数
                           <select
                             value={rankingCandidateCount}
-                            onChange={(e) => setRankingCandidateCount(Number(e.target.value))}
+                            onChange={(e) => handleRankingCandidateCountChange(e.target.value)}
                             className="mt-1 h-11 w-full rounded-xl bg-slate-50 px-3 font-semibold ring-1 ring-slate-200 outline-none"
                           >
                             {RANKING_CANDIDATE_PRESETS.map((count) => (
@@ -1333,27 +1400,110 @@ export default function HostPage() {
                             min={1}
                             max={10}
                             value={rankingRankCount}
-                            onChange={(e) => setRankingRankCount(clampNumber(e.target.value, 1, 10, 3))}
+                            onChange={(e) => handleRankingRankCountChange(e.target.value)}
                             className="mt-1 h-11 w-full rounded-xl bg-slate-50 px-3 text-center font-semibold tabular-nums ring-1 ring-slate-200 outline-none"
                             style={{ fontSize: '16px' }}
                           />
                         </label>
                       </div>
-                      <textarea
-                        value={rankingCandidatesText}
-                        onChange={(e) => setRankingCandidatesText(e.target.value)}
-                        placeholder={`候補名を1行ずつ入力（未入力の場合は候補1〜${rankingCandidateCount}を自動作成）\n例: テーマA｜詳細説明 ← 「｜」で詳細を付けると選択時に確認できます`}
-                        className="min-h-[120px] w-full rounded-xl bg-slate-50 px-3 py-2 text-sm ring-1 ring-slate-200 outline-none focus:bg-white focus:ring-emerald-300"
-                        style={{ fontSize: '16px' }}
-                      />
-                      <p className="text-[11px] text-slate-400">
-                        1行＝1候補。「候補名｜詳細」で詳細を付けると、参加者が選択時に確認できます。
-                      </p>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <label className="text-xs sm:text-sm text-slate-600">
+                          投票時間
+                          <div className="mt-1 flex items-center gap-2">
+                            <input
+                              type="number"
+                              min={0}
+                              max={3600}
+                              value={rankingTimeLimit}
+                              onChange={(e) => setRankingTimeLimit(clampNumber(e.target.value, 0, 3600, 60))}
+                              className="h-11 w-full rounded-xl bg-slate-50 px-3 text-center font-semibold tabular-nums ring-1 ring-slate-200 outline-none"
+                              style={{ fontSize: '16px' }}
+                            />
+                            <span className="shrink-0 text-xs font-semibold text-slate-400">秒</span>
+                          </div>
+                        </label>
+                        <label className="text-xs sm:text-sm text-slate-600">
+                          候補の表示
+                          <select
+                            value={rankingDisplayMode}
+                            onChange={(e) => setRankingDisplayMode(getRankingDisplayMode(e.target.value))}
+                            className="mt-1 h-11 w-full rounded-xl bg-slate-50 px-3 font-semibold ring-1 ring-slate-200 outline-none"
+                          >
+                            <option value="number_text">番号とテキスト（1: A組）</option>
+                            <option value="number">番号のみ（1）</option>
+                          </select>
+                        </label>
+                      </div>
+                      <div className="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
+                        <p className="text-xs font-bold text-slate-600">順位ごとの重み</p>
+                        <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+                          点数制で集計します。例: 1位=3点、2位=2点、3位=1点の場合、各候補の合計点でランキングを決定します。
+                        </p>
+                        <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                          {Array.from({ length: rankingRankCount }).map((_, rankIndex) => (
+                            <label key={rankIndex} className="text-[11px] font-semibold text-slate-500">
+                              {rankLabel(rankIndex)}
+                              <input
+                                type="number"
+                                min={0}
+                                max={999}
+                                value={rankingWeights[rankIndex] ?? Math.max(1, rankingRankCount - rankIndex)}
+                                onChange={(e) => {
+                                  const next = [...rankingWeights];
+                                  next[rankIndex] = clampNumber(e.target.value, 0, 999, Math.max(1, rankingRankCount - rankIndex));
+                                  setRankingWeights(next);
+                                }}
+                                className="mt-1 h-9 w-full rounded-lg bg-white px-2 text-center font-bold tabular-nums ring-1 ring-slate-200 outline-none"
+                                style={{ fontSize: '16px' }}
+                              />
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                      {rankingDisplayMode === 'number_text' && (
+                        <div className="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
+                          <p className="text-xs font-bold text-slate-600">候補テキスト</p>
+                          <div className="mt-2 grid max-h-72 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+                            {Array.from({ length: rankingCandidateCount }).map((_, i) => (
+                              <label key={i} className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                                <span className="inline-flex h-8 min-w-8 items-center justify-center rounded-lg bg-white px-2 text-slate-600 ring-1 ring-slate-200 tabular-nums">
+                                  {i + 1}
+                                </span>
+                                <input
+                                  type="text"
+                                  value={rankingCandidateTexts[i] || ''}
+                                  onChange={(e) => {
+                                    const next = [...rankingCandidateTexts];
+                                    next[i] = e.target.value;
+                                    setRankingCandidateTexts(next);
+                                  }}
+                                  placeholder={`候補 ${i + 1}`}
+                                  className="h-9 min-w-0 flex-1 rounded-lg bg-white px-2 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 outline-none focus:ring-emerald-300"
+                                  style={{ fontSize: '16px' }}
+                                />
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ) : null}
 
                   {pollMode === 'standard' && (
                     <div className="flex flex-wrap items-center gap-3">
+                      <label className="inline-flex items-center gap-2 text-xs sm:text-sm text-slate-600">
+                        投票時間
+                        <input
+                          type="number"
+                          min={0}
+                          max={3600}
+                          value={standardTimeLimit}
+                          onChange={(e) => setStandardTimeLimit(clampNumber(e.target.value, 0, 3600, 60))}
+                          className="h-9 w-20 rounded-lg bg-slate-50 px-2 text-center font-semibold tabular-nums ring-1 ring-slate-200 outline-none"
+                          style={{ fontSize: '16px' }}
+                        />
+                        <span className="text-slate-400">秒</span>
+                      </label>
                       {pollOptions.length < 8 && (
                         <button
                           type="button"
@@ -1620,8 +1770,8 @@ function PollTypeModal({
     },
     {
       mode: 'ranking',
-      title: '希望順位投票',
-      desc: '多数の候補から第1希望、第2希望、第3希望を集計します。',
+      title: 'ランキング形式',
+      desc: '多数の候補を順位と重みで集計します。',
       icon: <ListOrdered className="w-5 h-5" />,
     },
   ];
@@ -2055,20 +2205,29 @@ function PollResultCard({
               </div>
             )}
           </div>
-          {mode === 'quiz' && (
+          {(mode === 'standard' || mode === 'quiz' || mode === 'ranking') && (
             <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-              <span>全{quizQuestions.length}問</span>
+              {mode === 'quiz' ? (
+                <span>全{quizQuestions.length}問</span>
+              ) : mode === 'ranking' ? (
+                <span>{maxSelections}位まで集計</span>
+              ) : (
+                <span>{maxSelections > 1 ? `最大${maxSelections}件選択` : '単一選択'}</span>
+              )}
               {meta.timeLimitSeconds ? (
                 <span className="inline-flex items-center gap-1">
                   <Clock className="w-3 h-3" />
-                  解答時間 {meta.timeLimitSeconds}秒（全問共通）
+                  {mode === 'quiz' ? '解答時間' : '投票時間'} {meta.timeLimitSeconds}秒
                 </span>
+              ) : null}
+              {mode === 'ranking' && meta.rankingWeights?.length ? (
+                <span>重み {getRankingWeights(maxSelections, meta.rankingWeights).join(' / ')}</span>
               ) : null}
             </p>
           )}
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          {poll.status === 'draft' && (
+          {poll.status !== 'active' && (
             <button
               type="button"
               disabled={isPending}
@@ -2095,25 +2254,25 @@ function PollResultCard({
               )}
             </button>
           )}
-          {mode === 'quiz' && (
+          {(mode === 'standard' || mode === 'quiz' || mode === 'ranking') && (
             <button
               type="button"
               onClick={onEdit}
               className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 transition-colors"
               title="編集・更新"
-              aria-label="出題形式を編集"
+              aria-label="編集・更新"
             >
               <Pencil className="w-4 h-4" />
             </button>
           )}
-          {mode === 'quiz' && (
+          {(mode === 'quiz' || mode === 'ranking') && (
             <button
               type="button"
               disabled={resetting}
               onClick={onReset}
               className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-slate-500 hover:text-amber-700 hover:bg-amber-50 transition-colors disabled:opacity-60"
               title="回答・タイマーをリセットして再利用"
-              aria-label="出題形式をリセット"
+              aria-label="回答とタイマーをリセット"
             >
               {resetting ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
             </button>
@@ -2212,6 +2371,8 @@ function PollResultCard({
           options={options}
           votes={votes}
           rankCount={maxSelections}
+          weights={meta.rankingWeights}
+          displayMode={getRankingDisplayMode(meta.rankingDisplayMode)}
           size="compact"
         />
       ) : (
