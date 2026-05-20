@@ -35,8 +35,10 @@ import {
   Image as ImageIcon,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Pencil,
   BadgeCheck,
+  Play,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -102,6 +104,52 @@ const AVATAR_PALETTE = [
   'bg-cyan-100 text-cyan-700',
 ];
 
+// ライブ機能カードのアイコン/カラー（種類が一目で判別できるよう色相で差別化）
+const POLL_MODE_VISUAL: Record<
+  PollMode,
+  {
+    icon: React.ComponentType<{ className?: string }>;
+    badgeBg: string;
+    badgeText: string;
+    badgeRing: string;
+    iconBg: string;
+    iconText: string;
+    iconRing: string;
+    cardRing: string;
+  }
+> = {
+  standard: {
+    icon: BarChart3,
+    badgeBg: 'bg-emerald-50',
+    badgeText: 'text-emerald-700',
+    badgeRing: 'ring-emerald-200',
+    iconBg: 'bg-emerald-100',
+    iconText: 'text-emerald-700',
+    iconRing: 'ring-emerald-200',
+    cardRing: 'hover:ring-emerald-200',
+  },
+  quiz: {
+    icon: BookOpen,
+    badgeBg: 'bg-violet-50',
+    badgeText: 'text-violet-700',
+    badgeRing: 'ring-violet-200',
+    iconBg: 'bg-violet-100',
+    iconText: 'text-violet-700',
+    iconRing: 'ring-violet-200',
+    cardRing: 'hover:ring-violet-200',
+  },
+  ranking: {
+    icon: ListOrdered,
+    badgeBg: 'bg-amber-50',
+    badgeText: 'text-amber-700',
+    badgeRing: 'ring-amber-200',
+    iconBg: 'bg-amber-100',
+    iconText: 'text-amber-700',
+    iconRing: 'ring-amber-200',
+    cardRing: 'hover:ring-amber-200',
+  },
+};
+
 function avatarTone(name: string) {
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
@@ -161,6 +209,16 @@ export default function HostPage() {
   const [creatingPoll, setCreatingPoll] = useState(false);
   // 出題形式の編集・更新（null=新規作成 / pollId=編集中）
   const [editingPollId, setEditingPollId] = useState<string | null>(null);
+  // カード一覧で個別に詳細結果を展開しているカードID
+  const [expandedPollIds, setExpandedPollIds] = useState<Set<string>>(new Set());
+  const togglePollExpand = useCallback((pollId: string) => {
+    setExpandedPollIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(pollId)) next.delete(pollId);
+      else next.add(pollId);
+      return next;
+    });
+  }, []);
 
   // Export
   const [exportData, setExportData] = useState<{
@@ -578,6 +636,12 @@ export default function HostPage() {
   const handleEditPoll = useCallback((poll: Poll) => {
     const { meta, options } = extractPollPayload(poll.options);
     const mode = getPollMode(meta.mode);
+    // 編集対象のカードを自動展開しておくと、編集中に結果も確認できて使いやすい
+    setExpandedPollIds((prev) => {
+      const next = new Set(prev);
+      next.add(poll.id);
+      return next;
+    });
     if (mode === 'standard') {
       setPollMode('standard');
       setPollQuestion(poll.question || '');
@@ -1622,22 +1686,29 @@ export default function HostPage() {
                 <p className="text-xs text-slate-400 mt-1">右上の「新規作成」から作成できます</p>
               </div>
             ) : polls.length > 0 ? (
-              polls.map((poll) => (
-                <PollResultCard
-                  key={poll.id}
-                  poll={poll}
-                  votes={pollVotes[poll.id] || []}
-                  pendingId={pollStatusPendingId}
-                  deletingId={pollDeletingId}
-                  editing={editingPollId === poll.id}
-                  onStart={() => handlePollStatus(poll.id, 'active')}
-                  onClose={() => handlePollStatus(poll.id, 'closed')}
-                  onDelete={() => handleDeletePoll(poll.id)}
-                  onEdit={() => handleEditPoll(poll)}
-                  onReset={() => handleResetPoll(poll.id)}
-                  resetting={pollResettingId === poll.id}
-                />
-              ))
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                {polls
+                  // 編集中のカードは編集フォームと内容が重複して紛らわしいため一覧からは隠す
+                  .filter((poll) => poll.id !== editingPollId)
+                  .map((poll) => (
+                    <PollResultCard
+                      key={poll.id}
+                      poll={poll}
+                      votes={pollVotes[poll.id] || []}
+                      pendingId={pollStatusPendingId}
+                      deletingId={pollDeletingId}
+                      editing={editingPollId === poll.id}
+                      expanded={expandedPollIds.has(poll.id)}
+                      onToggleExpand={() => togglePollExpand(poll.id)}
+                      onStart={() => handlePollStatus(poll.id, 'active')}
+                      onClose={() => handlePollStatus(poll.id, 'closed')}
+                      onDelete={() => handleDeletePoll(poll.id)}
+                      onEdit={() => handleEditPoll(poll)}
+                      onReset={() => handleResetPoll(poll.id)}
+                      resetting={pollResettingId === poll.id}
+                    />
+                  ))}
+              </div>
             ) : null}
           </div>
         )}
@@ -2146,6 +2217,8 @@ function PollResultCard({
   pendingId,
   deletingId,
   editing,
+  expanded,
+  onToggleExpand,
   onStart,
   onClose,
   onDelete,
@@ -2158,6 +2231,8 @@ function PollResultCard({
   pendingId: string | null;
   deletingId: string | null;
   editing: boolean;
+  expanded: boolean;
+  onToggleExpand: () => void;
   onStart: () => void;
   onClose: () => void;
   onDelete: () => void;
@@ -2179,176 +2254,290 @@ function PollResultCard({
   const [activeQuizIndex, setActiveQuizIndex] = useState(0);
   const isPending = pendingId === poll.id;
   const isDeleting = deletingId === poll.id;
+  const visual = POLL_MODE_VISUAL[mode];
+  const ModeIcon = visual.icon;
+  const statusLabel =
+    poll.status === 'active' ? 'Live' : poll.status === 'draft' ? '下書き' : '終了';
 
   return (
     <div
-      className={`rounded-2xl bg-white p-5 space-y-4 ring-1 transition-colors ${
-        editing ? 'ring-2 ring-emerald-400 bg-emerald-50/20' : 'ring-slate-200'
-      }`}
+      className={`rounded-2xl bg-white ring-1 transition-all ${
+        editing
+          ? 'ring-2 ring-emerald-400 shadow-sm shadow-emerald-100'
+          : `ring-slate-200 ${visual.cardRing} hover:shadow-sm`
+      } ${expanded ? 'col-span-full sm:col-span-2 lg:col-span-3' : ''}`}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2 mb-2 text-xs">
-            {isMulti && (
-              <span className="inline-flex items-center font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                {mode === 'ranking' ? `${maxSelections}件を順位選択` : '複数選択'}
-              </span>
-            )}
-            {mode !== 'standard' && (
-              <span className="inline-flex items-center font-semibold text-emerald-700 bg-emerald-50 ring-1 ring-emerald-100 px-2 py-0.5 rounded-full">
+      {/* ===== Compact header (always visible, click to expand) ===== */}
+      <button
+        type="button"
+        onClick={onToggleExpand}
+        aria-expanded={expanded}
+        className="block w-full p-4 text-left rounded-t-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+      >
+        <div className="flex items-start gap-3">
+          {/* Mode icon */}
+          <span
+            className={`shrink-0 inline-flex h-11 w-11 items-center justify-center rounded-xl ring-1 ${visual.iconBg} ${visual.iconText} ${visual.iconRing}`}
+            aria-hidden
+          >
+            <ModeIcon className="w-5 h-5" />
+          </span>
+
+          {/* Title + meta */}
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+              <span
+                className={`inline-flex items-center font-bold px-2 py-0.5 rounded-full ring-1 ${visual.badgeBg} ${visual.badgeText} ${visual.badgeRing}`}
+              >
                 {POLL_MODE_LABELS[mode]}
               </span>
-            )}
-            {poll.status === 'active' ? (
-              <span className="inline-flex items-center gap-1 font-semibold text-emerald-700">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                Live
-              </span>
-            ) : poll.status === 'draft' ? (
-              <span className="inline-flex items-center font-semibold text-amber-700">下書き</span>
-            ) : (
-              <span className="inline-flex items-center font-semibold text-slate-400">終了</span>
-            )}
-            <span className="inline-flex items-center text-slate-500 tabular-nums">
-              回答数: <span className="ml-1 font-semibold text-slate-700">{totalRespondents}</span>
-            </span>
-            {editing && (
-              <span className="inline-flex items-center rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-bold text-white">
-                編集中
-              </span>
-            )}
-          </div>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-            <h3 className="text-base sm:text-lg font-bold text-slate-900 leading-snug">
-              {poll.question}
-            </h3>
-            {mode === 'quiz' && quizQuestions.length > 0 && (
-              <div className="inline-flex items-center gap-1.5 rounded-full bg-slate-50 px-2 py-1 ring-1 ring-slate-200">
-                <button
-                  type="button"
-                  onClick={() => setActiveQuizIndex((i) => Math.max(0, i - 1))}
-                  disabled={activeQuizIndex === 0}
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-40"
-                  aria-label="前の問題"
-                >
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                </button>
-                <span className="px-1 text-xs font-bold text-emerald-700 tabular-nums">
-                  問題 {activeQuizIndex + 1} / {quizQuestions.length}
+              {poll.status === 'active' ? (
+                <span className="inline-flex items-center gap-1 font-bold text-emerald-700">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  {statusLabel}
                 </span>
-                <button
-                  type="button"
-                  onClick={() => setActiveQuizIndex((i) => Math.min(quizQuestions.length - 1, i + 1))}
-                  disabled={activeQuizIndex >= quizQuestions.length - 1}
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-40"
-                  aria-label="次の問題"
-                >
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-                <div className="ml-1 flex items-center gap-1">
-                  {quizQuestions.map((question, i) => (
-                    <button
-                      key={question.id}
-                      type="button"
-                      onClick={() => setActiveQuizIndex(i)}
-                      className={`h-2 rounded-full transition-all ${
-                        i === activeQuizIndex ? 'w-5 bg-emerald-500' : 'w-2 bg-slate-300 hover:bg-slate-400'
-                      }`}
-                      aria-label={`問題 ${i + 1} を表示`}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-          {(mode === 'standard' || mode === 'quiz' || mode === 'ranking') && (
-            <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-              {mode === 'quiz' ? (
-                <span>全{quizQuestions.length}問</span>
-              ) : mode === 'ranking' ? (
-                <span>{maxSelections}位まで集計</span>
+              ) : poll.status === 'draft' ? (
+                <span className="inline-flex items-center font-bold text-amber-700">{statusLabel}</span>
               ) : (
-                <span>{maxSelections > 1 ? `最大${maxSelections}件選択` : '単一選択'}</span>
+                <span className="inline-flex items-center font-bold text-slate-400">{statusLabel}</span>
               )}
-              {meta.timeLimitSeconds ? (
-                <span className="inline-flex items-center gap-1">
-                  <Clock className="w-3 h-3" />
-                  {mode === 'quiz' ? '解答時間' : '投票時間'} {meta.timeLimitSeconds}秒
+              {editing && (
+                <span className="inline-flex items-center rounded-full bg-emerald-600 px-2 py-0.5 font-bold text-white">
+                  編集中
                 </span>
-              ) : null}
-              {mode === 'ranking' && meta.rankingWeights?.length ? (
-                <span>重み {getRankingWeights(maxSelections, meta.rankingWeights).join(' / ')}</span>
-              ) : null}
-            </p>
-          )}
-        </div>
-        <div className="flex items-center gap-1 shrink-0">
-          {poll.status !== 'active' && (
-            <button
-              type="button"
-              disabled={isPending}
-              onClick={onStart}
-              className="inline-flex items-center gap-1 text-xs font-semibold bg-emerald-500 hover:bg-emerald-600 text-white px-3 h-9 rounded-lg disabled:opacity-60"
+              )}
+            </div>
+            <h3
+              className={`mt-1.5 text-sm sm:text-base font-bold text-slate-900 leading-snug break-words ${
+                expanded ? '' : 'line-clamp-2'
+              }`}
             >
-              {isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : '開始'}
-            </button>
-          )}
-          {poll.status === 'active' && (
-            <button
-              type="button"
-              disabled={isPending}
-              onClick={onClose}
-              className="inline-flex items-center gap-1 text-xs font-semibold bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50 px-3 h-9 rounded-lg disabled:opacity-60"
-            >
-              {isPending ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
+              {poll.question || '（無題）'}
+            </h3>
+            <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-slate-500">
+              <span className="tabular-nums">
+                回答 <span className="font-bold text-slate-700">{totalRespondents}</span> 件
+              </span>
+              {isMulti && (
                 <>
-                  <span className="w-3.5 h-3.5 rounded-sm border-[1.5px] border-current" />
-                  締切
+                  <span className="text-slate-300">·</span>
+                  <span>
+                    {mode === 'ranking' ? `${maxSelections}位まで` : `最大${maxSelections}件`}
+                  </span>
                 </>
               )}
-            </button>
-          )}
-          {(mode === 'standard' || mode === 'quiz' || mode === 'ranking') && (
-            <button
-              type="button"
-              onClick={onEdit}
-              className={`inline-flex items-center justify-center w-9 h-9 rounded-lg transition-colors ${
-                editing
-                  ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                  : 'text-slate-500 hover:text-emerald-700 hover:bg-emerald-50'
-              }`}
-              title="編集・更新"
-              aria-label="編集・更新"
-            >
-              <Pencil className="w-4 h-4" />
-            </button>
-          )}
-          {(mode === 'quiz' || mode === 'ranking') && (
-            <button
-              type="button"
-              disabled={resetting}
-              onClick={onReset}
-              className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-slate-500 hover:text-amber-700 hover:bg-amber-50 transition-colors disabled:opacity-60"
-              title="回答・タイマーをリセットして再利用"
-              aria-label="回答とタイマーをリセット"
-            >
-              {resetting ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
-            </button>
-          )}
+              {mode === 'quiz' && quizQuestions.length > 0 && (
+                <>
+                  <span className="text-slate-300">·</span>
+                  <span>全{quizQuestions.length}問</span>
+                </>
+              )}
+              {meta.timeLimitSeconds ? (
+                <>
+                  <span className="text-slate-300">·</span>
+                  <span className="inline-flex items-center gap-0.5">
+                    <Clock className="w-3 h-3" />
+                    {meta.timeLimitSeconds}秒
+                  </span>
+                </>
+              ) : null}
+            </p>
+          </div>
+
+          {/* Expand chevron */}
+          <ChevronDown
+            className={`shrink-0 w-4 h-4 text-slate-400 mt-1 transition-transform ${
+              expanded ? 'rotate-180' : ''
+            }`}
+            aria-hidden
+          />
+        </div>
+      </button>
+
+      {/* ===== Action buttons row (always visible) ===== */}
+      <div
+        className="flex flex-wrap items-center gap-1.5 px-4 pb-3 -mt-1"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {poll.status !== 'active' ? (
           <button
             type="button"
-            disabled={isDeleting}
-            onClick={onDelete}
-            className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-rose-400 hover:text-rose-600 hover:bg-rose-50 transition-colors disabled:opacity-60 disabled:pointer-events-none"
-            title="削除"
+            disabled={isPending}
+            onClick={onStart}
+            className="inline-flex items-center gap-1 text-xs font-bold bg-emerald-500 hover:bg-emerald-600 text-white px-3 h-9 rounded-lg disabled:opacity-60 transition-colors"
+            title="開始"
           >
-            {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+            {isPending ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <>
+                <Play className="w-3.5 h-3.5 fill-current" />
+                開始
+              </>
+            )}
           </button>
-        </div>
+        ) : (
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={onClose}
+            className="inline-flex items-center gap-1 text-xs font-bold bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50 px-3 h-9 rounded-lg disabled:opacity-60 transition-colors"
+            title="締切"
+          >
+            {isPending ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <>
+                <StopCircle className="w-3.5 h-3.5" />
+                締切
+              </>
+            )}
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={onEdit}
+          className={`inline-flex items-center justify-center w-9 h-9 rounded-lg transition-colors ${
+            editing
+              ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+              : 'text-slate-500 ring-1 ring-slate-200 bg-white hover:text-emerald-700 hover:bg-emerald-50 hover:ring-emerald-200'
+          }`}
+          title="編集"
+          aria-label="編集"
+        >
+          <Pencil className="w-4 h-4" />
+        </button>
+        <button
+          type="button"
+          disabled={resetting}
+          onClick={onReset}
+          className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-slate-500 ring-1 ring-slate-200 bg-white hover:text-amber-700 hover:bg-amber-50 hover:ring-amber-200 transition-colors disabled:opacity-60"
+          title="回答とタイマーをリセット"
+          aria-label="リセット"
+        >
+          {resetting ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
+        </button>
+        <button
+          type="button"
+          disabled={isDeleting}
+          onClick={onDelete}
+          className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-rose-400 ring-1 ring-rose-100 bg-white hover:text-rose-600 hover:bg-rose-50 hover:ring-rose-200 transition-colors disabled:opacity-60 disabled:pointer-events-none ml-auto"
+          title="削除"
+          aria-label="削除"
+        >
+          {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+        </button>
       </div>
 
+      {/* ===== Expanded result body ===== */}
+      <AnimatePresence initial={false}>
+        {expanded && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden border-t border-slate-100"
+          >
+            <div className="p-4 sm:p-5 space-y-4">
+              {mode === 'quiz' && quizQuestions.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="inline-flex items-center gap-1.5 rounded-full bg-slate-50 px-2 py-1 ring-1 ring-slate-200">
+                    <button
+                      type="button"
+                      onClick={() => setActiveQuizIndex((i) => Math.max(0, i - 1))}
+                      disabled={activeQuizIndex === 0}
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-40"
+                      aria-label="前の問題"
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5" />
+                    </button>
+                    <span className="px-1 text-xs font-bold text-emerald-700 tabular-nums">
+                      問題 {activeQuizIndex + 1} / {quizQuestions.length}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setActiveQuizIndex((i) => Math.min(quizQuestions.length - 1, i + 1))
+                      }
+                      disabled={activeQuizIndex >= quizQuestions.length - 1}
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-40"
+                      aria-label="次の問題"
+                    >
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                    <div className="ml-1 flex items-center gap-1">
+                      {quizQuestions.map((question, i) => (
+                        <button
+                          key={question.id}
+                          type="button"
+                          onClick={() => setActiveQuizIndex(i)}
+                          className={`h-2 rounded-full transition-all ${
+                            i === activeQuizIndex
+                              ? 'w-5 bg-emerald-500'
+                              : 'w-2 bg-slate-300 hover:bg-slate-400'
+                          }`}
+                          aria-label={`問題 ${i + 1} を表示`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+              {mode === 'ranking' && meta.rankingWeights?.length ? (
+                <p className="text-xs text-slate-500">
+                  重み {getRankingWeights(maxSelections, meta.rankingWeights).join(' / ')}
+                </p>
+              ) : null}
+              <PollResultBody
+                poll={poll}
+                votes={votes}
+                meta={meta}
+                options={options}
+                counts={counts}
+                totalVotes={totalVotes}
+                mode={mode}
+                quizQuestions={quizQuestions}
+                activeQuizIndex={activeQuizIndex}
+                maxSelections={maxSelections}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+/**
+ * 展開時の結果本体（投票・出題・ランキングの集計表示）。
+ * 親カードからレイアウト情報・集計済みデータを受け取って表示のみを担当する。
+ */
+function PollResultBody({
+  poll,
+  votes,
+  meta,
+  options,
+  counts,
+  totalVotes,
+  mode,
+  quizQuestions,
+  activeQuizIndex,
+  maxSelections,
+}: {
+  poll: Poll;
+  votes: Array<{ option_index: number | null; value?: string | null; participant_id?: string }>;
+  meta: ReturnType<typeof extractPollPayload>['meta'];
+  options: ReturnType<typeof extractPollPayload>['options'];
+  counts: number[];
+  totalVotes: number;
+  mode: PollMode;
+  quizQuestions: ReturnType<typeof getQuizQuestions>;
+  activeQuizIndex: number;
+  maxSelections: number;
+}) {
+  void poll;
+  return (
+    <>
       {mode === 'quiz' ? (
         <div className="space-y-3">
           <div className="overflow-hidden">
@@ -2469,7 +2658,7 @@ function PollResultCard({
           })}
         </div>
       )}
-    </div>
+    </>
   );
 }
 
