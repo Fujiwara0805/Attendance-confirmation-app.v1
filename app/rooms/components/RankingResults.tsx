@@ -1,7 +1,8 @@
 'use client';
 
+import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Medal } from 'lucide-react';
+import { ChevronDown, Medal } from 'lucide-react';
 import {
   getPollOptionDetail,
   getRankingLeaderboard,
@@ -19,6 +20,9 @@ interface RankingResultsProps {
   displayMode?: 'number' | 'number_text';
   size?: 'compact' | 'large';
 }
+
+/** デフォルトで表示する上位件数。残りは折りたたみで開閉。 */
+const DEFAULT_VISIBLE = 3;
 
 /** 上位ほど濃い emerald。順位数に依存せず連続的に色を割り当てる。 */
 function rankColor(rankIndex: number, rankCount: number) {
@@ -51,6 +55,9 @@ export default function RankingResults({
   const leaderboard = getRankingLeaderboard(votes, options.length, rankCount, normalizedWeights);
   const maxTotal = Math.max(...leaderboard.map((e) => e.total), 1);
   const large = size === 'large';
+  const [showAll, setShowAll] = useState(false);
+  const hasMore = leaderboard.length > DEFAULT_VISIBLE;
+  const visible = showAll || !hasMore ? leaderboard : leaderboard.slice(0, DEFAULT_VISIBLE);
 
   return (
     <div className={large ? 'space-y-4' : 'space-y-3'}>
@@ -70,7 +77,7 @@ export default function RankingResults({
         </span>
       </div>
 
-      {leaderboard.map((entry) => {
+      {visible.map((entry) => {
         const option = options[entry.optionIndex];
         const label = getRankingOptionLabel(option, entry.optionIndex, displayMode);
         const detail = displayMode === 'number_text' ? getPollOptionDetail(option) : undefined;
@@ -103,18 +110,16 @@ export default function RankingResults({
                   </p>
                 )}
               </div>
+              {/* 得点（順位スコア）。得票数・得票率はあえて表示しない。 */}
               <div className="shrink-0 text-right">
                 <p className={`font-extrabold tabular-nums text-emerald-700 ${large ? 'text-xl' : 'text-sm'}`}>
                   {entry.score}
                   <span className={`ml-0.5 font-semibold text-emerald-600 ${large ? 'text-sm' : 'text-[11px]'}`}>点</span>
                 </p>
-                <p className={`tabular-nums text-slate-400 ${large ? 'text-xs' : 'text-[10px]'}`}>
-                  1位 {entry.firstChoice}人
-                </p>
               </div>
             </div>
 
-            {/* 第1〜第N希望の積み上げ内訳バー */}
+            {/* 第1〜第N希望の積み上げ内訳バー（数値ラベルは省略） */}
             <div className={`mt-2 flex ${large ? 'h-3.5' : 'h-2.5'} w-full overflow-hidden rounded-full bg-slate-100`}>
               {entry.rankCounts.map((count, rankIndex) => (
                 <motion.div
@@ -128,17 +133,30 @@ export default function RankingResults({
                 />
               ))}
             </div>
-            <div className={`mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-slate-500 ${large ? 'text-xs' : 'text-[10px]'}`}>
-              {entry.rankCounts.map((count, rankIndex) => (
-                <span key={rankIndex} className="tabular-nums">
-                  {rankLabel(rankIndex)} {count}
-                </span>
-              ))}
-              <span className="ml-auto tabular-nums font-semibold text-slate-400">計 {entry.total}票</span>
-            </div>
           </div>
         );
       })}
+
+      {hasMore && (
+        <button
+          type="button"
+          onClick={() => setShowAll((v) => !v)}
+          aria-expanded={showAll}
+          className={`mx-auto flex items-center gap-1.5 rounded-full bg-white px-4 ring-1 ring-slate-200 font-bold text-slate-600 hover:bg-slate-50 transition-colors ${
+            large ? 'h-10 text-sm' : 'h-8 text-xs'
+          }`}
+        >
+          {showAll
+            ? '上位3位のみ表示'
+            : `4位以降を表示（残り${leaderboard.length - DEFAULT_VISIBLE}件）`}
+          <ChevronDown
+            className={`${large ? 'h-4 w-4' : 'h-3.5 w-3.5'} transition-transform ${
+              showAll ? 'rotate-180' : ''
+            }`}
+            aria-hidden
+          />
+        </button>
+      )}
 
       {leaderboard.every((e) => e.total === 0) && (
         <p className={`text-center text-slate-400 ${large ? 'text-base py-6' : 'text-xs py-3'}`}>

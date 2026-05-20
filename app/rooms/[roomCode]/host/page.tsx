@@ -35,7 +35,6 @@ import {
   Image as ImageIcon,
   ChevronLeft,
   ChevronRight,
-  ChevronDown,
   Pencil,
   BadgeCheck,
   Play,
@@ -52,7 +51,6 @@ import {
   POLL_MODE_LABELS,
   QUIZ_OPTION_COUNTS,
   RANKING_CANDIDATE_PRESETS,
-  circledNumber,
   clampNumber,
   extractPollPayload,
   getPollMode,
@@ -66,7 +64,6 @@ import {
   type PollMode,
   type PollOption,
 } from '@/lib/pollModes';
-import RankingResults from '../../components/RankingResults';
 
 const LOGO_URL =
   'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_200/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png';
@@ -209,16 +206,6 @@ export default function HostPage() {
   const [creatingPoll, setCreatingPoll] = useState(false);
   // 出題形式の編集・更新（null=新規作成 / pollId=編集中）
   const [editingPollId, setEditingPollId] = useState<string | null>(null);
-  // カード一覧で個別に詳細結果を展開しているカードID
-  const [expandedPollIds, setExpandedPollIds] = useState<Set<string>>(new Set());
-  const togglePollExpand = useCallback((pollId: string) => {
-    setExpandedPollIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(pollId)) next.delete(pollId);
-      else next.add(pollId);
-      return next;
-    });
-  }, []);
 
   // Export
   const [exportData, setExportData] = useState<{
@@ -231,6 +218,8 @@ export default function HostPage() {
   const [pollDeletingId, setPollDeletingId] = useState<string | null>(null);
   const [moderationLoading, setModerationLoading] = useState(false);
   const [exportLoadingType, setExportLoadingType] = useState<'questions' | 'polls' | null>(null);
+  // CSV エクスポート対象カード選択モーダル
+  const [showPollExportPicker, setShowPollExportPicker] = useState(false);
   // 質問カードの操作中状態（id+action 単位でローディング）
   const [questionActionPending, setQuestionActionPending] = useState<Record<string, string | null>>({});
 
@@ -636,12 +625,6 @@ export default function HostPage() {
   const handleEditPoll = useCallback((poll: Poll) => {
     const { meta, options } = extractPollPayload(poll.options);
     const mode = getPollMode(meta.mode);
-    // 編集対象のカードを自動展開しておくと、編集中に結果も確認できて使いやすい
-    setExpandedPollIds((prev) => {
-      const next = new Set(prev);
-      next.add(poll.id);
-      return next;
-    });
     if (mode === 'standard') {
       setPollMode('standard');
       setPollQuestion(poll.question || '');
@@ -717,18 +700,21 @@ export default function HostPage() {
     }
   };
 
-  const handleExportCSV = useCallback(
-    async (type: 'questions' | 'polls') => {
+  const downloadExportCSV = useCallback(
+    async (type: 'questions' | 'polls', pollId?: string | null) => {
       if (exportLoadingType) return;
       setExportLoadingType(type);
       try {
-        const res = await fetch(`/api/rooms/${roomCode}/export?type=${type}&format=csv`);
+        const qs = new URLSearchParams({ type, format: 'csv' });
+        if (pollId) qs.set('pollId', pollId);
+        const res = await fetch(`/api/rooms/${roomCode}/export?${qs.toString()}`);
         if (!res.ok) throw new Error('failed');
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${type}-${roomCode}.csv`;
+        const fileSuffix = pollId ? `-${pollId.slice(0, 8)}` : '';
+        a.download = `${type}-${roomCode}${fileSuffix}.csv`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -740,6 +726,19 @@ export default function HostPage() {
       }
     },
     [exportLoadingType, roomCode]
+  );
+
+  // 質問CSV は対象選択なしで即ダウンロード、投票CSV は対象カードを必ず選んでもらう
+  const handleExportCSV = useCallback(
+    (type: 'questions' | 'polls') => {
+      if (exportLoadingType) return;
+      if (type === 'polls') {
+        setShowPollExportPicker(true);
+        return;
+      }
+      void downloadExportCSV(type);
+    },
+    [downloadExportCSV, exportLoadingType]
   );
 
   // Fetch summary for export tab
@@ -1122,6 +1121,20 @@ export default function HostPage() {
                 <PollTypeModal
                   onClose={() => setShowPollTypeModal(false)}
                   onSelect={handleSelectPollMode}
+                />
+              )}
+            </AnimatePresence>
+
+            <AnimatePresence>
+              {showPollExportPicker && (
+                <PollExportPickerModal
+                  polls={polls}
+                  exporting={exportLoadingType === 'polls'}
+                  onClose={() => setShowPollExportPicker(false)}
+                  onConfirm={async (pollId) => {
+                    setShowPollExportPicker(false);
+                    await downloadExportCSV('polls', pollId);
+                  }}
                 />
               )}
             </AnimatePresence>
@@ -1698,8 +1711,6 @@ export default function HostPage() {
                       pendingId={pollStatusPendingId}
                       deletingId={pollDeletingId}
                       editing={editingPollId === poll.id}
-                      expanded={expandedPollIds.has(poll.id)}
-                      onToggleExpand={() => togglePollExpand(poll.id)}
                       onStart={() => handlePollStatus(poll.id, 'active')}
                       onClose={() => handlePollStatus(poll.id, 'closed')}
                       onDelete={() => handleDeletePoll(poll.id)}
@@ -1937,6 +1948,165 @@ function PollTypeModal({
               <span className="mt-1 block text-xs leading-relaxed text-slate-500">{item.desc}</span>
             </button>
           ))}
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function PollExportPickerModal({
+  polls,
+  exporting,
+  onClose,
+  onConfirm,
+}: {
+  polls: Poll[];
+  exporting: boolean;
+  onClose: () => void;
+  onConfirm: (pollId: string | null) => void;
+}) {
+  // 'all' = 全カードまとめて出力 / poll.id = 単一カード
+  const [selected, setSelected] = useState<string>('all');
+
+  const handleConfirm = () => {
+    onConfirm(selected === 'all' ? null : selected);
+  };
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/40 px-4 backdrop-blur-sm"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <motion.div
+        initial={{ opacity: 0, y: 16, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 12, scale: 0.98 }}
+        className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl ring-1 ring-slate-200"
+      >
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-extrabold text-slate-900">投票結果CSVを出力</h3>
+            <p className="mt-1 text-sm text-slate-500">どのカードの結果を出力するか選んでください。</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+            aria-label="閉じる"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="max-h-[60vh] space-y-2 overflow-y-auto pr-1">
+          <label
+            className={`flex items-center gap-3 rounded-xl p-3 ring-1 cursor-pointer transition-colors ${
+              selected === 'all'
+                ? 'bg-emerald-50 ring-emerald-300'
+                : 'bg-white ring-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            <input
+              type="radio"
+              name="export-target"
+              value="all"
+              checked={selected === 'all'}
+              onChange={() => setSelected('all')}
+              className="h-4 w-4 accent-emerald-600"
+            />
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-600 ring-1 ring-slate-200">
+              <Download className="w-4 h-4" />
+            </span>
+            <span className="flex-1">
+              <span className="block text-sm font-bold text-slate-900">全てのカード</span>
+              <span className="block text-[11px] text-slate-500">全{polls.length}件の結果を1ファイルに出力</span>
+            </span>
+          </label>
+
+          {polls.length === 0 ? (
+            <p className="py-8 text-center text-sm text-slate-400">
+              出力対象のカードがありません
+            </p>
+          ) : (
+            polls.map((poll) => {
+              const { meta } = extractPollPayload(poll.options);
+              const mode = getPollMode(meta.mode);
+              const visual = POLL_MODE_VISUAL[mode];
+              const ModeIcon = visual.icon;
+              const isSelected = selected === poll.id;
+              return (
+                <label
+                  key={poll.id}
+                  className={`flex items-center gap-3 rounded-xl p-3 ring-1 cursor-pointer transition-colors ${
+                    isSelected
+                      ? 'bg-emerald-50 ring-emerald-300'
+                      : 'bg-white ring-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="export-target"
+                    value={poll.id}
+                    checked={isSelected}
+                    onChange={() => setSelected(poll.id)}
+                    className="h-4 w-4 accent-emerald-600"
+                  />
+                  <span
+                    className={`inline-flex h-9 w-9 items-center justify-center rounded-lg ring-1 ${visual.iconBg} ${visual.iconText} ${visual.iconRing}`}
+                  >
+                    <ModeIcon className="w-4 h-4" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                      <span
+                        className={`inline-flex items-center font-bold px-1.5 py-0.5 rounded-full ring-1 ${visual.badgeBg} ${visual.badgeText} ${visual.badgeRing}`}
+                      >
+                        {POLL_MODE_LABELS[mode]}
+                      </span>
+                      <span className="font-semibold text-slate-400">
+                        {poll.status === 'active'
+                          ? 'Live'
+                          : poll.status === 'draft'
+                          ? '下書き'
+                          : '終了'}
+                      </span>
+                    </span>
+                    <span className="mt-0.5 block truncate text-sm font-bold text-slate-900">
+                      {poll.question || '（無題）'}
+                    </span>
+                  </span>
+                </label>
+              );
+            })
+          )}
+        </div>
+
+        <div className="mt-4 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-10 rounded-lg px-4 text-sm font-semibold text-slate-500 hover:text-slate-800"
+          >
+            キャンセル
+          </button>
+          <button
+            type="button"
+            onClick={handleConfirm}
+            disabled={exporting || polls.length === 0}
+            className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 px-4 text-sm font-bold text-white shadow-sm shadow-emerald-200/60 transition-colors disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none"
+          >
+            {exporting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4" />
+            )}
+            CSVを出力
+          </button>
         </div>
       </motion.div>
     </motion.div>
@@ -2217,8 +2387,6 @@ function PollResultCard({
   pendingId,
   deletingId,
   editing,
-  expanded,
-  onToggleExpand,
   onStart,
   onClose,
   onDelete,
@@ -2231,8 +2399,6 @@ function PollResultCard({
   pendingId: string | null;
   deletingId: string | null;
   editing: boolean;
-  expanded: boolean;
-  onToggleExpand: () => void;
   onStart: () => void;
   onClose: () => void;
   onDelete: () => void;
@@ -2251,7 +2417,6 @@ function PollResultCard({
   const maxSelections = Math.max(1, Number(poll.max_selections ?? 1));
   const isMulti = maxSelections > 1 || poll.allow_multiple;
   const quizQuestions = mode === 'quiz' ? getQuizQuestions(meta, options) : [];
-  const [activeQuizIndex, setActiveQuizIndex] = useState(0);
   const isPending = pendingId === poll.id;
   const isDeleting = deletingId === poll.id;
   const visual = POLL_MODE_VISUAL[mode];
@@ -2265,25 +2430,16 @@ function PollResultCard({
         editing
           ? 'ring-2 ring-emerald-400 shadow-sm shadow-emerald-100'
           : `ring-slate-200 ${visual.cardRing} hover:shadow-sm`
-      } ${expanded ? 'col-span-full sm:col-span-2 lg:col-span-3' : ''}`}
+      }`}
     >
-      {/* ===== Compact header (always visible, click to expand) ===== */}
-      <button
-        type="button"
-        onClick={onToggleExpand}
-        aria-expanded={expanded}
-        className="block w-full p-4 text-left rounded-t-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
-      >
+      <div className="p-4">
         <div className="flex items-start gap-3">
-          {/* Mode icon */}
           <span
             className={`shrink-0 inline-flex h-11 w-11 items-center justify-center rounded-xl ring-1 ${visual.iconBg} ${visual.iconText} ${visual.iconRing}`}
             aria-hidden
           >
             <ModeIcon className="w-5 h-5" />
           </span>
-
-          {/* Title + meta */}
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
               <span
@@ -2307,11 +2463,7 @@ function PollResultCard({
                 </span>
               )}
             </div>
-            <h3
-              className={`mt-1.5 text-sm sm:text-base font-bold text-slate-900 leading-snug break-words ${
-                expanded ? '' : 'line-clamp-2'
-              }`}
-            >
+            <h3 className="mt-1.5 text-sm sm:text-base font-bold text-slate-900 leading-snug break-words line-clamp-2">
               {poll.question || '（無題）'}
             </h3>
             <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-slate-500">
@@ -2343,22 +2495,11 @@ function PollResultCard({
               ) : null}
             </p>
           </div>
-
-          {/* Expand chevron */}
-          <ChevronDown
-            className={`shrink-0 w-4 h-4 text-slate-400 mt-1 transition-transform ${
-              expanded ? 'rotate-180' : ''
-            }`}
-            aria-hidden
-          />
         </div>
-      </button>
+      </div>
 
-      {/* ===== Action buttons row (always visible) ===== */}
-      <div
-        className="flex flex-wrap items-center gap-1.5 px-4 pb-3 -mt-1"
-        onClick={(e) => e.stopPropagation()}
-      >
+      {/* アクション行 */}
+      <div className="flex flex-wrap items-center gap-1.5 px-4 pb-3 -mt-1">
         {poll.status !== 'active' ? (
           <button
             type="button"
@@ -2428,237 +2569,7 @@ function PollResultCard({
           {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
         </button>
       </div>
-
-      {/* ===== Expanded result body ===== */}
-      <AnimatePresence initial={false}>
-        {expanded && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="overflow-hidden border-t border-slate-100"
-          >
-            <div className="p-4 sm:p-5 space-y-4">
-              {mode === 'quiz' && quizQuestions.length > 0 && (
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="inline-flex items-center gap-1.5 rounded-full bg-slate-50 px-2 py-1 ring-1 ring-slate-200">
-                    <button
-                      type="button"
-                      onClick={() => setActiveQuizIndex((i) => Math.max(0, i - 1))}
-                      disabled={activeQuizIndex === 0}
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-40"
-                      aria-label="前の問題"
-                    >
-                      <ChevronLeft className="w-3.5 h-3.5" />
-                    </button>
-                    <span className="px-1 text-xs font-bold text-emerald-700 tabular-nums">
-                      問題 {activeQuizIndex + 1} / {quizQuestions.length}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setActiveQuizIndex((i) => Math.min(quizQuestions.length - 1, i + 1))
-                      }
-                      disabled={activeQuizIndex >= quizQuestions.length - 1}
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-40"
-                      aria-label="次の問題"
-                    >
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </button>
-                    <div className="ml-1 flex items-center gap-1">
-                      {quizQuestions.map((question, i) => (
-                        <button
-                          key={question.id}
-                          type="button"
-                          onClick={() => setActiveQuizIndex(i)}
-                          className={`h-2 rounded-full transition-all ${
-                            i === activeQuizIndex
-                              ? 'w-5 bg-emerald-500'
-                              : 'w-2 bg-slate-300 hover:bg-slate-400'
-                          }`}
-                          aria-label={`問題 ${i + 1} を表示`}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-              {mode === 'ranking' && meta.rankingWeights?.length ? (
-                <p className="text-xs text-slate-500">
-                  重み {getRankingWeights(maxSelections, meta.rankingWeights).join(' / ')}
-                </p>
-              ) : null}
-              <PollResultBody
-                poll={poll}
-                votes={votes}
-                meta={meta}
-                options={options}
-                counts={counts}
-                totalVotes={totalVotes}
-                mode={mode}
-                quizQuestions={quizQuestions}
-                activeQuizIndex={activeQuizIndex}
-                maxSelections={maxSelections}
-              />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
-  );
-}
-
-/**
- * 展開時の結果本体（投票・出題・ランキングの集計表示）。
- * 親カードからレイアウト情報・集計済みデータを受け取って表示のみを担当する。
- */
-function PollResultBody({
-  poll,
-  votes,
-  meta,
-  options,
-  counts,
-  totalVotes,
-  mode,
-  quizQuestions,
-  activeQuizIndex,
-  maxSelections,
-}: {
-  poll: Poll;
-  votes: Array<{ option_index: number | null; value?: string | null; participant_id?: string }>;
-  meta: ReturnType<typeof extractPollPayload>['meta'];
-  options: ReturnType<typeof extractPollPayload>['options'];
-  counts: number[];
-  totalVotes: number;
-  mode: PollMode;
-  quizQuestions: ReturnType<typeof getQuizQuestions>;
-  activeQuizIndex: number;
-  maxSelections: number;
-}) {
-  void poll;
-  return (
-    <>
-      {mode === 'quiz' ? (
-        <div className="space-y-3">
-          <div className="overflow-hidden">
-            <div
-              className="flex transition-transform duration-300 ease-out"
-              style={{ transform: `translateX(-${activeQuizIndex * 100}%)` }}
-            >
-              {quizQuestions.map((question, questionIndex) => {
-                const questionTotal = votes.filter((v) => Number(v.value) === questionIndex + 1).length;
-                const correctOffset = question.correctOptionOffset;
-                const hasKey = typeof correctOffset === 'number';
-                const correctCount = hasKey ? counts[question.optionStart + correctOffset] ?? 0 : 0;
-                const correctRate =
-                  hasKey && questionTotal > 0 ? Math.round((correctCount / questionTotal) * 100) : 0;
-                return (
-                <div key={question.id} className="w-full shrink-0 space-y-2">
-                  <div className="flex flex-wrap items-center gap-2 text-xs">
-                    <span className="font-bold text-emerald-700">問題 {question.questionNumber}</span>
-                    {hasKey && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 font-bold text-emerald-700 ring-1 ring-emerald-200">
-                        正答率 {correctRate}%（{correctCount}/{questionTotal}）
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-sm sm:text-base font-semibold text-slate-800 leading-snug">
-                    {question.question}
-                  </p>
-                  <div className="mx-auto grid w-[92%] grid-cols-2 gap-3 px-2 py-3 sm:w-[88%]">
-                  {options.slice(question.optionStart, question.optionStart + question.optionCount).map((option, offset) => {
-                    const i = question.optionStart + offset;
-                    const count = counts[i];
-                    const pct = questionTotal > 0 ? Math.round((count / questionTotal) * 100) : 0;
-                    const imageUrl = getPollOptionImageUrl(option);
-                    const isCorrect = hasKey && offset === correctOffset;
-                    return (
-                      <div
-                        key={i}
-                        className={`relative flex min-h-[72px] flex-col overflow-hidden rounded-xl bg-white ring-1 ${
-                          isCorrect ? 'ring-2 ring-emerald-400' : 'ring-slate-200'
-                        }`}
-                      >
-                        <motion.div
-                          initial={{ width: 0 }}
-                          animate={{ width: `${pct}%` }}
-                          transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
-                          className="absolute bottom-0 left-0 top-0 bg-emerald-100/80"
-                          aria-hidden
-                        />
-                        <div className="relative flex flex-1 flex-col gap-1 px-3.5 py-2.5">
-                          <span className="flex items-start gap-2 text-sm text-slate-800 sm:text-base">
-                            <span className="shrink-0 font-semibold tabular-nums text-emerald-700">{optionLetter(offset)}</span>
-                            {imageUrl && (
-                              <img src={imageUrl} alt="" className="h-8 w-8 shrink-0 rounded-md object-cover ring-1 ring-slate-200" />
-                            )}
-                            <span className="min-w-0 break-words leading-snug">{getPollOptionLabel(option, `解答 ${optionLetter(offset)}`)}</span>
-                          </span>
-                          <span className="mt-auto flex items-center gap-2">
-                            {isCorrect && (
-                              <span className="inline-flex shrink-0 items-center rounded-full bg-emerald-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
-                                正解
-                              </span>
-                            )}
-                            <span className="ml-auto shrink-0 tabular-nums text-xs text-slate-500 sm:text-sm">
-                              {count} ({pct}%)
-                            </span>
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  </div>
-                </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      ) : mode === 'ranking' ? (
-        <RankingResults
-          options={options}
-          votes={votes}
-          rankCount={maxSelections}
-          weights={meta.rankingWeights}
-          displayMode={getRankingDisplayMode(meta.rankingDisplayMode)}
-          size="compact"
-        />
-      ) : (
-        <div className="space-y-3">
-          {options.map((option, i) => {
-            const count = counts[i];
-            const pct = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
-            const imageUrl = getPollOptionImageUrl(option);
-            return (
-              <div key={i} className="relative overflow-hidden rounded-xl ring-1 ring-slate-200 bg-white">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${pct}%` }}
-                  transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
-                  className="absolute left-0 top-0 bottom-0 bg-emerald-100/80"
-                  aria-hidden
-                />
-                <div className="relative flex items-center justify-between gap-3 px-3.5 py-2.5">
-                  <span className="flex items-center gap-2 min-w-0 text-sm sm:text-base text-slate-800">
-                    <span className="text-emerald-700 font-semibold tabular-nums">
-                      {circledNumber(i)}
-                    </span>
-                    {imageUrl && (
-                      <img src={imageUrl} alt="" className="h-8 w-8 rounded-md object-cover ring-1 ring-slate-200" />
-                    )}
-                    <span className="truncate">{getPollOptionLabel(option, `選択肢 ${i + 1}`)}</span>
-                  </span>
-                  <span className="text-xs sm:text-sm text-slate-500 tabular-nums shrink-0">
-                    {count} ({pct}%)
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </>
   );
 }
 

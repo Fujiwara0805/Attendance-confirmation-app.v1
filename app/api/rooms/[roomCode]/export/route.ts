@@ -58,11 +58,16 @@ export async function GET(
     }
 
     if (type === 'polls') {
-      const { data: polls } = await supabase
+      const filterPollId = req.nextUrl.searchParams.get('pollId');
+      let pollsQuery = supabase
         .from('polls')
         .select('*')
         .eq('room_id', room.id)
         .order('created_at', { ascending: false });
+      if (filterPollId) {
+        pollsQuery = pollsQuery.eq('id', filterPollId);
+      }
+      const { data: polls } = await pollsQuery;
 
       const pollIds = (polls || []).map((p) => p.id);
       // 過去回（cleared_at != NULL）も CSV では出力対象にする
@@ -99,10 +104,11 @@ export async function GET(
 
       if (format === 'csv') {
         const csv = pollsToRichCSV(polls || [], votes);
+        const suffix = filterPollId ? `-${filterPollId.slice(0, 8)}` : '';
         return new NextResponse(csv, {
           headers: {
             'Content-Type': 'text/csv; charset=utf-8',
-            'Content-Disposition': `attachment; filename="polls-${params.roomCode}.csv"`,
+            'Content-Disposition': `attachment; filename="polls-${params.roomCode}${suffix}.csv"`,
           },
         });
       }

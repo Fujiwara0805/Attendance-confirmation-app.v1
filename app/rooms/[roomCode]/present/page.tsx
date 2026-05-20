@@ -402,12 +402,12 @@ export default function PresentPage() {
                         {timedMode && (
                           /* タイマー＆コンパクトページャー＆開始ボタンを出題タイトルと同じ行の右端に */
                           <div
-                            className={`ml-auto inline-flex flex-wrap items-center gap-2 rounded-xl px-3 py-2 ring-1 ${
+                            className={`ml-auto inline-flex flex-wrap items-center gap-2 rounded-xl ${
                               quizAnswering || rankingAnswering || standardAnswering
-                                ? 'bg-emerald-50 ring-emerald-200'
+                                ? 'bg-emerald-50 ring-1 ring-emerald-200 px-3 py-2'
                                 : timerNotStarted
-                                ? 'bg-white ring-slate-200'
-                                : 'bg-slate-50 ring-slate-200'
+                                ? ''
+                                : 'bg-slate-50 ring-1 ring-slate-200 px-3 py-2'
                             }`}
                           >
                             {mode === 'quiz' && (

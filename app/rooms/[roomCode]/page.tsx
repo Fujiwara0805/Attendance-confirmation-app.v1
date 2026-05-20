@@ -915,7 +915,7 @@ function ActivePollCard({
           >
             <Clock className="h-3.5 w-3.5" />
             {timerStartMs
-              ? `${standardTimeLimit}秒で投票してください`
+              ? '時間内に送信してください'
               : `${standardTimeLimit}秒で回答（開始待ち）`}
           </span>
           <span
@@ -944,7 +944,7 @@ function ActivePollCard({
           >
             <Clock className="h-3.5 w-3.5" />
             {timerStartMs
-              ? `全${quizQuestions.length}問を${quizTimeLimit}秒で回答してください`
+              ? '時間内に送信してください'
               : `全${quizQuestions.length}問を${quizTimeLimit}秒で回答（開始待ち）`}
           </span>
           <span
@@ -973,7 +973,7 @@ function ActivePollCard({
           >
             <Clock className="h-3.5 w-3.5" />
             {timerStartMs
-              ? `${rankingTimeLimit}秒でランキングを送信してください`
+              ? '時間内に送信してください'
               : `${rankingTimeLimit}秒で回答（開始待ち）`}
           </span>
           <span
