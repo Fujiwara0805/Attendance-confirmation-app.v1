@@ -43,9 +43,11 @@ export async function PATCH(
       maxSelections?: number;
       allowMultiple?: boolean;
       resetVotes?: boolean;
-      // 出題タイマーをサーバー時刻で開始（present 画面の「開始」ボタン由来）。
-      // true: started_at = now() / 'reset' でも同義 / false or undefined: 触らない。
+      // 出題タイマーを開始ボタンを押した端末時刻で開始（present 画面の「開始」ボタン由来）。
+      // true: started_at = clientStartedAt（未指定時のみサーバー時刻） / false or undefined: 触らない。
       startTimer?: boolean;
+      clientStartedAt?: string;
+      clientTimeZone?: string;
       // 同じ出題を再利用するための完全リセット: poll_votes 削除＋started_at=null＋status='draft'
       reset?: boolean;
     };
@@ -66,10 +68,17 @@ export async function PATCH(
         nextOptions = buildPollOptionsPayload(
           {
             ...meta,
+            startedAtTimeZone: undefined,
             runStartedAtByClearedAt: {
               ...(meta.runStartedAtByClearedAt || {}),
               [clearedAt]: currentPoll.started_at,
             },
+            runStartedAtTimeZoneByClearedAt: meta.startedAtTimeZone
+              ? {
+                  ...(meta.runStartedAtTimeZoneByClearedAt || {}),
+                  [clearedAt]: meta.startedAtTimeZone,
+                }
+              : meta.runStartedAtTimeZoneByClearedAt,
           },
           options
         );
@@ -97,9 +106,40 @@ export async function PATCH(
 
     // --- Start-timer path: 出題タイマー（全問共通カウントダウン）を開始する ---
     if (body.startTimer) {
+      const clientStartedAtMs = body.clientStartedAt
+        ? new Date(body.clientStartedAt).getTime()
+        : NaN;
+      const startedAt = Number.isFinite(clientStartedAtMs)
+        ? new Date(clientStartedAtMs).toISOString()
+        : new Date().toISOString();
+      let clientTimeZone: string | undefined;
+      if (typeof body.clientTimeZone === 'string' && body.clientTimeZone.trim()) {
+        try {
+          Intl.DateTimeFormat('ja-JP', { timeZone: body.clientTimeZone });
+          clientTimeZone = body.clientTimeZone;
+        } catch {
+          clientTimeZone = undefined;
+        }
+      }
+      let nextOptions: unknown | undefined;
+      if (clientTimeZone) {
+        const { data: currentPoll } = await supabase
+          .from('polls')
+          .select('options')
+          .eq('id', params.pollId)
+          .eq('room_id', room.id)
+          .single();
+        if (currentPoll?.options) {
+          const { meta, options } = extractPollPayload(currentPoll.options);
+          nextOptions = buildPollOptionsPayload(
+            { ...meta, startedAtTimeZone: clientTimeZone },
+            options
+          );
+        }
+      }
       const { data, error } = await supabase
         .from('polls')
-        .update({ started_at: new Date().toISOString() })
+        .update(nextOptions ? { started_at: startedAt, options: nextOptions } : { started_at: startedAt })
         .eq('id', params.pollId)
         .eq('room_id', room.id)
         .select()
@@ -185,10 +225,17 @@ export async function PATCH(
           nextOptionsForStart = buildPollOptionsPayload(
             {
               ...meta,
+              startedAtTimeZone: undefined,
               runStartedAtByClearedAt: {
                 ...(meta.runStartedAtByClearedAt || {}),
                 [clearedAt]: currentPoll.started_at,
               },
+              runStartedAtTimeZoneByClearedAt: meta.startedAtTimeZone
+                ? {
+                    ...(meta.runStartedAtTimeZoneByClearedAt || {}),
+                    [clearedAt]: meta.startedAtTimeZone,
+                  }
+                : meta.runStartedAtTimeZoneByClearedAt,
             },
             options
           );

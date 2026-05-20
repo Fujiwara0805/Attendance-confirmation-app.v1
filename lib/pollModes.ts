@@ -33,7 +33,9 @@ export interface PollMeta {
   candidateCount?: number;
   rankingWeights?: number[];
   rankingDisplayMode?: 'number' | 'number_text';
+  startedAtTimeZone?: string;
   runStartedAtByClearedAt?: Record<string, string>;
+  runStartedAtTimeZoneByClearedAt?: Record<string, string>;
 }
 
 type PollMetaEntry = PollMeta & { __pollMeta: true };
@@ -77,7 +79,9 @@ export function buildPollOptionsPayload(meta: PollMeta, options: PollOption[]) {
   const shouldStoreMeta =
     mode !== 'standard' ||
     !!meta.timeLimitSeconds ||
-    !!meta.runStartedAtByClearedAt;
+    !!meta.startedAtTimeZone ||
+    !!meta.runStartedAtByClearedAt ||
+    !!meta.runStartedAtTimeZoneByClearedAt;
   if (!shouldStoreMeta) return options;
   return [{ __pollMeta: true, ...meta }, ...options];
 }

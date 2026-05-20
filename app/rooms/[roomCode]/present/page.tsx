@@ -42,7 +42,7 @@ export default function PresentPage() {
   const [qrModalMode, setQrModalMode] = useState<'join' | 'upload' | null>(null);
   const [modalQrUrl, setModalQrUrl] = useState<string | null>(null);
   const [activeQuizIndex, setActiveQuizIndex] = useState(0);
-  // 全問共通の制限時間をカウントダウン（開始時刻は poll.started_at = DB のサーバー時刻を全端末で共有）
+  // 全問共通の制限時間をカウントダウン（開始時刻は poll.started_at = 開始ボタンを押した端末時刻）
   const [nowMs, setNowMs] = useState(() => Date.now());
 
   useEffect(() => {
@@ -134,7 +134,7 @@ export default function PresentPage() {
     return () => clearInterval(id);
   }, []);
 
-  // 出題タイマーをサーバー時刻で開始（present の「開始」ボタン）。
+  // 出題タイマーを開始ボタンを押した端末時刻で開始（present の「開始」ボタン）。
   // realtime UPDATE が他端末（参加者・他の投影）にも propagate する。
   const [startingTimer, setStartingTimer] = useState(false);
   const startPollTimer = useCallback(async () => {
@@ -144,7 +144,11 @@ export default function PresentPage() {
       await fetch(`/api/rooms/${roomCode}/polls/${activePoll.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ startTimer: true }),
+        body: JSON.stringify({
+          startTimer: true,
+          clientStartedAt: new Date().toISOString(),
+          clientTimeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        }),
       });
     } catch (e) {
       console.error('start timer failed', e);
@@ -359,7 +363,7 @@ export default function PresentPage() {
                       : mode === 'quiz'
                       ? quizTimeLimit
                       : rankingTimeLimit;
-                  // サーバー時刻ベース: poll.started_at（投影画面の開始ボタンでセット）を全端末で共有
+                  // poll.started_at（投影画面の開始ボタンを押した端末時刻）を全端末で共有
                   const timerStartMs = activePoll.started_at ? new Date(activePoll.started_at).getTime() : null;
                   const timerRemaining =
                     activeTimeLimit > 0 && timerStartMs

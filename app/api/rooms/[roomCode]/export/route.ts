@@ -192,6 +192,18 @@ function csvEscape(v: string | number | null | undefined) {
   return s;
 }
 
+function formatExportDate(value: string | null | undefined, timeZone?: string) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return '';
+  if (!timeZone) return date.toLocaleString('ja-JP');
+  try {
+    return date.toLocaleString('ja-JP', { timeZone });
+  } catch {
+    return date.toLocaleString('ja-JP');
+  }
+}
+
 // \u901A\u5E38\u6295\u7968\u30FB\u51FA\u984C\u5F62\u5F0F\u30FB\u5E0C\u671B\u9806\u4F4D\u6295\u7968\u306E\u3059\u3079\u3066\u306E\u9805\u76EE\u3092\u7DB2\u7F85\u3059\u308B CSV \u3092\u751F\u6210\u3002
 // 1 \u884C = 1 \u9078\u629E\u80A2\uFF08\u51FA\u984C\u5F62\u5F0F\u306F\u554F\u984C\u3054\u3068\u306B\u5206\u5272\u3001\u9806\u4F4D\u6295\u7968\u306F\u5019\u88DC\u3054\u3068\uFF09\u3002
 // \u51FA\u984C\u30EA\u30BB\u30C3\u30C8\u5C65\u6B74\u306F cleared_at \u3067\u30B0\u30EB\u30FC\u30D7\u5206\u3051\u3057\u300C\u5B9F\u65BD\u56DE\u300D\u5217\u3067\u533A\u5225\u3002
@@ -256,7 +268,10 @@ function pollsToRichCSV(polls: PollRow[], votes: VoteRow[]) {
         (runKey ? meta.runStartedAtByClearedAt?.[runKey] : poll.started_at) ||
         fallbackStartedAt ||
         (runKey ?? poll.started_at ?? poll.created_at);
-      const startedAtLabel = runStartedAt ? new Date(runStartedAt).toLocaleString('ja-JP') : '';
+      const runStartedAtTimeZone = runKey
+        ? meta.runStartedAtTimeZoneByClearedAt?.[runKey]
+        : meta.startedAtTimeZone;
+      const startedAtLabel = formatExportDate(runStartedAt, runStartedAtTimeZone);
       const respondents = new Set(pollVotes.map((v) => v.participant_id)).size;
       const counts = options.map((_, i) => pollVotes.filter((v) => v.option_index === i).length);
       const totalVotes = counts.reduce((s, c) => s + c, 0);
