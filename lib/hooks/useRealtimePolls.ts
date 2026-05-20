@@ -60,6 +60,32 @@ export function useRealtimePolls(roomId: string | null) {
     });
   }, []);
 
+  const optimisticDeletePoll = useCallback((pollId: string) => {
+    setPolls((prev) => prev.filter((p) => p.id !== pollId));
+    setPollVotes((prev) => {
+      if (!prev[pollId]) return prev;
+      const next = { ...prev };
+      delete next[pollId];
+      return next;
+    });
+  }, []);
+
+  const optimisticUpsertPoll = useCallback((poll: Poll, options?: { clearVotes?: boolean }) => {
+    setPolls((prev) => {
+      const exists = prev.some((p) => p.id === poll.id);
+      const next = exists ? prev.map((p) => (p.id === poll.id ? poll : p)) : [poll, ...prev];
+      return [...next].sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+    });
+    if (options?.clearVotes) {
+      setPollVotes((prev) => {
+        if (!prev[poll.id]) return prev;
+        return { ...prev, [poll.id]: [] };
+      });
+    }
+  }, []);
+
   useEffect(() => {
     if (!roomId) return;
 
@@ -206,5 +232,13 @@ export function useRealtimePolls(roomId: string | null) {
 
   const activePoll = polls.find((p) => p.status === 'active') || null;
 
-  return { polls, pollVotes, activePoll, loading, connected };
+  return {
+    polls,
+    pollVotes,
+    activePoll,
+    loading,
+    connected,
+    optimisticDeletePoll,
+    optimisticUpsertPoll,
+  };
 }

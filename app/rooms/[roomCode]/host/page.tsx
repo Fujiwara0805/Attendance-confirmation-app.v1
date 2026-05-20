@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -137,6 +137,7 @@ export default function HostPage() {
   // Poll creation
   const [showCreatePoll, setShowCreatePoll] = useState(false);
   const [showPollTypeModal, setShowPollTypeModal] = useState(false);
+  const pollEditorRef = useRef<HTMLDivElement>(null);
   const [pollMode, setPollMode] = useState<PollMode>('standard');
   const [pollQuestion, setPollQuestion] = useState('');
   const [pollOptions, setPollOptions] = useState(['', '']);
@@ -291,7 +292,13 @@ export default function HostPage() {
 
   // Realtime
   const { questions, loading: qLoading, optimisticDelete } = useRealtimeQuestions(room?.id || null);
-  const { polls, pollVotes, loading: pLoading } = useRealtimePolls(room?.id || null);
+  const {
+    polls,
+    pollVotes,
+    loading: pLoading,
+    optimisticDeletePoll,
+    optimisticUpsertPoll,
+  } = useRealtimePolls(room?.id || null);
   const presenceCount = useRoomPresence(room?.id || null, session?.user?.email || null);
 
   const handleCopyCode = () => {
@@ -472,18 +479,25 @@ export default function HostPage() {
           setCreatingPoll(false);
           return;
         }
-        await fetch(`/api/rooms/${roomCode}/polls/${editingPollId}`, {
+        const res = await fetch(`/api/rooms/${roomCode}/polls/${editingPollId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ...payload, resetVotes: true }),
         });
+        if (!res.ok) throw new Error('Failed to update poll');
+        const updatedPoll = (await res.json()) as Poll;
+        optimisticUpsertPoll(updatedPoll, { clearVotes: true });
       } else {
-        await fetch(`/api/rooms/${roomCode}/polls`, {
+        const res = await fetch(`/api/rooms/${roomCode}/polls`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
+        if (!res.ok) throw new Error('Failed to create poll');
+        const createdPoll = (await res.json()) as Poll;
+        optimisticUpsertPoll(createdPoll);
       }
+      setExportData(null);
       resetPollForm(pollMode);
       setShowCreatePoll(false);
     } catch {
@@ -496,11 +510,15 @@ export default function HostPage() {
   const handlePollStatus = async (pollId: string, status: string) => {
     setPollStatusPendingId(pollId);
     try {
-      await fetch(`/api/rooms/${roomCode}/polls/${pollId}`, {
+      const res = await fetch(`/api/rooms/${roomCode}/polls/${pollId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
       });
+      if (!res.ok) throw new Error('Failed to update poll status');
+      const updatedPoll = (await res.json()) as Poll;
+      optimisticUpsertPoll(updatedPoll);
+      setExportData(null);
     } finally {
       setPollStatusPendingId(null);
     }
@@ -509,11 +527,24 @@ export default function HostPage() {
   const handleDeletePoll = async (pollId: string) => {
     setPollDeletingId(pollId);
     try {
-      await fetch(`/api/rooms/${roomCode}/polls/${pollId}`, { method: 'DELETE' });
+      const res = await fetch(`/api/rooms/${roomCode}/polls/${pollId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete poll');
+      optimisticDeletePoll(pollId);
+      if (editingPollId === pollId) {
+        resetPollForm();
+        setShowCreatePoll(false);
+      }
+      setExportData(null);
     } finally {
       setPollDeletingId(null);
     }
   };
+
+  const scrollToPollEditor = useCallback(() => {
+    requestAnimationFrame(() => {
+      pollEditorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }, []);
 
   // 同じ出題形式を再利用するためのリセット（票削除＋タイマー初期化＋draft 化）
   const [pollResettingId, setPollResettingId] = useState<string | null>(null);
@@ -527,16 +558,20 @@ export default function HostPage() {
         return;
       setPollResettingId(pollId);
       try {
-        await fetch(`/api/rooms/${roomCode}/polls/${pollId}`, {
+        const res = await fetch(`/api/rooms/${roomCode}/polls/${pollId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ reset: true }),
         });
+        if (!res.ok) throw new Error('Failed to reset poll');
+        const updatedPoll = (await res.json()) as Poll;
+        optimisticUpsertPoll(updatedPoll, { clearVotes: true });
+        setExportData(null);
       } finally {
         setPollResettingId(null);
       }
     },
-    [roomCode]
+    [optimisticUpsertPoll, roomCode]
   );
 
   // 通常投票・出題形式・ランキング形式を編集フォームに読み込む（編集・更新）
@@ -553,6 +588,7 @@ export default function HostPage() {
       setEditingPollId(poll.id);
       setShowPollTypeModal(false);
       setShowCreatePoll(true);
+      scrollToPollEditor();
       return;
     }
     if (mode === 'ranking') {
@@ -572,6 +608,7 @@ export default function HostPage() {
       setEditingPollId(poll.id);
       setShowPollTypeModal(false);
       setShowCreatePoll(true);
+      scrollToPollEditor();
       return;
     }
     if (mode !== 'quiz') return;
@@ -597,7 +634,8 @@ export default function HostPage() {
     setEditingPollId(poll.id);
     setShowPollTypeModal(false);
     setShowCreatePoll(true);
-  }, []);
+    scrollToPollEditor();
+  }, [scrollToPollEditor]);
 
   const handleToggleRoomStatus = async () => {
     if (!room || roomStatusLoading) return;
@@ -723,7 +761,7 @@ export default function HostPage() {
   const totalPolls = polls.length;
   const totalParticipants =
     exportData?.stats?.uniqueParticipants ?? Math.max(presenceCount, 0);
-  const visiblePolls = editingPollId ? polls.filter((poll) => poll.id !== editingPollId) : polls;
+  const selectedEditingPoll = editingPollId ? polls.find((poll) => poll.id === editingPollId) : null;
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50/60">
@@ -1028,10 +1066,11 @@ export default function HostPage() {
             <AnimatePresence>
               {showCreatePoll && (
                 <motion.div
+                  ref={pollEditorRef}
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
-                  className="rounded-2xl bg-white ring-1 ring-slate-200 p-5 space-y-3 overflow-hidden"
+                  className="scroll-mt-24 rounded-2xl bg-white ring-1 ring-slate-200 p-5 space-y-3 overflow-hidden"
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div>
@@ -1051,6 +1090,11 @@ export default function HostPage() {
                           ? '出題形式を作成'
                           : 'ランキング形式を作成'}
                       </h3>
+                      {editingPollId && selectedEditingPoll && (
+                        <p className="mt-1 text-xs font-semibold text-emerald-700">
+                          選択中のカード「{selectedEditingPoll.question}」をこの画面で編集しています
+                        </p>
+                      )}
                     </div>
                     {!editingPollId && (
                       <button
@@ -1577,14 +1621,15 @@ export default function HostPage() {
                 <p className="text-sm font-semibold text-slate-700">まだライブ機能はありません</p>
                 <p className="text-xs text-slate-400 mt-1">右上の「新規作成」から作成できます</p>
               </div>
-            ) : visiblePolls.length > 0 ? (
-              visiblePolls.map((poll) => (
+            ) : polls.length > 0 ? (
+              polls.map((poll) => (
                 <PollResultCard
                   key={poll.id}
                   poll={poll}
                   votes={pollVotes[poll.id] || []}
                   pendingId={pollStatusPendingId}
                   deletingId={pollDeletingId}
+                  editing={editingPollId === poll.id}
                   onStart={() => handlePollStatus(poll.id, 'active')}
                   onClose={() => handlePollStatus(poll.id, 'closed')}
                   onDelete={() => handleDeletePoll(poll.id)}
@@ -2100,6 +2145,7 @@ function PollResultCard({
   votes,
   pendingId,
   deletingId,
+  editing,
   onStart,
   onClose,
   onDelete,
@@ -2111,6 +2157,7 @@ function PollResultCard({
   votes: Array<{ option_index: number | null; value?: string | null; participant_id?: string }>;
   pendingId: string | null;
   deletingId: string | null;
+  editing: boolean;
   onStart: () => void;
   onClose: () => void;
   onDelete: () => void;
@@ -2134,7 +2181,11 @@ function PollResultCard({
   const isDeleting = deletingId === poll.id;
 
   return (
-    <div className="rounded-2xl bg-white ring-1 ring-slate-200 p-5 space-y-4">
+    <div
+      className={`rounded-2xl bg-white p-5 space-y-4 ring-1 transition-colors ${
+        editing ? 'ring-2 ring-emerald-400 bg-emerald-50/20' : 'ring-slate-200'
+      }`}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2 mb-2 text-xs">
@@ -2161,6 +2212,11 @@ function PollResultCard({
             <span className="inline-flex items-center text-slate-500 tabular-nums">
               回答数: <span className="ml-1 font-semibold text-slate-700">{totalRespondents}</span>
             </span>
+            {editing && (
+              <span className="inline-flex items-center rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-bold text-white">
+                編集中
+              </span>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
             <h3 className="text-base sm:text-lg font-bold text-slate-900 leading-snug">
@@ -2258,7 +2314,11 @@ function PollResultCard({
             <button
               type="button"
               onClick={onEdit}
-              className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 transition-colors"
+              className={`inline-flex items-center justify-center w-9 h-9 rounded-lg transition-colors ${
+                editing
+                  ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                  : 'text-slate-500 hover:text-emerald-700 hover:bg-emerald-50'
+              }`}
               title="編集・更新"
               aria-label="編集・更新"
             >

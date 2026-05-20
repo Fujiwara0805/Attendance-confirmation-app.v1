@@ -51,10 +51,10 @@ export default function LocationPermissionModal({ isOpen, onClose }: LocationPer
             {/* ヘッダー */}
             <div className="flex items-center justify-between p-6 bg-indigo-600 text-white">
               <div className="flex items-center space-x-3">
-                <div className="p-2 bg-white/20 rounded-full">
-                  <HelpCircle className="h-6 w-6" />
+                <div className="p-2 bg-white/25 rounded-full ring-1 ring-white/35">
+                  <HelpCircle className="h-6 w-6 text-white" />
                 </div>
-                <h3 className="text-xl font-bold">
+                <h3 className="text-xl font-bold text-white">
                   位置情報の許可方法
                 </h3>
               </div>
@@ -64,7 +64,7 @@ export default function LocationPermissionModal({ isOpen, onClose }: LocationPer
                 onClick={handleClose}
                 className="text-white hover:bg-white/20 hover:text-white"
               >
-                <X className="h-5 w-5" />
+                <X className="h-5 w-5 text-white" />
               </Button>
             </div>
 
