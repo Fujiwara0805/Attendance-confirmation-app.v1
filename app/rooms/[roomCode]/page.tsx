@@ -301,15 +301,17 @@ export default function ParticipantPage() {
       localStorage.setItem(`voted_polls_${roomCode}`, JSON.stringify(Array.from(newVoted)));
 
       try {
-        await fetch(`/api/rooms/${roomCode}/polls/${pollId}/vote`, {
+        const res = await fetch(`/api/rooms/${roomCode}/polls/${pollId}/vote`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ participantId, optionIndexes }),
         });
+        if (!res.ok) throw new Error('poll vote failed');
       } catch {
         const reverted = new Set(hasVotedPoll);
         reverted.delete(pollId);
         setHasVotedPoll(reverted);
+        localStorage.setItem(`voted_polls_${roomCode}`, JSON.stringify(Array.from(reverted)));
       }
     },
     [participantId, hasVotedPoll, roomCode]
@@ -803,7 +805,7 @@ function ActivePollCard({
     hasRankingTimer && timerStartMs
       ? Math.max(0, Math.ceil(rankingTimeLimit - (now - timerStartMs) / 1000))
       : null;
-  const standardNotStarted = hasStandardTimer && !timerStartMs;
+  const standardNotStarted = isStandard && !timerStartMs;
   const standardExpired =
     hasStandardTimer && standardRemaining !== null && standardRemaining <= 0;
   const quizExpired =

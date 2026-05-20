@@ -359,7 +359,7 @@ export default function PresentPage() {
                       : mode === 'quiz'
                       ? quizTimeLimit
                       : rankingTimeLimit;
-                  // サーバー時刻ベース: poll.started_at（active 化時に DB がセット）を全端末で共有
+                  // サーバー時刻ベース: poll.started_at（投影画面の開始ボタンでセット）を全端末で共有
                   const timerStartMs = activePoll.started_at ? new Date(activePoll.started_at).getTime() : null;
                   const timerRemaining =
                     activeTimeLimit > 0 && timerStartMs
@@ -367,10 +367,12 @@ export default function PresentPage() {
                       : null;
                   // 未開始（started_at 未セット） / 回答中 / 開示 の 3 状態
                   const timedMode = activeTimeLimit > 0;
-                  const timerNotStarted = timedMode && !timerStartMs;
+                  const requiresManualStart = mode === 'standard' || timedMode;
+                  const timerNotStarted = requiresManualStart && !timerStartMs;
                   const standardRevealed =
                     mode === 'standard' &&
-                    (standardTimeLimit === 0 || (!!timerStartMs && timerRemaining !== null && timerRemaining <= 0));
+                    !!timerStartMs &&
+                    (standardTimeLimit === 0 || (timerRemaining !== null && timerRemaining <= 0));
                   const standardAnswering =
                     mode === 'standard' && standardTimeLimit > 0 && !!timerStartMs && !standardRevealed;
                   const quizRevealed =
@@ -399,7 +401,7 @@ export default function PresentPage() {
                       </div>
                       <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
                         <h2 className="min-w-0 flex-1 text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-gray-800 leading-tight">{activePoll.question}</h2>
-                        {timedMode && (
+                        {requiresManualStart && (
                           /* タイマー＆コンパクトページャー＆開始ボタンを出題タイトルと同じ行の右端に */
                           <div
                             className={`ml-auto inline-flex flex-wrap items-center gap-2 rounded-xl ${
@@ -449,11 +451,6 @@ export default function PresentPage() {
                             </div>
                             )}
                             {timerNotStarted ? (
-                              mode === 'standard' ? (
-                                <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-50 px-3 py-1.5 text-sm font-bold text-slate-500 ring-1 ring-slate-200">
-                                  開始待ち
-                                </span>
-                              ) : (
                               <button
                                 type="button"
                                 onClick={startPollTimer}
@@ -465,20 +462,25 @@ export default function PresentPage() {
                                 ) : (
                                   <Play className="h-4 w-4" />
                                 )}
-                                開始（{fmtTime(activeTimeLimit)}）
+                                {activeTimeLimit > 0 ? `開始（${fmtTime(activeTimeLimit)}）` : '開始'}
                               </button>
-                              )
                             ) : (
-                              <span className="inline-flex items-center gap-1.5">
-                                <Clock className={`h-4 w-4 ${quizAnswering || rankingAnswering || standardAnswering ? 'text-emerald-600' : 'text-slate-400'}`} />
-                                <span
-                                  className={`tabular-nums font-extrabold leading-none ${
-                                    quizAnswering || rankingAnswering || standardAnswering ? 'text-2xl sm:text-3xl text-emerald-600' : 'text-lg sm:text-xl text-slate-400'
-                                  }`}
-                                >
-                                  {quizAnswering || rankingAnswering || standardAnswering ? fmtTime(timerRemaining ?? activeTimeLimit) : '0:00'}
+                              activeTimeLimit > 0 ? (
+                                <span className="inline-flex items-center gap-1.5">
+                                  <Clock className={`h-4 w-4 ${quizAnswering || rankingAnswering || standardAnswering ? 'text-emerald-600' : 'text-slate-400'}`} />
+                                  <span
+                                    className={`tabular-nums font-extrabold leading-none ${
+                                      quizAnswering || rankingAnswering || standardAnswering ? 'text-2xl sm:text-3xl text-emerald-600' : 'text-lg sm:text-xl text-slate-400'
+                                    }`}
+                                  >
+                                    {quizAnswering || rankingAnswering || standardAnswering ? fmtTime(timerRemaining ?? activeTimeLimit) : '0:00'}
+                                  </span>
                                 </span>
-                              </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-1.5 text-sm font-bold text-emerald-700 ring-1 ring-emerald-200">
+                                  開始済み
+                                </span>
+                              )
                             )}
                           </div>
                         )}

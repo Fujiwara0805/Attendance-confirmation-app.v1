@@ -40,6 +40,9 @@ export async function POST(
     const pollMode = getPollMode(meta.mode);
     const optionCount = options.length;
     const timeLimitSeconds = Number(meta.timeLimitSeconds || 0);
+    if (pollMode === 'standard' && !poll.started_at) {
+      return NextResponse.json({ error: '投票はまだ開始されていません' }, { status: 400 });
+    }
     if (timeLimitSeconds > 0) {
       if (!poll.started_at) {
         return NextResponse.json({ error: '投票はまだ開始されていません' }, { status: 400 });

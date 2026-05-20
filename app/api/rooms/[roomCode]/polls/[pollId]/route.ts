@@ -165,8 +165,6 @@ export async function PATCH(
     }
 
     let nextOptionsForStart: unknown | undefined;
-    let nextStartedAt: string | null | undefined;
-
     // If activating, close any other active poll in this room
     if (status === 'active') {
       const { data: currentPoll } = await supabase
@@ -178,7 +176,6 @@ export async function PATCH(
       if (currentPoll?.options) {
         const clearedAt = new Date().toISOString();
         const { meta, options } = extractPollPayload(currentPoll.options);
-        const pollMode = getPollMode(meta.mode);
         await supabase
           .from('poll_votes')
           .update({ cleared_at: clearedAt })
@@ -196,7 +193,6 @@ export async function PATCH(
             options
           );
         }
-        nextStartedAt = pollMode === 'standard' ? new Date().toISOString() : null;
       }
       await supabase
         .from('polls')
@@ -205,9 +201,9 @@ export async function PATCH(
         .eq('status', 'active');
     }
 
-    // 通常投票は開始ボタンで started_at を記録。出題形式・ランキング形式は投影画面の開始ボタンで開始する。
+    // 投影画面の「開始」ボタンで started_at を記録する。
     const update: { status: string; started_at?: string | null; options?: unknown } = { status };
-    if (status === 'active') update.started_at = nextStartedAt ?? null;
+    if (status === 'active') update.started_at = null;
     if (nextOptionsForStart) update.options = nextOptionsForStart;
 
     const { data, error } = await supabase
