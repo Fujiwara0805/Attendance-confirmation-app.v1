@@ -29,7 +29,6 @@ import { useRealtimeQuestions, type Question } from '@/lib/hooks/useRealtimeQues
 import { useRealtimePolls, type Poll, type PollVote } from '@/lib/hooks/useRealtimePolls';
 import { useRoomPresence } from '@/lib/hooks/useRoomPresence';
 import QuestionCard from '../components/QuestionCard';
-import PollResultsChart from '../components/PollResultsChart';
 import RankingResults from '../components/RankingResults';
 import RankingPicker from '../components/RankingPicker';
 import QuizTimerRing from '../components/QuizTimerRing';
@@ -541,39 +540,15 @@ export default function ParticipantPage() {
               />
             )}
 
-            {/* Closed polls */}
             {pLoading ? (
               <p className="text-center text-sm text-slate-400 py-8">読み込み中...</p>
-            ) : (
-              polls
-                .filter((p) => p.status === 'closed')
-                .map((poll) => (
-                  <motion.div
-                    key={poll.id}
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="rounded-2xl bg-white ring-1 ring-slate-200 shadow-sm p-5"
-                  >
-                    <span className="text-xs text-slate-400 mb-1 block font-semibold uppercase tracking-wider">
-                      終了済み
-                    </span>
-                    <h3 className="text-sm sm:text-base font-semibold text-slate-900 mb-3 leading-snug">
-                      {poll.question}
-                    </h3>
-                    <PollResultsChart
-                      options={extractPollPayload(poll.options).options}
-                      votes={pollVotes[poll.id] || []}
-                      totalVotes={(pollVotes[poll.id] || []).length}
-                    />
-                  </motion.div>
-                ))
-            )}
+            ) : null}
 
-            {!activePoll && polls.filter((p) => p.status === 'closed').length === 0 && !pLoading && (
+            {!activePoll && !pLoading && (
               <EmptyState
                 icon={<BarChart3 className="w-8 h-8 text-emerald-300" />}
                 title="まだ投票はありません"
-                hint="ホストが投票を開始するとここに表示されます"
+                hint="LIVE（開始中）のカードだけがここに表示されます"
               />
             )}
           </div>

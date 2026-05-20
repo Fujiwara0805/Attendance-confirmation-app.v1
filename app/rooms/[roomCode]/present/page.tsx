@@ -631,11 +631,32 @@ export default function PresentPage() {
                         })}
 	                      </div>
                         ) : (
-                          <p className="rounded-2xl bg-slate-50 px-5 py-8 text-center text-base font-semibold text-slate-500 ring-1 ring-slate-200">
-                            {timerNotStarted
-                              ? `投票時間は${standardTimeLimit}秒です。ホスト側の開始を待っています。`
-                              : '回答受付中です。結果は投票時間後に表示します。'}
-                          </p>
+                          <div className="space-y-3">
+                            <p className="rounded-2xl bg-slate-50 px-5 py-4 text-center text-base font-semibold text-slate-500 ring-1 ring-slate-200">
+                              {timerNotStarted
+                                ? `投票時間は${standardTimeLimit}秒です。ホスト側の開始を待っています。`
+                                : '回答受付中です。結果は投票時間後に表示します。'}
+                            </p>
+                            {options.map((option, i) => {
+                              const imageUrl = getPollOptionImageUrl(option);
+                              return (
+                                <div
+                                  key={i}
+                                  className="rounded-xl bg-white min-h-[88px] ring-1 ring-slate-200 shadow-sm"
+                                >
+                                  <div className="flex items-center gap-3 px-5 py-4">
+                                    <span className="shrink-0 text-lg sm:text-xl lg:text-2xl text-emerald-700 font-semibold">
+                                      {i < 20 ? String.fromCharCode(0x2460 + i) : `(${i + 1})`}
+                                    </span>
+                                    {imageUrl && <img src={imageUrl} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover ring-1 ring-slate-200" />}
+                                    <span className="min-w-0 flex-1 truncate text-lg sm:text-xl lg:text-2xl text-slate-800">
+                                      {getPollOptionLabel(option, `選択肢 ${i + 1}`)}
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
                         )
 	                      )}
                     </div>
