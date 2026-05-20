@@ -192,21 +192,34 @@ function csvEscape(v: string | number | null | undefined) {
   return s;
 }
 
+const DEFAULT_EXPORT_TIME_ZONE = 'Asia/Tokyo';
+
 function formatExportDate(value: string | null | undefined, timeZone?: string) {
   if (!value) return '';
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return '';
-  if (!timeZone) return date.toLocaleString('ja-JP');
   try {
-    return date.toLocaleString('ja-JP', { timeZone });
+    return date.toLocaleString('ja-JP', { timeZone: timeZone || DEFAULT_EXPORT_TIME_ZONE });
   } catch {
-    return date.toLocaleString('ja-JP');
+    return date.toLocaleString('ja-JP', { timeZone: DEFAULT_EXPORT_TIME_ZONE });
   }
+}
+
+function normalizeRunTimestamp(value: string) {
+  const time = new Date(value).getTime();
+  return Number.isFinite(time) ? String(time) : value;
+}
+
+function getByNormalizedRunTime(record: Record<string, string> | undefined, key: string | null | undefined) {
+  if (!record || !key) return undefined;
+  if (record[key]) return record[key];
+  const normalizedKey = normalizeRunTimestamp(key);
+  return Object.entries(record).find(([recordKey]) => normalizeRunTimestamp(recordKey) === normalizedKey)?.[1];
 }
 
 // \u901A\u5E38\u6295\u7968\u30FB\u51FA\u984C\u5F62\u5F0F\u30FB\u5E0C\u671B\u9806\u4F4D\u6295\u7968\u306E\u3059\u3079\u3066\u306E\u9805\u76EE\u3092\u7DB2\u7F85\u3059\u308B CSV \u3092\u751F\u6210\u3002
 // 1 \u884C = 1 \u9078\u629E\u80A2\uFF08\u51FA\u984C\u5F62\u5F0F\u306F\u554F\u984C\u3054\u3068\u306B\u5206\u5272\u3001\u9806\u4F4D\u6295\u7968\u306F\u5019\u88DC\u3054\u3068\uFF09\u3002
-// \u51FA\u984C\u30EA\u30BB\u30C3\u30C8\u5C65\u6B74\u306F cleared_at \u3067\u30B0\u30EB\u30FC\u30D7\u5206\u3051\u3057\u300C\u5B9F\u65BD\u56DE\u300D\u5217\u3067\u533A\u5225\u3002
+// 同じカード内の実施履歴は開始日時で区別し、票がない過去回は出力しない。
 function pollsToRichCSV(polls: PollRow[], votes: VoteRow[]) {
   const maxRankColumns = Math.max(
     3,
@@ -216,7 +229,6 @@ function pollsToRichCSV(polls: PollRow[], votes: VoteRow[]) {
     })
   );
   const headers = [
-    '\u5B9F\u65BD\u56DE',
     '\u6295\u7968\u5F62\u5F0F',
     '\u6295\u7968\u30BF\u30A4\u30C8\u30EB',
     '\u72B6\u614B',
@@ -239,12 +251,12 @@ function pollsToRichCSV(polls: PollRow[], votes: VoteRow[]) {
     const modeLabel = POLL_MODE_LABELS[mode] || '\u901A\u5E38\u6295\u7968';
     const allPollVotes = votes.filter((v) => v.poll_id === poll.id);
 
-    // \u5B9F\u65BD\u56DE\u3054\u3068\u306B\u30B0\u30EB\u30FC\u30D7\u5316\uFF08cleared_at NULL = \u73FE\u5728 / \u305D\u308C\u4EE5\u5916 = \u30A2\u30FC\u30AB\u30A4\u30D6\uFF09
-    const runs = new Map<string | null, VoteRow[]>();
+    // 開始回ごとにグループ化。cleared_at は DB と meta で表記が揺れるため時刻で正規化する。
+    const runs = new Map<string | null, { clearedAt: string | null; votes: VoteRow[] }>();
     for (const v of allPollVotes) {
-      const key = v.cleared_at ?? null;
-      if (!runs.has(key)) runs.set(key, []);
-      runs.get(key)!.push(v);
+      const key = v.cleared_at ? normalizeRunTimestamp(v.cleared_at) : null;
+      if (!runs.has(key)) runs.set(key, { clearedAt: v.cleared_at, votes: [] });
+      runs.get(key)!.votes.push(v);
     }
     const archivedRunKeys = new Set([
       ...Object.keys(meta.runStartedAtByClearedAt || {}),
@@ -252,38 +264,51 @@ function pollsToRichCSV(polls: PollRow[], votes: VoteRow[]) {
       ...Object.keys(meta.runStartedAtTimeZoneByClearedAt || {}),
     ]);
     archivedRunKeys.forEach((key) => {
-      if (!runs.has(key)) runs.set(key, []);
+      const normalizedKey = normalizeRunTimestamp(key);
+      if (!runs.has(normalizedKey)) runs.set(normalizedKey, { clearedAt: key, votes: [] });
     });
     if (poll.status === 'active' && poll.started_at && !runs.has(null)) {
-      runs.set(null, []);
+      runs.set(null, { clearedAt: null, votes: [] });
     }
-    if (runs.size === 0) runs.set(null, []); // \u6295\u7968\u306A\u3057\u3067\u3082\u51FA\u984C\u81EA\u4F53\u306F1\u884C\u51FA\u3059
+    if (runs.size === 0) runs.set(null, { clearedAt: null, votes: [] });
 
-    // \u53E4\u3044\u9806\uFF08archived ASC\uFF09\u2192 \u6700\u5F8C\u306B\u73FE\u5728
-    const archivedKeys = Array.from(runs.keys())
-      .filter((k): k is string => typeof k === 'string')
-      .sort();
-    const orderedKeys: Array<string | null> = [...archivedKeys];
-    if (runs.has(null)) orderedKeys.push(null);
+    const runItems = Array.from(runs.values())
+      .map((run) => {
+        const pollVotes = run.votes;
+        const fallbackStartedAt = pollVotes
+          .map((v) => v.created_at)
+          .filter((v): v is string => !!v)
+          .sort()[0];
+        const runStartedAt =
+          (run.clearedAt ? getByNormalizedRunTime(meta.runStartedAtClientAtByClearedAt, run.clearedAt) : meta.startedAtClientAt) ||
+          (run.clearedAt ? getByNormalizedRunTime(meta.runStartedAtByClearedAt, run.clearedAt) : poll.started_at) ||
+          fallbackStartedAt ||
+          (run.clearedAt ?? poll.started_at ?? poll.created_at);
+        const runStartedAtTimeZone = run.clearedAt
+          ? getByNormalizedRunTime(meta.runStartedAtTimeZoneByClearedAt, run.clearedAt)
+          : meta.startedAtTimeZone;
+        return {
+          ...run,
+          startedAt: runStartedAt,
+          startedAtTimeZone: runStartedAtTimeZone,
+        };
+      })
+      // 票がある履歴だけを出す。全く票がないカードだけ、空の集計行を残す。
+      .filter((run) => run.votes.length > 0 || allPollVotes.length === 0)
+      .sort((a, b) => {
+        const aTime = new Date(a.startedAt || '').getTime();
+        const bTime = new Date(b.startedAt || '').getTime();
+        if (Number.isFinite(aTime) && Number.isFinite(bTime)) return aTime - bTime;
+        return 0;
+      });
 
-    for (const runKey of orderedKeys) {
-      const pollVotes = runs.get(runKey) || [];
-      const runLabel = runKey
-        ? `\u30EA\u30BB\u30C3\u30C8 ${new Date(runKey).toLocaleString('ja-JP')}`
-        : '\u73FE\u5728';
+    for (const run of runItems) {
+      const pollVotes = run.votes;
       const fallbackStartedAt = pollVotes
         .map((v) => v.created_at)
         .filter((v): v is string => !!v)
         .sort()[0];
-      const runStartedAt =
-        (runKey ? meta.runStartedAtClientAtByClearedAt?.[runKey] : meta.startedAtClientAt) ||
-        (runKey ? meta.runStartedAtByClearedAt?.[runKey] : poll.started_at) ||
-        fallbackStartedAt ||
-        (runKey ?? poll.started_at ?? poll.created_at);
-      const runStartedAtTimeZone = runKey
-        ? meta.runStartedAtTimeZoneByClearedAt?.[runKey]
-        : meta.startedAtTimeZone;
-      const startedAtLabel = formatExportDate(runStartedAt, runStartedAtTimeZone);
+      const startedAtLabel = formatExportDate(run.startedAt || fallbackStartedAt, run.startedAtTimeZone);
       const respondents = new Set(pollVotes.map((v) => v.participant_id)).size;
       const counts = options.map((_, i) => pollVotes.filter((v) => v.option_index === i).length);
       const totalVotes = counts.reduce((s, c) => s + c, 0);
@@ -301,7 +326,6 @@ function pollsToRichCSV(polls: PollRow[], votes: VoteRow[]) {
               typeof q.correctOptionOffset === 'number' && q.correctOptionOffset === offset;
             lines.push(
               [
-                csvEscape(runLabel),
                 csvEscape(modeLabel),
                 csvEscape(poll.question),
                 csvEscape(poll.status),
@@ -335,7 +359,6 @@ function pollsToRichCSV(polls: PollRow[], votes: VoteRow[]) {
           const pct = respondents > 0 ? Math.round((firstChoice / respondents) * 100) : 0;
           lines.push(
             [
-              csvEscape(runLabel),
               csvEscape(modeLabel),
               csvEscape(poll.question),
               csvEscape(poll.status),
@@ -361,7 +384,6 @@ function pollsToRichCSV(polls: PollRow[], votes: VoteRow[]) {
           const pct = totalVotes > 0 ? Math.round((c / totalVotes) * 100) : 0;
           lines.push(
             [
-              csvEscape(runLabel),
               csvEscape(modeLabel),
               csvEscape(poll.question),
               csvEscape(poll.status),
