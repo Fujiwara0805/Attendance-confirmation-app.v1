@@ -1,9 +1,10 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import { getPollOptionLabel, type PollOption } from '@/lib/pollModes';
 
 interface PollResultsChartProps {
-  options: string[];
+  options: PollOption[];
   votes: Array<{ option_index: number | null; value: string | null }>;
   totalVotes: number;
   showPercentage?: boolean;
@@ -45,7 +46,7 @@ export default function PollResultsChart({
           <div key={i}>
             <div className="flex items-center justify-between mb-1">
               <span className={`${large ? 'text-base' : 'text-sm'} font-medium ${large ? 'text-gray-700' : 'text-slate-700'}`}>
-                {option}
+                {getPollOptionLabel(option, `選択肢 ${i + 1}`)}
               </span>
               <span className={`${large ? 'text-base' : 'text-xs'} ${large ? 'text-gray-500' : 'text-slate-500'}`}>
                 {showPercentage ? `${pct}%` : ''} ({count})

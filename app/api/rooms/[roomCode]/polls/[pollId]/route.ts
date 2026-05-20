@@ -1,8 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { createServerClient } from '@/lib/supabase';
+import {
+  buildPollOptionsPayload,
+  clampNumber,
+  getPollMode,
+  type PollMeta,
+  type PollMode,
+  type PollOption,
+} from '@/lib/pollModes';
 
-// PATCH: Update poll status (host only)
+// PATCH: Update poll status or content (host only)
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { roomCode: string; pollId: string } }
@@ -25,7 +33,106 @@ export async function PATCH(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { status } = await req.json();
+    const body = (await req.json()) as {
+      status?: string;
+      question?: string;
+      options?: PollOption[];
+      meta?: PollMeta;
+      mode?: PollMode;
+      maxSelections?: number;
+      allowMultiple?: boolean;
+      resetVotes?: boolean;
+      // 出題タイマーをサーバー時刻で開始（present 画面の「開始」ボタン由来）。
+      // true: started_at = now() / 'reset' でも同義 / false or undefined: 触らない。
+      startTimer?: boolean;
+      // 同じ出題を再利用するための完全リセット: poll_votes 削除＋started_at=null＋status='draft'
+      reset?: boolean;
+    };
+
+    // --- Reset path: 同じ出題形式を繰り返し使うためのリセット ---
+    // 投票結果は削除せず cleared_at=now() でアーカイブ（CSV では過去回として出力可）。
+    if (body.reset) {
+      await supabase
+        .from('poll_votes')
+        .update({ cleared_at: new Date().toISOString() })
+        .eq('poll_id', params.pollId)
+        .is('cleared_at', null);
+      const { data, error } = await supabase
+        .from('polls')
+        .update({ started_at: null, status: 'draft' })
+        .eq('id', params.pollId)
+        .eq('room_id', room.id)
+        .select()
+        .single();
+      if (error) throw error;
+      return NextResponse.json(data);
+    }
+
+    // --- Start-timer path: 出題タイマー（全問共通カウントダウン）を開始する ---
+    if (body.startTimer) {
+      const { data, error } = await supabase
+        .from('polls')
+        .update({ started_at: new Date().toISOString() })
+        .eq('id', params.pollId)
+        .eq('room_id', room.id)
+        .select()
+        .single();
+      if (error) throw error;
+      return NextResponse.json(data);
+    }
+
+    // --- Content edit path (出題形式などの編集・更新) ---
+    const isContentEdit =
+      typeof body.question === 'string' ||
+      Array.isArray(body.options) ||
+      !!body.meta;
+
+    if (isContentEdit) {
+      if (!body.question || !Array.isArray(body.options) || body.options.length < 2) {
+        return NextResponse.json(
+          { error: 'Question and at least 2 options are required' },
+          { status: 400 }
+        );
+      }
+
+      const pollMode = getPollMode(body.mode || body.meta?.mode);
+      const optionCount = body.options.length;
+      const rawMax = Number.isFinite(body.maxSelections) ? Number(body.maxSelections) : 1;
+      const clampedMax =
+        pollMode === 'ranking'
+          ? clampNumber(body.meta?.rankCount ?? rawMax, 1, Math.max(1, optionCount), 3)
+          : Math.max(1, Math.min(rawMax, Math.max(1, optionCount)));
+      const isMulti = pollMode === 'ranking' || body.allowMultiple || clampedMax > 1;
+      const payloadOptions = buildPollOptionsPayload(
+        { ...(body.meta || {}), mode: pollMode },
+        body.options
+      );
+
+      // 構造が変わるため、依頼どおり既存の回答をリセットしてから更新
+      if (body.resetVotes) {
+        await supabase.from('poll_votes').delete().eq('poll_id', params.pollId);
+      }
+
+      const { data, error } = await supabase
+        .from('polls')
+        .update({
+          question: body.question.trim(),
+          options: payloadOptions,
+          allow_multiple: isMulti,
+          max_selections: isMulti ? clampedMax : 1,
+        })
+        .eq('id', params.pollId)
+        .eq('room_id', room.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return NextResponse.json(data);
+    }
+
+    // --- Status-only path ---
+    const status = body.status;
     if (!status || !['draft', 'active', 'closed'].includes(status)) {
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
     }
@@ -39,9 +146,16 @@ export async function PATCH(
         .eq('status', 'active');
     }
 
+    // ステータス変更のみ。出題タイマーの開始は startTimer フラグで明示する（present 画面の開始ボタン由来）。
+    // 再度 active へ遷移した場合に時刻を残したくない場合は started_at を null にリセット。
+    const update: { status: string; started_at?: string | null } = { status };
+    if (status === 'active') {
+      update.started_at = null;
+    }
+
     const { data, error } = await supabase
       .from('polls')
-      .update({ status })
+      .update(update)
       .eq('id', params.pollId)
       .eq('room_id', room.id)
       .select()

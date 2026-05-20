@@ -1,11 +1,20 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, BarChart3, ThumbsUp, Maximize, Minimize, X, Loader2, WifiOff, MonitorUp } from 'lucide-react';
+import { MessageSquare, BarChart3, ThumbsUp, Maximize, Minimize, X, Loader2, WifiOff, MonitorUp, ChevronLeft, ChevronRight, Clock, Play } from 'lucide-react';
 import { useRealtimeQuestions } from '@/lib/hooks/useRealtimeQuestions';
 import { useRealtimePolls } from '@/lib/hooks/useRealtimePolls';
+import {
+  extractPollPayload,
+  getPollMode,
+  getPollOptionImageUrl,
+  getPollOptionLabel,
+  getQuizQuestions,
+  optionLetter,
+} from '@/lib/pollModes';
+import RankingResults from '../../components/RankingResults';
 
 type View = 'qa' | 'poll';
 
@@ -17,16 +26,23 @@ interface Room {
 
 export default function PresentPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const roomCode = (params.roomCode as string).toUpperCase();
   const containerRef = useRef<HTMLDivElement>(null);
 
   const [room, setRoom] = useState<Room | null>(null);
-  const [view, setView] = useState<View>('qa');
+  // 初期 view は ?view=poll で投票タブを直接開く
+  const [view, setView] = useState<View>(
+    searchParams?.get('view') === 'poll' ? 'poll' : 'qa'
+  );
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [qrUrl, setQrUrl] = useState<string | null>(null);
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [qrModalMode, setQrModalMode] = useState<'join' | 'upload' | null>(null);
   const [modalQrUrl, setModalQrUrl] = useState<string | null>(null);
+  const [activeQuizIndex, setActiveQuizIndex] = useState(0);
+  // 全問共通の制限時間をカウントダウン（開始時刻は poll.started_at = DB のサーバー時刻を全端末で共有）
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
   useEffect(() => {
     fetch(`/api/rooms/${roomCode}`)
@@ -106,6 +122,35 @@ export default function PresentPage() {
 
   const { questions, connected: qConnected } = useRealtimeQuestions(room?.id || null);
   const { activePoll, pollVotes, connected: pConnected } = useRealtimePolls(room?.id || null);
+
+  useEffect(() => {
+    setActiveQuizIndex(0);
+  }, [activePoll?.id]);
+
+  // タイマー再描画（0.5 秒間隔）
+  useEffect(() => {
+    const id = setInterval(() => setNowMs(Date.now()), 500);
+    return () => clearInterval(id);
+  }, []);
+
+  // 出題タイマーをサーバー時刻で開始（present の「開始」ボタン）。
+  // realtime UPDATE が他端末（参加者・他の投影）にも propagate する。
+  const [startingTimer, setStartingTimer] = useState(false);
+  const startQuizTimer = useCallback(async () => {
+    if (!activePoll || startingTimer) return;
+    setStartingTimer(true);
+    try {
+      await fetch(`/api/rooms/${roomCode}/polls/${activePoll.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ startTimer: true }),
+      });
+    } catch (e) {
+      console.error('start timer failed', e);
+    } finally {
+      setStartingTimer(false);
+    }
+  }, [activePoll, roomCode, startingTimer]);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -213,7 +258,7 @@ export default function PresentPage() {
               }`}
             >
               <BarChart3 className="w-4 h-4" />
-              投票
+              インタラクティブ
             </button>
           </div>
           {realtimeOffline && (
@@ -235,7 +280,7 @@ export default function PresentPage() {
       </header>
 
       {/* Content */}
-      <div className="flex-1 flex items-center justify-center px-8 py-8">
+      <div className="flex-1 flex items-start justify-center px-8 pt-4 pb-8">
         <AnimatePresence mode="wait">
           {view === 'qa' && (
             <motion.div
@@ -292,11 +337,33 @@ export default function PresentPage() {
             >
               {activePoll ? (
                 (() => {
+                  const { meta, options } = extractPollPayload(activePoll.options);
+                  const mode = getPollMode(meta.mode);
                   const votes = pollVotes[activePoll.id] || [];
-                  const counts = activePoll.options.map(
+                  const counts = options.map(
                     (_, i) => votes.filter((v) => v.option_index === i).length
                   );
                   const totalCast = counts.reduce((s, c) => s + c, 0);
+                  const maxSelections = Math.max(1, Number(activePoll.max_selections ?? 1));
+                  const quizQuestions = mode === 'quiz' ? getQuizQuestions(meta, options) : [];
+                  // 全問共通の制限時間をカウントダウン。回答中は正解・集計を伏せ、時間切れで開示。
+                  const quizTimeLimit = mode === 'quiz' ? meta.timeLimitSeconds || 0 : 0;
+                  // サーバー時刻ベース: poll.started_at（active 化時に DB がセット）を全端末で共有
+                  const quizStartMs = activePoll.started_at ? new Date(activePoll.started_at).getTime() : null;
+                  const quizRemaining =
+                    quizTimeLimit > 0 && quizStartMs
+                      ? Math.max(0, Math.ceil(quizTimeLimit - (nowMs - quizStartMs) / 1000))
+                      : null;
+                  // 未開始（started_at 未セット） / 回答中 / 開示 の 3 状態
+                  const quizNotStarted = mode === 'quiz' && quizTimeLimit > 0 && !quizStartMs;
+                  const quizRevealed =
+                    mode === 'quiz' &&
+                    !quizNotStarted &&
+                    (quizTimeLimit === 0 || (quizRemaining !== null && quizRemaining <= 0));
+                  const quizAnswering =
+                    mode === 'quiz' && quizTimeLimit > 0 && !!quizStartMs && !quizRevealed;
+                  const fmtTime = (s: number) =>
+                    `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
                   return (
                     <div>
                       <div className="flex items-center justify-between gap-3 mb-4">
@@ -308,15 +375,196 @@ export default function PresentPage() {
                           回答数: <span className="font-semibold text-slate-700">{totalCast}</span>
                         </span>
                       </div>
-                      <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-gray-800 mb-8 leading-tight">{activePoll.question}</h2>
+                      <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+                        <h2 className="min-w-0 flex-1 text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-gray-800 leading-tight">{activePoll.question}</h2>
+                        {mode === 'quiz' && quizTimeLimit > 0 && (
+                          /* タイマー＆コンパクトページャー＆開始ボタンを出題タイトルと同じ行の右端に */
+                          <div
+                            className={`ml-auto inline-flex flex-wrap items-center gap-2 rounded-xl px-3 py-2 ring-1 ${
+                              quizAnswering
+                                ? 'bg-emerald-50 ring-emerald-200'
+                                : quizNotStarted
+                                ? 'bg-white ring-slate-200'
+                                : 'bg-slate-50 ring-slate-200'
+                            }`}
+                          >
+                            <div className="inline-flex items-center gap-1.5 rounded-lg bg-white px-2 py-1 ring-1 ring-slate-200">
+                              <button
+                                type="button"
+                                onClick={() => setActiveQuizIndex((i) => Math.max(0, i - 1))}
+                                disabled={activeQuizIndex === 0}
+                                className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-40"
+                                aria-label="前の問題"
+                              >
+                                <ChevronLeft className="h-3.5 w-3.5" />
+                              </button>
+                              <span className="px-1 text-xs font-bold tabular-nums text-emerald-700">
+                                問題 {activeQuizIndex + 1} / {quizQuestions.length}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setActiveQuizIndex((i) => Math.min(quizQuestions.length - 1, i + 1))}
+                                disabled={activeQuizIndex >= quizQuestions.length - 1}
+                                className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-40"
+                                aria-label="次の問題"
+                              >
+                                <ChevronRight className="h-3.5 w-3.5" />
+                              </button>
+                              <div className="ml-1 flex items-center gap-1">
+                                {quizQuestions.map((question, i) => (
+                                  <button
+                                    key={question.id}
+                                    type="button"
+                                    onClick={() => setActiveQuizIndex(i)}
+                                    className={`h-1.5 rounded-full transition-all ${
+                                      i === activeQuizIndex ? 'w-4 bg-emerald-500' : 'w-1.5 bg-slate-300 hover:bg-slate-400'
+                                    }`}
+                                    aria-label={`問題 ${i + 1} を表示`}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                            {quizNotStarted ? (
+                              <button
+                                type="button"
+                                onClick={startQuizTimer}
+                                disabled={startingTimer}
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-extrabold text-white shadow-sm ring-1 ring-emerald-600 transition-colors hover:bg-emerald-700 disabled:opacity-60"
+                              >
+                                {startingTimer ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Play className="h-4 w-4" />
+                                )}
+                                開始（{fmtTime(quizTimeLimit)}）
+                              </button>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5">
+                                <Clock className={`h-4 w-4 ${quizAnswering ? 'text-emerald-600' : 'text-slate-400'}`} />
+                                <span
+                                  className={`tabular-nums font-extrabold leading-none ${
+                                    quizAnswering ? 'text-2xl sm:text-3xl text-emerald-600' : 'text-lg sm:text-xl text-slate-400'
+                                  }`}
+                                >
+                                  {quizAnswering ? fmtTime(quizRemaining ?? quizTimeLimit) : '0:00'}
+                                </span>
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      {mode === 'quiz' ? (
+                        <div className="flex flex-col gap-5">
+                          {quizAnswering && (
+                            <p className="text-sm sm:text-base font-semibold text-slate-500">
+                              回答受付中です。スマートフォンから解答してください（正解・集計は締切後に表示します）
+                            </p>
+                          )}
+                          {quizNotStarted && (
+                            <p className="text-sm sm:text-base font-semibold text-slate-500">
+                              全{quizQuestions.length}問を{quizTimeLimit}秒で回答する形式です。準備ができたら右上の「開始」を押してください。
+                            </p>
+                          )}
+                          {/* 縦は visible に（カード高さが伸びても切れない）／横だけクリップしてスワイプ */}
+                          <div className="overflow-x-hidden overflow-y-visible">
+                            <div
+                              className="flex transition-transform duration-300 ease-out"
+                              style={{ transform: `translateX(-${activeQuizIndex * 100}%)` }}
+                            >
+                              {quizQuestions.map((question, questionIndex) => {
+                                const questionTotal = votes.filter((v) => Number(v.value) === questionIndex + 1).length;
+                                const correctOffset = question.correctOptionOffset;
+                                const hasKey = typeof correctOffset === 'number';
+                                const correctCount = hasKey ? counts[question.optionStart + correctOffset] ?? 0 : 0;
+                                const correctRate =
+                                  hasKey && questionTotal > 0 ? Math.round((correctCount / questionTotal) * 100) : 0;
+                                return (
+                                <div key={question.id} className="flex w-full shrink-0 flex-col gap-8 px-2 pb-2">
+                                  <div>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <p className="text-base font-bold text-emerald-700">
+                                        問題 {question.questionNumber}
+                                      </p>
+                                      {quizRevealed && hasKey && (
+                                        <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-sm font-bold text-emerald-700 ring-1 ring-emerald-200 tabular-nums">
+                                          正答率 {correctRate}%（{correctCount}/{questionTotal}）
+                                        </span>
+                                      )}
+                                    </div>
+                                    <h3 className="mt-2 text-lg sm:text-xl lg:text-2xl font-extrabold text-slate-900 leading-snug">{question.question}</h3>
+                                  </div>
+                                  {/* 選択肢グリッド: 上下左右に間隔をとって見切れ防止＋中央寄せ */}
+                                  <div className="mx-auto grid w-[94%] grid-cols-2 gap-4 p-2 sm:w-[92%]">
+                                    {options.slice(question.optionStart, question.optionStart + question.optionCount).map((option, offset) => {
+                                      const i = question.optionStart + offset;
+                                      const count = counts[i];
+                                      const pct = questionTotal > 0 ? Math.round((count / questionTotal) * 100) : 0;
+                                      const imageUrl = getPollOptionImageUrl(option);
+                                      const isCorrect = quizRevealed && hasKey && offset === correctOffset;
+                                      return (
+                                        <div
+                                          key={i}
+                                          className={`relative flex min-h-[120px] flex-col rounded-2xl bg-white shadow-sm ring-1 ${
+                                            isCorrect ? 'ring-2 ring-emerald-400' : 'ring-slate-200'
+                                          }`}
+                                        >
+                                          {/* 進捗バーは別レイヤーでクリップ（カード本体は overflow-visible にして文字が見切れないように） */}
+                                          {quizRevealed && (
+                                            <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl" aria-hidden>
+                                              <motion.div
+                                                initial={{ width: 0 }}
+                                                animate={{ width: `${pct}%` }}
+                                                transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
+                                                className="absolute bottom-0 left-0 top-0 bg-emerald-100/80"
+                                              />
+                                            </div>
+                                          )}
+                                          <div className="relative flex flex-1 flex-col gap-2 px-5 py-4">
+                                            <span className="flex items-start gap-3 text-base text-slate-800 sm:text-lg lg:text-xl">
+                                              <span className="shrink-0 font-bold text-emerald-700">{optionLetter(offset)}</span>
+                                              {imageUrl && <img src={imageUrl} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover ring-1 ring-slate-200" />}
+                                              <span className="min-w-0 break-words leading-snug">{getPollOptionLabel(option, `解答 ${optionLetter(offset)}`)}</span>
+                                            </span>
+                                            {quizRevealed && (
+                                              <span className="mt-auto flex items-center gap-3">
+                                                {isCorrect && (
+                                                  <span className="inline-flex shrink-0 items-center rounded-full bg-emerald-600 px-2 py-0.5 text-sm font-bold text-white">
+                                                    正解
+                                                  </span>
+                                                )}
+                                                <span className="ml-auto shrink-0 tabular-nums text-base font-semibold text-slate-600 sm:text-lg">
+                                                  {count} ({pct}%)
+                                                </span>
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      ) : mode === 'ranking' ? (
+                        <RankingResults
+                          options={options}
+                          votes={votes}
+                          rankCount={maxSelections}
+                          size="large"
+                        />
+                      ) : (
                       <div className="space-y-3">
-                        {activePoll.options.map((option, i) => {
+                        {options.map((option, i) => {
                           const count = counts[i];
                           const pct = totalCast > 0 ? Math.round((count / totalCast) * 100) : 0;
+                          const imageUrl = getPollOptionImageUrl(option);
                           return (
                             <div
                               key={i}
-                              className="relative overflow-hidden rounded-xl ring-1 ring-slate-200 bg-white"
+                              className="relative overflow-hidden rounded-xl ring-1 ring-slate-200 bg-white min-h-[88px]"
                             >
                               <motion.div
                                 initial={{ width: 0 }}
@@ -330,7 +578,8 @@ export default function PresentPage() {
                                   <span className="text-emerald-700 font-semibold">
                                     {i < 20 ? String.fromCharCode(0x2460 + i) : `(${i + 1})`}
                                   </span>
-                                  <span className="truncate">{option}</span>
+                                  {imageUrl && <img src={imageUrl} alt="" className="h-14 w-14 rounded-lg object-cover ring-1 ring-slate-200" />}
+                                  <span className="truncate">{getPollOptionLabel(option, `選択肢 ${i + 1}`)}</span>
                                 </span>
                                 <span className="text-base sm:text-lg text-slate-600 tabular-nums shrink-0 font-semibold">
                                   {count} ({pct}%)
@@ -340,6 +589,7 @@ export default function PresentPage() {
                           );
                         })}
                       </div>
+                      )}
                     </div>
                   );
                 })()

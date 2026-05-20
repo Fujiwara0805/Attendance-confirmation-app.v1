@@ -28,6 +28,15 @@ import {
   Users,
   Trophy,
   ArrowLeft,
+  BookOpen,
+  ListOrdered,
+  X,
+  Clock,
+  Image as ImageIcon,
+  ChevronLeft,
+  ChevronRight,
+  Pencil,
+  BadgeCheck,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -37,6 +46,22 @@ import { useRoomPresence } from '@/lib/hooks/useRoomPresence';
 import { createBrowserClient } from '@/lib/supabase';
 import { formatDistanceToNow } from 'date-fns';
 import { ja } from 'date-fns/locale';
+import {
+  POLL_MODE_LABELS,
+  QUIZ_OPTION_COUNTS,
+  RANKING_CANDIDATE_PRESETS,
+  circledNumber,
+  clampNumber,
+  extractPollPayload,
+  getPollMode,
+  getPollOptionImageUrl,
+  getPollOptionLabel,
+  getQuizQuestions,
+  optionLetter,
+  type PollMode,
+  type PollOption,
+} from '@/lib/pollModes';
+import RankingResults from '../../components/RankingResults';
 
 const LOGO_URL =
   'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_200/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png';
@@ -54,6 +79,17 @@ type HostTab = 'questions' | 'polls' | 'summary' | 'export';
 type SortMode = 'popular' | 'newest';
 type StatusFilter = 'all' | 'unanswered' | 'pending' | 'approved' | 'answered' | 'rejected';
 
+interface QuizQuestionDraft {
+  id: string;
+  question: string;
+  /** 作成者が設定する問題番号（章の概念は廃止） */
+  questionNumber: number;
+  options: string[];
+  optionImages: string[];
+  /** 0-based offset of the correct answer. null = 採点しない（任意） */
+  correctOptionOffset: number | null;
+}
+
 const AVATAR_PALETTE = [
   'bg-emerald-100 text-emerald-700',
   'bg-amber-100 text-amber-700',
@@ -67,6 +103,17 @@ function avatarTone(name: string) {
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
   return AVATAR_PALETTE[h % AVATAR_PALETTE.length];
+}
+
+function makeQuizQuestionDraft(index: number): QuizQuestionDraft {
+  return {
+    id: `quiz-${Date.now()}-${index}`,
+    question: '',
+    questionNumber: index + 1,
+    options: Array.from({ length: 4 }, () => ''),
+    optionImages: Array.from({ length: 4 }, () => ''),
+    correctOptionOffset: null,
+  };
 }
 
 export default function HostPage() {
@@ -86,10 +133,24 @@ export default function HostPage() {
 
   // Poll creation
   const [showCreatePoll, setShowCreatePoll] = useState(false);
+  const [showPollTypeModal, setShowPollTypeModal] = useState(false);
+  const [pollMode, setPollMode] = useState<PollMode>('standard');
   const [pollQuestion, setPollQuestion] = useState('');
   const [pollOptions, setPollOptions] = useState(['', '']);
   const [pollMaxSelections, setPollMaxSelections] = useState(1);
+  // 解答時間は全問題共通（1出題につき1つ）
+  const [quizTimeLimit, setQuizTimeLimit] = useState(60);
+  const [quizQuestions, setQuizQuestions] = useState<QuizQuestionDraft[]>([
+    makeQuizQuestionDraft(0),
+  ]);
+  const [activeQuizQuestionIndex, setActiveQuizQuestionIndex] = useState(0);
+  const [pollOptionImages, setPollOptionImages] = useState<string[]>(['', '']);
+  const [rankingCandidateCount, setRankingCandidateCount] = useState(50);
+  const [rankingRankCount, setRankingRankCount] = useState(3);
+  const [rankingCandidatesText, setRankingCandidatesText] = useState('');
   const [creatingPoll, setCreatingPoll] = useState(false);
+  // 出題形式の編集・更新（null=新規作成 / pollId=編集中）
+  const [editingPollId, setEditingPollId] = useState<string | null>(null);
 
   // Export
   const [exportData, setExportData] = useState<{
@@ -113,6 +174,70 @@ export default function HostPage() {
       return next;
     });
   }, []);
+
+  const resetPollForm = useCallback((nextMode: PollMode = 'standard') => {
+    setPollMode(nextMode);
+    setPollQuestion('');
+    const initialCount = nextMode === 'quiz' ? 4 : 2;
+    setPollOptions(Array.from({ length: initialCount }, () => ''));
+    setPollOptionImages(Array.from({ length: initialCount }, () => ''));
+    setPollMaxSelections(1);
+    setQuizTimeLimit(60);
+    setQuizQuestions([makeQuizQuestionDraft(0)]);
+    setActiveQuizQuestionIndex(0);
+    setRankingCandidateCount(50);
+    setRankingRankCount(3);
+    setRankingCandidatesText('');
+    setEditingPollId(null);
+  }, []);
+
+  const handleSelectPollMode = useCallback((nextMode: PollMode) => {
+    resetPollForm(nextMode);
+    setShowPollTypeModal(false);
+    setShowCreatePoll(true);
+  }, [resetPollForm]);
+
+  // 選択肢画像は Supabase Storage (`poll-images` バケット) にアップロードして URL を保存。
+  // 旧 base64 経路（polls.options に埋め込み）は Disk IO 肥大の原因のため廃止。
+  const [imageUploading, setImageUploading] = useState<Record<string, boolean>>({});
+  const uploadOptionImage = useCallback(
+    async (file: File, callback: (url: string) => void, key: string) => {
+      if (!file.type.startsWith('image/')) return;
+      setImageUploading((prev) => ({ ...prev, [key]: true }));
+      try {
+        const form = new FormData();
+        form.append('file', file);
+        const res = await fetch(`/api/rooms/${roomCode}/upload-image`, {
+          method: 'POST',
+          body: form,
+        });
+        if (!res.ok) {
+          const text = await res.text();
+          console.error('upload failed', res.status, text);
+          return;
+        }
+        const json = (await res.json()) as { url?: string };
+        if (json.url) callback(json.url);
+      } catch (err) {
+        console.error('upload error', err);
+      } finally {
+        setImageUploading((prev) => {
+          const next = { ...prev };
+          delete next[key];
+          return next;
+        });
+      }
+    },
+    [roomCode]
+  );
+
+  const activeQuizQuestion = quizQuestions[activeQuizQuestionIndex] || quizQuestions[0];
+  const updateQuizQuestion = useCallback(
+    (index: number, updater: (question: QuizQuestionDraft) => QuizQuestionDraft) => {
+      setQuizQuestions((prev) => prev.map((q, i) => (i === index ? updater(q) : q)));
+    },
+    []
+  );
 
   // Fetch room
   useEffect(() => {
@@ -215,24 +340,120 @@ export default function HostPage() {
   }, [room, roomCode, moderationLoading]);
 
   const handleCreatePoll = async () => {
-    const validOptions = pollOptions.filter((o) => o.trim());
-    if (!pollQuestion.trim() || validOptions.length < 2) return;
+    const rankingCandidates = rankingCandidatesText
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .slice(0, 100);
+    // 「候補名｜詳細」または「候補名 | 詳細」形式を許可（詳細は確認用に表示）
+    const parseCandidate = (line: string): PollOption => {
+      const parts = line.split(/\s*[｜|]\s*/);
+      if (parts.length >= 2 && parts[1]) {
+        return { text: parts[0], detail: parts.slice(1).join(' / ') };
+      }
+      return line;
+    };
+    const rankingOptions: PollOption[] =
+      rankingCandidates.length > 0
+        ? rankingCandidates.map(parseCandidate)
+        : Array.from({ length: rankingCandidateCount }, (_, i) => `候補 ${i + 1}`);
+    const validQuizQuestions = quizQuestions
+      .map((q) => {
+        const kept = q.options
+          .map((o, i) => ({
+            text: o.trim(),
+            imageUrl: q.optionImages[i] || undefined,
+            origIndex: i,
+          }))
+          .filter((o) => o.text);
+        // 正解 offset を「空欄除外後」の並びに合わせて補正
+        const correctOffset =
+          q.correctOptionOffset !== null
+            ? kept.findIndex((o) => o.origIndex === q.correctOptionOffset)
+            : -1;
+        return { ...q, kept, correctOffset };
+      })
+      .filter((q) => q.question.trim() && q.kept.length >= 2);
+    const quizFlatOptions = validQuizQuestions.flatMap((q) =>
+      q.kept.map((o) => ({ text: o.text, imageUrl: o.imageUrl }))
+    );
+    const validOptions =
+      pollMode === 'ranking'
+        ? rankingOptions
+        : pollMode === 'quiz'
+        ? quizFlatOptions
+        : pollOptions.filter((o) => o.trim());
+    if (!pollQuestion.trim() || validOptions.length < 2 || (pollMode === 'quiz' && validQuizQuestions.length === 0)) return;
     setCreatingPoll(true);
     try {
-      await fetch(`/api/rooms/${roomCode}/polls`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          question: pollQuestion.trim(),
-          type: 'multiple_choice',
-          options: validOptions,
-          maxSelections: Math.max(1, Math.min(pollMaxSelections, validOptions.length)),
-          allowMultiple: pollMaxSelections > 1,
-        }),
+      const finalMaxSelections =
+        pollMode === 'ranking'
+          ? clampNumber(rankingRankCount, 1, validOptions.length, 3)
+          : pollMode === 'quiz'
+          ? validQuizQuestions.length
+          : Math.max(1, Math.min(pollMaxSelections, validOptions.length));
+      const optionsPayload: PollOption[] =
+        pollMode === 'quiz'
+          ? quizFlatOptions
+          : validOptions;
+      let optionStart = 0;
+      const quizQuestionMeta = validQuizQuestions.map((q) => {
+        const optionCount = q.kept.length;
+        const meta = {
+          id: q.id,
+          question: q.question.trim(),
+          questionNumber: q.questionNumber,
+          // 解答時間は全問共通（poll 単位の設定を各問にも反映）
+          timeLimitSeconds: quizTimeLimit,
+          optionStart,
+          optionCount,
+          // 出題した問題ごとに正解を保持（編集・更新でも引き継ぐ）
+          correctOptionOffset: q.correctOffset >= 0 ? q.correctOffset : undefined,
+        };
+        optionStart += optionCount;
+        return meta;
       });
-      setPollQuestion('');
-      setPollOptions(['', '']);
-      setPollMaxSelections(1);
+      const payload = {
+        question: pollQuestion.trim(),
+        type: 'multiple_choice',
+        mode: pollMode,
+        meta: {
+          mode: pollMode,
+          timeLimitSeconds: pollMode === 'quiz' ? quizTimeLimit : undefined,
+          quizQuestions: pollMode === 'quiz' ? quizQuestionMeta : undefined,
+          optionCount: pollMode === 'quiz' ? validOptions.length : undefined,
+          rankCount: pollMode === 'ranking' ? finalMaxSelections : undefined,
+          candidateCount: pollMode === 'ranking' ? validOptions.length : undefined,
+        },
+        options: optionsPayload,
+        maxSelections: finalMaxSelections,
+        allowMultiple: pollMode === 'ranking' || finalMaxSelections > 1,
+      };
+
+      if (editingPollId) {
+        const hadVotes = (pollVotes[editingPollId]?.length || 0) > 0;
+        if (
+          hadVotes &&
+          !window.confirm(
+            'この出題には既に回答があります。更新すると既存の回答はリセットされます。よろしいですか？'
+          )
+        ) {
+          setCreatingPoll(false);
+          return;
+        }
+        await fetch(`/api/rooms/${roomCode}/polls/${editingPollId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...payload, resetVotes: true }),
+        });
+      } else {
+        await fetch(`/api/rooms/${roomCode}/polls`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      }
+      resetPollForm(pollMode);
       setShowCreatePoll(false);
     } catch {
       /* ignore */
@@ -262,6 +483,58 @@ export default function HostPage() {
       setPollDeletingId(null);
     }
   };
+
+  // 同じ出題形式を再利用するためのリセット（票削除＋タイマー初期化＋draft 化）
+  const [pollResettingId, setPollResettingId] = useState<string | null>(null);
+  const handleResetPoll = useCallback(
+    async (pollId: string) => {
+      if (
+        !window.confirm(
+          'この出題のすべての回答・タイマーをリセットし、下書きに戻します。よろしいですか？'
+        )
+      )
+        return;
+      setPollResettingId(pollId);
+      try {
+        await fetch(`/api/rooms/${roomCode}/polls/${pollId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reset: true }),
+        });
+      } finally {
+        setPollResettingId(null);
+      }
+    },
+    [roomCode]
+  );
+
+  // 出題形式を編集フォームに読み込む（編集・更新）
+  const handleEditPoll = useCallback((poll: Poll) => {
+    const { meta, options } = extractPollPayload(poll.options);
+    if (getPollMode(meta.mode) !== 'quiz') return;
+    const qs = getQuizQuestions(meta, options);
+    const drafts: QuizQuestionDraft[] = qs.map((q, i) => {
+      const slice = options.slice(q.optionStart, q.optionStart + q.optionCount);
+      return {
+        id: q.id || `quiz-${Date.now()}-${i}`,
+        question: q.question || '',
+        questionNumber: q.questionNumber || i + 1,
+        options: slice.map((o) => getPollOptionLabel(o, '')),
+        optionImages: slice.map((o) => getPollOptionImageUrl(o) || ''),
+        correctOptionOffset:
+          typeof q.correctOptionOffset === 'number' ? q.correctOptionOffset : null,
+      };
+    });
+    setPollMode('quiz');
+    setPollQuestion(poll.question || '');
+    // 解答時間は全問共通: meta 優先、無ければ最初の問題から復元
+    setQuizTimeLimit(meta.timeLimitSeconds || qs[0]?.timeLimitSeconds || 60);
+    setQuizQuestions(drafts.length > 0 ? drafts : [makeQuizQuestionDraft(0)]);
+    setActiveQuizQuestionIndex(0);
+    setEditingPollId(poll.id);
+    setShowPollTypeModal(false);
+    setShowCreatePoll(true);
+  }, []);
 
   const handleToggleRoomStatus = async () => {
     if (!room || roomStatusLoading) return;
@@ -497,7 +770,7 @@ export default function HostPage() {
           {(
             [
               { key: 'questions', icon: <MessageSquare className="w-4 h-4" />, label: '質問' },
-              { key: 'polls', icon: <BarChart3 className="w-4 h-4" />, label: '投票' },
+              { key: 'polls', icon: <BarChart3 className="w-4 h-4" />, label: 'インタラクティブ' },
               { key: 'summary', icon: <PieChart className="w-4 h-4" />, label: 'サマリー' },
               { key: 'export', icon: <Download className="w-4 h-4" />, label: 'エクスポート' },
             ] as const
@@ -663,17 +936,29 @@ export default function HostPage() {
         {tab === 'polls' && (
           <div className="space-y-5">
             <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-extrabold tracking-tight text-slate-900">投票</h2>
+              <div>
+                <h2 className="text-2xl font-extrabold tracking-tight text-slate-900">インタラクティブ</h2>
+                <p className="mt-0.5 text-xs text-slate-500">通常投票 / 出題形式 / 希望順位投票</p>
+              </div>
               {room.status === 'active' && (
                 <button
-                  onClick={() => setShowCreatePoll(!showCreatePoll)}
+                  onClick={() => setShowPollTypeModal(true)}
                   className="inline-flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold px-4 h-10 rounded-lg shadow-sm shadow-emerald-200/60 transition-colors text-sm"
                 >
                   <Plus className="w-4 h-4" />
-                  新しい投票
+                  新規作成
                 </button>
               )}
             </div>
+
+            <AnimatePresence>
+              {showPollTypeModal && (
+                <PollTypeModal
+                  onClose={() => setShowPollTypeModal(false)}
+                  onSelect={handleSelectPollMode}
+                />
+              )}
+            </AnimatePresence>
 
             {/* Create poll form */}
             <AnimatePresence>
@@ -684,79 +969,444 @@ export default function HostPage() {
                   exit={{ opacity: 0, height: 0 }}
                   className="rounded-2xl bg-white ring-1 ring-slate-200 p-5 space-y-3 overflow-hidden"
                 >
-                  <input
-                    type="text"
-                    value={pollQuestion}
-                    onChange={(e) => setPollQuestion(e.target.value)}
-                    placeholder="質問文（例: 今日の授業の理解度は？）"
-                    className="w-full h-11 px-3 rounded-xl bg-slate-50 ring-1 ring-slate-200 focus:ring-emerald-300 focus:bg-white outline-none transition-colors text-sm"
-                    style={{ fontSize: '16px' }}
-                  />
-                  {pollOptions.map((opt, i) => (
-                    <div key={i} className="flex gap-2">
-                      <input
-                        type="text"
-                        value={opt}
-                        onChange={(e) => {
-                          const updated = [...pollOptions];
-                          updated[i] = e.target.value;
-                          setPollOptions(updated);
-                        }}
-                        placeholder={`選択肢 ${i + 1}`}
-                        className="flex-1 h-11 px-3 rounded-xl bg-slate-50 ring-1 ring-slate-200 focus:ring-emerald-300 focus:bg-white outline-none transition-colors text-sm"
-                        style={{ fontSize: '16px' }}
-                      />
-                      {pollOptions.length > 2 && (
-                        <button
-                          type="button"
-                          onClick={() => setPollOptions(pollOptions.filter((_, j) => j !== i))}
-                          className="text-rose-400 hover:text-rose-600 px-2"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <span className="text-xs font-bold text-emerald-700 bg-emerald-50 ring-1 ring-emerald-200 px-2 py-1 rounded-full">
+                        {POLL_MODE_LABELS[pollMode]}
+                      </span>
+                      <h3 className="mt-2 text-base font-bold text-slate-900">
+                        {editingPollId
+                          ? '出題形式を編集'
+                          : pollMode === 'standard'
+                          ? '通常投票を作成'
+                          : pollMode === 'quiz'
+                          ? '出題形式を作成'
+                          : '希望順位投票を作成'}
+                      </h3>
                     </div>
-                  ))}
-                  <div className="flex flex-wrap items-center gap-3">
-                    {pollOptions.length < 8 && (
+                    {!editingPollId && (
                       <button
                         type="button"
-                        onClick={() => setPollOptions([...pollOptions, ''])}
-                        className="text-sm text-emerald-700 hover:text-emerald-800 font-semibold"
+                        onClick={() => setShowPollTypeModal(true)}
+                        className="text-xs font-semibold text-slate-500 hover:text-slate-800"
                       >
-                        + 選択肢を追加
+                        種類を変更
                       </button>
                     )}
-                    <label className="ml-auto inline-flex items-center gap-2 text-xs sm:text-sm text-slate-600">
-                      1人あたりの最大選択数
-                      <input
-                        type="number"
-                        min={1}
-                        max={Math.max(2, pollOptions.filter((o) => o.trim()).length || 2)}
-                        value={pollMaxSelections}
-                        onChange={(e) =>
-                          setPollMaxSelections(Math.max(1, Number(e.target.value) || 1))
-                        }
-                        className="w-16 h-9 px-2 rounded-lg bg-slate-50 ring-1 ring-slate-200 focus:ring-emerald-300 focus:bg-white outline-none text-center font-semibold tabular-nums"
+                  </div>
+                  <div className={pollMode === 'quiz' ? 'flex flex-wrap items-center gap-2' : ''}>
+                    <input
+                      type="text"
+                      value={pollQuestion}
+                      onChange={(e) => setPollQuestion(e.target.value)}
+                      placeholder={pollMode === 'quiz' ? '出題タイトル（例: 確認問題）' : pollMode === 'ranking' ? '投票タイトル（例: 希望テーマを選んでください）' : '質問文（例: 今日の授業の理解度は？）'}
+                      className={`h-11 rounded-xl bg-slate-50 px-3 ring-1 ring-slate-200 focus:bg-white focus:ring-emerald-300 outline-none transition-colors text-sm ${
+                        pollMode === 'quiz' ? 'min-w-[180px] flex-1' : 'w-full'
+                      }`}
+                      style={{ fontSize: '16px' }}
+                    />
+                    {pollMode === 'quiz' && (
+                      <>
+                        <div className="inline-flex items-center gap-1 rounded-xl bg-slate-50 px-2 py-1 ring-1 ring-slate-200">
+                          <button
+                            type="button"
+                            onClick={() => setActiveQuizQuestionIndex((i) => Math.max(0, i - 1))}
+                            disabled={activeQuizQuestionIndex === 0}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-40"
+                            aria-label="前の問題"
+                          >
+                            <ChevronLeft className="h-3.5 w-3.5" />
+                          </button>
+                          <span className="px-1 text-xs font-bold tabular-nums text-slate-700">
+                            {activeQuizQuestionIndex + 1} / {quizQuestions.length}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setActiveQuizQuestionIndex((i) => Math.min(quizQuestions.length - 1, i + 1))}
+                            disabled={activeQuizQuestionIndex >= quizQuestions.length - 1}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-40"
+                            aria-label="次の問題"
+                          >
+                            <ChevronRight className="h-3.5 w-3.5" />
+                          </button>
+                          <div className="ml-1 flex items-center gap-0.5">
+                            {quizQuestions.map((_, i) => (
+                              <button
+                                key={i}
+                                type="button"
+                                onClick={() => setActiveQuizQuestionIndex(i)}
+                                className={`h-1.5 rounded-full transition-all ${
+                                  i === activeQuizQuestionIndex ? 'w-4 bg-emerald-500' : 'w-1.5 bg-slate-300 hover:bg-slate-400'
+                                }`}
+                                aria-label={`問題 ${i + 1} を表示`}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                        <label className="ml-auto inline-flex items-center gap-1.5 rounded-xl bg-slate-50 px-3 py-1 ring-1 ring-slate-200">
+                          <Clock className="h-4 w-4 text-slate-400" />
+                          <input
+                            type="number"
+                            min={5}
+                            max={3600}
+                            value={quizTimeLimit}
+                            onChange={(e) =>
+                              setQuizTimeLimit(clampNumber(e.target.value, 5, 3600, 60))
+                            }
+                            className="h-7 w-16 rounded-md bg-white px-2 text-center font-semibold tabular-nums ring-1 ring-slate-200 outline-none focus:ring-emerald-300"
+                            style={{ fontSize: '16px' }}
+                            aria-label="解答時間（全問題共通・秒）"
+                          />
+                          <span className="text-xs font-semibold text-slate-500">秒</span>
+                        </label>
+                      </>
+                    )}
+                  </div>
+
+                  {pollMode === 'quiz' && (
+                    <div className="space-y-4">
+                      {activeQuizQuestion && (
+                        <div className="rounded-2xl bg-slate-50/70 p-4 ring-1 ring-slate-200">
+                          <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
+                            <div className="flex items-center gap-2">
+                              <select
+                                value={activeQuizQuestion.options.length}
+                                onChange={(e) => {
+                                  const count = Number(e.target.value);
+                                  updateQuizQuestion(activeQuizQuestionIndex, (q) => ({
+                                    ...q,
+                                    options: Array.from({ length: count }, (_, optionIndex) => q.options[optionIndex] || ''),
+                                    optionImages: Array.from({ length: count }, (_, optionIndex) => q.optionImages[optionIndex] || ''),
+                                    correctOptionOffset:
+                                      q.correctOptionOffset !== null && q.correctOptionOffset < count
+                                        ? q.correctOptionOffset
+                                        : null,
+                                  }));
+                                }}
+                                className="h-9 rounded-lg bg-white px-2 text-xs font-semibold ring-1 ring-slate-200"
+                              >
+                                {QUIZ_OPTION_COUNTS.map((count) => (
+                                  <option key={count} value={count}>{count}択</option>
+                                ))}
+                              </select>
+                              {quizQuestions.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setQuizQuestions((prev) => prev.filter((_, i) => i !== activeQuizQuestionIndex));
+                                    setActiveQuizQuestionIndex((i) => Math.max(0, Math.min(i, quizQuestions.length - 2)));
+                                  }}
+                                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-rose-500 hover:bg-rose-50"
+                                  title="問題を削除"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          <textarea
+                            value={activeQuizQuestion.question}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              updateQuizQuestion(activeQuizQuestionIndex, (q) => ({ ...q, question: value }));
+                            }}
+                            placeholder="問題文を入力してください"
+                            className="min-h-[88px] w-full resize-y rounded-xl bg-white px-4 py-3 text-lg leading-relaxed font-medium ring-1 ring-slate-200 outline-none focus:ring-emerald-300"
+                            style={{ fontSize: '18px' }}
+                          />
+
+                          <div className="mt-3">
+                            <label className="text-xs sm:text-sm text-slate-600">
+                              問題番号
+                              <select
+                                value={activeQuizQuestion.questionNumber}
+                                onChange={(e) => {
+                                  const questionNumber = Number(e.target.value);
+                                  updateQuizQuestion(activeQuizQuestionIndex, (q) => ({ ...q, questionNumber }));
+                                }}
+                                className="mt-1 h-10 w-full rounded-xl bg-white px-3 text-sm font-semibold ring-1 ring-slate-200 outline-none focus:ring-emerald-300 sm:w-40"
+                              >
+                                {Array.from({ length: 50 }, (_, i) => i + 1).map((number) => (
+                                  <option key={number} value={number}>
+                                    問題 {number}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                          </div>
+
+                          <div className="mt-3 flex items-center justify-between">
+                            <p className="text-[11px] font-semibold text-slate-500">解答の選択肢（画像添付可）</p>
+                            <p className="text-[11px] text-slate-400">
+                              ✓で正解を設定（問題ごとに保持）
+                            </p>
+                          </div>
+                          <div className="mt-1.5 space-y-2">
+                            {activeQuizQuestion.options.map((opt, optionIndex) => {
+                              const isCorrect = activeQuizQuestion.correctOptionOffset === optionIndex;
+                              return (
+                              <div key={optionIndex} className="flex gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    updateQuizQuestion(activeQuizQuestionIndex, (q) => ({
+                                      ...q,
+                                      correctOptionOffset:
+                                        q.correctOptionOffset === optionIndex ? null : optionIndex,
+                                    }))
+                                  }
+                                  title={isCorrect ? '正解（クリックで解除）' : '正解に設定'}
+                                  aria-label={isCorrect ? '正解（クリックで解除）' : '正解に設定'}
+                                  className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ring-1 transition-colors ${
+                                    isCorrect
+                                      ? 'bg-emerald-600 text-white ring-emerald-600'
+                                      : 'bg-white text-slate-400 ring-slate-200 hover:bg-slate-50'
+                                  }`}
+                                >
+                                  <BadgeCheck className="h-5 w-5" />
+                                </button>
+                                <input
+                                  type="text"
+                                  value={opt}
+                                  onChange={(e) => {
+                                    const value = e.target.value;
+                                    updateQuizQuestion(activeQuizQuestionIndex, (q) => {
+                                      const options = [...q.options];
+                                      options[optionIndex] = value;
+                                      return { ...q, options };
+                                    });
+                                  }}
+                                  placeholder={`解答 ${optionLetter(optionIndex)}`}
+                                  className={`h-11 flex-1 rounded-xl bg-white px-3 text-sm ring-1 outline-none focus:ring-emerald-300 ${
+                                    isCorrect ? 'ring-emerald-300' : 'ring-slate-200'
+                                  }`}
+                                  style={{ fontSize: '16px' }}
+                                />
+                                <label
+                                  className={`inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl bg-white text-slate-500 ring-1 ring-slate-200 hover:bg-slate-50 ${
+                                    imageUploading[`${activeQuizQuestion.id}-${optionIndex}`]
+                                      ? 'pointer-events-none opacity-60'
+                                      : ''
+                                  }`}
+                                  title="選択肢に画像をアップロード"
+                                >
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="sr-only"
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      const key = `${activeQuizQuestion.id}-${optionIndex}`;
+                                      if (file) {
+                                        void uploadOptionImage(
+                                          file,
+                                          (url) => {
+                                            updateQuizQuestion(activeQuizQuestionIndex, (q) => {
+                                              const optionImages = [...q.optionImages];
+                                              optionImages[optionIndex] = url;
+                                              return { ...q, optionImages };
+                                            });
+                                          },
+                                          key
+                                        );
+                                      }
+                                      e.target.value = '';
+                                    }}
+                                  />
+                                  {imageUploading[`${activeQuizQuestion.id}-${optionIndex}`] ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <ImageIcon className="w-4 h-4" />
+                                  )}
+                                </label>
+                                {activeQuizQuestion.optionImages[optionIndex] && (
+                                  <div className="relative h-11 w-11 shrink-0">
+                                    <img
+                                      src={activeQuizQuestion.optionImages[optionIndex]}
+                                      alt={`解答 ${optionLetter(optionIndex)} の画像`}
+                                      className="h-11 w-11 rounded-xl object-cover ring-1 ring-slate-200"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        updateQuizQuestion(activeQuizQuestionIndex, (q) => {
+                                          const optionImages = [...q.optionImages];
+                                          optionImages[optionIndex] = '';
+                                          return { ...q, optionImages };
+                                        })
+                                      }
+                                      title="画像を削除"
+                                      aria-label="画像を削除"
+                                      className="absolute -right-1.5 -top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-white ring-2 ring-white hover:bg-rose-600"
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const nextQuestion = makeQuizQuestionDraft(quizQuestions.length);
+                            setQuizQuestions((prev) => [...prev, nextQuestion]);
+                            setActiveQuizQuestionIndex(quizQuestions.length);
+                          }}
+                          className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-white px-3 text-sm font-semibold text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-50"
+                        >
+                          <Plus className="w-4 h-4" />
+                          問題を追加
+                        </button>
+                        <div className="ml-auto flex items-center gap-1">
+                          {quizQuestions.map((_, i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              onClick={() => setActiveQuizQuestionIndex(i)}
+                              className={`h-2.5 rounded-full transition-all ${
+                                i === activeQuizQuestionIndex ? 'w-6 bg-emerald-500' : 'w-2.5 bg-slate-300 hover:bg-slate-400'
+                              }`}
+                              aria-label={`問題 ${i + 1} を表示`}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {pollMode === 'standard' ? (
+                    pollOptions.map((opt, i) => (
+                      <div key={i} className="flex gap-2">
+                        <input
+                          type="text"
+                          value={opt}
+                          onChange={(e) => {
+                            const updated = [...pollOptions];
+                            updated[i] = e.target.value;
+                            setPollOptions(updated);
+                          }}
+                          placeholder={`選択肢 ${i + 1}`}
+                          className="flex-1 h-11 px-3 rounded-xl bg-slate-50 ring-1 ring-slate-200 focus:ring-emerald-300 focus:bg-white outline-none transition-colors text-sm"
+                          style={{ fontSize: '16px' }}
+                        />
+                        {pollMode === 'standard' && pollOptions.length > 2 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPollOptions(pollOptions.filter((_, j) => j !== i));
+                              setPollOptionImages(pollOptionImages.filter((_, j) => j !== i));
+                            }}
+                            className="text-rose-400 hover:text-rose-600 px-2"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    ))
+                  ) : pollMode === 'ranking' ? (
+                    <div className="space-y-3">
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <label className="text-xs sm:text-sm text-slate-600">
+                          候補数
+                          <select
+                            value={rankingCandidateCount}
+                            onChange={(e) => setRankingCandidateCount(Number(e.target.value))}
+                            className="mt-1 h-11 w-full rounded-xl bg-slate-50 px-3 font-semibold ring-1 ring-slate-200 outline-none"
+                          >
+                            {RANKING_CANDIDATE_PRESETS.map((count) => (
+                              <option key={count} value={count}>{count}件</option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="text-xs sm:text-sm text-slate-600">
+                          1人あたりの回答順位数
+                          <input
+                            type="number"
+                            min={1}
+                            max={10}
+                            value={rankingRankCount}
+                            onChange={(e) => setRankingRankCount(clampNumber(e.target.value, 1, 10, 3))}
+                            className="mt-1 h-11 w-full rounded-xl bg-slate-50 px-3 text-center font-semibold tabular-nums ring-1 ring-slate-200 outline-none"
+                            style={{ fontSize: '16px' }}
+                          />
+                        </label>
+                      </div>
+                      <textarea
+                        value={rankingCandidatesText}
+                        onChange={(e) => setRankingCandidatesText(e.target.value)}
+                        placeholder={`候補名を1行ずつ入力（未入力の場合は候補1〜${rankingCandidateCount}を自動作成）\n例: テーマA｜詳細説明 ← 「｜」で詳細を付けると選択時に確認できます`}
+                        className="min-h-[120px] w-full rounded-xl bg-slate-50 px-3 py-2 text-sm ring-1 ring-slate-200 outline-none focus:bg-white focus:ring-emerald-300"
                         style={{ fontSize: '16px' }}
                       />
-                      <span className="text-slate-400">/ {pollOptions.filter((o) => o.trim()).length || 0}</span>
-                    </label>
-                  </div>
+                      <p className="text-[11px] text-slate-400">
+                        1行＝1候補。「候補名｜詳細」で詳細を付けると、参加者が選択時に確認できます。
+                      </p>
+                    </div>
+                  ) : null}
+
+                  {pollMode === 'standard' && (
+                    <div className="flex flex-wrap items-center gap-3">
+                      {pollOptions.length < 8 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPollOptions([...pollOptions, '']);
+                            setPollOptionImages([...pollOptionImages, '']);
+                          }}
+                          className="text-sm text-emerald-700 hover:text-emerald-800 font-semibold"
+                        >
+                          + 選択肢を追加
+                        </button>
+                      )}
+                      <label className="ml-auto inline-flex items-center gap-2 text-xs sm:text-sm text-slate-600">
+                        1人あたりの最大選択数
+                        <input
+                          type="number"
+                          min={1}
+                          max={Math.max(2, pollOptions.filter((o) => o.trim()).length || 2)}
+                          value={pollMaxSelections}
+                          onChange={(e) =>
+                            setPollMaxSelections(Math.max(1, Number(e.target.value) || 1))
+                          }
+                          className="w-16 h-9 px-2 rounded-lg bg-slate-50 ring-1 ring-slate-200 focus:ring-emerald-300 focus:bg-white outline-none text-center font-semibold tabular-nums"
+                          style={{ fontSize: '16px' }}
+                        />
+                        <span className="text-slate-400">/ {pollOptions.filter((o) => o.trim()).length || 0}</span>
+                      </label>
+                    </div>
+                  )}
                   <div className="flex gap-2 pt-1">
                     <button
                       onClick={handleCreatePoll}
                       disabled={
                         creatingPoll ||
                         !pollQuestion.trim() ||
-                        pollOptions.filter((o) => o.trim()).length < 2
+                        (pollMode === 'standard' && pollOptions.filter((o) => o.trim()).length < 2) ||
+                        (pollMode === 'quiz' &&
+                          !quizQuestions.some((q) => q.question.trim() && q.options.filter((o) => o.trim()).length >= 2))
                       }
                       className="bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-200 disabled:text-slate-400 text-white font-semibold px-4 h-10 rounded-lg text-sm transition-colors"
                     >
-                      {creatingPoll ? '作成中...' : '作成する'}
+                      {creatingPoll
+                        ? editingPollId
+                          ? '更新中...'
+                          : '作成中...'
+                        : editingPollId
+                        ? '更新する'
+                        : '作成する'}
                     </button>
                     <button
-                      onClick={() => setShowCreatePoll(false)}
+                      onClick={() => {
+                        setShowCreatePoll(false);
+                        setEditingPollId(null);
+                      }}
                       className="text-slate-500 hover:text-slate-800 font-semibold px-4 h-10 rounded-lg text-sm"
                     >
                       キャンセル
@@ -773,8 +1423,8 @@ export default function HostPage() {
                 <div className="w-14 h-14 rounded-2xl bg-emerald-50 ring-1 ring-emerald-100 flex items-center justify-center mb-3">
                   <BarChart3 className="w-7 h-7 text-emerald-300" />
                 </div>
-                <p className="text-sm font-semibold text-slate-700">まだ投票はありません</p>
-                <p className="text-xs text-slate-400 mt-1">右上の「新しい投票」から作成できます</p>
+                <p className="text-sm font-semibold text-slate-700">まだインタラクティブはありません</p>
+                <p className="text-xs text-slate-400 mt-1">右上の「新規作成」から作成できます</p>
               </div>
             ) : (
               polls.map((poll) => (
@@ -787,6 +1437,9 @@ export default function HostPage() {
                   onStart={() => handlePollStatus(poll.id, 'active')}
                   onClose={() => handlePollStatus(poll.id, 'closed')}
                   onDelete={() => handleDeletePoll(poll.id)}
+                  onEdit={() => handleEditPoll(poll)}
+                  onReset={() => handleResetPoll(poll.id)}
+                  resetting={pollResettingId === poll.id}
                 />
               ))
             )}
@@ -938,6 +1591,90 @@ export default function HostPage() {
 }
 
 /* ====== Subcomponents ====== */
+
+function PollTypeModal({
+  onClose,
+  onSelect,
+}: {
+  onClose: () => void;
+  onSelect: (mode: PollMode) => void;
+}) {
+  const items: Array<{
+    mode: PollMode;
+    title: string;
+    desc: string;
+    icon: React.ReactNode;
+  }> = [
+    {
+      mode: 'standard',
+      title: '通常投票',
+      desc: '従来のチェック回答・複数選択の投票です。',
+      icon: <BarChart3 className="w-5 h-5" />,
+    },
+    {
+      mode: 'quiz',
+      title: '出題形式',
+      desc: '1つの投票内に1-1、1-2、1-3のような複数問題を作成します。',
+      icon: <BookOpen className="w-5 h-5" />,
+    },
+    {
+      mode: 'ranking',
+      title: '希望順位投票',
+      desc: '多数の候補から第1希望、第2希望、第3希望を集計します。',
+      icon: <ListOrdered className="w-5 h-5" />,
+    },
+  ];
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/40 px-4 backdrop-blur-sm"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <motion.div
+        initial={{ opacity: 0, y: 16, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 12, scale: 0.98 }}
+        className="w-full max-w-2xl rounded-2xl bg-white p-5 shadow-2xl ring-1 ring-slate-200"
+      >
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-extrabold text-slate-900">投票の種類を選択</h3>
+            <p className="mt-1 text-sm text-slate-500">用途に合わせて作成フォームを切り替えます。</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+            aria-label="閉じる"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {items.map((item) => (
+            <button
+              key={item.mode}
+              type="button"
+              onClick={() => onSelect(item.mode)}
+              className="min-h-[150px] rounded-2xl bg-white p-4 text-left ring-1 ring-slate-200 transition-colors hover:bg-emerald-50 hover:ring-emerald-200"
+            >
+              <span className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100">
+                {item.icon}
+              </span>
+              <span className="block text-sm font-bold text-slate-900">{item.title}</span>
+              <span className="mt-1 block text-xs leading-relaxed text-slate-500">{item.desc}</span>
+            </button>
+          ))}
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
 
 function SortPill({
   active,
@@ -1215,20 +1952,33 @@ function PollResultCard({
   onStart,
   onClose,
   onDelete,
+  onEdit,
+  onReset,
+  resetting,
 }: {
   poll: Poll;
-  votes: Array<{ option_index: number | null }>;
+  votes: Array<{ option_index: number | null; value?: string | null; participant_id?: string }>;
   pendingId: string | null;
   deletingId: string | null;
   onStart: () => void;
   onClose: () => void;
   onDelete: () => void;
+  onEdit: () => void;
+  onReset: () => void;
+  resetting: boolean;
 }) {
-  const counts = poll.options.map((_, i) => votes.filter((v) => v.option_index === i).length);
+  const { meta, options } = extractPollPayload(poll.options);
+  const mode = getPollMode(meta.mode);
+  const counts = options.map((_, i) => votes.filter((v) => v.option_index === i).length);
   const totalVotes = counts.reduce((sum, c) => sum + c, 0);
-  const totalRespondents = totalVotes; // 単純集計（複数選択の場合は total cast）
+  const totalRespondents =
+    mode === 'ranking' || mode === 'quiz'
+      ? new Set(votes.map((v) => (v as { participant_id?: string }).participant_id).filter(Boolean)).size || totalVotes
+      : totalVotes;
   const maxSelections = Math.max(1, Number(poll.max_selections ?? 1));
   const isMulti = maxSelections > 1 || poll.allow_multiple;
+  const quizQuestions = mode === 'quiz' ? getQuizQuestions(meta, options) : [];
+  const [activeQuizIndex, setActiveQuizIndex] = useState(0);
   const isPending = pendingId === poll.id;
   const isDeleting = deletingId === poll.id;
 
@@ -1239,7 +1989,12 @@ function PollResultCard({
           <div className="flex flex-wrap items-center gap-2 mb-2 text-xs">
             {isMulti && (
               <span className="inline-flex items-center font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                複数選択
+                {mode === 'ranking' ? `${maxSelections}件を順位選択` : '複数選択'}
+              </span>
+            )}
+            {mode !== 'standard' && (
+              <span className="inline-flex items-center font-semibold text-emerald-700 bg-emerald-50 ring-1 ring-emerald-100 px-2 py-0.5 rounded-full">
+                {POLL_MODE_LABELS[mode]}
               </span>
             )}
             {poll.status === 'active' ? (
@@ -1256,9 +2011,60 @@ function PollResultCard({
               回答数: <span className="ml-1 font-semibold text-slate-700">{totalRespondents}</span>
             </span>
           </div>
-          <h3 className="text-base sm:text-lg font-bold text-slate-900 leading-snug">
-            {poll.question}
-          </h3>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <h3 className="text-base sm:text-lg font-bold text-slate-900 leading-snug">
+              {poll.question}
+            </h3>
+            {mode === 'quiz' && quizQuestions.length > 0 && (
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-slate-50 px-2 py-1 ring-1 ring-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setActiveQuizIndex((i) => Math.max(0, i - 1))}
+                  disabled={activeQuizIndex === 0}
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-40"
+                  aria-label="前の問題"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                <span className="px-1 text-xs font-bold text-emerald-700 tabular-nums">
+                  問題 {activeQuizIndex + 1} / {quizQuestions.length}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setActiveQuizIndex((i) => Math.min(quizQuestions.length - 1, i + 1))}
+                  disabled={activeQuizIndex >= quizQuestions.length - 1}
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-40"
+                  aria-label="次の問題"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+                <div className="ml-1 flex items-center gap-1">
+                  {quizQuestions.map((question, i) => (
+                    <button
+                      key={question.id}
+                      type="button"
+                      onClick={() => setActiveQuizIndex(i)}
+                      className={`h-2 rounded-full transition-all ${
+                        i === activeQuizIndex ? 'w-5 bg-emerald-500' : 'w-2 bg-slate-300 hover:bg-slate-400'
+                      }`}
+                      aria-label={`問題 ${i + 1} を表示`}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          {mode === 'quiz' && (
+            <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+              <span>全{quizQuestions.length}問</span>
+              {meta.timeLimitSeconds ? (
+                <span className="inline-flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  解答時間 {meta.timeLimitSeconds}秒（全問共通）
+                </span>
+              ) : null}
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-1 shrink-0">
           {poll.status === 'draft' && (
@@ -1288,6 +2094,29 @@ function PollResultCard({
               )}
             </button>
           )}
+          {mode === 'quiz' && (
+            <button
+              type="button"
+              onClick={onEdit}
+              className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 transition-colors"
+              title="編集・更新"
+              aria-label="出題形式を編集"
+            >
+              <Pencil className="w-4 h-4" />
+            </button>
+          )}
+          {mode === 'quiz' && (
+            <button
+              type="button"
+              disabled={resetting}
+              onClick={onReset}
+              className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-slate-500 hover:text-amber-700 hover:bg-amber-50 transition-colors disabled:opacity-60"
+              title="回答・タイマーをリセットして再利用"
+              aria-label="出題形式をリセット"
+            >
+              {resetting ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
+            </button>
+          )}
           <button
             type="button"
             disabled={isDeleting}
@@ -1300,45 +2129,126 @@ function PollResultCard({
         </div>
       </div>
 
-      <div className="space-y-2">
-        {poll.options.map((option, i) => {
-          const count = counts[i];
-          const pct = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
-          return (
+      {mode === 'quiz' ? (
+        <div className="space-y-3">
+          <div className="overflow-hidden">
             <div
-              key={i}
-              className="relative overflow-hidden rounded-xl ring-1 ring-slate-200 bg-white"
+              className="flex transition-transform duration-300 ease-out"
+              style={{ transform: `translateX(-${activeQuizIndex * 100}%)` }}
             >
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${pct}%` }}
-                transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
-                className="absolute left-0 top-0 bottom-0 bg-emerald-100/80"
-                aria-hidden
-              />
-              <div className="relative flex items-center justify-between gap-3 px-3.5 py-2.5">
-                <span className="flex items-center gap-2 min-w-0 text-sm sm:text-base text-slate-800">
-                  <span className="text-emerald-700 font-semibold tabular-nums">
-                    {circledNumber(i)}
-                  </span>
-                  <span className="truncate">{option}</span>
-                </span>
-                <span className="text-xs sm:text-sm text-slate-500 tabular-nums shrink-0">
-                  {count} ({pct}%)
-                </span>
-              </div>
+              {quizQuestions.map((question, questionIndex) => {
+                const questionTotal = votes.filter((v) => Number(v.value) === questionIndex + 1).length;
+                const correctOffset = question.correctOptionOffset;
+                const hasKey = typeof correctOffset === 'number';
+                const correctCount = hasKey ? counts[question.optionStart + correctOffset] ?? 0 : 0;
+                const correctRate =
+                  hasKey && questionTotal > 0 ? Math.round((correctCount / questionTotal) * 100) : 0;
+                return (
+                <div key={question.id} className="w-full shrink-0 space-y-2">
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <span className="font-bold text-emerald-700">問題 {question.questionNumber}</span>
+                    {hasKey && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 font-bold text-emerald-700 ring-1 ring-emerald-200">
+                        正答率 {correctRate}%（{correctCount}/{questionTotal}）
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm sm:text-base font-semibold text-slate-800 leading-snug">
+                    {question.question}
+                  </p>
+                  <div className="mx-auto grid w-[92%] grid-cols-2 gap-3 px-2 py-3 sm:w-[88%]">
+                  {options.slice(question.optionStart, question.optionStart + question.optionCount).map((option, offset) => {
+                    const i = question.optionStart + offset;
+                    const count = counts[i];
+                    const pct = questionTotal > 0 ? Math.round((count / questionTotal) * 100) : 0;
+                    const imageUrl = getPollOptionImageUrl(option);
+                    const isCorrect = hasKey && offset === correctOffset;
+                    return (
+                      <div
+                        key={i}
+                        className={`relative flex min-h-[72px] flex-col overflow-hidden rounded-xl bg-white ring-1 ${
+                          isCorrect ? 'ring-2 ring-emerald-400' : 'ring-slate-200'
+                        }`}
+                      >
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${pct}%` }}
+                          transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
+                          className="absolute bottom-0 left-0 top-0 bg-emerald-100/80"
+                          aria-hidden
+                        />
+                        <div className="relative flex flex-1 flex-col gap-1 px-3.5 py-2.5">
+                          <span className="flex items-start gap-2 text-sm text-slate-800 sm:text-base">
+                            <span className="shrink-0 font-semibold tabular-nums text-emerald-700">{optionLetter(offset)}</span>
+                            {imageUrl && (
+                              <img src={imageUrl} alt="" className="h-8 w-8 shrink-0 rounded-md object-cover ring-1 ring-slate-200" />
+                            )}
+                            <span className="min-w-0 break-words leading-snug">{getPollOptionLabel(option, `解答 ${optionLetter(offset)}`)}</span>
+                          </span>
+                          <span className="mt-auto flex items-center gap-2">
+                            {isCorrect && (
+                              <span className="inline-flex shrink-0 items-center rounded-full bg-emerald-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                                正解
+                              </span>
+                            )}
+                            <span className="ml-auto shrink-0 tabular-nums text-xs text-slate-500 sm:text-sm">
+                              {count} ({pct}%)
+                            </span>
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  </div>
+                </div>
+                );
+              })}
             </div>
-          );
-        })}
-      </div>
+          </div>
+        </div>
+      ) : mode === 'ranking' ? (
+        <RankingResults
+          options={options}
+          votes={votes}
+          rankCount={maxSelections}
+          size="compact"
+        />
+      ) : (
+        <div className="space-y-3">
+          {options.map((option, i) => {
+            const count = counts[i];
+            const pct = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
+            const imageUrl = getPollOptionImageUrl(option);
+            return (
+              <div key={i} className="relative overflow-hidden rounded-xl ring-1 ring-slate-200 bg-white">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${pct}%` }}
+                  transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
+                  className="absolute left-0 top-0 bottom-0 bg-emerald-100/80"
+                  aria-hidden
+                />
+                <div className="relative flex items-center justify-between gap-3 px-3.5 py-2.5">
+                  <span className="flex items-center gap-2 min-w-0 text-sm sm:text-base text-slate-800">
+                    <span className="text-emerald-700 font-semibold tabular-nums">
+                      {circledNumber(i)}
+                    </span>
+                    {imageUrl && (
+                      <img src={imageUrl} alt="" className="h-8 w-8 rounded-md object-cover ring-1 ring-slate-200" />
+                    )}
+                    <span className="truncate">{getPollOptionLabel(option, `選択肢 ${i + 1}`)}</span>
+                  </span>
+                  <span className="text-xs sm:text-sm text-slate-500 tabular-nums shrink-0">
+                    {count} ({pct}%)
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
-}
-
-function circledNumber(i: number) {
-  // ①〜⑳, あふれた場合は番号で
-  if (i < 20) return String.fromCharCode(0x2460 + i);
-  return `(${i + 1})`;
 }
 
 function SummaryTab({
@@ -1394,7 +2304,7 @@ function SummaryTab({
           accent="bg-sky-50 ring-sky-100"
         />
         <KpiCard
-          label="投票"
+          label="インタラクティブ"
           value={totalPolls}
           icon={<BarChart3 className="w-4 h-4 text-amber-600" />}
           accent="bg-amber-50 ring-amber-100"

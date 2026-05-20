@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { createServerClient } from '@/lib/supabase';
+import {
+  buildPollOptionsPayload,
+  clampNumber,
+  getPollMode,
+  type PollMeta,
+  type PollMode,
+  type PollOption,
+} from '@/lib/pollModes';
 
 // GET: Fetch polls for a room (public)
 export async function GET(
@@ -82,23 +90,48 @@ export async function POST(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { question, type, options, allowMultiple, maxSelections } = await req.json();
+    const {
+      question,
+      type,
+      options,
+      allowMultiple,
+      maxSelections,
+      mode,
+      meta,
+    } = await req.json() as {
+      question?: string;
+      type?: string;
+      options?: PollOption[];
+      allowMultiple?: boolean;
+      maxSelections?: number;
+      mode?: PollMode;
+      meta?: PollMeta;
+    };
     if (!question || !type) {
       return NextResponse.json({ error: 'Question and type are required' }, { status: 400 });
     }
 
-    const optionCount = Array.isArray(options) ? options.length : 0;
+    const pollMode = getPollMode(mode || meta?.mode || (type === 'quiz' || type === 'ranking' ? type : 'standard'));
+    const normalizedOptions = Array.isArray(options) ? options : [];
+    const optionCount = normalizedOptions.length;
     const rawMax = Number.isFinite(maxSelections) ? Number(maxSelections) : 1;
-    const clampedMax = Math.max(1, Math.min(rawMax, Math.max(1, optionCount)));
-    const isMulti = allowMultiple || clampedMax > 1;
+    const clampedMax =
+      pollMode === 'ranking'
+        ? clampNumber(meta?.rankCount ?? rawMax, 1, Math.max(1, optionCount), 3)
+        : Math.max(1, Math.min(rawMax, Math.max(1, optionCount)));
+    const isMulti = pollMode === 'ranking' || allowMultiple || clampedMax > 1;
+    const payloadOptions = buildPollOptionsPayload(
+      { ...(meta || {}), mode: pollMode },
+      normalizedOptions
+    );
 
     const { data, error } = await supabase
       .from('polls')
       .insert({
         room_id: room.id,
         question: question.trim(),
-        type,
-        options: options || [],
+        type: 'multiple_choice',
+        options: payloadOptions,
         allow_multiple: isMulti,
         max_selections: isMulti ? clampedMax : 1,
       })

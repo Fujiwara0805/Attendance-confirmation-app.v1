@@ -24,8 +24,9 @@ interface Options {
 
 // Realtime が落ちている場合の保険ポーリング間隔
 const FALLBACK_POLL_INTERVAL_MS = 5000;
-// 接続状態に関わらず常時かける軽い保険ポーリング（イベント取りこぼし対策）
-const SAFETY_POLL_INTERVAL_MS = 8000;
+// Realtime 接続中の保険ポーリング（イベント取りこぼし対策）。
+// Disk IO 削減のため大幅に長くする。realtime が機能していれば追加遅延は最大 60s 程度。
+const SAFETY_POLL_INTERVAL_MS = 60000;
 
 export function useRealtimeQuestions(
   roomId: string | null,

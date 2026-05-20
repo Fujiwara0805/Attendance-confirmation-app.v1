@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
+import { extractPollPayload, getPollMode, getQuizQuestions } from '@/lib/pollModes';
 
 // POST: Submit a vote on a poll (public)
 export async function POST(
@@ -35,7 +36,9 @@ export async function POST(
     }
 
     const maxSelections = Math.max(1, Number(poll.max_selections ?? 1));
-    const optionCount = Array.isArray(poll.options) ? poll.options.length : 0;
+    const { meta, options } = extractPollPayload(poll.options);
+    const pollMode = getPollMode(meta.mode);
+    const optionCount = options.length;
 
     // 複数選択リスト or 単一選択 を統一して配列で扱う
     const indexes: number[] = Array.isArray(optionIndexes) && optionIndexes.length > 0
@@ -71,6 +74,35 @@ export async function POST(
         { status: 400 }
       );
     }
+    if (pollMode === 'ranking' && indexes.length !== maxSelections) {
+      return NextResponse.json(
+        { error: `${maxSelections} 件の希望順位を選択してください` },
+        { status: 400 }
+      );
+    }
+    if (pollMode === 'quiz') {
+      // 各問題につき最大1解答。時間切れによる未回答（部分提出）は許容する。
+      const quizQuestions = getQuizQuestions(meta, options);
+      const answeredQuestions = new Set<number>();
+      for (const idx of indexes) {
+        const questionIndex = quizQuestions.findIndex(
+          (q) => idx >= q.optionStart && idx < q.optionStart + q.optionCount
+        );
+        if (questionIndex < 0 || answeredQuestions.has(questionIndex)) {
+          return NextResponse.json(
+            { error: '各問題につき1つの解答を選択してください' },
+            { status: 400 }
+          );
+        }
+        answeredQuestions.add(questionIndex);
+      }
+      if (answeredQuestions.size === 0) {
+        return NextResponse.json(
+          { error: '解答を選択してください' },
+          { status: 400 }
+        );
+      }
+    }
 
     // 既存票を一旦削除 → 新しい選択肢で置換（投票やり直しもサポート）
     await supabase
@@ -79,13 +111,26 @@ export async function POST(
       .eq('poll_id', params.pollId)
       .eq('participant_id', participantId);
 
-    const rows = indexes.map((idx) => ({
+    const quizQuestions = pollMode === 'quiz' ? getQuizQuestions(meta, options) : [];
+    const rows = indexes.map((idx, rank) => {
+      const quizQuestionIndex = pollMode === 'quiz'
+        ? quizQuestions.findIndex(
+            (q) => idx >= q.optionStart && idx < q.optionStart + q.optionCount
+          )
+        : -1;
+      return {
       poll_id: params.pollId,
       room_id: poll.room_id,
       participant_id: participantId,
       option_index: idx,
-      value: null as string | null,
-    }));
+      value:
+        pollMode === 'ranking'
+          ? String(rank + 1)
+          : pollMode === 'quiz'
+          ? String(quizQuestionIndex + 1)
+          : null as string | null,
+      };
+    });
 
     const { data, error } = await supabase
       .from('poll_votes')

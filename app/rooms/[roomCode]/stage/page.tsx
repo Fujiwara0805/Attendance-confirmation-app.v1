@@ -71,7 +71,7 @@ export default function StagePage() {
   }, [roomCode]);
 
   const { questions, connected: qConnected } = useRealtimeQuestions(room?.id || null);
-  const { activePoll, pollVotes, connected: pConnected } = useRealtimePolls(room?.id || null);
+  const { connected: pConnected } = useRealtimePolls(room?.id || null);
 
   const visibleQuestions = useMemo(() => {
     return questions
@@ -83,14 +83,6 @@ export default function StagePage() {
       )
       .slice(0, 14);
   }, [questions]);
-
-  const activePollStats = useMemo(() => {
-    if (!activePoll) return null;
-    const votes = pollVotes[activePoll.id] || [];
-    const counts = activePoll.options.map((_, i) => votes.filter((v) => v.option_index === i).length);
-    const total = counts.reduce((sum, count) => sum + count, 0);
-    return { counts, total };
-  }, [activePoll, pollVotes]);
 
   const realtimeOffline = !qConnected && !pConnected;
 
@@ -198,6 +190,12 @@ export default function StagePage() {
   const openClassicScreen = () => {
     stopScreenShare();
     router.push(`/rooms/${roomCode}/present`);
+  };
+
+  // 投票タブを選択した状態のスクリーン画面へ
+  const openPollScreen = () => {
+    stopScreenShare();
+    router.push(`/rooms/${roomCode}/present?view=poll`);
   };
 
   useEffect(() => {
@@ -319,6 +317,14 @@ export default function StagePage() {
                   </button>
                   <button
                     type="button"
+                    onClick={openPollScreen}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-emerald-500 px-3 text-xs font-semibold text-white shadow-sm hover:bg-emerald-400"
+                  >
+                    <BarChart3 className="w-4 h-4" />
+                    インタラクティブ画面
+                  </button>
+                  <button
+                    type="button"
                     onClick={startScreenShare}
                     className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-white/90 px-3 text-xs font-semibold text-slate-900 shadow-sm hover:bg-white"
                   >
@@ -374,6 +380,14 @@ export default function StagePage() {
               >
                 <Play className="w-4 h-4 fill-current" />
                 資料を取り込む
+              </button>
+              <button
+                type="button"
+                onClick={openPollScreen}
+                className="mt-3 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 text-sm font-bold text-white ring-1 ring-emerald-400 hover:bg-emerald-400"
+              >
+                <BarChart3 className="w-4 h-4" />
+                インタラクティブ画面を開く
               </button>
               <button
                 type="button"
@@ -443,43 +457,6 @@ export default function StagePage() {
               資料投影画面とチャットの境界をドラッグして横幅を調整できます。
             </p>
           </header>
-
-          {activePoll && activePollStats && (
-            <section className="shrink-0 border-b border-slate-200 bg-white px-5 py-4">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-emerald-600">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                  Live Poll
-                </span>
-                <span className="text-xs font-semibold text-slate-500 tabular-nums">
-                  回答 {activePollStats.total}
-                </span>
-              </div>
-              <h3 className="text-sm font-bold leading-snug text-slate-950">{activePoll.question}</h3>
-              <div className="mt-3 space-y-2">
-                {activePoll.options.map((option, index) => {
-                  const count = activePollStats.counts[index] || 0;
-                  const pct = activePollStats.total > 0 ? Math.round((count / activePollStats.total) * 100) : 0;
-                  return (
-                    <div key={index} className="space-y-1">
-                      <div className="flex items-center justify-between gap-2 text-xs">
-                        <span className="truncate font-semibold text-slate-700">{option}</span>
-                        <span className="shrink-0 tabular-nums text-slate-500">{pct}%</span>
-                      </div>
-                      <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                        <motion.div
-                          initial={{ width: 0 }}
-                          animate={{ width: `${pct}%` }}
-                          transition={{ duration: 0.45 }}
-                          className="h-full rounded-full bg-emerald-500"
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          )}
 
           <section className="flex min-h-0 flex-1 flex-col">
             <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-5 py-3">

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -14,8 +14,13 @@ import {
   Sparkles,
   User2,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   ShieldAlert,
   Check,
+  Clock,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -25,7 +30,21 @@ import { useRealtimePolls, type Poll, type PollVote } from '@/lib/hooks/useRealt
 import { useRoomPresence } from '@/lib/hooks/useRoomPresence';
 import QuestionCard from '../components/QuestionCard';
 import PollResultsChart from '../components/PollResultsChart';
+import RankingResults from '../components/RankingResults';
+import RankingPicker from '../components/RankingPicker';
+import QuizTimerRing from '../components/QuizTimerRing';
 import { staggerContainer } from '@/lib/animations';
+import {
+  extractPollPayload,
+  getPollMode,
+  getPollOptionImageUrl,
+  getPollOptionLabel,
+  getPollOptionDetail,
+  getQuizQuestions,
+  getQuizScore,
+  optionLetter,
+  rankLabel,
+} from '@/lib/pollModes';
 
 const LOGO_URL =
   'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_200/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png';
@@ -100,9 +119,45 @@ export default function ParticipantPage() {
     if (stored) setVotedQuestions(new Set(JSON.parse(stored)));
     const storedPolls = localStorage.getItem(`voted_polls_${roomCode}`);
     if (storedPolls) setHasVotedPoll(new Set(JSON.parse(storedPolls)));
+    // ホストがリセット（status='draft' に戻した）出題は「投票済み」状態を解除し再回答可に
+    // ※ 実際の除去はリアルタイム polls の更新で発火する下の effect で行う
     const storedOwn = localStorage.getItem(`own_questions_${roomCode}`);
     if (storedOwn) setOwnQuestionIds(new Set(JSON.parse(storedOwn)));
   }, [roomCode, isReady]);
+
+  // ホストが出題をリセット（status='draft' に戻したり、started_at が変化したり、再活性化）
+  // → 投票済みフラグを解除して再回答できるように。遷移検出のため per-poll の前回状態を ref に保持。
+  const prevPollStateRef = useRef<
+    Record<string, { started_at?: string | null; status?: string }>
+  >({});
+  useEffect(() => {
+    if (polls.length === 0) return;
+    const next = new Set(hasVotedPoll);
+    let changed = false;
+    for (const poll of polls) {
+      const prev = prevPollStateRef.current[poll.id];
+      if (prev) {
+        const startedAtChanged = prev.started_at !== poll.started_at;
+        const becameDraft = prev.status !== 'draft' && poll.status === 'draft';
+        if ((startedAtChanged || becameDraft) && next.has(poll.id)) {
+          next.delete(poll.id);
+          changed = true;
+        }
+      }
+      prevPollStateRef.current[poll.id] = {
+        started_at: poll.started_at,
+        status: poll.status,
+      };
+    }
+    if (changed) {
+      setHasVotedPoll(next);
+      try {
+        localStorage.setItem(`voted_polls_${roomCode}`, JSON.stringify(Array.from(next)));
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [polls, hasVotedPoll, roomCode]);
 
   const sortedQuestions = useMemo(() => {
     const list = [...questions];
@@ -479,6 +534,7 @@ export default function ParticipantPage() {
                 poll={activePoll}
                 votes={pollVotes[activePoll.id] || []}
                 hasVoted={hasVotedPoll.has(activePoll.id)}
+                participantId={participantId}
                 onSubmit={(indexes) => handlePollVote(activePoll.id, indexes)}
               />
             )}
@@ -503,7 +559,7 @@ export default function ParticipantPage() {
                       {poll.question}
                     </h3>
                     <PollResultsChart
-                      options={poll.options}
+                      options={extractPollPayload(poll.options).options}
                       votes={pollVotes[poll.id] || []}
                       totalVotes={(pollVotes[poll.id] || []).length}
                     />
@@ -699,16 +755,26 @@ function ActivePollCard({
   poll,
   votes,
   hasVoted,
+  participantId,
   onSubmit,
 }: {
   poll: Poll;
   votes: PollVote[];
   hasVoted: boolean;
+  participantId: string | null;
   onSubmit: (indexes: number[]) => void;
 }) {
+  const { meta, options } = extractPollPayload(poll.options);
+  const mode = getPollMode(meta.mode);
   const maxSelections = Math.max(1, Number(poll.max_selections ?? 1));
   const isMulti = maxSelections > 1 || poll.allow_multiple;
+  const isRanking = mode === 'ranking';
+  const isQuiz = mode === 'quiz';
   const [selected, setSelected] = useState<number[]>([]);
+  const [activeQuizIndex, setActiveQuizIndex] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
+  // 出題の解答時間は「全問合計」。開始時刻は DB の poll.started_at（サーバー時刻）を全端末で共有してカウントダウン。
+  const quizStartMs = poll.started_at ? new Date(poll.started_at).getTime() : null;
 
   const toggle = (i: number) => {
     setSelected((prev) => {
@@ -719,8 +785,59 @@ function ActivePollCard({
     });
   };
 
-  const counts = poll.options.map((_, i) => votes.filter((v) => v.option_index === i).length);
+  const counts = options.map((_, i) => votes.filter((v) => v.option_index === i).length);
   const totalCast = counts.reduce((s, c) => s + c, 0);
+  const totalRespondents = isRanking
+    ? new Set(votes.map((v) => v.participant_id)).size
+    : totalCast;
+  const rankingValue = isRanking ? selected : [];
+  const rankingFilled = rankingValue.filter((v) => Number.isInteger(v) && v >= 0);
+  const quizQuestions = isQuiz ? getQuizQuestions(meta, options) : [];
+  const ownVotes = participantId ? votes.filter((v) => v.participant_id === participantId) : [];
+  // 「あなたの回答」は送信済みのみを採用（未送信の選択は反映しない）。
+  const ownAnswerIndexes = ownVotes.length > 0
+    ? ownVotes
+        .map((v) => v.option_index)
+        .filter((idx): idx is number => typeof idx === 'number')
+    : [];
+  const isAnswered = (question: { optionStart: number; optionCount: number }) =>
+    selected.some(
+      (idx) => idx >= question.optionStart && idx < question.optionStart + question.optionCount
+    );
+  const answeredQuizCount = quizQuestions.filter(isAnswered).length;
+
+  // 全問共通の制限時間でカウントダウン（管理者設定）。時間切れで送信不可・解答開示。
+  const quizTimeLimit = isQuiz ? meta.timeLimitSeconds || 0 : 0;
+  const hasQuizTimer = isQuiz && quizTimeLimit > 0;
+  const quizRemaining =
+    hasQuizTimer && quizStartMs
+      ? Math.max(0, Math.ceil(quizTimeLimit - (now - quizStartMs) / 1000))
+      : null;
+  const quizExpired =
+    hasQuizTimer && quizRemaining !== null && quizRemaining <= 0;
+  // サーバー側のライブ票（cleared_at IS NULL）が 0 ならリセット後とみなし、
+  // 楽観 hasVoted は無視して未投票扱いに戻す → スクリーンの状態と同期
+  const hasLiveOwnVote = ownVotes.length > 0;
+  const effectiveHasVoted = hasVoted && hasLiveOwnVote;
+  // 開示（結果・正解を表示）= 送信済み(ライブ票あり) or 時間切れ
+  const quizRevealed = isQuiz && (effectiveHasVoted || quizExpired);
+  // 送信可能: 未送信 && 時間切れでない && 1問以上回答
+  const quizSubmittable =
+    isQuiz && !effectiveHasVoted && !quizExpired && answeredQuizCount > 0;
+  const quizScore =
+    isQuiz && effectiveHasVoted ? getQuizScore(quizQuestions, ownAnswerIndexes) : null;
+
+  useEffect(() => {
+    setSelected([]);
+    setActiveQuizIndex(0);
+  }, [poll.id]);
+
+  // タイマー稼働（未送信 && 未締切のときのみ）
+  useEffect(() => {
+    if (!hasQuizTimer || effectiveHasVoted || quizExpired) return;
+    const id = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(id);
+  }, [hasQuizTimer, effectiveHasVoted, quizExpired]);
 
   return (
     <motion.div
@@ -732,7 +849,7 @@ function ActivePollCard({
         <div className="flex items-center gap-2">
           {isMulti && (
             <span className="font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-              複数選択
+              {isRanking ? `${maxSelections}件を順位選択` : '複数選択'}
             </span>
           )}
           <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-700 uppercase tracking-wide">
@@ -740,52 +857,457 @@ function ActivePollCard({
             Live
           </span>
         </div>
-        <span className="text-slate-500 tabular-nums">回答数: {totalCast}</span>
+        <span className="text-slate-500 tabular-nums">回答数: {totalRespondents}</span>
       </div>
       <h3 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 mb-1 leading-snug">
         {poll.question}
       </h3>
-      {isMulti && (
+      {hasQuizTimer && !effectiveHasVoted && !quizExpired && (
+        <div
+          className={`mt-2 flex items-center justify-between gap-3 rounded-xl px-3 py-2 ring-1 ${
+            quizStartMs
+              ? 'bg-emerald-50 ring-emerald-200'
+              : 'bg-slate-50 ring-slate-200'
+          }`}
+        >
+          <span
+            className={`inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold ${
+              quizStartMs ? 'text-emerald-700' : 'text-slate-600'
+            }`}
+          >
+            <Clock className="h-3.5 w-3.5" />
+            {quizStartMs
+              ? `全${quizQuestions.length}問を${quizTimeLimit}秒で回答してください`
+              : `全${quizQuestions.length}問を${quizTimeLimit}秒で回答（スクリーン側の開始待ち）`}
+          </span>
+          <span
+            className={`tabular-nums text-base sm:text-lg font-extrabold ${
+              quizStartMs ? 'text-emerald-700' : 'text-slate-400'
+            }`}
+          >
+            {quizStartMs ? '残り ' : ''}
+            {Math.floor((quizRemaining ?? quizTimeLimit) / 60)}:
+            {String(Math.floor((quizRemaining ?? quizTimeLimit) % 60)).padStart(2, '0')}
+          </span>
+        </div>
+      )}
+      {isQuiz && quizExpired && !effectiveHasVoted && (
+        <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-3 py-1 text-xs sm:text-sm font-bold text-rose-600 ring-1 ring-rose-200">
+          <Clock className="h-3.5 w-3.5" />
+          時間切れ — 解答を表示しています
+        </div>
+      )}
+      {isMulti && !isQuiz && (
         <p className="text-xs sm:text-sm text-slate-500 mb-3">
-          1人最大 <span className="font-bold text-slate-700">{maxSelections}</span> つまで選択できます
+          {isRanking ? (
+            <>
+              <span className="font-bold text-slate-700">{maxSelections}</span> 件を第1希望から順に選択してください
+            </>
+          ) : (
+            <>
+              1人最大 <span className="font-bold text-slate-700">{maxSelections}</span> つまで選択できます
+            </>
+          )}
         </p>
       )}
 
-      {hasVoted ? (
-        <div className="space-y-2 mt-3">
-          {poll.options.map((option, i) => {
-            const count = counts[i];
-            const pct = totalCast > 0 ? Math.round((count / totalCast) * 100) : 0;
-            return (
-              <div key={i} className="relative overflow-hidden rounded-xl ring-1 ring-slate-200 bg-white">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${pct}%` }}
-                  transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
-                  className="absolute left-0 top-0 bottom-0 bg-emerald-100/80"
-                  aria-hidden
-                />
-                <div className="relative flex items-center justify-between gap-3 px-3.5 py-2.5">
-                  <span className="flex items-center gap-2 min-w-0 text-sm sm:text-base text-slate-800">
-                    <span className="text-emerald-700 font-semibold">
-                      {i < 20 ? String.fromCharCode(0x2460 + i) : `(${i + 1})`}
-                    </span>
-                    <span className="truncate">{option}</span>
-                  </span>
-                  <span className="text-xs sm:text-sm text-slate-500 tabular-nums shrink-0">
-                    {count} ({pct}%)
-                  </span>
+      {(isQuiz ? quizRevealed : effectiveHasVoted) ? (
+        <div className="space-y-4 mt-3">
+          {isRanking ? (
+            <>
+              {ownVotes.length > 0 && (
+                <div className="rounded-xl bg-emerald-50 px-3 py-3 ring-1 ring-emerald-200">
+                  <p className="text-xs font-bold text-emerald-700">あなたの希望</p>
+                  <div className="mt-2 space-y-1.5">
+                    {ownVotes
+                      .slice()
+                      .sort((a, b) => Number(a.value) - Number(b.value))
+                      .map((v, rankIndex) => (
+                        <div
+                          key={rankIndex}
+                          className="flex items-start gap-2 text-xs sm:text-sm text-slate-700"
+                        >
+                          <span className="shrink-0 font-bold text-emerald-700">
+                            {rankLabel(Number(v.value) - 1)}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate">
+                            {typeof v.option_index === 'number'
+                              ? `${v.option_index + 1}. ${getPollOptionLabel(
+                                  options[v.option_index],
+                                  `候補 ${v.option_index + 1}`
+                                )}`
+                              : '—'}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+              <p className="text-xs font-bold text-slate-500">集計結果</p>
+              <RankingResults
+                options={options}
+                votes={votes}
+                rankCount={maxSelections}
+                size="compact"
+              />
+            </>
+          ) : isQuiz ? (
+            <>
+              {ownAnswerIndexes.length > 0 && (
+                <div className="rounded-xl bg-white px-3 py-3 ring-1 ring-slate-200">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-bold text-slate-700">あなたの回答</p>
+                    {quizScore && quizScore.gradable > 0 && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700 ring-1 ring-emerald-200">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        {quizScore.correct}/{quizScore.gradable} 問正解
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-2 space-y-1.5">
+                    {quizQuestions.map((question) => {
+                      const ownIndex = ownAnswerIndexes.find(
+                        (idx) => idx >= question.optionStart && idx < question.optionStart + question.optionCount
+                      );
+                      const optionOffset = typeof ownIndex === 'number' ? ownIndex - question.optionStart : -1;
+                      const hasKey = typeof question.correctOptionOffset === 'number';
+                      const isCorrect = hasKey && optionOffset === question.correctOptionOffset;
+                      return (
+                        <div key={question.id} className="flex items-start gap-2 text-xs sm:text-sm text-slate-700">
+                          <span className="shrink-0 font-bold text-emerald-700">
+                            問題 {question.questionNumber}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate">
+                            {typeof ownIndex === 'number'
+                              ? `${optionLetter(optionOffset)}. ${getPollOptionLabel(options[ownIndex], `解答 ${optionLetter(optionOffset)}`)}`
+                              : '未回答'}
+                          </span>
+                          {hasKey &&
+                            (isCorrect ? (
+                              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+                            ) : (
+                              <XCircle className="h-4 w-4 shrink-0 text-rose-500" />
+                            ))}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              {quizQuestions.map((question, questionIndex) => {
+                const questionTotal = votes.filter(
+                  (v) => Number(v.value) === questionIndex + 1
+                ).length;
+                return (
+                  <div key={question.id} className="space-y-2">
+                    <p className="text-sm font-bold text-slate-800">
+                      問題 {question.questionNumber} {question.question}
+                    </p>
+                    {options
+                      .slice(question.optionStart, question.optionStart + question.optionCount)
+                      .map((option, offset) => {
+                        const i = question.optionStart + offset;
+                        const count = counts[i];
+                        const pct = questionTotal > 0 ? Math.round((count / questionTotal) * 100) : 0;
+                        const isCorrect = question.correctOptionOffset === offset;
+                        return (
+                          <div
+                            key={i}
+                            className={`relative overflow-hidden rounded-xl bg-white ring-1 ${
+                              isCorrect ? 'ring-2 ring-emerald-400' : 'ring-slate-200'
+                            }`}
+                          >
+                            <motion.div
+                              initial={{ width: 0 }}
+                              animate={{ width: `${pct}%` }}
+                              transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
+                              className="absolute left-0 top-0 bottom-0 bg-emerald-100/80"
+                              aria-hidden
+                            />
+                            <div className="relative flex items-center justify-between gap-3 px-3.5 py-2.5">
+                              <span className="flex items-center gap-2 min-w-0 text-sm sm:text-base text-slate-800">
+                                <span className="text-emerald-700 font-semibold">{optionLetter(offset)}</span>
+                                <span className="truncate">
+                                  {getPollOptionLabel(option, `解答 ${optionLetter(offset)}`)}
+                                </span>
+                                {isCorrect && (
+                                  <span className="inline-flex shrink-0 items-center rounded-full bg-emerald-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                                    正解
+                                  </span>
+                                )}
+                              </span>
+                              <span className="text-xs sm:text-sm text-slate-500 tabular-nums shrink-0">
+                                {count} ({pct}%)
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                );
+              })}
+            </>
+          ) : (
+            <div className="space-y-2">
+              {options.map((option, i) => {
+                const count = counts[i];
+                const pct = totalCast > 0 ? Math.round((count / totalCast) * 100) : 0;
+                return (
+                  <div key={i} className="relative overflow-hidden rounded-xl ring-1 ring-slate-200 bg-white">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${pct}%` }}
+                      transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
+                      className="absolute left-0 top-0 bottom-0 bg-emerald-100/80"
+                      aria-hidden
+                    />
+                    <div className="relative flex items-center justify-between gap-3 px-3.5 py-2.5">
+                      <span className="flex items-center gap-2 min-w-0 text-sm sm:text-base text-slate-800">
+                        <span className="text-emerald-700 font-semibold">
+                          {i < 20 ? String.fromCharCode(0x2460 + i) : `(${i + 1})`}
+                        </span>
+                        <span className="truncate">{getPollOptionLabel(option, `選択肢 ${i + 1}`)}</span>
+                      </span>
+                      <span className="text-xs sm:text-sm text-slate-500 tabular-nums shrink-0">
+                        {count} ({pct}%)
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ) : isRanking ? (
+        <>
+          <div className="mt-3">
+            <RankingPicker
+              options={options}
+              maxSelections={maxSelections}
+              value={rankingValue}
+              onChange={setSelected}
+            />
+          </div>
+
+          {rankingFilled.length > 0 && (
+            <div className="mt-4 rounded-xl bg-slate-50 px-3 py-3 ring-1 ring-slate-200">
+              <p className="text-xs font-bold text-slate-600">選択内容の確認</p>
+              <div className="mt-2 space-y-1.5">
+                {Array.from({ length: maxSelections }).map((_, rankIndex) => {
+                  const optionIndex = rankingValue[rankIndex];
+                  const filled = Number.isInteger(optionIndex) && optionIndex >= 0;
+                  return (
+                    <div
+                      key={rankIndex}
+                      className="flex items-start gap-2 text-xs sm:text-sm"
+                    >
+                      <span className="shrink-0 font-bold text-emerald-700">
+                        {rankLabel(rankIndex)}
+                      </span>
+                      <span
+                        className={`min-w-0 flex-1 truncate ${
+                          filled ? 'text-slate-700' : 'text-slate-400'
+                        }`}
+                      >
+                        {filled
+                          ? `${optionIndex + 1}. ${getPollOptionLabel(
+                              options[optionIndex],
+                              `候補 ${optionIndex + 1}`
+                            )}${
+                              getPollOptionDetail(options[optionIndex])
+                                ? `（${getPollOptionDetail(options[optionIndex])}）`
+                                : ''
+                            }`
+                          : '未選択'}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => onSubmit(rankingFilled)}
+            disabled={rankingFilled.length !== maxSelections}
+            className="mt-4 inline-flex items-center justify-center gap-1.5 w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-semibold h-11 rounded-xl text-sm sm:text-base transition-colors"
+          >
+            希望順位を送信
+            <span className="text-xs font-bold tabular-nums">
+              ({rankingFilled.length}/{maxSelections})
+            </span>
+          </button>
+        </>
+      ) : isQuiz ? (
+        <>
+          <div className="mt-3 rounded-2xl bg-slate-50/70 p-3 ring-1 ring-slate-200">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => setActiveQuizIndex((i) => Math.max(0, i - 1))}
+                disabled={activeQuizIndex === 0}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-40"
+                aria-label="前の問題"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <div className="flex min-w-0 items-center gap-3 text-center">
+                {hasQuizTimer && quizRemaining !== null && (
+                  <QuizTimerRing remaining={quizRemaining} total={quizTimeLimit} />
+                )}
+                <div>
+                  <p className="text-xs font-bold text-emerald-700 tabular-nums">
+                    {activeQuizIndex + 1} / {quizQuestions.length}
+                  </p>
+                  <p className="mt-0.5 text-[11px] font-semibold text-slate-500 tabular-nums">
+                    回答済み {answeredQuizCount}/{quizQuestions.length}
+                  </p>
                 </div>
               </div>
-            );
-          })}
-        </div>
+              <button
+                type="button"
+                onClick={() => setActiveQuizIndex((i) => Math.min(quizQuestions.length - 1, i + 1))}
+                disabled={activeQuizIndex >= quizQuestions.length - 1}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-40"
+                aria-label="次の問題"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="overflow-hidden">
+              <div
+                className="flex transition-transform duration-300 ease-out"
+                style={{ transform: `translateX(-${activeQuizIndex * 100}%)` }}
+              >
+                {quizQuestions.map((question) => {
+                  return (
+                  <div key={question.id} className="w-full shrink-0 space-y-3 px-0.5">
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs font-bold text-emerald-700">
+                          問題 {question.questionNumber}
+                        </p>
+                      </div>
+                      <h4 className="mt-1 text-sm sm:text-base font-bold text-slate-900 leading-snug">
+                        {question.question}
+                      </h4>
+                    </div>
+                    {/* 参加者投票画面: 選択肢は1列表示 */}
+                    <div className="space-y-2">
+                      {options.slice(question.optionStart, question.optionStart + question.optionCount).map((option, offset) => {
+                        const globalIndex = question.optionStart + offset;
+                        const checked = selected.includes(globalIndex);
+                        const imageUrl = getPollOptionImageUrl(option);
+                        return (
+                          <button
+                            key={globalIndex}
+                            onClick={() => {
+                              setSelected((prev) => [
+                                ...prev.filter((idx) => idx < question.optionStart || idx >= question.optionStart + question.optionCount),
+                                globalIndex,
+                              ]);
+                            }}
+                            className={`w-full text-left px-4 py-3 rounded-xl ring-1 transition-all active:scale-[0.99] disabled:cursor-not-allowed ${
+                              checked
+                                ? 'ring-emerald-400 bg-emerald-50'
+                                : 'ring-slate-200 bg-white hover:bg-slate-50 hover:ring-slate-300'
+                            }`}
+                          >
+                            <span className="flex items-center gap-3 text-sm sm:text-base font-semibold text-slate-700">
+                              <span
+                                className={`shrink-0 w-5 h-5 rounded-full ring-1 flex items-center justify-center transition-colors ${
+                                  checked ? 'bg-emerald-500 ring-emerald-500 text-white' : 'bg-white ring-slate-300'
+                                }`}
+                                aria-hidden
+                              >
+                                {checked && <Check className="w-3.5 h-3.5" />}
+                              </span>
+                              <span className="text-emerald-700 font-bold">{optionLetter(offset)}</span>
+                              <span className="min-w-0 flex-1 truncate">{getPollOptionLabel(option, `解答 ${optionLetter(offset)}`)}</span>
+                              {imageUrl && (
+                                <img src={imageUrl} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover ring-1 ring-slate-200" />
+                              )}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="mt-3 flex items-center justify-center gap-1.5">
+              {quizQuestions.map((question, i) => {
+                const answered = isAnswered(question);
+                return (
+                  <button
+                    key={question.id}
+                    type="button"
+                    onClick={() => setActiveQuizIndex(i)}
+                    className={`h-2.5 rounded-full transition-all ${
+                      i === activeQuizIndex
+                        ? 'w-6 bg-emerald-500'
+                        : answered
+                        ? 'w-2.5 bg-emerald-300'
+                        : 'w-2.5 bg-slate-300'
+                    }`}
+                    aria-label={`問題 ${i + 1} を表示`}
+                  />
+                );
+              })}
+            </div>
+          </div>
+          {quizSubmittable && (
+            <div className="mt-3 rounded-xl bg-emerald-50 px-3 py-3 ring-1 ring-emerald-200">
+              <p className="text-xs font-bold text-emerald-700">回答確認</p>
+              <div className="mt-2 space-y-1.5">
+                {quizQuestions.map((question) => {
+                  const answerIndex = selected.find(
+                    (idx) => idx >= question.optionStart && idx < question.optionStart + question.optionCount
+                  );
+                  const optionOffset = typeof answerIndex === 'number' ? answerIndex - question.optionStart : -1;
+                  return (
+                    <div key={question.id} className="flex items-start gap-2 text-xs sm:text-sm text-slate-700">
+                      <span className="shrink-0 font-bold text-emerald-700">
+                        問題 {question.questionNumber}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate">
+                        {typeof answerIndex === 'number'
+                          ? `${optionLetter(optionOffset)}. ${getPollOptionLabel(options[answerIndex], `解答 ${optionLetter(optionOffset)}`)}`
+                          : '未回答'}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              if (!quizSubmittable) return;
+              onSubmit(selected);
+            }}
+            disabled={!quizSubmittable}
+            className="mt-4 inline-flex items-center justify-center gap-1.5 w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-semibold h-11 rounded-xl text-sm sm:text-base transition-colors"
+          >
+            {quizExpired ? '時間切れ — 送信不可' : '完了して送信'}
+            <span className="text-xs font-bold tabular-nums">
+              ({answeredQuizCount}/{quizQuestions.length})
+            </span>
+          </button>
+        </>
       ) : (
         <>
           <div className="space-y-2 mt-3">
-            {poll.options.map((option, i) => {
+            {options.map((option, i) => {
               const checked = selected.includes(i);
               const disabled = isMulti && !checked && selected.length >= maxSelections;
+              const imageUrl = getPollOptionImageUrl(option);
               return (
                 <button
                   key={i}
@@ -806,10 +1328,17 @@ function ActivePollCard({
                     >
                       {checked && <Check className="w-3.5 h-3.5" />}
                     </span>
-                    <span className="text-emerald-700">
-                      {i < 20 ? String.fromCharCode(0x2460 + i) : `(${i + 1})`}
+                    <span className="text-emerald-700 font-bold">
+                      {isQuiz ? optionLetter(i) : i < 20 ? String.fromCharCode(0x2460 + i) : `(${i + 1})`}
                     </span>
-                    <span className="truncate">{option}</span>
+                    <span className="min-w-0 flex-1 truncate">{getPollOptionLabel(option, `選択肢 ${i + 1}`)}</span>
+                    {imageUrl && (
+                      <img
+                        src={imageUrl}
+                        alt=""
+                        className="h-10 w-10 shrink-0 rounded-lg object-cover ring-1 ring-slate-200"
+                      />
+                    )}
                   </span>
                 </button>
               );
