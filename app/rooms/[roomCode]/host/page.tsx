@@ -1987,9 +1987,9 @@ function PollExportPickerModal({
         initial={{ opacity: 0, y: 16, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 12, scale: 0.98 }}
-        className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl ring-1 ring-slate-200"
+        className="flex max-h-[calc(100vh-2rem)] w-full max-w-lg flex-col rounded-2xl bg-white p-5 shadow-2xl ring-1 ring-slate-200"
       >
-        <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="mb-4 flex shrink-0 items-start justify-between gap-3">
           <div>
             <h3 className="text-lg font-extrabold text-slate-900">投票結果CSVを出力</h3>
             <p className="mt-1 text-sm text-slate-500">どのカードの結果を出力するか選んでください。</p>
@@ -2004,9 +2004,9 @@ function PollExportPickerModal({
           </button>
         </div>
 
-        <div className="max-h-[60vh] space-y-2 overflow-y-auto">
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-1 py-2 pr-2">
           <label
-            className={`mx-3 sm:mx-4 flex items-center gap-3 rounded-xl p-3 ring-1 cursor-pointer transition-colors ${
+            className={`flex items-center gap-3 rounded-xl p-3 ring-1 cursor-pointer transition-colors ${
               selected === 'all'
                 ? 'bg-emerald-50 ring-emerald-300'
                 : 'bg-white ring-slate-200 hover:bg-slate-50'
@@ -2043,7 +2043,7 @@ function PollExportPickerModal({
               return (
                 <label
                   key={poll.id}
-                  className={`mx-3 sm:mx-4 flex items-center gap-3 rounded-xl p-3 ring-1 cursor-pointer transition-colors ${
+                  className={`flex items-center gap-3 rounded-xl p-3 ring-1 cursor-pointer transition-colors ${
                     isSelected
                       ? 'bg-emerald-50 ring-emerald-300'
                       : 'bg-white ring-slate-200 hover:bg-slate-50'
@@ -2087,7 +2087,7 @@ function PollExportPickerModal({
           )}
         </div>
 
-        <div className="mt-4 flex items-center justify-end gap-2">
+        <div className="mt-4 flex shrink-0 items-center justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
