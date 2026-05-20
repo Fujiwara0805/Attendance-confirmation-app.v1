@@ -265,6 +265,7 @@ function pollsToRichCSV(polls: PollRow[], votes: VoteRow[]) {
         .filter((v): v is string => !!v)
         .sort()[0];
       const runStartedAt =
+        (runKey ? meta.runStartedAtClientAtByClearedAt?.[runKey] : meta.startedAtClientAt) ||
         (runKey ? meta.runStartedAtByClearedAt?.[runKey] : poll.started_at) ||
         fallbackStartedAt ||
         (runKey ?? poll.started_at ?? poll.created_at);

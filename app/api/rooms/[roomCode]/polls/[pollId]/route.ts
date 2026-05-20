@@ -68,11 +68,18 @@ export async function PATCH(
         nextOptions = buildPollOptionsPayload(
           {
             ...meta,
+            startedAtClientAt: undefined,
             startedAtTimeZone: undefined,
             runStartedAtByClearedAt: {
               ...(meta.runStartedAtByClearedAt || {}),
               [clearedAt]: currentPoll.started_at,
             },
+            runStartedAtClientAtByClearedAt: meta.startedAtClientAt
+              ? {
+                  ...(meta.runStartedAtClientAtByClearedAt || {}),
+                  [clearedAt]: meta.startedAtClientAt,
+                }
+              : meta.runStartedAtClientAtByClearedAt,
             runStartedAtTimeZoneByClearedAt: meta.startedAtTimeZone
               ? {
                   ...(meta.runStartedAtTimeZoneByClearedAt || {}),
@@ -109,9 +116,10 @@ export async function PATCH(
       const clientStartedAtMs = body.clientStartedAt
         ? new Date(body.clientStartedAt).getTime()
         : NaN;
-      const startedAt = Number.isFinite(clientStartedAtMs)
+      const clientStartedAt = Number.isFinite(clientStartedAtMs)
         ? new Date(clientStartedAtMs).toISOString()
-        : new Date().toISOString();
+        : undefined;
+      const startedAt = new Date().toISOString();
       let clientTimeZone: string | undefined;
       if (typeof body.clientTimeZone === 'string' && body.clientTimeZone.trim()) {
         try {
@@ -122,7 +130,7 @@ export async function PATCH(
         }
       }
       let nextOptions: unknown | undefined;
-      if (clientTimeZone) {
+      if (clientStartedAt || clientTimeZone) {
         const { data: currentPoll } = await supabase
           .from('polls')
           .select('options')
@@ -132,7 +140,7 @@ export async function PATCH(
         if (currentPoll?.options) {
           const { meta, options } = extractPollPayload(currentPoll.options);
           nextOptions = buildPollOptionsPayload(
-            { ...meta, startedAtTimeZone: clientTimeZone },
+            { ...meta, startedAtClientAt: clientStartedAt, startedAtTimeZone: clientTimeZone },
             options
           );
         }
@@ -225,11 +233,18 @@ export async function PATCH(
           nextOptionsForStart = buildPollOptionsPayload(
             {
               ...meta,
+              startedAtClientAt: undefined,
               startedAtTimeZone: undefined,
               runStartedAtByClearedAt: {
                 ...(meta.runStartedAtByClearedAt || {}),
                 [clearedAt]: currentPoll.started_at,
               },
+              runStartedAtClientAtByClearedAt: meta.startedAtClientAt
+                ? {
+                    ...(meta.runStartedAtClientAtByClearedAt || {}),
+                    [clearedAt]: meta.startedAtClientAt,
+                  }
+                : meta.runStartedAtClientAtByClearedAt,
               runStartedAtTimeZoneByClearedAt: meta.startedAtTimeZone
                 ? {
                     ...(meta.runStartedAtTimeZoneByClearedAt || {}),
