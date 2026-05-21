@@ -101,7 +101,7 @@ const AVATAR_PALETTE = [
   'bg-cyan-100 text-cyan-700',
 ];
 
-// ライブ機能カードのアイコン/カラー（種類が一目で判別できるよう色相で差別化）
+// ライブ投票カードのアイコン/カラー（種類が一目で判別できるよう色相で差別化）
 const POLL_MODE_VISUAL: Record<
   PollMode,
   {
@@ -935,7 +935,7 @@ export default function HostPage() {
           {(
             [
               { key: 'questions', icon: <MessageSquare className="w-4 h-4" />, label: '質問' },
-              { key: 'polls', icon: <BarChart3 className="w-4 h-4" />, label: 'ライブ機能' },
+              { key: 'polls', icon: <BarChart3 className="w-4 h-4" />, label: 'ライブ投票' },
               { key: 'summary', icon: <PieChart className="w-4 h-4" />, label: 'サマリー' },
               { key: 'export', icon: <Download className="w-4 h-4" />, label: 'エクスポート' },
             ] as const
@@ -1102,7 +1102,7 @@ export default function HostPage() {
           <div className="space-y-5">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-2xl font-extrabold tracking-tight text-slate-900">ライブ機能</h2>
+                <h2 className="text-2xl font-extrabold tracking-tight text-slate-900">ライブ投票</h2>
                 <p className="mt-0.5 text-xs text-slate-500">通常投票 / 出題形式 / ランキング形式</p>
               </div>
               {room.status === 'active' && (
@@ -1124,6 +1124,19 @@ export default function HostPage() {
                 />
               )}
             </AnimatePresence>
+
+            <div className="rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50/60 p-5 shadow-sm ring-1 ring-emerald-100">
+              <h3 className="flex items-center gap-1.5 text-sm sm:text-base font-semibold text-emerald-900 mb-2">
+                <BookOpen className="h-4 w-4" />
+                ライブ投票について
+              </h3>
+              <ul className="space-y-1.5 text-xs sm:text-sm leading-relaxed text-emerald-800">
+                <li>• <strong>通常投票</strong>：選択肢から回答してもらう基本の投票です。複数選択にも対応します。</li>
+                <li>• <strong>出題形式</strong>：複数の問題をまとめて出題し、正解を設定して回答結果を確認できます。</li>
+                <li>• <strong>ランキング形式</strong>：候補を順位で回答してもらい、順位ごとの重みでランキングを集計します。</li>
+                <li>• 投票時間を設定した場合は、スクリーン画面の「開始」ボタンを押すと投票がスタートし、設定した時間でカウントダウンします。</li>
+              </ul>
+            </div>
 
             {/* Create poll form */}
             <AnimatePresence>
@@ -1681,7 +1694,7 @@ export default function HostPage() {
                 <div className="w-14 h-14 rounded-2xl bg-emerald-50 ring-1 ring-emerald-100 flex items-center justify-center mb-3">
                   <BarChart3 className="w-7 h-7 text-emerald-300" />
                 </div>
-                <p className="text-sm font-semibold text-slate-700">まだライブ機能はありません</p>
+                <p className="text-sm font-semibold text-slate-700">まだライブ投票はありません</p>
                 <p className="text-xs text-slate-400 mt-1">右上の「新規作成」から作成できます</p>
               </div>
             ) : polls.length > 0 ? (
@@ -1812,7 +1825,7 @@ export default function HostPage() {
                   ) : (
                     <Download className="w-4 h-4" />
                   )}
-                  投票結果 (CSV)
+                  ライブ投票結果(CSV)
                 </button>
               </div>
             </div>
@@ -1991,7 +2004,7 @@ function PollExportPickerModal({
       >
         <div className="mb-4 flex shrink-0 items-start justify-between gap-3">
           <div>
-            <h3 className="text-lg font-extrabold text-slate-900">投票結果CSVを出力</h3>
+            <h3 className="text-lg font-extrabold text-slate-900">ライブ投票結果(CSV)を出力</h3>
             <p className="mt-1 text-sm text-slate-500">どのカードの結果を出力するか選んでください。</p>
           </div>
           <button
@@ -2539,7 +2552,7 @@ function PollResultCard({
         <button
           type="button"
           onClick={onEdit}
-          className={`inline-flex items-center justify-center w-9 h-9 rounded-lg transition-colors ${
+          className={`inline-flex h-9 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-bold transition-colors ${
             editing
               ? 'bg-emerald-600 text-white hover:bg-emerald-700'
               : 'text-slate-500 ring-1 ring-slate-200 bg-white hover:text-emerald-700 hover:bg-emerald-50 hover:ring-emerald-200'
@@ -2548,16 +2561,18 @@ function PollResultCard({
           aria-label="編集"
         >
           <Pencil className="w-4 h-4" />
+          編集
         </button>
         <button
           type="button"
           disabled={resetting}
           onClick={onReset}
-          className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-slate-500 ring-1 ring-slate-200 bg-white hover:text-amber-700 hover:bg-amber-50 hover:ring-amber-200 transition-colors disabled:opacity-60"
+          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-bold text-slate-500 ring-1 ring-slate-200 bg-white hover:text-amber-700 hover:bg-amber-50 hover:ring-amber-200 transition-colors disabled:opacity-60"
           title="回答とタイマーをリセット"
           aria-label="リセット"
         >
           {resetting ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
+          リセット
         </button>
         <button
           type="button"
@@ -2627,7 +2642,7 @@ function SummaryTab({
           accent="bg-sky-50 ring-sky-100"
         />
         <KpiCard
-          label="ライブ機能"
+          label="ライブ投票"
           value={totalPolls}
           icon={<BarChart3 className="w-4 h-4 text-amber-600" />}
           accent="bg-amber-50 ring-amber-100"

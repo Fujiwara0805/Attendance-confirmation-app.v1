@@ -263,7 +263,7 @@ export default function PresentPage() {
               }`}
             >
               <BarChart3 className="w-4 h-4" />
-              ライブ機能
+              ライブ投票
             </button>
           </div>
           {realtimeOffline && (
@@ -683,7 +683,7 @@ export default function PresentPage() {
 
       {/* Footer */}
       <footer className="px-8 py-3 border-t border-gray-200 flex items-center justify-between text-xs text-gray-400">
-        <span>ざせきくん ライブ機能</span>
+        <span>ざせきくん ライブ投票</span>
         <span>参加コード: {room.code}</span>
       </footer>
 
