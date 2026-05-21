@@ -27,7 +27,7 @@ export async function GET(
 
     const { data: room } = await supabase
       .from('rooms')
-      .select('id, host_id, title, created_at')
+      .select('id, host_id, title, created_at, linked_course_code')
       .eq('code', params.roomCode.toUpperCase())
       .single();
 
@@ -136,6 +136,24 @@ export async function GET(
       qVotes.forEach((v) => uniqueParticipants.add(v.participant_id));
     }
 
+    // ルームと出席フォームが紐付いている場合は出席数も同送（ルーム作成時刻以降）
+    let totalAttendance: number | null = null;
+    if (room.linked_course_code) {
+      const { data: linkedCourse } = await supabase
+        .from('courses')
+        .select('id')
+        .eq('code', room.linked_course_code)
+        .single();
+      if (linkedCourse?.id) {
+        const { count } = await supabase
+          .from('attendance')
+          .select('id', { count: 'exact', head: true })
+          .eq('course_id', linkedCourse.id)
+          .gte('created_at', room.created_at);
+        totalAttendance = count ?? 0;
+      }
+    }
+
     return NextResponse.json({
       room: { title: room.title, code: params.roomCode, createdAt: room.created_at },
       stats: {
@@ -143,6 +161,8 @@ export async function GET(
         totalPolls: polls.length,
         totalUpvotes: questions.reduce((sum, q) => sum + (q.upvote_count || 0), 0),
         uniqueParticipants: uniqueParticipants.size,
+        attendanceLinked: !!room.linked_course_code,
+        totalAttendance,
       },
       topQuestions: questions,
     });
@@ -239,7 +259,7 @@ function pollsToRichCSV(polls: PollRow[], votes: VoteRow[]) {
     '\u5F97\u7968\u6570',
     '\u5F97\u7968\u7387(%)',
     ...Array.from({ length: maxRankColumns }, (_, i) => `${i + 1}\u4F4D\u7968`),
-    '\u30E9\u30F3\u30AD\u30F3\u30B0\u30B9\u30B3\u30A2',
+    '\u5F97\u70B9\u6570',
     '\u56DE\u7B54\u8005\u6570',
     '\u958B\u59CB\u65E5\u6642',
   ];
@@ -355,8 +375,8 @@ function pollsToRichCSV(polls: PollRow[], votes: VoteRow[]) {
         const byIndex = [...board].sort((a, b) => a.optionIndex - b.optionIndex);
         byIndex.forEach((entry) => {
           const opt = options[entry.optionIndex];
-          const firstChoice = entry.rankCounts[0] ?? 0;
-          const pct = respondents > 0 ? Math.round((firstChoice / respondents) * 100) : 0;
+          // \u30E9\u30F3\u30AD\u30F3\u30B0\u5F62\u5F0F\u3067\u306F\u5F97\u7968\u6570\u30FB\u5F97\u7968\u7387\u306F\u96C6\u8A08\u5BFE\u8C61\u5916\u306E\u305F\u3081 0 \u56FA\u5B9A\u3002
+          // \u9806\u4F4D\u5225\u7968\u6570\u306F ${i + 1}\u4F4D\u7968\u3001\u30E9\u30F3\u30AD\u30F3\u30B0\u5F97\u70B9\u306F\u300C\u5F97\u70B9\u6570\u300D\u5217\u3067\u8868\u73FE\u3059\u308B\u3002
           lines.push(
             [
               csvEscape(modeLabel),
@@ -366,8 +386,8 @@ function pollsToRichCSV(polls: PollRow[], votes: VoteRow[]) {
               '',
               csvEscape(getPollOptionLabel(opt, `\u5019\u88DC ${entry.optionIndex + 1}`)),
               '',
-              csvEscape(firstChoice),
-              csvEscape(pct),
+              csvEscape(0),
+              csvEscape(0),
               ...Array.from({ length: maxRankColumns }, (_, rankIndex) =>
                 csvEscape(entry.rankCounts[rankIndex] ?? 0)
               ),

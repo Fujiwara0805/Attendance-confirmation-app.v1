@@ -226,7 +226,14 @@ export default function HostPage() {
 
   // Export
   const [exportData, setExportData] = useState<{
-    stats?: Record<string, number>;
+    stats?: {
+      totalQuestions?: number;
+      totalPolls?: number;
+      totalUpvotes?: number;
+      uniqueParticipants?: number;
+      attendanceLinked?: boolean;
+      totalAttendance?: number | null;
+    };
     topQuestions?: Array<{ text: string; upvote_count: number }>;
   } | null>(null);
   const [showAllQuestions, setShowAllQuestions] = useState(false);
@@ -1819,6 +1826,8 @@ export default function HostPage() {
             totalUpvotes={totalUpvotes}
             totalPolls={totalPolls}
             totalParticipants={totalParticipants}
+            attendanceLinked={!!room.linked_course_code}
+            totalAttendance={exportData?.stats?.totalAttendance ?? null}
             topQuestions={[...questions]
               .sort((a, b) => b.upvote_count - a.upvote_count)
               .slice(0, 5)}
@@ -1916,12 +1925,15 @@ export default function HostPage() {
                 <h3 className="text-lg sm:text-xl font-extrabold tracking-tight text-slate-900 mb-4">
                   ルームサマリー
                 </h3>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className={`grid grid-cols-2 gap-4 ${exportData.stats.attendanceLinked ? 'sm:grid-cols-5' : 'sm:grid-cols-4'}`}>
                   {[
                     { label: '質問数', value: exportData.stats.totalQuestions },
                     { label: '投票数', value: exportData.stats.totalPolls },
                     { label: '総いいね', value: exportData.stats.totalUpvotes },
                     { label: '参加者数', value: exportData.stats.uniqueParticipants },
+                    ...(exportData.stats.attendanceLinked
+                      ? [{ label: '出席数', value: exportData.stats.totalAttendance ?? 0 }]
+                      : []),
                   ].map((s) => (
                     <div key={s.label} className="text-center p-3 bg-slate-50 rounded-xl">
                       <p className="text-2xl sm:text-3xl font-extrabold tracking-tight tabular-nums text-emerald-600">
@@ -2766,6 +2778,8 @@ function SummaryTab({
   totalUpvotes,
   totalPolls,
   totalParticipants,
+  attendanceLinked,
+  totalAttendance,
   topQuestions,
 }: {
   counts: { all: number; pending: number; approved: number; answered: number; rejected: number };
@@ -2773,6 +2787,8 @@ function SummaryTab({
   totalUpvotes: number;
   totalPolls: number;
   totalParticipants: number;
+  attendanceLinked?: boolean;
+  totalAttendance?: number | null;
   topQuestions: Array<{
     id: string;
     text: string;
@@ -2793,7 +2809,7 @@ function SummaryTab({
   return (
     <div className="space-y-5">
       {/* KPI cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+      <div className={`grid grid-cols-2 gap-3 sm:gap-4 ${attendanceLinked ? 'sm:grid-cols-5' : 'sm:grid-cols-4'}`}>
         <KpiCard
           label="質問"
           value={totalQuestions}
@@ -2812,6 +2828,14 @@ function SummaryTab({
           icon={<Users className="w-4 h-4 text-sky-600" />}
           accent="bg-sky-50 ring-sky-100"
         />
+        {attendanceLinked && (
+          <KpiCard
+            label="出席"
+            value={totalAttendance ?? 0}
+            icon={<ClipboardCheck className="w-4 h-4 text-emerald-600" />}
+            accent="bg-emerald-50 ring-emerald-100"
+          />
+        )}
         <KpiCard
           label="ライブ投票"
           value={totalPolls}
