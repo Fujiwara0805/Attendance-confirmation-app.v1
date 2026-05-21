@@ -45,6 +45,7 @@ import {
   Play,
   StopCircle,
   UserX,
+  Clock,
 } from 'lucide-react';
 // Separator kept for potential sub-component use
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -99,6 +100,7 @@ export default function AdminPage() {
     latitude: 33.1751332,
     longitude: 131.6138803,
     radius: 0.5,
+    cooldownMinutes: 15,
   });
   const [savingNewCourse, setSavingNewCourse] = useState<boolean>(false);
   const [isGettingCurrentLocation, setIsGettingCurrentLocation] = useState<boolean>(false);
@@ -232,6 +234,7 @@ export default function AdminPage() {
     latitude: 0,
     longitude: 0,
     radius: 0.5,
+    cooldownMinutes: 15,
   });
   const [savingEditCourse, setSavingEditCourse] = useState<boolean>(false);
   const [editLocationResolved, setEditLocationResolved] = useState<boolean>(false);
@@ -575,6 +578,7 @@ export default function AdminPage() {
         body: JSON.stringify({
           name: newCourse.courseName.trim(),
           teacherName: newCourse.teacherName.trim(),
+          cooldownMinutes: Math.max(0, Math.min(1440, Math.floor(Number(newCourse.cooldownMinutes) || 0))),
           ...(newCourse.enableLocation ? {
             locationSettings: {
               latitude: newCourse.latitude,
@@ -589,7 +593,7 @@ export default function AdminPage() {
       if (response.ok) {
         showToast("作成完了", "新しい出席フォームを作成しました。");
         setIsAddDialogOpen(false);
-        setNewCourse({ courseName: '', teacherName: '', enableLocation: false, locationName: '', latitude: 33.1751332, longitude: 131.6138803, radius: 0.5 });
+        setNewCourse({ courseName: '', teacherName: '', enableLocation: false, locationName: '', latitude: 33.1751332, longitude: 131.6138803, radius: 0.5, cooldownMinutes: 15 });
         setLocationResolved(false);
         setLocationError(null);
         await fetchCourses(); fetchPlanInfo();
@@ -630,6 +634,7 @@ export default function AdminPage() {
       latitude: course.locationSettings?.latitude || 0,
       longitude: course.locationSettings?.longitude || 0,
       radius: course.locationSettings?.radius || 0.5,
+      cooldownMinutes: typeof course.cooldownMinutes === 'number' ? course.cooldownMinutes : 15,
     });
     setEditLocationResolved(hasLocation);
     setEditLocationError(null);
@@ -651,6 +656,7 @@ export default function AdminPage() {
         body: JSON.stringify({
           name: editCourse.courseName.trim(),
           teacher_name: editCourse.teacherName.trim(),
+          cooldown_minutes: Math.max(0, Math.min(1440, Math.floor(Number(editCourse.cooldownMinutes) || 0))),
           location_settings: editCourse.enableLocation ? {
             latitude: editCourse.latitude,
             longitude: editCourse.longitude,
@@ -664,7 +670,7 @@ export default function AdminPage() {
         showToast("更新完了", "フォーム情報を更新しました。");
         setIsEditDialogOpen(false);
         setEditingCourse(null);
-        setEditCourse({ courseName: '', teacherName: '', enableLocation: false, locationName: '', latitude: 0, longitude: 0, radius: 0.5 });
+        setEditCourse({ courseName: '', teacherName: '', enableLocation: false, locationName: '', latitude: 0, longitude: 0, radius: 0.5, cooldownMinutes: 15 });
         setEditLocationResolved(false);
         setEditLocationError(null);
         await fetchCourses(); fetchPlanInfo();
@@ -1332,6 +1338,44 @@ export default function AdminPage() {
                   )}
                 </div>
 
+                {/* 送信クールダウン */}
+                <div className="border border-slate-200 rounded-xl p-4 space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-indigo-500" />
+                      <span className="text-sm font-medium text-slate-700">送信クールダウン</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Input
+                        type="number"
+                        min={0}
+                        max={1440}
+                        step={1}
+                        inputMode="numeric"
+                        value={newCourse.cooldownMinutes}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          if (raw === '') {
+                            setNewCourse({ ...newCourse, cooldownMinutes: 0 });
+                            return;
+                          }
+                          const n = parseInt(raw, 10);
+                          if (Number.isFinite(n)) {
+                            setNewCourse({ ...newCourse, cooldownMinutes: Math.max(0, Math.min(1440, n)) });
+                          }
+                        }}
+                        className="h-9 w-20 text-sm text-right"
+                      />
+                      <span className="text-xs text-slate-500">分</span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    {newCourse.cooldownMinutes > 0
+                      ? `同一端末からの連続送信を ${newCourse.cooldownMinutes} 分間ブロックします（デフォルト: 15分）。`
+                      : 'クールダウンなし。同一端末からの連続送信を許可します。'}
+                  </p>
+                </div>
+
                 <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end pt-2">
                   <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} className="h-9 w-full sm:w-auto">
                     キャンセル
@@ -1541,6 +1585,44 @@ export default function AdminPage() {
                       </div>
                     </motion.div>
                   )}
+                </div>
+
+                {/* 送信クールダウン */}
+                <div className="border border-slate-200 rounded-xl p-4 space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-indigo-500" />
+                      <span className="text-sm font-medium text-slate-700">送信クールダウン</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Input
+                        type="number"
+                        min={0}
+                        max={1440}
+                        step={1}
+                        inputMode="numeric"
+                        value={editCourse.cooldownMinutes}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          if (raw === '') {
+                            setEditCourse({ ...editCourse, cooldownMinutes: 0 });
+                            return;
+                          }
+                          const n = parseInt(raw, 10);
+                          if (Number.isFinite(n)) {
+                            setEditCourse({ ...editCourse, cooldownMinutes: Math.max(0, Math.min(1440, n)) });
+                          }
+                        }}
+                        className="h-9 w-20 text-sm text-right"
+                      />
+                      <span className="text-xs text-slate-500">分</span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    {editCourse.cooldownMinutes > 0
+                      ? `同一端末からの連続送信を ${editCourse.cooldownMinutes} 分間ブロックします（デフォルト: 15分）。`
+                      : 'クールダウンなし。同一端末からの連続送信を許可します。'}
+                  </p>
                 </div>
 
                 <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end pt-2">
