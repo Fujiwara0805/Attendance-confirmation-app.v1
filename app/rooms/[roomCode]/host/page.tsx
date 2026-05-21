@@ -38,6 +38,8 @@ import {
   Pencil,
   BadgeCheck,
   Play,
+  Link2,
+  ClipboardCheck,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -68,6 +70,12 @@ import {
 const LOGO_URL =
   'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_200/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png';
 
+interface LinkedCourseSummary {
+  code: string;
+  name: string;
+  teacher_name: string | null;
+}
+
 interface Room {
   id: string;
   code: string;
@@ -75,9 +83,18 @@ interface Room {
   status: string;
   host_id: string;
   moderation_enabled?: boolean;
+  linked_course_code?: string | null;
+  linked_course?: LinkedCourseSummary | null;
 }
 
-type HostTab = 'questions' | 'polls' | 'summary' | 'export';
+interface CourseOption {
+  code: string;
+  name: string;
+  teacher_name: string | null;
+  form_type?: string;
+}
+
+type HostTab = 'questions' | 'polls' | 'summary' | 'export' | 'integration';
 type SortMode = 'popular' | 'newest';
 type StatusFilter = 'all' | 'unanswered' | 'pending' | 'approved' | 'answered' | 'rejected';
 
@@ -218,6 +235,12 @@ export default function HostPage() {
   const [pollDeletingId, setPollDeletingId] = useState<string | null>(null);
   const [moderationLoading, setModerationLoading] = useState(false);
   const [exportLoadingType, setExportLoadingType] = useState<'questions' | 'polls' | null>(null);
+  // 出席フォーム紐付け
+  const [availableCourses, setAvailableCourses] = useState<CourseOption[]>([]);
+  const [coursesLoading, setCoursesLoading] = useState(false);
+  const [coursesLoaded, setCoursesLoaded] = useState(false);
+  const [linkingCourse, setLinkingCourse] = useState(false);
+  const [linkCourseError, setLinkCourseError] = useState<string | null>(null);
   // CSV エクスポート対象カード選択モーダル
   const [showPollExportPicker, setShowPollExportPicker] = useState(false);
   // 質問カードの操作中状態（id+action 単位でローディング）
@@ -403,6 +426,63 @@ export default function HostPage() {
       }
     },
     [roomCode, setActionFor]
+  );
+
+  const loadAvailableCourses = useCallback(async () => {
+    if (coursesLoaded || coursesLoading) return;
+    setCoursesLoading(true);
+    try {
+      const res = await fetch('/api/v2/courses?teacher_email=self');
+      if (!res.ok) throw new Error('failed');
+      const data = (await res.json()) as { courses?: Array<{ code: string; name: string; teacher_name: string | null; form_type?: string }> };
+      const attendanceCourses = (data.courses || []).filter(
+        (c) => !c.form_type || c.form_type === 'attendance'
+      );
+      setAvailableCourses(attendanceCourses);
+      setCoursesLoaded(true);
+    } catch {
+      setLinkCourseError('出席フォームの一覧を取得できませんでした');
+    } finally {
+      setCoursesLoading(false);
+    }
+  }, [coursesLoaded, coursesLoading]);
+
+  const handleLinkCourse = useCallback(
+    async (nextCode: string | null) => {
+      if (!room || linkingCourse) return;
+      setLinkingCourse(true);
+      setLinkCourseError(null);
+      try {
+        const res = await fetch(`/api/rooms/${roomCode}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ linkedCourseCode: nextCode }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => null);
+          throw new Error(err?.error || '紐付けに失敗しました');
+        }
+        const linked = nextCode
+          ? availableCourses.find((c) => c.code === nextCode) || null
+          : null;
+        setRoom((prev) =>
+          prev
+            ? {
+                ...prev,
+                linked_course_code: nextCode,
+                linked_course: linked
+                  ? { code: linked.code, name: linked.name, teacher_name: linked.teacher_name }
+                  : null,
+              }
+            : null
+        );
+      } catch (e) {
+        setLinkCourseError(e instanceof Error ? e.message : '紐付けに失敗しました');
+      } finally {
+        setLinkingCourse(false);
+      }
+    },
+    [room, roomCode, linkingCourse, availableCourses]
   );
 
   const handleToggleModeration = useCallback(async () => {
@@ -751,6 +831,13 @@ export default function HostPage() {
     }
   }, [tab, exportData, roomCode]);
 
+  // 出席フォーム選択候補は連携タブを開いたタイミングで遅延ロード
+  useEffect(() => {
+    if (tab === 'integration') {
+      void loadAvailableCourses();
+    }
+  }, [tab, loadAvailableCourses]);
+
   // ==== カウント計算（pillsバッジ・サマリー両方で利用） ====
   const counts = useMemo(() => {
     const all = questions.length;
@@ -937,6 +1024,7 @@ export default function HostPage() {
               { key: 'questions', icon: <MessageSquare className="w-4 h-4" />, label: '質問' },
               { key: 'polls', icon: <BarChart3 className="w-4 h-4" />, label: 'ライブ投票' },
               { key: 'summary', icon: <PieChart className="w-4 h-4" />, label: 'サマリー' },
+              { key: 'integration', icon: <Link2 className="w-4 h-4" />, label: '連携' },
               { key: 'export', icon: <Download className="w-4 h-4" />, label: 'エクスポート' },
             ] as const
           ).map((t) => (
@@ -1735,6 +1823,89 @@ export default function HostPage() {
               .sort((a, b) => b.upvote_count - a.upvote_count)
               .slice(0, 5)}
           />
+        )}
+
+        {/* === Integration Tab === */}
+        {tab === 'integration' && (
+          <div className="space-y-5">
+            {/* 出席フォーム紐付け */}
+            <div className="rounded-2xl bg-white ring-1 ring-slate-200 p-6">
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <div className="flex items-start gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-50 ring-1 ring-emerald-100 flex items-center justify-center shrink-0">
+                    <ClipboardCheck className="w-5 h-5 text-emerald-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <h4 className="text-sm sm:text-base font-bold text-slate-900">出席フォームと紐づける</h4>
+                    <p className="text-xs sm:text-sm text-slate-500 mt-1 leading-relaxed">
+                      紐づけると、参加者ページに「出席」タブが追加され、ルーム参加と同じ画面から位置情報付きの出席登録ができます。
+                    </p>
+                  </div>
+                </div>
+                {room.linked_course && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 ring-1 ring-emerald-200 px-2 py-0.5 rounded-full shrink-0">
+                    <BadgeCheck className="w-3 h-3" />
+                    紐付け済み
+                  </span>
+                )}
+              </div>
+              <div className="mt-4 flex flex-col sm:flex-row gap-2">
+                <select
+                  value={room.linked_course_code || ''}
+                  onChange={(e) => handleLinkCourse(e.target.value || null)}
+                  disabled={linkingCourse || coursesLoading}
+                  className="flex-1 h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 focus:outline-none disabled:opacity-60"
+                >
+                  <option value="">{coursesLoading ? '読み込み中...' : '紐付けなし'}</option>
+                  {availableCourses.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.name}（#{c.code}）
+                    </option>
+                  ))}
+                </select>
+                {room.linked_course_code && (
+                  <button
+                    type="button"
+                    onClick={() => handleLinkCourse(null)}
+                    disabled={linkingCourse}
+                    className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-3 h-11 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors disabled:opacity-60"
+                  >
+                    {linkingCourse ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <X className="w-3.5 h-3.5" />}
+                    解除
+                  </button>
+                )}
+              </div>
+              {!coursesLoading && availableCourses.length === 0 && (
+                <p className="text-xs text-slate-400 mt-2">
+                  紐づけ可能な出席フォームがありません。<Link href="/admin" className="text-emerald-600 hover:underline">管理画面</Link>から作成してください。
+                </p>
+              )}
+              {linkCourseError && (
+                <p className="text-xs text-rose-600 mt-2">{linkCourseError}</p>
+              )}
+              {room.linked_course && (
+                <div className="mt-3 rounded-xl bg-emerald-50/60 ring-1 ring-emerald-100 px-4 py-3 text-xs sm:text-sm text-emerald-800">
+                  <span className="font-semibold">{room.linked_course.name}</span>
+                  {room.linked_course.teacher_name && (
+                    <span className="text-emerald-700/70"> ／ {room.linked_course.teacher_name}</span>
+                  )}
+                  <span className="block mt-1 text-[11px] text-emerald-700/80 font-mono">
+                    出席URL: /attendance/{room.linked_course.code}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* 使い方ヒント */}
+            <div className="rounded-2xl bg-slate-50 ring-1 ring-slate-200 p-5">
+              <p className="text-xs sm:text-sm font-bold text-slate-700 mb-2">使い方</p>
+              <ul className="text-xs sm:text-sm text-slate-500 space-y-1.5 leading-relaxed list-disc list-inside">
+                <li>紐付けると、参加者画面のタブに「出席」が表示されます。</li>
+                <li>位置情報チェック・クールダウンなど既存の出席フォーム設定がそのまま適用されます。</li>
+                <li>講師は参加者に「出席タブを開いてください」とアナウンスするだけで出席を取れます。</li>
+              </ul>
+            </div>
+          </div>
         )}
 
         {/* === Export Tab === */}

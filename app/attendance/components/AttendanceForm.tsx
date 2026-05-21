@@ -47,6 +47,8 @@ interface Course {
     radius: number; // km
     locationName?: string;
   };
+  /** 同一端末からの連続送信を制限する分数。0 はクールダウン無効 */
+  cooldownMinutes?: number;
 }
 
 // デフォルトのフォームスキーマ（フォールバック用）
@@ -76,16 +78,30 @@ const CAMPUS_CENTER = {
   radius: 0.5,
 };
 
-export default function DynamicAttendanceForm() {
+interface AttendanceFormProps {
+  /** ルートパラメータ以外から courseId を渡したい時に指定（ルーム内埋め込み用） */
+  courseId?: string;
+  /** 送信成功時にデフォルトの /attendance/complete 遷移を上書きするコールバック */
+  onSubmitted?: () => void;
+}
+
+export default function DynamicAttendanceForm({
+  courseId: courseIdProp,
+  onSubmitted,
+}: AttendanceFormProps = {}) {
   const router = useRouter();
   const params = useParams();
-  const courseId = params.courseId as string;
+  const courseId = (courseIdProp ?? (params.courseId as string)) || '';
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [courses, setCourses] = useState<Course[]>([]);
   const [loadingCourses, setLoadingCourses] = useState(true);
   const [targetCourse, setTargetCourse] = useState<Course | null>(null);
+  const cooldownMinutes =
+    typeof targetCourse?.cooldownMinutes === 'number' && targetCourse.cooldownMinutes >= 0
+      ? targetCourse.cooldownMinutes
+      : 15;
   
   // 動的フォーム設定用の状態
   const [formConfig, setFormConfig] = useState<CourseFormConfig | null>(null);
@@ -192,6 +208,8 @@ export default function DynamicAttendanceForm() {
           courseName: course.name,
           teacherName: course.teacher_name,
           locationSettings: course.location_settings,
+          cooldownMinutes:
+            typeof course.cooldown_minutes === 'number' ? course.cooldown_minutes : 15,
         };
         setTargetCourse(mappedCourse);
         form.setValue('class_name', course.name);
@@ -319,18 +337,22 @@ export default function DynamicAttendanceForm() {
   // 前回の登録時刻チェック（別のuseEffectに分離）
   useEffect(() => {
     if (!isInitialized) return;
-    
+    if (cooldownMinutes <= 0) {
+      setTimeUntilNextSubmission(0);
+      return;
+    }
+
     const storageKey = courseId ? `lastAttendanceSubmission_${courseId}` : 'lastAttendanceSubmission';
     const lastSubmissionTimeStored = localStorage.getItem(storageKey);
-    
+
     if (lastSubmissionTimeStored) {
       const lastTime = parseInt(lastSubmissionTimeStored, 10);
       setLastSubmissionTime(lastTime);
-      
+
       const currentTime = Date.now();
       const elapsedMinutes = (currentTime - lastTime) / (1000 * 60);
-      const remainingTime = Math.max(0, 15 - elapsedMinutes);
-      
+      const remainingTime = Math.max(0, cooldownMinutes - elapsedMinutes);
+
       if (remainingTime > 0) {
         setTimeUntilNextSubmission(Math.ceil(remainingTime));
 
@@ -338,19 +360,19 @@ export default function DynamicAttendanceForm() {
         const timer = setInterval(() => {
           const now = Date.now();
           const elapsed = (now - lastTime) / (1000 * 60);
-          const remaining = Math.max(0, Math.ceil(15 - elapsed));
+          const remaining = Math.max(0, Math.ceil(cooldownMinutes - elapsed));
 
           setTimeUntilNextSubmission(remaining);
-          
+
           if (remaining === 0) {
             clearInterval(timer);
           }
         }, 1000);
-        
+
         return () => clearInterval(timer);
       }
     }
-  }, [isInitialized, courseId]);
+  }, [isInitialized, courseId, cooldownMinutes]);
 
   // coursesが取得された後に講義情報を設定
   // フォーム設定の初期化が完了してから実行する
@@ -378,7 +400,7 @@ export default function DynamicAttendanceForm() {
       }
       
       const parsedTime = parseInt(storedTime, 10);
-      const cooldownPeriod = 15 * 60 * 1000;
+      const cooldownPeriod = cooldownMinutes * 60 * 1000;
       const currentTime = Date.now();
       const elapsedTime = currentTime - parsedTime;
       
@@ -391,7 +413,7 @@ export default function DynamicAttendanceForm() {
     }, 60000);
     
     return () => clearInterval(timer);
-  }, [timeUntilNextSubmission, courseId]);
+  }, [timeUntilNextSubmission, courseId, cooldownMinutes]);
 
   // 位置情報許可ボタンが押されたときに位置情報を取得
   const requestLocationPermission = useCallback(async () => {
@@ -512,20 +534,22 @@ export default function DynamicAttendanceForm() {
       return;
     }
     
-    // 前回の登録から15分経過していないかチェック
+    // 前回の登録からクールダウン分数を経過していないかチェック
     const storageKey = courseId ? `lastAttendanceSubmission_${courseId}` : 'lastAttendanceSubmission';
-    const lastSubmissionTimeStored = localStorage.getItem(storageKey);
-    if (lastSubmissionTimeStored) {
-      const lastTime = parseInt(lastSubmissionTimeStored, 10);
-      const currentTime = Date.now();
-      const elapsedMinutes = (currentTime - lastTime) / (1000 * 60);
-      
-      if (elapsedMinutes < 15) {
-        setSubmitError(`同一端末からの出席登録は15分間隔を空ける必要があります。あと約${Math.ceil(15 - elapsedMinutes)}分お待ちください。`);
-        toast.error('出席登録の間隔が短すぎます');
-        setIsSubmitting(false);
-        setIsSubmittingForm(false);
-        return;
+    if (cooldownMinutes > 0) {
+      const lastSubmissionTimeStored = localStorage.getItem(storageKey);
+      if (lastSubmissionTimeStored) {
+        const lastTime = parseInt(lastSubmissionTimeStored, 10);
+        const currentTime = Date.now();
+        const elapsedMinutes = (currentTime - lastTime) / (1000 * 60);
+
+        if (elapsedMinutes < cooldownMinutes) {
+          setSubmitError(`同一端末からの出席登録は${cooldownMinutes}分間隔を空ける必要があります。あと約${Math.ceil(cooldownMinutes - elapsedMinutes)}分お待ちください。`);
+          toast.error('出席登録の間隔が短すぎます');
+          setIsSubmitting(false);
+          setIsSubmittingForm(false);
+          return;
+        }
       }
     }
     
@@ -579,9 +603,13 @@ export default function DynamicAttendanceForm() {
         // 成功時のみクールダウン設定
         localStorage.setItem(storageKey, Date.now().toString());
         setLastSubmissionTime(Date.now());
-        setTimeUntilNextSubmission(15);
+        setTimeUntilNextSubmission(cooldownMinutes);
         toast.success('出席を登録しました');
-        router.replace('/attendance/complete');
+        if (onSubmitted) {
+          onSubmitted();
+        } else {
+          router.replace('/attendance/complete');
+        }
       } else {
         const errorData = await response.json().catch(() => ({}));
         setSubmitError(errorData.message || '出席登録に失敗しました。もう一度お試しください。');
@@ -977,7 +1005,7 @@ export default function DynamicAttendanceForm() {
                         </p>
                       ) : timeUntilNextSubmission > 0 ? (
                         <p className="text-xs text-amber-500 text-center mt-3">
-                          同一端末からの連続登録には15分の間隔が必要です
+                          同一端末からの連続登録には{cooldownMinutes}分の間隔が必要です
                         </p>
                       ) : (campusCenter && !locationInfo.isOnCampus) ? (
                         <p className="text-xs text-red-500 text-center mt-3">
@@ -1027,7 +1055,7 @@ export default function DynamicAttendanceForm() {
                   </p>
                 ) : timeUntilNextSubmission > 0 ? (
                   <p className="text-[11px] text-amber-500 text-center mb-2">
-                    連続登録には15分の間隔が必要です
+                    連続登録には{cooldownMinutes}分の間隔が必要です
                   </p>
                 ) : (campusCenter && !locationInfo.isOnCampus) ? (
                   <p className="text-[11px] text-red-500 text-center mb-2">

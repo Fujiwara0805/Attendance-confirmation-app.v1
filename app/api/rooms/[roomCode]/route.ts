@@ -15,7 +15,7 @@ export async function GET(
     const supabase = createServerClient();
     const { data, error } = await supabase
       .from('rooms')
-      .select('id, code, title, status, host_id, created_at, moderation_enabled')
+      .select('id, code, title, status, host_id, created_at, moderation_enabled, linked_course_code')
       .eq('code', params.roomCode.toUpperCase())
       .single();
 
@@ -23,7 +23,19 @@ export async function GET(
       return NextResponse.json({ error: 'Room not found' }, { status: 404 });
     }
 
-    return NextResponse.json(data);
+    let linkedCourse: { code: string; name: string; teacher_name: string | null } | null = null;
+    if (data.linked_course_code) {
+      const { data: course } = await supabase
+        .from('courses')
+        .select('code, name, teacher_name, status')
+        .eq('code', data.linked_course_code)
+        .single();
+      if (course && course.status === 'active') {
+        linkedCourse = { code: course.code, name: course.name, teacher_name: course.teacher_name };
+      }
+    }
+
+    return NextResponse.json({ ...data, linked_course: linkedCourse });
   } catch (err) {
     console.error('Room fetch error:', err);
     return NextResponse.json({ error: 'Failed to fetch room' }, { status: 500 });
@@ -60,6 +72,28 @@ export async function PATCH(
     if (body.status) updates.status = body.status;
     if (typeof body.moderationEnabled === 'boolean') {
       updates.moderation_enabled = body.moderationEnabled;
+    }
+    if ('linkedCourseCode' in body) {
+      const raw = body.linkedCourseCode;
+      if (raw === null || raw === '') {
+        updates.linked_course_code = null;
+      } else if (typeof raw === 'string') {
+        const code = raw.trim().toUpperCase();
+        const { data: course } = await supabase
+          .from('courses')
+          .select('code, teacher_email, status')
+          .eq('code', code)
+          .single();
+        if (!course || course.status !== 'active') {
+          return NextResponse.json({ error: '指定された出席フォームが見つかりません' }, { status: 404 });
+        }
+        if (course.teacher_email !== session.email) {
+          return NextResponse.json({ error: 'この出席フォームを紐づける権限がありません' }, { status: 403 });
+        }
+        updates.linked_course_code = course.code;
+      } else {
+        return NextResponse.json({ error: 'linkedCourseCode must be a string or null' }, { status: 400 });
+      }
     }
 
     const { data, error } = await supabase

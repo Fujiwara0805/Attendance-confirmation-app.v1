@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import dynamic from 'next/dynamic';
 import { useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -21,6 +22,8 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
+  ClipboardCheck,
+  ArrowRight,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -50,8 +53,24 @@ import {
 const LOGO_URL =
   'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_200/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png';
 
-type Tab = 'qa' | 'polls' | 'mine';
+type Tab = 'qa' | 'polls' | 'mine' | 'attendance';
+
+// 位置情報APIを使うためクライアントサイドのみで読み込み
+const AttendanceForm = dynamic(
+  () => import('@/app/attendance/components/AttendanceForm'),
+  { ssr: false, loading: () => (
+    <div className="flex items-center justify-center py-16 text-sm text-slate-400">
+      出席フォームを読み込み中...
+    </div>
+  ) }
+);
 type Sort = 'popular' | 'newest';
+
+interface LinkedCourseSummary {
+  code: string;
+  name: string;
+  teacher_name: string | null;
+}
 
 interface Room {
   id: string;
@@ -59,6 +78,8 @@ interface Room {
   title: string;
   status: string;
   moderation_enabled?: boolean;
+  linked_course_code?: string | null;
+  linked_course?: LinkedCourseSummary | null;
 }
 
 const MAX_LEN = 500;
@@ -399,6 +420,15 @@ export default function ParticipantPage() {
               label="投票・回答"
               dot={!!activePoll}
             />
+            {room.linked_course && (
+              <TabButton
+                active={tab === 'attendance'}
+                onClick={() => setTab('attendance')}
+                icon={<ClipboardCheck className="w-4 h-4" />}
+                label="出席"
+                accent
+              />
+            )}
             <TabButton
               active={tab === 'mine'}
               onClick={() => setTab('mine')}
@@ -556,6 +586,15 @@ export default function ParticipantPage() {
           </div>
         )}
 
+        {/* Attendance Tab — 紐付いた出席フォームのみ表示 */}
+        {tab === 'attendance' && room.linked_course && (
+          <AttendanceTabContent
+            courseCode={room.linked_course.code}
+            courseName={room.linked_course.name}
+            onSwitchAway={() => setTab('qa')}
+          />
+        )}
+
         {/* Mine Tab */}
         {tab === 'mine' && (
           <div className="space-y-3">
@@ -597,6 +636,64 @@ export default function ParticipantPage() {
 
 /* ---------- 小コンポーネント ---------- */
 
+function AttendanceTabContent({
+  courseCode,
+  courseName,
+  onSwitchAway,
+}: {
+  courseCode: string;
+  courseName: string;
+  onSwitchAway: () => void;
+}) {
+  const [submitted, setSubmitted] = useState(false);
+
+  if (submitted) {
+    return (
+      <div className="rounded-2xl bg-white ring-1 ring-slate-200 shadow-sm p-6 text-center space-y-4">
+        <div className="w-14 h-14 rounded-2xl bg-emerald-50 ring-1 ring-emerald-200 mx-auto flex items-center justify-center">
+          <CheckCircle2 className="w-7 h-7 text-emerald-600" />
+        </div>
+        <div>
+          <p className="text-base sm:text-lg font-bold text-slate-900">出席登録が完了しました</p>
+          <p className="mt-1 text-sm text-slate-500">{courseName}</p>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-2 justify-center">
+          <button
+            type="button"
+            onClick={onSwitchAway}
+            className="inline-flex items-center justify-center gap-1.5 h-10 px-4 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition-colors"
+          >
+            ルームに戻る
+            <ArrowRight className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setSubmitted(false)}
+            className="inline-flex items-center justify-center h-10 px-4 rounded-xl bg-slate-100 text-slate-700 text-sm font-semibold hover:bg-slate-200 transition-colors"
+          >
+            もう一度登録する
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-start gap-3 rounded-2xl bg-emerald-50/70 ring-1 ring-emerald-200 px-4 py-3">
+        <ClipboardCheck className="w-5 h-5 text-emerald-600 mt-0.5 shrink-0" />
+        <div className="text-sm text-emerald-900 leading-relaxed">
+          <p className="font-bold">{courseName} の出席登録</p>
+          <p className="text-emerald-800/80 text-xs sm:text-sm mt-0.5">
+            位置情報を許可してフォームを送信してください。許可エリア外からは送信できません。
+          </p>
+        </div>
+      </div>
+      <AttendanceForm courseId={courseCode} onSubmitted={() => setSubmitted(true)} />
+    </div>
+  );
+}
+
 function TabButton({
   active,
   onClick,
@@ -604,6 +701,7 @@ function TabButton({
   label,
   badge,
   dot,
+  accent,
 }: {
   active: boolean;
   onClick: () => void;
@@ -611,6 +709,7 @@ function TabButton({
   label: string;
   badge?: number;
   dot?: boolean;
+  accent?: boolean;
 }) {
   return (
     <button
@@ -618,6 +717,8 @@ function TabButton({
       className={`relative flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-semibold border-b-2 transition-colors ${
         active
           ? 'border-emerald-500 text-emerald-700'
+          : accent
+          ? 'border-transparent text-emerald-600 hover:text-emerald-700'
           : 'border-transparent text-slate-400 hover:text-slate-600'
       }`}
     >

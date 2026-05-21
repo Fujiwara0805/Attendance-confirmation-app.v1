@@ -229,6 +229,7 @@ export default function PresentPage() {
               </label>
             </div>
           )}
+
           <div>
             <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-gray-800">{room.title}</h1>
             <p className="text-sm sm:text-base text-gray-500">

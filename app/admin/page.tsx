@@ -77,6 +77,7 @@ interface Course {
   };
   formType?: string;
   invitationSettings?: any;
+  cooldownMinutes?: number;
 }
 
 export default function AdminPage() {
@@ -449,6 +450,7 @@ export default function AdminPage() {
           locationSettings: c.location_settings || undefined,
           formType: c.form_type || 'attendance',
           invitationSettings: c.invitation_settings || undefined,
+          cooldownMinutes: typeof c.cooldown_minutes === 'number' ? c.cooldown_minutes : 15,
         }));
         setCourses(mappedCourses);
         if (mappedCourses.length > 0) {

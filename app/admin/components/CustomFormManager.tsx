@@ -53,6 +53,7 @@ import {
   CheckCircle,
   AlertTriangle,
   Settings,
+  Clock,
 } from 'lucide-react';
 import type { CustomFormField } from '@/app/types';
 import { defaultFields, fieldTypeLabels, presetFields, presetCategoryLabels, presetToCustomField, normalizeDefaultFields, type PresetField, type DefaultFieldEntry } from '@/lib/dynamicFormUtils';
@@ -101,6 +102,7 @@ interface EditingCourseData {
     radius: number;
     locationName?: string;
   };
+  cooldownMinutes?: number;
 }
 
 interface CustomFormManagerProps {
@@ -128,6 +130,8 @@ export default function CustomFormManager({ onCourseAdded, onClose, editingCours
   const [locationResolved, setLocationResolved] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
+  // クールダウン分数（0=クールダウンなし、最大 1440 分）
+  const [cooldownMinutes, setCooldownMinutes] = useState<number>(15);
   const [placeSuggestions, setPlaceSuggestions] = useState<Array<{ description: string; place_id: string }>>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const searchDebounceRef = React.useRef<NodeJS.Timeout | null>(null);
@@ -296,6 +300,9 @@ export default function CustomFormManager({ onCourseAdded, onClose, editingCours
         setRadius(editingCourse.locationSettings.radius);
         setLocationResolved(true);
       }
+      if (typeof editingCourse.cooldownMinutes === 'number') {
+        setCooldownMinutes(editingCourse.cooldownMinutes);
+      }
     }
   }, [editingCourse]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -423,6 +430,8 @@ export default function CustomFormManager({ onCourseAdded, onClose, editingCours
 
       let response: Response;
 
+      const sanitizedCooldown = Math.max(0, Math.min(1440, Math.floor(Number(cooldownMinutes) || 0)));
+
       if (editingCourse) {
         // 更新モード（PATCH）
         response = await fetch(`/api/v2/courses/${editingCourse.code}`, {
@@ -434,6 +443,7 @@ export default function CustomFormManager({ onCourseAdded, onClose, editingCours
             custom_fields: customFields,
             enabled_default_fields: enabledDefaultFields,
             location_settings: locationSettings,
+            cooldown_minutes: sanitizedCooldown,
           }),
         });
       } else {
@@ -447,6 +457,7 @@ export default function CustomFormManager({ onCourseAdded, onClose, editingCours
             customFields,
             enabledDefaultFields,
             locationSettings,
+            cooldownMinutes: sanitizedCooldown,
           }),
         });
       }
@@ -470,6 +481,7 @@ export default function CustomFormManager({ onCourseAdded, onClose, editingCours
         setRadius(0.5);
         setLocationResolved(false);
         setLocationError(null);
+        setCooldownMinutes(15);
 
         // リセット（すべて無効状態に戻す）
         const resetFields: UnifiedFormField[] = defaultFields.map((field, index) => ({
@@ -962,6 +974,44 @@ export default function CustomFormManager({ onCourseAdded, onClose, editingCours
                   </div>
                 </motion.div>
               )}
+            </div>
+
+            {/* クールダウン設定 */}
+            <div className="border border-slate-200 rounded-xl p-4 space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-indigo-500" />
+                  <span className="text-sm font-medium text-slate-700">送信クールダウン</span>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <Input
+                    type="number"
+                    min={0}
+                    max={1440}
+                    step={1}
+                    inputMode="numeric"
+                    value={cooldownMinutes}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      if (raw === '') {
+                        setCooldownMinutes(0);
+                        return;
+                      }
+                      const n = parseInt(raw, 10);
+                      if (Number.isFinite(n)) {
+                        setCooldownMinutes(Math.max(0, Math.min(1440, n)));
+                      }
+                    }}
+                    className="h-9 w-20 text-sm text-right"
+                  />
+                  <span className="text-xs text-slate-500">分</span>
+                </div>
+              </div>
+              <p className="text-xs text-slate-400">
+                {cooldownMinutes > 0
+                  ? `同一端末からの連続送信を ${cooldownMinutes} 分間ブロックします。`
+                  : 'クールダウンなし。同一端末からの連続送信を許可します。'}
+              </p>
             </div>
 
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end pt-2">

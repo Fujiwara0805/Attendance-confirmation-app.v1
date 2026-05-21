@@ -609,10 +609,11 @@ export default function LandingPage() {
 
           <motion.div {...stagger} className="space-y-3">
             {[
-              { date: '2026.03.19', tag: 'リリース', tagColor: 'bg-blue-100 text-blue-700', title: '招待フォーム機能をリリースしました。SNS告知→事前登録→QRコード発行→当日受付の一気通貫フローを実現。' },
-              { date: '2026.03.17', tag: 'リリース', tagColor: 'bg-blue-100 text-blue-700', title: 'ざせきくん v2.0をリリースしました。Q&A・投票機能、カスタムフォーム機能を追加。' },
-              { date: '2026.03.10', tag: 'アップデート', tagColor: 'bg-emerald-100 text-emerald-700', title: 'Google Places連携による位置情報検索機能を追加しました。' },
-              { date: '2026.03.01', tag: 'お知らせ', tagColor: 'bg-amber-100 text-amber-700', title: 'Proプラン（月額550円）の提供を開始しました。無制限のフォーム・ルーム作成が可能に。' },
+              { date: '2026.05.22', tag: 'アップデート', tagColor: 'bg-emerald-100 text-emerald-700', title: 'ライブ投票に「クイズ形式」「ランキング形式」を追加。' },
+              { date: '2026.05.22', tag: 'アップデート', tagColor: 'bg-emerald-100 text-emerald-700', title: 'スライドツール投影に対応。資料の上にQ&A・投票結果を重ねて表示。' },
+              { date: '2026.03.19', tag: 'リリース', tagColor: 'bg-blue-100 text-blue-700', title: '招待フォーム機能をリリース。事前登録〜当日受付までを一気通貫。' },
+              { date: '2026.03.17', tag: 'リリース', tagColor: 'bg-blue-100 text-blue-700', title: 'v2.0 リリース。Q&A・投票・カスタムフォームを搭載。' },
+              { date: '2026.03.10', tag: 'アップデート', tagColor: 'bg-emerald-100 text-emerald-700', title: 'Google Places 連携による位置情報検索に対応。' },
             ].map((news, i) => (
               <motion.div
                 key={i}

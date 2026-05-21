@@ -39,6 +39,18 @@ const tagConfig: Record<TagType, { color: string; bg: string; icon: React.Elemen
 
 const announcements: { date: string; tag: TagType; description: string }[] = [
   {
+    date: '2026.05.22',
+    tag: 'アップデート',
+    description:
+      'ライブ投票機能を大幅に拡張しました。従来の通常投票に加えて、正解設定が可能な「出題形式（クイズ）」と、複数の候補を順位付けして集計できる「ランキング形式」に対応。クイズは制限時間付きで複数問の連続出題ができ、ランキングは独自の重み付けで上位を可視化できます。',
+  },
+  {
+    date: '2026.05.22',
+    tag: 'アップデート',
+    description:
+      '資料投影画面（スクリーン画面）をリニューアルしました。PowerPointやKeynote、Googleスライドなどブラウザ上のスライドツールを投影しながら、ざせきくんの参加QR・質問・ライブ投票結果をオーバーレイ表示できます。授業や登壇中もスライドを切り替えずに、参加者の反応をリアルタイムに把握できます。',
+  },
+  {
     date: '2026.03.19',
     tag: 'リリース',
     description:

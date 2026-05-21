@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     if (courseCode) {
       const { data, error } = await supabase
         .from('courses')
-        .select('id, name, location_settings, status')
+        .select('id, name, location_settings, status, cooldown_minutes')
         .eq('code', courseCode)
         .single();
       if (error || !data) {
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
     } else {
       const { data, error } = await supabase
         .from('courses')
-        .select('id, name, location_settings, status')
+        .select('id, name, location_settings, status, cooldown_minutes')
         .eq('id', courseId)
         .single();
       if (error || !data) {
@@ -65,19 +65,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'This course is no longer active' }, { status: 400 });
     }
 
-    // クールダウンチェック（サーバーサイド）
+    // クールダウンチェック（サーバーサイド）- 講義ごとの cooldown_minutes を使用
+    const cooldownMinutes = Number.isFinite(course.cooldown_minutes)
+      ? Math.max(0, Math.min(1440, Number(course.cooldown_minutes)))
+      : 15;
     const deviceFingerprint = generateDeviceFingerprint(req);
-    const { data: cooldownOk } = await supabase.rpc('check_cooldown', {
-      p_course_id: course.id,
-      p_device_fingerprint: deviceFingerprint,
-      p_cooldown_minutes: 15
-    });
+    if (cooldownMinutes > 0) {
+      const { data: cooldownOk } = await supabase.rpc('check_cooldown', {
+        p_course_id: course.id,
+        p_device_fingerprint: deviceFingerprint,
+        p_cooldown_minutes: cooldownMinutes
+      });
 
-    if (cooldownOk === false) {
-      return NextResponse.json({
-        message: '同一端末からの出席登録は15分間隔を空ける必要があります。',
-        error: 'Cooldown active'
-      }, { status: 429 });
+      if (cooldownOk === false) {
+        return NextResponse.json({
+          message: `同一端末からの出席登録は${cooldownMinutes}分間隔を空ける必要があります。`,
+          error: 'Cooldown active'
+        }, { status: 429 });
+      }
     }
 
     // 位置情報の検証

@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
 
     let query = supabase
       .from('courses')
-      .select('id, code, name, description, teacher_name, category, template_id, enabled_default_fields, custom_fields, location_settings, status, created_at, form_type, invitation_settings')
+      .select('id, code, name, description, teacher_name, category, template_id, enabled_default_fields, custom_fields, location_settings, status, created_at, form_type, invitation_settings, cooldown_minutes')
       .eq('status', 'active')
       .order('created_at', { ascending: false });
 
@@ -60,7 +60,15 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { name, description, teacherName, category, templateId, customFields, enabledDefaultFields, locationSettings, formType, invitationSettings } = body;
+    const { name, description, teacherName, category, templateId, customFields, enabledDefaultFields, locationSettings, formType, invitationSettings, cooldownMinutes } = body;
+
+    // クールダウン分数のバリデーション（0〜1440分の範囲）
+    const sanitizedCooldown = (() => {
+      if (cooldownMinutes === undefined || cooldownMinutes === null || cooldownMinutes === '') return 15;
+      const n = Number(cooldownMinutes);
+      if (!Number.isFinite(n)) return 15;
+      return Math.max(0, Math.min(1440, Math.floor(n)));
+    })();
 
     if (!name || !teacherName) {
       return NextResponse.json({ message: 'name and teacherName are required' }, { status: 400 });
@@ -111,6 +119,7 @@ export async function POST(req: NextRequest) {
         location_settings: locationSettings || null,
         form_type: formType || 'attendance',
         invitation_settings: invitationSettings || null,
+        cooldown_minutes: sanitizedCooldown,
       })
       .select()
       .single();

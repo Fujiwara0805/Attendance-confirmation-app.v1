@@ -18,7 +18,7 @@ export async function GET(
         id, code, name, description, teacher_name, category,
         template_id, custom_fields, enabled_default_fields,
         location_settings, status, created_at,
-        form_type, invitation_settings
+        form_type, invitation_settings, cooldown_minutes
       `)
       .eq('code', courseCode)
       .eq('status', 'active')
@@ -87,6 +87,17 @@ export async function PATCH(
         updateData[key] = body[key];
       }
     }
+
+    // cooldown_minutes は別途バリデーションして取り込む（snake/camel どちらも許容）
+    const rawCooldown = body.cooldown_minutes ?? body.cooldownMinutes;
+    if (rawCooldown !== undefined) {
+      const n = Number(rawCooldown);
+      if (!Number.isFinite(n) || n < 0 || n > 1440) {
+        return NextResponse.json({ message: 'cooldown_minutes must be 0-1440' }, { status: 400 });
+      }
+      updateData.cooldown_minutes = Math.floor(n);
+    }
+
     updateData.updated_at = new Date().toISOString();
 
     const { data: course, error } = await supabase
