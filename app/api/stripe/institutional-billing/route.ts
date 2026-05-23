@@ -15,16 +15,10 @@ const PLAN_PRICES = {
     name: 'ざせきくん Pro プラン',
     monthlyAmount: 550,
   },
-  enterprise: {
-    productType: 'enterprise_subscription',
-    plan: 'enterprise',
-    name: 'ざせきくん Enterprise プラン',
-    monthlyAmount: 2000,
-  },
 } as const;
 
 const requestSchema = z.object({
-  plan: z.enum(['pro', 'enterprise']),
+  plan: z.enum(['pro']),
   termMonths: z.coerce.number().int().min(1).max(12),
   institutionName: z.string().trim().min(1).max(120),
   departmentName: z.string().trim().max(120).optional().default(''),

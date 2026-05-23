@@ -30,10 +30,10 @@ export default function InstitutionalBillingPage() {
     institutionName: '',
     departmentName: '',
     contactName: session?.user?.name || '',
-    billingEmail: session?.user?.email || '',
+    billingEmail: 'sobota@nobody-info.com',
     phone: '',
     postalCode: '',
-    address: '',
+    address: '大分県大分市大字旦野原700番地国立大学法人大分大学研究マネジメント機構4階423',
     taxId: '',
     purchaseOrderNumber: '',
     daysUntilDue: '30',
@@ -41,9 +41,9 @@ export default function InstitutionalBillingPage() {
   });
 
   const estimatedAmount = useMemo(() => {
-    const monthly = formData.plan === 'enterprise' ? 2000 : 550;
+    const monthly = 550;
     return monthly * Number(formData.termMonths || 1);
-  }, [formData.plan, formData.termMonths]);
+  }, [formData.termMonths]);
 
   const updateField = (field: keyof typeof formData, value: string) => {
     setFormData((current) => ({ ...current, [field]: value }));
@@ -54,7 +54,6 @@ export default function InstitutionalBillingPage() {
     setFormData((current) => ({
       ...current,
       contactName: current.contactName || session.user?.name || '',
-      billingEmail: current.billingEmail || session.user?.email || '',
     }));
   }, [session?.user]);
 
@@ -188,7 +187,6 @@ export default function InstitutionalBillingPage() {
                     className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   >
                     <option value="pro">Pro / 月額550円</option>
-                    <option value="enterprise">Enterprise / 月額2,000円</option>
                   </select>
                 </div>
                 <div className="space-y-2">
