@@ -239,6 +239,9 @@ export default function HostPage() {
     topQuestions?: Array<{ text: string; upvote_count: number }>;
   } | null>(null);
   const [showAllQuestions, setShowAllQuestions] = useState(false);
+  const [userPlan, setUserPlan] = useState<'free' | 'paid' | 'enterprise'>('free');
+  const [pollPage, setPollPage] = useState(1);
+  const POLLS_PER_PAGE = 6;
   const [roomStatusLoading, setRoomStatusLoading] = useState(false);
   const [pollStatusPendingId, setPollStatusPendingId] = useState<string | null>(null);
   const [pollDeletingId, setPollDeletingId] = useState<string | null>(null);
@@ -360,6 +363,20 @@ export default function HostPage() {
       })
       .catch(() => setLoading(false));
   }, [roomCode]);
+
+  // Fetch plan info (Free / Pro / Enterprise) でライブ投票上限を判定
+  useEffect(() => {
+    if (authStatus !== 'authenticated') return;
+    fetch('/api/v2/subscription')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        const plan = data?.subscription?.plan;
+        if (plan === 'paid' || plan === 'enterprise' || plan === 'free') {
+          setUserPlan(plan);
+        }
+      })
+      .catch(() => {});
+  }, [authStatus]);
 
   // Generate QR
   useEffect(() => {
@@ -630,15 +647,21 @@ export default function HostPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
-        if (!res.ok) throw new Error('Failed to create poll');
+        if (!res.ok) {
+          const errorBody = await res.json().catch(() => null);
+          throw new Error(errorBody?.error || 'Failed to create poll');
+        }
         const createdPoll = (await res.json()) as Poll;
         optimisticUpsertPoll(createdPoll);
       }
       setExportData(null);
       resetPollForm(pollMode);
       setShowCreatePoll(false);
-    } catch {
-      /* ignore */
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'ライブ投票カードの作成に失敗しました';
+      if (typeof window !== 'undefined' && message !== 'Failed to create poll') {
+        window.alert(message);
+      }
     } finally {
       setCreatingPoll(false);
     }
@@ -923,6 +946,8 @@ export default function HostPage() {
   const totalParticipants =
     exportData?.stats?.uniqueParticipants ?? Math.max(presenceCount, 0);
   const selectedEditingPoll = editingPollId ? polls.find((poll) => poll.id === editingPollId) : null;
+  const pollLimit = userPlan === 'free' ? 2 : Infinity;
+  const atPollLimit = Number.isFinite(pollLimit) && polls.length >= pollLimit;
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50/60">
@@ -1207,13 +1232,24 @@ export default function HostPage() {
               {room.status === 'active' && (
                 <button
                   onClick={() => setShowPollTypeModal(true)}
-                  className="inline-flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold px-4 h-10 rounded-lg shadow-sm shadow-emerald-200/60 transition-colors text-sm"
+                  disabled={atPollLimit}
+                  title={atPollLimit ? `Freeプランではライブ投票カードを${pollLimit}個まで作成できます` : undefined}
+                  className="inline-flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-300 disabled:hover:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold px-4 h-10 rounded-lg shadow-sm shadow-emerald-200/60 transition-colors text-sm"
                 >
                   <Plus className="w-4 h-4" />
                   新規作成
                 </button>
               )}
             </div>
+
+            {atPollLimit && (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                <p className="font-semibold">Freeプランのライブ投票カードは{pollLimit}個までです</p>
+                <p className="mt-1 text-xs leading-relaxed text-amber-800">
+                  Proプランにアップグレードすると、ライブ投票カードを無制限に作成できます（1ページに最大{POLLS_PER_PAGE}件表示、超過分はページ送りで表示されます）。
+                </p>
+              </div>
+            )}
 
             <AnimatePresence>
               {showPollTypeModal && (
@@ -1870,27 +1906,71 @@ export default function HostPage() {
                 <p className="text-xs text-slate-400 mt-1">右上の「新規作成」から作成できます</p>
               </div>
             ) : polls.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                {polls
-                  // 編集中のカードは編集フォームと内容が重複して紛らわしいため一覧からは隠す
-                  .filter((poll) => poll.id !== editingPollId)
-                  .map((poll) => (
-                    <PollResultCard
-                      key={poll.id}
-                      poll={poll}
-                      votes={pollVotes[poll.id] || []}
-                      pendingId={pollStatusPendingId}
-                      deletingId={pollDeletingId}
-                      editing={editingPollId === poll.id}
-                      onStart={() => handlePollStatus(poll.id, 'active')}
-                      onClose={() => handlePollStatus(poll.id, 'closed')}
-                      onDelete={() => handleDeletePoll(poll.id)}
-                      onEdit={() => handleEditPoll(poll)}
-                      onReset={() => handleResetPoll(poll.id)}
-                      resetting={pollResettingId === poll.id}
-                    />
-                  ))}
-              </div>
+              (() => {
+                // 編集中のカードは編集フォームと内容が重複して紛らわしいため一覧からは隠す
+                const visiblePolls = polls.filter((poll) => poll.id !== editingPollId);
+                const totalPages = Math.max(1, Math.ceil(visiblePolls.length / POLLS_PER_PAGE));
+                const currentPage = Math.min(pollPage, totalPages);
+                const pageStart = (currentPage - 1) * POLLS_PER_PAGE;
+                const pagedPolls = visiblePolls.slice(pageStart, pageStart + POLLS_PER_PAGE);
+                return (
+                  <>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                      {pagedPolls.map((poll) => (
+                        <PollResultCard
+                          key={poll.id}
+                          poll={poll}
+                          votes={pollVotes[poll.id] || []}
+                          pendingId={pollStatusPendingId}
+                          deletingId={pollDeletingId}
+                          editing={editingPollId === poll.id}
+                          onStart={() => handlePollStatus(poll.id, 'active')}
+                          onClose={() => handlePollStatus(poll.id, 'closed')}
+                          onDelete={() => handleDeletePoll(poll.id)}
+                          onEdit={() => handleEditPoll(poll)}
+                          onReset={() => handleResetPoll(poll.id)}
+                          resetting={pollResettingId === poll.id}
+                        />
+                      ))}
+                    </div>
+                    {totalPages > 1 && (
+                      <div className="flex items-center justify-center gap-2 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => setPollPage((p) => Math.max(1, p - 1))}
+                          disabled={currentPage <= 1}
+                          className="h-9 px-3 rounded-lg text-sm font-semibold text-slate-700 bg-white ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          前へ
+                        </button>
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                          <button
+                            key={page}
+                            type="button"
+                            onClick={() => setPollPage(page)}
+                            aria-current={page === currentPage ? 'page' : undefined}
+                            className={`h-9 min-w-9 px-3 rounded-lg text-sm font-semibold transition-colors ${
+                              page === currentPage
+                                ? 'bg-emerald-500 text-white shadow-sm shadow-emerald-200/60'
+                                : 'bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50'
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => setPollPage((p) => Math.min(totalPages, p + 1))}
+                          disabled={currentPage >= totalPages}
+                          className="h-9 px-3 rounded-lg text-sm font-semibold text-slate-700 bg-white ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          次へ
+                        </button>
+                      </div>
+                    )}
+                  </>
+                );
+              })()
             ) : null}
           </div>
         )}

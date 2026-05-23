@@ -73,12 +73,12 @@ export default function InstitutionalBillingPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || '請求書払いの請求書作成に失敗しました');
+        throw new Error(data.error || '銀行振込払いの請求書作成に失敗しました');
       }
 
       setResult(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '請求書払いの請求書作成に失敗しました');
+      setError(err instanceof Error ? err.message : '銀行振込払いの請求書作成に失敗しました');
     } finally {
       setSubmitting(false);
     }
@@ -98,7 +98,7 @@ export default function InstitutionalBillingPage() {
         <div className="mx-auto max-w-xl rounded-2xl bg-white p-8 shadow-sm ring-1 ring-black/5">
           <h1 className="text-2xl font-bold text-slate-900">ログインが必要です</h1>
           <p className="mt-3 text-sm leading-6 text-slate-600">
-            請求書払いの請求書をアカウントに紐づけるため、管理画面へログインしてください。
+            銀行振込払いの請求書をアカウントに紐づけるため、管理画面へログインしてください。
           </p>
           <Button asChild className="mt-6 bg-indigo-600 hover:bg-indigo-700">
             <Link href="/admin/login">ログインへ</Link>
@@ -127,7 +127,7 @@ export default function InstitutionalBillingPage() {
                 Invoice Billing
               </div>
               <h1 className="mt-4 text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">
-                請求書払い
+                銀行振込払い
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
                 大学・研究費・法人向けの銀行振込支払いに対応します。見積書PDF・後払い請求書・印刷用納品書を作成し、支払い確認後に対象期間の有料プランが有効になります。

@@ -9,6 +9,7 @@ import {
   type PollMode,
   type PollOption,
 } from '@/lib/pollModes';
+import { PLAN_LIMITS, getUserSubscription } from '@/lib/subscription';
 
 // GET: Fetch polls for a room (public)
 export async function GET(
@@ -88,6 +89,23 @@ export async function POST(
 
     if (!room || room.host_id !== session.email) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const subscription = await getUserSubscription(session.email);
+    const maxPolls = PLAN_LIMITS[subscription.plan].maxPolls;
+    if (Number.isFinite(maxPolls)) {
+      const { count: existingPollCount } = await supabase
+        .from('polls')
+        .select('id', { count: 'exact', head: true })
+        .eq('room_id', room.id);
+      if ((existingPollCount ?? 0) >= maxPolls) {
+        return NextResponse.json(
+          {
+            error: `Freeプランではライブ投票カードを${maxPolls}個まで作成できます。Proプランにアップグレードすると無制限に作成できます。`,
+          },
+          { status: 403 }
+        );
+      }
     }
 
     const {

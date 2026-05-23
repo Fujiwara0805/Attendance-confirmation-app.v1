@@ -349,7 +349,7 @@ export default function AccountSettingsPage() {
             <div>
               <h2 className="text-base font-semibold text-slate-900">請求・支払い</h2>
               <p className="text-sm text-slate-500 mt-0.5">
-                請求書・領収書のダウンロードや、請求書払いの申請ができます。
+                請求書・領収書のダウンロードや、銀行振込払いの申請ができます。
               </p>
             </div>
           </div>
@@ -392,7 +392,7 @@ export default function AccountSettingsPage() {
                 <Building2 className="h-5 w-5 text-indigo-600" />
               </div>
               <div className="min-w-0 flex-1">
-                <h3 className="text-sm font-semibold text-slate-900">請求書払い</h3>
+                <h3 className="text-sm font-semibold text-slate-900">銀行振込払い（要相談）</h3>
                 <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
                   大学・研究費・法人での銀行振込払いに対応。見積書・請求書・納品書を発行できます。
                 </p>

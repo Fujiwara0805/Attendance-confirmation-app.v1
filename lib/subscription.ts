@@ -3,9 +3,9 @@ import Stripe from 'stripe';
 
 // プラン制限
 export const PLAN_LIMITS = {
-  free: { maxForms: 2, maxRooms: 1 },
-  paid: { maxForms: Infinity, maxRooms: Infinity },
-  enterprise: { maxForms: Infinity, maxRooms: Infinity },
+  free: { maxForms: 2, maxRooms: 1, maxPolls: 2 },
+  paid: { maxForms: Infinity, maxRooms: Infinity, maxPolls: Infinity },
+  enterprise: { maxForms: Infinity, maxRooms: Infinity, maxPolls: Infinity },
 } as const;
 
 export type PlanType = 'free' | 'paid' | 'enterprise';
