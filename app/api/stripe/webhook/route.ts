@@ -69,6 +69,29 @@ function getPlanForSubscription(
   return unitAmount === 2000 ? 'enterprise' : 'paid';
 }
 
+async function activateInstitutionalInvoice(invoice: Stripe.Invoice) {
+  if (invoice.metadata?.billing_flow !== 'institutional_billing') return;
+
+  const email = invoice.metadata.userId || await getInvoiceEmail(invoice);
+  if (!email) {
+    console.error('Institutional invoice paid without resolvable email:', invoice.id);
+    return;
+  }
+
+  const productType = invoice.metadata.productType;
+  const plan = productType === 'enterprise_subscription' ? 'enterprise' : 'paid';
+
+  await upsertSubscription(email, {
+    plan,
+    status: 'active',
+    stripe_customer_id: invoice.customer as string,
+    current_period_start: invoice.metadata.periodStart,
+    current_period_end: invoice.metadata.periodEnd,
+  });
+
+  console.log(`Institutional ${plan} invoice paid for ${email}: ${invoice.id}`);
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.text();
@@ -168,6 +191,14 @@ export async function POST(request: NextRequest) {
           });
           console.log(`Payment failed for ${email}`);
         }
+        break;
+      }
+
+      // 公費払い・銀行振込の請求書支払い完了
+      case 'invoice.paid':
+      case 'invoice.payment_succeeded': {
+        const invoice = event.data.object as Stripe.Invoice;
+        await activateInstitutionalInvoice(invoice);
         break;
       }
     }

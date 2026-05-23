@@ -8,6 +8,10 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-07-30.basil',
 });
 
+function getAppUrl(request: Request) {
+  return process.env.NEXTAUTH_URL || new URL(request.url).origin;
+}
+
 function getSubscriptionPeriod(subscription: Stripe.Subscription) {
   const stripeSubscription = subscription as any;
 
@@ -71,7 +75,10 @@ export async function POST(request: Request) {
 
       const portalSession = await stripe.billingPortal.sessions.create({
         customer: planInfo.subscription.stripeCustomerId,
-        return_url: `${process.env.NEXTAUTH_URL}/admin`,
+        return_url: `${getAppUrl(request)}/admin`,
+        ...(process.env.STRIPE_BILLING_PORTAL_CONFIGURATION_ID
+          ? { configuration: process.env.STRIPE_BILLING_PORTAL_CONFIGURATION_ID }
+          : {}),
       });
 
       return NextResponse.json({ url: portalSession.url });

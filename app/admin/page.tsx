@@ -383,6 +383,31 @@ export default function AdminPage() {
     }
   };
 
+  const handleOpenBillingPortal = async () => {
+    setIsSubscriptionActionPending(true);
+    try {
+      const response = await fetch('/api/v2/subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'portal' }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || '請求情報ページを開けませんでした');
+      }
+
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch (error) {
+      console.error('Billing portal error:', error);
+      showToast('エラー', error instanceof Error ? error.message : '請求情報ページを開けませんでした', 'destructive');
+    } finally {
+      setIsSubscriptionActionPending(false);
+    }
+  };
+
   const currentPeriodEndLabel = planInfo?.subscription.currentPeriodEnd
     ? new Date(planInfo.subscription.currentPeriodEnd).toLocaleDateString('ja-JP')
     : null;
@@ -1105,6 +1130,31 @@ export default function AdminPage() {
                       {planInfo.usage.formCount}/{planInfo.limits.maxForms === Infinity ? '∞' : planInfo.limits.maxForms}
                     </span>
                   </div>
+                )}
+                {planInfo && (
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="sm"
+                    className="h-9 px-3 text-slate-600 border-slate-200"
+                  >
+                    <Link href="/admin/billing/institutional">
+                      <FileText className="h-3.5 w-3.5 mr-1.5" />
+                      公費払い
+                    </Link>
+                  </Button>
+                )}
+                {planInfo && (planInfo.subscription.plan === 'paid' || planInfo.subscription.plan === 'enterprise') && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleOpenBillingPortal}
+                    disabled={isSubscriptionActionPending}
+                    className="h-9 px-3 text-slate-600 border-slate-200"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                    請求書・領収書
+                  </Button>
                 )}
                 {planInfo && (planInfo.subscription.plan === 'paid' || planInfo.subscription.plan === 'enterprise') && (
                   <Button

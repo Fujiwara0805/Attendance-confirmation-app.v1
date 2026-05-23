@@ -63,6 +63,14 @@ export async function POST(request: NextRequest) {
     const checkoutSession = await stripe.checkout.sessions.create({
       customer: customerId,
       payment_method_types: ['card'],
+      billing_address_collection: 'required',
+      customer_update: {
+        name: 'auto',
+        address: 'auto',
+      },
+      tax_id_collection: {
+        enabled: true,
+      },
       line_items: [
         {
           price_data: {
