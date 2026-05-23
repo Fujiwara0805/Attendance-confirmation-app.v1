@@ -39,6 +39,7 @@ import {
   Play,
   StopCircle,
   Clock,
+  ClipboardEdit,
 } from 'lucide-react';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { CustomModal } from '@/components/ui/custom-modal';
@@ -49,6 +50,7 @@ import InvitationFormManager from './components/InvitationFormManager';
 import InvitationResponseList from './components/InvitationResponseList';
 import AttendanceExport from './components/AttendanceExport';
 import AdminShell, { type AdminSection } from './components/AdminShell';
+import ManualAttendanceModal from './components/ManualAttendanceModal';
 
 interface Course {
   id: string;
@@ -273,6 +275,8 @@ function AdminPageInner() {
   // 編集用の状態
   const [isEditDialogOpen, setIsEditDialogOpen] = useState<boolean>(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
+  // 手動入力モーダル
+  const [manualEntryCourse, setManualEntryCourse] = useState<Course | null>(null);
   const [editCourse, setEditCourse] = useState({
     courseName: '',
     teacherName: '',
@@ -849,7 +853,7 @@ function AdminPageInner() {
                 <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">フォーム管理</h1>
                 <p className="text-sm sm:text-base text-slate-500 mt-1">
                   {courses.length > 0
-                    ? `${courses.length} 件の出席フォームを管理中`
+                    ? `${courses.length} 件のフォームを管理中`
                     : '出席フォームを作成して始めましょう'}
                 </p>
               </div>
@@ -1575,6 +1579,13 @@ function AdminPageInner() {
               )}
             </CustomModal>
 
+            {/* Manual attendance entry modal */}
+            <ManualAttendanceModal
+              isOpen={!!manualEntryCourse}
+              onClose={() => setManualEntryCourse(null)}
+              course={manualEntryCourse}
+            />
+
             {/* Course list */}
             {loadingCourses ? (
               <div className="flex items-center justify-center py-20">
@@ -1677,10 +1688,24 @@ function AdminPageInner() {
                           </div>
                           {/* Action buttons */}
                           <div className="flex items-center gap-1 flex-shrink-0">
+                            {course.formType !== 'invitation' && (
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); setManualEntryCourse(course); }}
+                                className="h-auto min-w-[2.25rem] sm:min-w-[1.75rem] px-1 py-1 flex flex-col items-center justify-center gap-0.5 rounded-md text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 active:bg-emerald-100 transition-colors"
+                                title="手動入力（紙の出席票などを管理者が入力）"
+                                aria-label="手動入力"
+                              >
+                                <ClipboardEdit className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                                <span className="text-[10px] font-medium leading-none">手動入力</span>
+                              </button>
+                            )}
                             <button
                               type="button"
                               onClick={(e) => { e.stopPropagation(); handleEditCourse(course); }}
                               className="h-9 w-9 sm:h-7 sm:w-7 flex items-center justify-center rounded-md text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 active:bg-indigo-100 transition-colors"
+                              title="フォームを編集"
+                              aria-label="フォームを編集"
                             >
                               <Edit className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
                             </button>
@@ -1688,6 +1713,8 @@ function AdminPageInner() {
                               type="button"
                               onClick={(e) => { e.stopPropagation(); handleDeleteCourse(course.code, course.courseName); }}
                               className="h-9 w-9 sm:h-7 sm:w-7 flex items-center justify-center rounded-md text-red-400 hover:text-red-600 hover:bg-red-50 active:bg-red-100 transition-colors"
+                              title="フォームを削除"
+                              aria-label="フォームを削除"
                             >
                               <Trash2 className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
                             </button>
