@@ -889,6 +889,7 @@ function ActivePollCard({
       (idx) => idx >= question.optionStart && idx < question.optionStart + question.optionCount
     );
   const answeredQuizCount = quizQuestions.filter(isAnswered).length;
+  const activeQuizQuestion = quizQuestions[activeQuizIndex];
 
   // 全問共通の制限時間でカウントダウン（管理者設定）。時間切れで送信不可・解答開示。
   const standardTimeLimit = isStandard ? meta.timeLimitSeconds || 0 : 0;
@@ -1446,38 +1447,40 @@ function ActivePollCard({
               </button>
             </div>
 
-            <div className="overflow-hidden">
-              <div
-                className="flex transition-transform duration-300 ease-out"
-                style={{ transform: `translateX(-${activeQuizIndex * 100}%)` }}
-              >
-                {quizQuestions.map((question) => {
-                  return (
-                  <div key={question.id} className="w-full shrink-0 space-y-3 px-0.5">
+            <AnimatePresence mode="wait">
+              {activeQuizQuestion && (
+                <motion.div
+                  key={activeQuizQuestion.id}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.18 }}
+                  className="space-y-3 px-0.5"
+                >
                     <div>
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-xs font-bold text-emerald-700">
-                          問題 {question.questionNumber}
+                          問題 {activeQuizQuestion.questionNumber}
                         </p>
                       </div>
                       <h4 className="mt-1 text-sm sm:text-base font-bold text-slate-900 leading-snug">
-                        {question.question}
+                        {activeQuizQuestion.question}
                       </h4>
-                      {question.questionImageUrl && (
+                      {activeQuizQuestion.questionImageUrl && (
                         <button
                           type="button"
                           onClick={() =>
                             openImagePreview(
-                              question.questionImageUrl || '',
-                              `問題 ${question.questionNumber} の画像`
+                              activeQuizQuestion.questionImageUrl || '',
+                              `問題 ${activeQuizQuestion.questionNumber} の画像`
                             )
                           }
                           className="mt-3 block w-full rounded-xl bg-white ring-1 ring-slate-200 transition hover:ring-emerald-300"
                           title="画像を拡大表示"
                         >
                           <img
-                            src={question.questionImageUrl}
-                            alt={`問題 ${question.questionNumber} の画像`}
+                            src={activeQuizQuestion.questionImageUrl}
+                            alt={`問題 ${activeQuizQuestion.questionNumber} の画像`}
                             className="max-h-72 w-full rounded-xl object-contain"
                           />
                         </button>
@@ -1485,8 +1488,8 @@ function ActivePollCard({
                     </div>
                     {/* 参加者投票画面: 選択肢は1列表示 */}
                     <div className="space-y-2">
-                      {options.slice(question.optionStart, question.optionStart + question.optionCount).map((option, offset) => {
-                        const globalIndex = question.optionStart + offset;
+                      {options.slice(activeQuizQuestion.optionStart, activeQuizQuestion.optionStart + activeQuizQuestion.optionCount).map((option, offset) => {
+                        const globalIndex = activeQuizQuestion.optionStart + offset;
                         const checked = selected.includes(globalIndex);
                         const imageUrl = getPollOptionImageUrl(option);
                         return (
@@ -1496,7 +1499,7 @@ function ActivePollCard({
                             tabIndex={0}
                             onClick={() => {
                               setSelected((prev) => [
-                                ...prev.filter((idx) => idx < question.optionStart || idx >= question.optionStart + question.optionCount),
+                                ...prev.filter((idx) => idx < activeQuizQuestion.optionStart || idx >= activeQuizQuestion.optionStart + activeQuizQuestion.optionCount),
                                 globalIndex,
                               ]);
                             }}
@@ -1504,7 +1507,7 @@ function ActivePollCard({
                               if (e.key !== 'Enter' && e.key !== ' ') return;
                               e.preventDefault();
                               setSelected((prev) => [
-                                ...prev.filter((idx) => idx < question.optionStart || idx >= question.optionStart + question.optionCount),
+                                ...prev.filter((idx) => idx < activeQuizQuestion.optionStart || idx >= activeQuizQuestion.optionStart + activeQuizQuestion.optionCount),
                                 globalIndex,
                               ]);
                             }}
@@ -1548,11 +1551,9 @@ function ActivePollCard({
                         );
                       })}
                     </div>
-                  </div>
-                  );
-                })}
-              </div>
-            </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
           </div>
           {quizSubmittable && (
