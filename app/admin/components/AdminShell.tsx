@@ -16,7 +16,6 @@ import {
   PanelLeftOpen,
   Settings,
   Sparkles,
-  X,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -517,20 +516,7 @@ export default function AdminShell(props: AdminShellProps) {
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetContent side="left" className="p-0 w-80 sm:max-w-sm">
           <div className="h-full flex flex-col">
-            <div className="flex items-center justify-end px-2 py-2 border-b border-slate-100">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setMobileOpen(false)}
-                className="h-9 w-9 p-0"
-                aria-label="メニューを閉じる"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="flex-1 overflow-y-auto">
-              <SidebarContent {...props} onAfterNavigate={() => setMobileOpen(false)} />
-            </div>
+            <SidebarContent {...props} onAfterNavigate={() => setMobileOpen(false)} />
           </div>
         </SheetContent>
       </Sheet>
