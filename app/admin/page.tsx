@@ -2179,7 +2179,7 @@ function AdminPageInner() {
                 データエクスポートについて
               </h3>
               <p className="text-xs sm:text-sm text-emerald-800 leading-relaxed">
-                出席フォームに登録されたデータをCSV（Excel対応）またはJSON形式でダウンロードできます。日付フィルタで特定期間のデータを絞り込むことも可能です。
+                フォームに登録されたデータをCSV（Excel対応）またはJSON形式でダウンロードできます。日付フィルタで特定期間のデータを絞り込むことも可能です。
               </p>
             </div>
             <AttendanceExport />

@@ -201,7 +201,7 @@ export default function AttendanceExport() {
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center gap-2">
             <FileSpreadsheet className="h-5 w-5 text-indigo-600" />
-            出席データエクスポート
+            データエクスポート
           </CardTitle>
           <CardDescription>
             講義・講演会・セミナーの出席データをCSVまたはJSON形式でダウンロードできます

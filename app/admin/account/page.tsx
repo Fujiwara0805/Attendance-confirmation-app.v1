@@ -374,7 +374,7 @@ export default function AccountSettingsPage() {
                   <ExternalLink className="h-3 w-3 text-slate-400 group-hover:text-emerald-600 transition-colors" />
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
-                  Stripe の請求情報ポータルを別タブで開き、過去の請求書・領収書を確認・ダウンロードできます。
+                  Stripe の請求情報ポータルを別タブで開き、過去の請求書・領収書を確認・ダウンロードできます。（請求履歴から該当月の請求書並びに領収書をダウンロードできます。）
                 </p>
                 {!isPaidPlan && (
                   <p className="mt-2 text-[11px] text-slate-400">
