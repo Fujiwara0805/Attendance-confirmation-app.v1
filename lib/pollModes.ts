@@ -38,6 +38,20 @@ export interface PollMeta {
   runStartedAtByClearedAt?: Record<string, string>;
   runStartedAtClientAtByClearedAt?: Record<string, string>;
   runStartedAtTimeZoneByClearedAt?: Record<string, string>;
+  runVoteSnapshotsByClearedAt?: Record<
+    string,
+    {
+      startedAt?: string | null;
+      startedAtClientAt?: string | null;
+      startedAtTimeZone?: string | null;
+      votes: Array<{
+        optionIndex: number | null;
+        value?: string | null;
+        participantId: string;
+        createdAt?: string | null;
+      }>;
+    }
+  >;
 }
 
 type PollMetaEntry = PollMeta & { __pollMeta: true };

@@ -24,7 +24,7 @@ async function insertOrReactivateVote(
   supabase: ReturnType<typeof createServerClient>,
   row: PollVoteRow
 ) {
-  const inserted = await supabase
+  let inserted = await supabase
     .from('poll_votes')
     .insert(row)
     .select()
@@ -32,6 +32,33 @@ async function insertOrReactivateVote(
 
   if (!inserted.error) return inserted;
   if (!isDuplicateKeyError(inserted.error)) return inserted;
+
+  const { data: duplicates, error: lookupError } = await supabase
+    .from('poll_votes')
+    .select('id, cleared_at')
+    .eq('poll_id', row.poll_id)
+    .eq('participant_id', row.participant_id)
+    .eq('option_index', row.option_index);
+  if (lookupError) return { data: null, error: lookupError };
+
+  const archivedIds = (duplicates || [])
+    .filter((vote) => !!vote.cleared_at)
+    .map((vote) => vote.id)
+    .filter(Boolean);
+  if (archivedIds.length > 0) {
+    const { error: deleteArchivedError } = await supabase
+      .from('poll_votes')
+      .delete()
+      .in('id', archivedIds);
+    if (deleteArchivedError) return { data: null, error: deleteArchivedError };
+
+    inserted = await supabase
+      .from('poll_votes')
+      .insert(row)
+      .select()
+      .single();
+    if (!inserted.error || !isDuplicateKeyError(inserted.error)) return inserted;
+  }
 
   return supabase
     .from('poll_votes')

@@ -272,7 +272,16 @@ function pollsToRichCSV(polls: PollRow[], votes: VoteRow[]) {
     const allPollVotes = votes.filter((v) => v.poll_id === poll.id);
 
     // 開始回ごとにグループ化。cleared_at は DB と meta で表記が揺れるため時刻で正規化する。
-    const runs = new Map<string | null, { clearedAt: string | null; votes: VoteRow[] }>();
+    const runs = new Map<
+      string | null,
+      {
+        clearedAt: string | null;
+        votes: VoteRow[];
+        snapshotStartedAt?: string | null;
+        snapshotStartedAtClientAt?: string | null;
+        snapshotStartedAtTimeZone?: string | null;
+      }
+    >();
     for (const v of allPollVotes) {
       const key = v.cleared_at ? normalizeRunTimestamp(v.cleared_at) : null;
       if (!runs.has(key)) runs.set(key, { clearedAt: v.cleared_at, votes: [] });
@@ -282,10 +291,28 @@ function pollsToRichCSV(polls: PollRow[], votes: VoteRow[]) {
       ...Object.keys(meta.runStartedAtByClearedAt || {}),
       ...Object.keys(meta.runStartedAtClientAtByClearedAt || {}),
       ...Object.keys(meta.runStartedAtTimeZoneByClearedAt || {}),
+      ...Object.keys(meta.runVoteSnapshotsByClearedAt || {}),
     ]);
     archivedRunKeys.forEach((key) => {
       const normalizedKey = normalizeRunTimestamp(key);
       if (!runs.has(normalizedKey)) runs.set(normalizedKey, { clearedAt: key, votes: [] });
+    });
+    Object.entries(meta.runVoteSnapshotsByClearedAt || {}).forEach(([key, snapshot]) => {
+      const normalizedKey = normalizeRunTimestamp(key);
+      runs.set(normalizedKey, {
+        clearedAt: key,
+        snapshotStartedAt: snapshot.startedAt,
+        snapshotStartedAtClientAt: snapshot.startedAtClientAt,
+        snapshotStartedAtTimeZone: snapshot.startedAtTimeZone,
+        votes: snapshot.votes.map((v) => ({
+          poll_id: poll.id,
+          option_index: v.optionIndex,
+          value: v.value ?? null,
+          participant_id: v.participantId,
+          created_at: v.createdAt ?? null,
+          cleared_at: key,
+        })),
+      });
     });
     if (poll.status === 'active' && poll.started_at && !runs.has(null)) {
       runs.set(null, { clearedAt: null, votes: [] });
@@ -300,13 +327,15 @@ function pollsToRichCSV(polls: PollRow[], votes: VoteRow[]) {
           .filter((v): v is string => !!v)
           .sort()[0];
         const runStartedAt =
+          run.snapshotStartedAtClientAt ||
           (run.clearedAt ? getByNormalizedRunTime(meta.runStartedAtClientAtByClearedAt, run.clearedAt) : meta.startedAtClientAt) ||
+          run.snapshotStartedAt ||
           (run.clearedAt ? getByNormalizedRunTime(meta.runStartedAtByClearedAt, run.clearedAt) : poll.started_at) ||
           fallbackStartedAt ||
           (run.clearedAt ?? poll.started_at ?? poll.created_at);
-        const runStartedAtTimeZone = run.clearedAt
+        const runStartedAtTimeZone = run.snapshotStartedAtTimeZone || (run.clearedAt
           ? getByNormalizedRunTime(meta.runStartedAtTimeZoneByClearedAt, run.clearedAt)
-          : meta.startedAtTimeZone;
+          : meta.startedAtTimeZone);
         return {
           ...run,
           startedAt: runStartedAt,
