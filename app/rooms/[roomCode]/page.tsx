@@ -843,7 +843,7 @@ function ActivePollCard({
   votes: PollVote[];
   hasVoted: boolean;
   participantId: string | null;
-  onSubmit: (indexes: number[]) => void;
+  onSubmit: (indexes: number[]) => void | Promise<void>;
 }) {
   const { meta, options } = extractPollPayload(poll.options);
   const mode = getPollMode(meta.mode);
@@ -855,6 +855,8 @@ function ActivePollCard({
   const [selected, setSelected] = useState<number[]>([]);
   const [activeQuizIndex, setActiveQuizIndex] = useState(0);
   const [imagePreview, setImagePreview] = useState<{ src: string; alt: string } | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const [now, setNow] = useState(() => Date.now());
   // タイマー開始時刻は DB の poll.started_at（サーバー時刻）を全端末で共有してカウントダウン。
   const timerStartMs = poll.started_at ? new Date(poll.started_at).getTime() : null;
@@ -868,6 +870,17 @@ function ActivePollCard({
     });
   };
   const openImagePreview = (src: string, alt: string) => setImagePreview({ src, alt });
+  const submitAnswers = async (indexes: number[]) => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    setSubmitting(true);
+    try {
+      await onSubmit(indexes);
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
+  };
 
   const counts = options.map((_, i) => votes.filter((v) => v.option_index === i).length);
   const totalCast = counts.reduce((s, c) => s + c, 0);
@@ -936,6 +949,8 @@ function ActivePollCard({
     setSelected([]);
     setActiveQuizIndex(0);
     setImagePreview(null);
+    submittingRef.current = false;
+    setSubmitting(false);
   }, [poll.id]);
 
   useEffect(() => {
@@ -1399,14 +1414,23 @@ function ActivePollCard({
 
           <button
             type="button"
-            onClick={() => onSubmit(rankingFilled)}
-            disabled={rankingFilled.length !== maxSelections || rankingExpired}
+            onClick={() => submitAnswers(rankingFilled)}
+            disabled={rankingFilled.length !== maxSelections || rankingExpired || submitting}
             className="mt-4 inline-flex items-center justify-center gap-1.5 w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-semibold h-11 rounded-xl text-sm sm:text-base transition-colors"
           >
-            ランキングを送信
-            <span className="text-xs font-bold tabular-nums">
-              ({rankingFilled.length}/{maxSelections})
-            </span>
+            {submitting ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                送信中
+              </>
+            ) : (
+              <>
+                ランキングを送信
+                <span className="text-xs font-bold tabular-nums">
+                  ({rankingFilled.length}/{maxSelections})
+                </span>
+              </>
+            )}
           </button>
         </>
         )
@@ -1584,16 +1608,25 @@ function ActivePollCard({
           <button
             type="button"
             onClick={() => {
-              if (!quizSubmittable) return;
-              onSubmit(selected);
+              if (!quizSubmittable || submitting) return;
+              void submitAnswers(selected);
             }}
-            disabled={!quizSubmittable}
+            disabled={!quizSubmittable || submitting}
             className="mt-4 inline-flex items-center justify-center gap-1.5 w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-semibold h-11 rounded-xl text-sm sm:text-base transition-colors"
           >
-            {quizExpired ? '時間切れ — 送信不可' : '完了して送信'}
-            <span className="text-xs font-bold tabular-nums">
-              ({answeredQuizCount}/{quizQuestions.length})
-            </span>
+            {submitting ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                送信中
+              </>
+            ) : (
+              <>
+                {quizExpired ? '時間切れ — 送信不可' : '完了して送信'}
+                <span className="text-xs font-bold tabular-nums">
+                  ({answeredQuizCount}/{quizQuestions.length})
+                </span>
+              </>
+            )}
           </button>
         </>
       ) : (
@@ -1675,15 +1708,24 @@ function ActivePollCard({
           </div>
           <button
             type="button"
-            onClick={() => onSubmit(selected)}
-            disabled={selected.length === 0 || standardNotStarted || standardExpired}
+            onClick={() => submitAnswers(selected)}
+            disabled={selected.length === 0 || standardNotStarted || standardExpired || submitting}
             className="mt-4 inline-flex items-center justify-center gap-1.5 w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-semibold h-11 rounded-xl text-sm sm:text-base transition-colors"
           >
-            {standardExpired ? '投票時間終了' : '投票する'}
-            {isMulti && selected.length > 0 && (
-              <span className="text-xs font-bold tabular-nums">
-                ({selected.length}/{maxSelections})
-              </span>
+            {submitting ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                送信中
+              </>
+            ) : (
+              <>
+                {standardExpired ? '投票時間終了' : '投票する'}
+                {isMulti && selected.length > 0 && (
+                  <span className="text-xs font-bold tabular-nums">
+                    ({selected.length}/{maxSelections})
+                  </span>
+                )}
+              </>
             )}
           </button>
         </>

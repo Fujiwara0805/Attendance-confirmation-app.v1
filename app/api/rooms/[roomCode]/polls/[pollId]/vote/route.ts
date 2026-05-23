@@ -117,7 +117,10 @@ export async function POST(
       }
     }
 
-    // 既存票を一旦削除 → 新しい選択肢で置換（投票やり直しもサポート）
+    // 既存のライブ票を一旦削除 → 新しい選択肢で置換（投票やり直しもサポート）。
+    // 過去回の archived vote は cleared_at が入るが、DB の既存ユニーク制約が
+    // (poll_id, participant_id, option_index) だけを見ている環境があるため、
+    // insert ではなく upsert で再利用時・二重送信時の 23505 を避ける。
     await supabase
       .from('poll_votes')
       .delete()
@@ -137,6 +140,7 @@ export async function POST(
       room_id: poll.room_id,
       participant_id: participantId,
       option_index: idx,
+      cleared_at: null,
       value:
         pollMode === 'ranking'
           ? String(rank + 1)
@@ -148,7 +152,7 @@ export async function POST(
 
     const { data, error } = await supabase
       .from('poll_votes')
-      .insert(rows)
+      .upsert(rows, { onConflict: 'poll_id,participant_id,option_index' })
       .select();
 
     if (error) throw error;
