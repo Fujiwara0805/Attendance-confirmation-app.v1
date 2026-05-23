@@ -2,6 +2,51 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
 import { extractPollPayload, getPollMode, getQuizQuestions } from '@/lib/pollModes';
 
+type PollVoteRow = {
+  poll_id: string;
+  room_id: string;
+  participant_id: string;
+  option_index: number;
+  cleared_at: null;
+  value: string | null;
+};
+
+type SupabaseErrorLike = {
+  code?: string;
+  message?: string;
+};
+
+function isDuplicateKeyError(error: unknown): error is SupabaseErrorLike {
+  return !!error && typeof error === 'object' && (error as SupabaseErrorLike).code === '23505';
+}
+
+async function insertOrReactivateVote(
+  supabase: ReturnType<typeof createServerClient>,
+  row: PollVoteRow
+) {
+  const inserted = await supabase
+    .from('poll_votes')
+    .insert(row)
+    .select()
+    .single();
+
+  if (!inserted.error) return inserted;
+  if (!isDuplicateKeyError(inserted.error)) return inserted;
+
+  return supabase
+    .from('poll_votes')
+    .update({
+      room_id: row.room_id,
+      value: row.value,
+      cleared_at: null,
+    })
+    .eq('poll_id', row.poll_id)
+    .eq('participant_id', row.participant_id)
+    .eq('option_index', row.option_index)
+    .select()
+    .single();
+}
+
 // POST: Submit a vote on a poll (public)
 export async function POST(
   req: NextRequest,
@@ -118,9 +163,8 @@ export async function POST(
     }
 
     // 既存のライブ票を一旦削除 → 新しい選択肢で置換（投票やり直しもサポート）。
-    // 過去回の archived vote は cleared_at が入るが、DB の既存ユニーク制約が
-    // (poll_id, participant_id, option_index) だけを見ている環境があるため、
-    // insert ではなく upsert で再利用時・二重送信時の 23505 を避ける。
+    // 本番DBの unique 制約定義に差分があるため ON CONFLICT は使わず、
+    // INSERT 重複時だけ既存行をライブ票へ戻して回答を成立させる。
     await supabase
       .from('poll_votes')
       .delete()
@@ -129,7 +173,7 @@ export async function POST(
       .is('cleared_at', null);
 
     const quizQuestions = pollMode === 'quiz' ? getQuizQuestions(meta, options) : [];
-    const rows = indexes.map((idx, rank) => {
+    const rows: PollVoteRow[] = indexes.map((idx, rank) => {
       const quizQuestionIndex = pollMode === 'quiz'
         ? quizQuestions.findIndex(
             (q) => idx >= q.optionStart && idx < q.optionStart + q.optionCount
@@ -150,12 +194,12 @@ export async function POST(
       };
     });
 
-    const { data, error } = await supabase
-      .from('poll_votes')
-      .upsert(rows, { onConflict: 'poll_id,participant_id,option_index' })
-      .select();
-
-    if (error) throw error;
+    const data = [];
+    for (const row of rows) {
+      const { data: vote, error } = await insertOrReactivateVote(supabase, row);
+      if (error) throw error;
+      if (vote) data.push(vote);
+    }
 
     return NextResponse.json({ votes: data ?? [], count: rows.length }, { status: 201 });
   } catch (err) {
