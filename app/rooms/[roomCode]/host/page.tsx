@@ -101,6 +101,7 @@ type StatusFilter = 'all' | 'unanswered' | 'pending' | 'approved' | 'answered' |
 interface QuizQuestionDraft {
   id: string;
   question: string;
+  questionImageUrl: string;
   /** 作成者が設定する問題番号（章の概念は廃止） */
   questionNumber: number;
   options: string[];
@@ -174,6 +175,7 @@ function makeQuizQuestionDraft(index: number): QuizQuestionDraft {
   return {
     id: `quiz-${Date.now()}-${index}`,
     question: '',
+    questionImageUrl: '',
     questionNumber: index + 1,
     options: Array.from({ length: 4 }, () => ''),
     optionImages: Array.from({ length: 4 }, () => ''),
@@ -306,10 +308,10 @@ export default function HostPage() {
     );
   }, []);
 
-  // 選択肢画像は Supabase Storage (`poll-images` バケット) にアップロードして URL を保存。
+  // 問題/選択肢画像は Supabase Storage (`poll-images` バケット) にアップロードして URL を保存。
   // 旧 base64 経路（polls.options に埋め込み）は Disk IO 肥大の原因のため廃止。
   const [imageUploading, setImageUploading] = useState<Record<string, boolean>>({});
-  const uploadOptionImage = useCallback(
+  const uploadPollImage = useCallback(
     async (file: File, callback: (url: string) => void, key: string) => {
       if (!file.type.startsWith('image/')) return;
       setImageUploading((prev) => ({ ...prev, [key]: true }));
@@ -562,6 +564,7 @@ export default function HostPage() {
         const meta = {
           id: q.id,
           question: q.question.trim(),
+          questionImageUrl: q.questionImageUrl || undefined,
           questionNumber: q.questionNumber,
           // 解答時間は全問共通（poll 単位の設定を各問にも反映）
           timeLimitSeconds: quizTimeLimit,
@@ -752,6 +755,7 @@ export default function HostPage() {
       return {
         id: q.id || `quiz-${Date.now()}-${i}`,
         question: q.question || '',
+        questionImageUrl: q.questionImageUrl || '',
         questionNumber: q.questionNumber || i + 1,
         options: slice.map((o) => getPollOptionLabel(o, '')),
         optionImages: slice.map((o) => getPollOptionImageUrl(o) || ''),
@@ -1400,6 +1404,75 @@ export default function HostPage() {
                             style={{ fontSize: '18px' }}
                           />
 
+                          <div className="mt-3 rounded-xl bg-white p-3 ring-1 ring-slate-200">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <p className="text-xs font-semibold text-slate-500">問題画像</p>
+                              <p className="text-[11px] text-slate-400">
+                                推奨: 1600x900px（16:9）/ 10MB以内
+                              </p>
+                              <label
+                                className={`inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg bg-slate-50 px-3 text-xs font-bold text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100 ${
+                                  imageUploading[`${activeQuizQuestion.id}-question`]
+                                    ? 'pointer-events-none opacity-60'
+                                    : ''
+                                }`}
+                                title="問題文に画像をアップロード"
+                              >
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="sr-only"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    const key = `${activeQuizQuestion.id}-question`;
+                                    if (file) {
+                                      void uploadPollImage(
+                                        file,
+                                        (url) => {
+                                          updateQuizQuestion(activeQuizQuestionIndex, (q) => ({
+                                            ...q,
+                                            questionImageUrl: url,
+                                          }));
+                                        },
+                                        key
+                                      );
+                                    }
+                                    e.target.value = '';
+                                  }}
+                                />
+                                {imageUploading[`${activeQuizQuestion.id}-question`] ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <ImageIcon className="h-4 w-4" />
+                                )}
+                                アップロード
+                              </label>
+                            </div>
+                            {activeQuizQuestion.questionImageUrl && (
+                              <div className="relative mt-3 overflow-hidden rounded-xl ring-1 ring-slate-200">
+                                <img
+                                  src={activeQuizQuestion.questionImageUrl}
+                                  alt={`問題 ${activeQuizQuestion.questionNumber} の画像`}
+                                  className="max-h-72 w-full object-contain bg-slate-50"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    updateQuizQuestion(activeQuizQuestionIndex, (q) => ({
+                                      ...q,
+                                      questionImageUrl: '',
+                                    }))
+                                  }
+                                  title="画像を削除"
+                                  aria-label="画像を削除"
+                                  className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-rose-500 text-white ring-2 ring-white hover:bg-rose-600"
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+
                           <div className="mt-3">
                             <label className="text-xs sm:text-sm text-slate-600">
                               問題番号
@@ -1423,9 +1496,12 @@ export default function HostPage() {
                           <div className="mt-3 flex items-center justify-between">
                             <p className="text-[11px] font-semibold text-slate-500">解答の選択肢（画像添付可）</p>
                             <p className="text-[11px] text-slate-400">
-                              任意: ✓で正解を設定（未設定でも出題できます）
+                              推奨画像: 1200x800px（3:2）/ 10MB以内
                             </p>
                           </div>
+                          <p className="mt-1 text-[11px] text-slate-400">
+                            任意: ✓で正解を設定（未設定でも出題できます）
+                          </p>
                           <div className="mt-1.5 space-y-2">
                             {activeQuizQuestion.options.map((opt, optionIndex) => {
                               const isCorrect = activeQuizQuestion.correctOptionOffset === optionIndex;
@@ -1483,7 +1559,7 @@ export default function HostPage() {
                                       const file = e.target.files?.[0];
                                       const key = `${activeQuizQuestion.id}-${optionIndex}`;
                                       if (file) {
-                                        void uploadOptionImage(
+                                        void uploadPollImage(
                                           file,
                                           (url) => {
                                             updateQuizQuestion(activeQuizQuestionIndex, (q) => {

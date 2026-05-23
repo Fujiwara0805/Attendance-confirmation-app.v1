@@ -41,6 +41,7 @@ export default function PresentPage() {
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [qrModalMode, setQrModalMode] = useState<'join' | 'upload' | null>(null);
   const [modalQrUrl, setModalQrUrl] = useState<string | null>(null);
+  const [imagePreview, setImagePreview] = useState<{ src: string; alt: string } | null>(null);
   const [activeQuizIndex, setActiveQuizIndex] = useState(0);
   // 全問共通の制限時間をカウントダウン（開始時刻は poll.started_at = 開始ボタンを押した端末時刻）
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -112,6 +113,10 @@ export default function PresentPage() {
     setQrModalOpen(true);
   }, []);
 
+  const openImagePreview = useCallback((src: string, alt: string) => {
+    setImagePreview({ src, alt });
+  }, []);
+
   useEffect(() => {
     if (!qrModalOpen) return;
     const onKey = (e: KeyboardEvent) => {
@@ -120,6 +125,15 @@ export default function PresentPage() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [qrModalOpen, closeQrModal]);
+
+  useEffect(() => {
+    if (!imagePreview) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setImagePreview(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [imagePreview]);
 
   const { questions, connected: qConnected } = useRealtimeQuestions(room?.id || null);
   const { activePoll, pollVotes, connected: pConnected } = useRealtimePolls(room?.id || null);
@@ -529,6 +543,25 @@ export default function PresentPage() {
                                       )}
                                     </div>
                                     <h3 className="mt-2 text-lg sm:text-xl lg:text-2xl font-extrabold text-slate-900 leading-snug">{question.question}</h3>
+                                    {question.questionImageUrl && (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          openImagePreview(
+                                            question.questionImageUrl || '',
+                                            `問題 ${question.questionNumber} の画像`
+                                          )
+                                        }
+                                        className="mt-4 block w-full rounded-2xl bg-slate-50 ring-1 ring-slate-200 transition hover:ring-emerald-300"
+                                        title="画像を拡大表示"
+                                      >
+                                        <img
+                                          src={question.questionImageUrl}
+                                          alt={`問題 ${question.questionNumber} の画像`}
+                                          className="max-h-[42vh] w-full rounded-2xl object-contain"
+                                        />
+                                      </button>
+                                    )}
                                   </div>
                                   {/* 選択肢グリッド: 上下左右に間隔をとって見切れ防止＋中央寄せ */}
                                   <div className="mx-auto grid w-[94%] grid-cols-2 gap-4 p-2 sm:w-[92%]">
@@ -559,7 +592,22 @@ export default function PresentPage() {
                                           <div className="relative flex flex-1 flex-col gap-2 px-5 py-4">
                                             <span className="flex items-start gap-3 text-base text-slate-800 sm:text-lg lg:text-xl">
                                               <span className="shrink-0 font-bold text-emerald-700">{optionLetter(offset)}</span>
-                                              {imageUrl && <img src={imageUrl} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover ring-1 ring-slate-200" />}
+                                              {imageUrl && (
+                                                <button
+                                                  type="button"
+                                                  onClick={() =>
+                                                    openImagePreview(imageUrl, `解答 ${optionLetter(offset)} の画像`)
+                                                  }
+                                                  className="shrink-0 rounded-lg ring-1 ring-slate-200 transition hover:ring-emerald-300"
+                                                  title="画像を拡大表示"
+                                                >
+                                                  <img
+                                                    src={imageUrl}
+                                                    alt={`解答 ${optionLetter(offset)} の画像`}
+                                                    className="h-14 w-14 rounded-lg object-cover"
+                                                  />
+                                                </button>
+                                              )}
                                               <span className="min-w-0 break-words leading-snug">{getPollOptionLabel(option, `解答 ${optionLetter(offset)}`)}</span>
                                             </span>
                                             {quizRevealed && (
@@ -626,7 +674,20 @@ export default function PresentPage() {
                                   <span className="text-emerald-700 font-semibold">
                                     {i < 20 ? String.fromCharCode(0x2460 + i) : `(${i + 1})`}
                                   </span>
-                                  {imageUrl && <img src={imageUrl} alt="" className="h-14 w-14 rounded-lg object-cover ring-1 ring-slate-200" />}
+                                  {imageUrl && (
+                                    <button
+                                      type="button"
+                                      onClick={() => openImagePreview(imageUrl, `選択肢 ${i + 1} の画像`)}
+                                      className="shrink-0 rounded-lg ring-1 ring-slate-200 transition hover:ring-emerald-300"
+                                      title="画像を拡大表示"
+                                    >
+                                      <img
+                                        src={imageUrl}
+                                        alt={`選択肢 ${i + 1} の画像`}
+                                        className="h-14 w-14 rounded-lg object-cover"
+                                      />
+                                    </button>
+                                  )}
                                   <span className="truncate">{getPollOptionLabel(option, `選択肢 ${i + 1}`)}</span>
                                 </span>
                                 <span className="text-base sm:text-lg text-slate-600 tabular-nums shrink-0 font-semibold">
@@ -655,7 +716,20 @@ export default function PresentPage() {
                                     <span className="shrink-0 text-lg sm:text-xl lg:text-2xl text-emerald-700 font-semibold">
                                       {i < 20 ? String.fromCharCode(0x2460 + i) : `(${i + 1})`}
                                     </span>
-                                    {imageUrl && <img src={imageUrl} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover ring-1 ring-slate-200" />}
+                                    {imageUrl && (
+                                      <button
+                                        type="button"
+                                        onClick={() => openImagePreview(imageUrl, `選択肢 ${i + 1} の画像`)}
+                                        className="shrink-0 rounded-lg ring-1 ring-slate-200 transition hover:ring-emerald-300"
+                                        title="画像を拡大表示"
+                                      >
+                                        <img
+                                          src={imageUrl}
+                                          alt={`選択肢 ${i + 1} の画像`}
+                                          className="h-14 w-14 rounded-lg object-cover"
+                                        />
+                                      </button>
+                                    )}
                                     <span className="min-w-0 flex-1 truncate text-lg sm:text-xl lg:text-2xl text-slate-800">
                                       {getPollOptionLabel(option, `選択肢 ${i + 1}`)}
                                     </span>
@@ -747,6 +821,40 @@ export default function PresentPage() {
             <p className="mt-4 text-sm text-slate-500 text-center max-w-md">
               スマートフォンで読み取ってください
             </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {imagePreview && (
+          <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-label={imagePreview.alt}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/92 p-4 sm:p-8"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setImagePreview(null);
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setImagePreview(null)}
+              className="fixed right-4 top-4 z-[130] inline-flex h-12 w-12 items-center justify-center rounded-full bg-white text-slate-900 shadow-lg ring-1 ring-white/40 hover:bg-slate-50"
+              aria-label="画像を閉じる"
+            >
+              <X className="h-6 w-6" />
+            </button>
+            <motion.img
+              src={imagePreview.src}
+              alt={imagePreview.alt}
+              initial={{ scale: 0.96, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.96, opacity: 0 }}
+              className="max-h-[92vh] max-w-[94vw] rounded-2xl bg-white object-contain shadow-2xl"
+            />
           </motion.div>
         )}
       </AnimatePresence>

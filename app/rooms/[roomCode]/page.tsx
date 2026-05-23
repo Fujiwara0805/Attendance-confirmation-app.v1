@@ -22,6 +22,7 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
+  X,
   ClipboardCheck,
   ArrowRight,
 } from 'lucide-react';
@@ -853,6 +854,7 @@ function ActivePollCard({
   const isStandard = mode === 'standard';
   const [selected, setSelected] = useState<number[]>([]);
   const [activeQuizIndex, setActiveQuizIndex] = useState(0);
+  const [imagePreview, setImagePreview] = useState<{ src: string; alt: string } | null>(null);
   const [now, setNow] = useState(() => Date.now());
   // タイマー開始時刻は DB の poll.started_at（サーバー時刻）を全端末で共有してカウントダウン。
   const timerStartMs = poll.started_at ? new Date(poll.started_at).getTime() : null;
@@ -865,6 +867,7 @@ function ActivePollCard({
       return [...prev, i];
     });
   };
+  const openImagePreview = (src: string, alt: string) => setImagePreview({ src, alt });
 
   const counts = options.map((_, i) => votes.filter((v) => v.option_index === i).length);
   const totalCast = counts.reduce((s, c) => s + c, 0);
@@ -931,7 +934,17 @@ function ActivePollCard({
   useEffect(() => {
     setSelected([]);
     setActiveQuizIndex(0);
+    setImagePreview(null);
   }, [poll.id]);
+
+  useEffect(() => {
+    if (!imagePreview) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setImagePreview(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [imagePreview]);
 
   // タイマー稼働（未送信 && 未締切のときのみ）
   useEffect(() => {
@@ -1192,12 +1205,32 @@ function ActivePollCard({
                     <p className="text-sm font-bold text-slate-800">
                       問題 {question.questionNumber} {question.question}
                     </p>
+                    {question.questionImageUrl && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          openImagePreview(
+                            question.questionImageUrl || '',
+                            `問題 ${question.questionNumber} の画像`
+                          )
+                        }
+                        className="block w-full rounded-xl bg-slate-50 ring-1 ring-slate-200 transition hover:ring-emerald-300"
+                        title="画像を拡大表示"
+                      >
+                        <img
+                          src={question.questionImageUrl}
+                          alt={`問題 ${question.questionNumber} の画像`}
+                          className="max-h-72 w-full rounded-xl object-contain"
+                        />
+                      </button>
+                    )}
                     {options
                       .slice(question.optionStart, question.optionStart + question.optionCount)
                       .map((option, offset) => {
                         const i = question.optionStart + offset;
                         const count = counts[i];
                         const pct = questionTotal > 0 ? Math.round((count / questionTotal) * 100) : 0;
+                        const imageUrl = getPollOptionImageUrl(option);
                         const hasKey = typeof question.correctOptionOffset === 'number';
                         const isCorrect = hasKey && question.correctOptionOffset === offset;
                         return (
@@ -1220,6 +1253,22 @@ function ActivePollCard({
                                 <span className="truncate">
                                   {getPollOptionLabel(option, `解答 ${optionLetter(offset)}`)}
                                 </span>
+                                {imageUrl && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      openImagePreview(imageUrl, `解答 ${optionLetter(offset)} の画像`)
+                                    }
+                                    className="shrink-0 rounded-lg ring-1 ring-slate-200 transition hover:ring-emerald-300"
+                                    title="画像を拡大表示"
+                                  >
+                                    <img
+                                      src={imageUrl}
+                                      alt={`解答 ${optionLetter(offset)} の画像`}
+                                      className="h-10 w-10 rounded-lg object-cover"
+                                    />
+                                  </button>
+                                )}
                                 {isCorrect && (
                                   <span className="inline-flex shrink-0 items-center rounded-full bg-emerald-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
                                     正解
@@ -1257,6 +1306,25 @@ function ActivePollCard({
                           {i < 20 ? String.fromCharCode(0x2460 + i) : `(${i + 1})`}
                         </span>
                         <span className="truncate">{getPollOptionLabel(option, `選択肢 ${i + 1}`)}</span>
+                        {getPollOptionImageUrl(option) && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              openImagePreview(
+                                getPollOptionImageUrl(option) || '',
+                                `選択肢 ${i + 1} の画像`
+                              )
+                            }
+                            className="shrink-0 rounded-lg ring-1 ring-slate-200 transition hover:ring-emerald-300"
+                            title="画像を拡大表示"
+                          >
+                            <img
+                              src={getPollOptionImageUrl(option)}
+                              alt={`選択肢 ${i + 1} の画像`}
+                              className="h-10 w-10 rounded-lg object-cover"
+                            />
+                          </button>
+                        )}
                       </span>
                       <span className="text-xs sm:text-sm text-slate-500 tabular-nums shrink-0">
                         {count} ({pct}%)
@@ -1395,6 +1463,25 @@ function ActivePollCard({
                       <h4 className="mt-1 text-sm sm:text-base font-bold text-slate-900 leading-snug">
                         {question.question}
                       </h4>
+                      {question.questionImageUrl && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            openImagePreview(
+                              question.questionImageUrl || '',
+                              `問題 ${question.questionNumber} の画像`
+                            )
+                          }
+                          className="mt-3 block w-full rounded-xl bg-white ring-1 ring-slate-200 transition hover:ring-emerald-300"
+                          title="画像を拡大表示"
+                        >
+                          <img
+                            src={question.questionImageUrl}
+                            alt={`問題 ${question.questionNumber} の画像`}
+                            className="max-h-72 w-full rounded-xl object-contain"
+                          />
+                        </button>
+                      )}
                     </div>
                     {/* 参加者投票画面: 選択肢は1列表示 */}
                     <div className="space-y-2">
@@ -1403,15 +1490,25 @@ function ActivePollCard({
                         const checked = selected.includes(globalIndex);
                         const imageUrl = getPollOptionImageUrl(option);
                         return (
-                          <button
+                          <div
                             key={globalIndex}
+                            role="button"
+                            tabIndex={0}
                             onClick={() => {
                               setSelected((prev) => [
                                 ...prev.filter((idx) => idx < question.optionStart || idx >= question.optionStart + question.optionCount),
                                 globalIndex,
                               ]);
                             }}
-                            className={`w-full text-left px-4 py-3 rounded-xl ring-1 transition-all active:scale-[0.99] disabled:cursor-not-allowed ${
+                            onKeyDown={(e) => {
+                              if (e.key !== 'Enter' && e.key !== ' ') return;
+                              e.preventDefault();
+                              setSelected((prev) => [
+                                ...prev.filter((idx) => idx < question.optionStart || idx >= question.optionStart + question.optionCount),
+                                globalIndex,
+                              ]);
+                            }}
+                            className={`w-full cursor-pointer text-left px-4 py-3 rounded-xl ring-1 transition-all active:scale-[0.99] ${
                               checked
                                 ? 'ring-emerald-400 bg-emerald-50'
                                 : 'ring-slate-200 bg-white hover:bg-slate-50 hover:ring-slate-300'
@@ -1428,11 +1525,26 @@ function ActivePollCard({
                               </span>
                               <span className="text-emerald-700 font-bold">{optionLetter(offset)}</span>
                               <span className="min-w-0 flex-1 truncate">{getPollOptionLabel(option, `解答 ${optionLetter(offset)}`)}</span>
-                              {imageUrl && (
-                                <img src={imageUrl} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover ring-1 ring-slate-200" />
-                              )}
                             </span>
-                          </button>
+                            {imageUrl && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openImagePreview(imageUrl, `解答 ${optionLetter(offset)} の画像`);
+                                }}
+                                className="mt-3 flex w-full items-center gap-3 rounded-lg bg-white/80 p-2 text-left ring-1 ring-slate-200 transition hover:ring-emerald-300"
+                                title="画像を拡大表示"
+                              >
+                                <img
+                                  src={imageUrl}
+                                  alt={`解答 ${optionLetter(offset)} の画像`}
+                                  className="h-20 w-28 shrink-0 rounded-lg object-cover"
+                                />
+                                <span className="text-sm font-bold text-emerald-700">画像表示</span>
+                              </button>
+                            )}
+                          </div>
                         );
                       })}
                     </div>
@@ -1503,11 +1615,22 @@ function ActivePollCard({
                 (isMulti && !checked && selected.length >= maxSelections);
               const imageUrl = getPollOptionImageUrl(option);
               return (
-                <button
+                <div
                   key={i}
-                  onClick={() => toggle(i)}
-                  disabled={disabled}
-                  className={`w-full text-left px-4 py-3 rounded-xl ring-1 transition-all active:scale-[0.99] disabled:opacity-50 ${
+                  role="button"
+                  tabIndex={disabled ? -1 : 0}
+                  aria-disabled={disabled}
+                  onClick={() => {
+                    if (!disabled) toggle(i);
+                  }}
+                  onKeyDown={(e) => {
+                    if (disabled || (e.key !== 'Enter' && e.key !== ' ')) return;
+                    e.preventDefault();
+                    toggle(i);
+                  }}
+                  className={`w-full text-left px-4 py-3 rounded-xl ring-1 transition-all active:scale-[0.99] ${
+                    disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
+                  } ${
                     checked
                       ? 'ring-emerald-400 bg-emerald-50'
                       : 'ring-slate-200 bg-slate-50 hover:bg-white hover:ring-slate-300'
@@ -1526,15 +1649,26 @@ function ActivePollCard({
                       {isQuiz ? optionLetter(i) : i < 20 ? String.fromCharCode(0x2460 + i) : `(${i + 1})`}
                     </span>
                     <span className="min-w-0 flex-1 truncate">{getPollOptionLabel(option, `選択肢 ${i + 1}`)}</span>
-                    {imageUrl && (
+                  </span>
+                  {imageUrl && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openImagePreview(imageUrl, `選択肢 ${i + 1} の画像`);
+                      }}
+                      className="mt-3 flex w-full items-center gap-3 rounded-lg bg-white/80 p-2 text-left ring-1 ring-slate-200 transition hover:ring-emerald-300"
+                      title="画像を拡大表示"
+                    >
                       <img
                         src={imageUrl}
-                        alt=""
-                        className="h-10 w-10 shrink-0 rounded-lg object-cover ring-1 ring-slate-200"
+                        alt={`選択肢 ${i + 1} の画像`}
+                        className="h-20 w-28 shrink-0 rounded-lg object-cover"
                       />
-                    )}
-                  </span>
-                </button>
+                      <span className="text-sm font-bold text-emerald-700">画像表示</span>
+                    </button>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -1554,6 +1688,39 @@ function ActivePollCard({
         </>
         )
       )}
+      <AnimatePresence>
+        {imagePreview && (
+          <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-label={imagePreview.alt}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/90 p-4"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setImagePreview(null);
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setImagePreview(null)}
+              className="absolute right-3 top-3 inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/95 text-slate-900 shadow-lg ring-1 ring-white/40 hover:bg-white"
+              aria-label="画像を閉じる"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <motion.img
+              src={imagePreview.src}
+              alt={imagePreview.alt}
+              initial={{ scale: 0.96, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.96, opacity: 0 }}
+              className="max-h-[92vh] max-w-[94vw] rounded-xl bg-white object-contain shadow-2xl"
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
