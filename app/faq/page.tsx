@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, HelpCircle } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import LPHeader from '@/app/components/LPHeader';
 import LPFooter from '@/app/components/LPFooter';
 
@@ -81,9 +81,6 @@ export default function FAQPage() {
         <section className="pt-24 pb-12">
           <div className="mx-auto max-w-3xl px-5 pt-16 text-center">
             <motion.div {...fadeIn}>
-              <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-indigo-50 to-blue-50 ring-1 ring-indigo-100 shadow-sm">
-                <HelpCircle className="h-8 w-8 text-indigo-600" />
-              </div>
               <p className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold tracking-wide uppercase text-indigo-600 bg-indigo-50 ring-1 ring-indigo-100 px-3.5 py-1.5 rounded-full mb-4">
                 FAQ
               </p>
@@ -167,7 +164,7 @@ export default function FAQPage() {
                 お気軽にメールでお問い合わせください。サポートチームが迅速にお答えいたします。
               </p>
               <a
-                href="mailto:support@zasekikun.com"
+                href="mailto:sobota@nobody-info.com"
                 className="mt-6 inline-flex items-center justify-center rounded-xl bg-white px-6 h-12 text-sm sm:text-base font-semibold text-indigo-600 shadow-lg transition-all hover:bg-indigo-50 active:scale-[0.98]"
               >
                 お問い合わせはこちら

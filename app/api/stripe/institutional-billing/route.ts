@@ -73,8 +73,8 @@ async function getOrCreateInstitutionalProduct() {
 
   const product = await stripe.products.create({
     id: productId,
-    name: 'ざせきくん 公費払い',
-    description: '教育機関・法人向けの後払い請求書払い',
+    name: 'ざせきくん 請求書払い',
+    description: '教育機関・法人向けの後払い請求書払い（銀行振込）',
     metadata: {
       service: 'zaseki_kun',
       billing_flow: 'institutional_billing',
@@ -165,8 +165,8 @@ export async function POST(request: NextRequest) {
         },
       ],
       description,
-      header: '公費・研究費でのお支払いに利用できる見積書です。',
-      footer: '請求書払いをご希望の場合は、同時に発行されたStripe請求書の銀行振込案内に従ってお支払いください。',
+      header: '請求書払い（銀行振込）に利用できる見積書です。',
+      footer: '同時に発行された請求書の銀行振込案内に従ってお支払いください。',
       expires_at: toUnix(addMonths(periodStart, 1)),
       metadata,
     });
@@ -255,7 +255,7 @@ export async function POST(request: NextRequest) {
 
     console.error('Institutional billing request error:', error);
     return NextResponse.json(
-      { error: '公費払い請求書の作成に失敗しました' },
+      { error: '請求書払いの請求書作成に失敗しました' },
       { status: 500 }
     );
   }

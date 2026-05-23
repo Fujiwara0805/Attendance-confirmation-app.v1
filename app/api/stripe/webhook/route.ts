@@ -194,7 +194,7 @@ export async function POST(request: NextRequest) {
         break;
       }
 
-      // 公費払い・銀行振込の請求書支払い完了
+      // 請求書払い（銀行振込）の請求書支払い完了
       case 'invoice.paid':
       case 'invoice.payment_succeeded': {
         const invoice = event.data.object as Stripe.Invoice;

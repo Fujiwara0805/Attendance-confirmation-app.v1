@@ -1,14 +1,11 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useSession, signOut } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
+import { useSession } from 'next-auth/react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-// Card components available if needed by sub-components
-// import { Card, CardContent } from '@/components/ui/card';
-import Image from 'next/image'
 import { useToast } from '@/hooks/use-toast';
 import {
   Copy,
@@ -19,9 +16,6 @@ import {
   Edit,
   BookOpen,
   Save,
-  LogOut,
-  Menu,
-  X,
   Loader2,
   Sparkles,
   BarChart3,
@@ -29,35 +23,32 @@ import {
   MapPin,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   Navigation,
   Search,
   CheckCircle,
   Settings,
   Airplay,
   FileText,
-  Zap,
   Globe,
   Users,
-  Link2,
   ArrowRight,
   QrCode,
   Download,
   Play,
   StopCircle,
-  UserX,
   Clock,
 } from 'lucide-react';
-// Separator kept for potential sub-component use
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-// 元のDialogインポートを削除し、CustomModalをインポート
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { CustomModal } from '@/components/ui/custom-modal';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import LocationSettingsForm from './components/LocationSettingsForm';
 import CustomFormManager from './components/CustomFormManager';
 import InvitationFormManager from './components/InvitationFormManager';
 import InvitationResponseList from './components/InvitationResponseList';
 import AttendanceExport from './components/AttendanceExport';
+import AdminShell, { type AdminSection } from './components/AdminShell';
 
 interface Course {
   id: string;
@@ -81,10 +72,67 @@ interface Course {
   cooldownMinutes?: number;
 }
 
-export default function AdminPage() {
+function AdminPageInner() {
   const { toast } = useToast();
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialSection = (() => {
+    const param = searchParams.get('section');
+    if (param === 'export' || param === 'rooms' || param === 'courses') return param;
+    return 'courses';
+  })();
+  const [activeTab, setActiveTab] = useState<'courses' | 'export' | 'rooms'>(initialSection);
+  const CARDS_PER_PAGE = 4;
+  const [coursePage, setCoursePage] = useState(1);
+  const [roomPage, setRoomPage] = useState(1);
+
+  const renderPagination = useCallback(
+    (currentPage: number, totalPages: number, onChange: (page: number) => void) => {
+      if (totalPages <= 1) return null;
+      const pages: number[] = [];
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+      return (
+        <div className="mt-5 flex items-center justify-center gap-1">
+          <button
+            type="button"
+            onClick={() => onChange(Math.max(1, currentPage - 1))}
+            disabled={currentPage === 1}
+            className="h-9 w-9 inline-flex items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            aria-label="前のページ"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          {pages.map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => onChange(p)}
+              className={`h-9 min-w-9 px-3 inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors ${
+                p === currentPage
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-slate-100'
+              }`}
+              aria-label={`${p}ページ目`}
+              aria-current={p === currentPage ? 'page' : undefined}
+            >
+              {p}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => onChange(Math.min(totalPages, currentPage + 1))}
+            disabled={currentPage === totalPages}
+            className="h-9 w-9 inline-flex items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            aria-label="次のページ"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      );
+    },
+    []
+  );
   
   // フォーム管理用の状態
   const [courses, setCourses] = useState<Course[]>([]);
@@ -221,7 +269,6 @@ export default function AdminPage() {
   // カスタムフォーム設定用の状態を追加
   const [isCustomFormDialogOpen, setIsCustomFormDialogOpen] = useState<boolean>(false);
   const [editingCustomFormCourse, setEditingCustomFormCourse] = useState<Course | null>(null);
-  const [isProcessingPayment, setIsProcessingPayment] = useState<boolean>(false);
 
   // 編集用の状態
   const [isEditDialogOpen, setIsEditDialogOpen] = useState<boolean>(false);
@@ -244,13 +291,6 @@ export default function AdminPage() {
   const [editPlaceSuggestions, setEditPlaceSuggestions] = useState<Array<{ description: string; place_id: string }>>([]);
   const [editShowSuggestions, setEditShowSuggestions] = useState(false);
   const editSearchDebounceRef = useRef<NodeJS.Timeout | null>(null);
-
-  // モバイルメニュー用の状態
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
-
-  // アカウント削除モーダル用の状態
-  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
-  const [deletingAccount, setDeletingAccount] = useState(false);
 
   // QRコードモーダル用の状態
   const [isQrDialogOpen, setIsQrDialogOpen] = useState<boolean>(false);
@@ -314,8 +354,6 @@ export default function AdminPage() {
     canCreateForm: boolean;
     canCreateRoom: boolean;
   } | null>(null);
-  const [isSubscriptionActionPending, setIsSubscriptionActionPending] = useState<boolean>(false);
-  const [isCancelSubscriptionModalOpen, setIsCancelSubscriptionModalOpen] = useState<boolean>(false);
 
   // サブスクリプション情報を取得
   const fetchPlanInfo = useCallback(async () => {
@@ -331,82 +369,6 @@ export default function AdminPage() {
     }
     return null;
   }, []);
-
-  // Proプランにアップグレード
-  const handleUpgrade = async () => {
-    setIsProcessingPayment(true);
-    try {
-      const response = await fetch('/api/stripe/create-checkout-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          productType: 'pro_subscription',
-          successUrl: `${window.location.origin}/admin?payment=success`,
-          cancelUrl: `${window.location.origin}/admin?payment=cancelled`,
-        }),
-      });
-
-      if (!response.ok) throw new Error('決済セッションの作成に失敗しました');
-
-      const { url } = await response.json();
-      window.location.href = url;
-    } catch (error) {
-      console.error('Upgrade error:', error);
-      showToast('エラー', '決済処理中にエラーが発生しました', 'destructive');
-    } finally {
-      setIsProcessingPayment(false);
-    }
-  };
-
-  const handleCancelSubscription = async () => {
-    setIsSubscriptionActionPending(true);
-    try {
-      const response = await fetch('/api/v2/subscription', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'cancel' }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || '解約処理に失敗しました');
-      }
-
-      setPlanInfo(data);
-      setIsCancelSubscriptionModalOpen(false);
-      showToast('解約を受け付けました', '現在の請求期間が終了するまでProプランを利用できます。');
-    } catch (error) {
-      console.error('Cancel subscription error:', error);
-      showToast('エラー', error instanceof Error ? error.message : '解約処理に失敗しました', 'destructive');
-    } finally {
-      setIsSubscriptionActionPending(false);
-    }
-  };
-
-  const handleOpenBillingPortal = async () => {
-    setIsSubscriptionActionPending(true);
-    try {
-      const response = await fetch('/api/v2/subscription', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'portal' }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || '請求情報ページを開けませんでした');
-      }
-
-      if (data.url) {
-        window.location.href = data.url;
-      }
-    } catch (error) {
-      console.error('Billing portal error:', error);
-      showToast('エラー', error instanceof Error ? error.message : '請求情報ページを開けませんでした', 'destructive');
-    } finally {
-      setIsSubscriptionActionPending(false);
-    }
-  };
 
   const currentPeriodEndLabel = planInfo?.subscription.currentPeriodEnd
     ? new Date(planInfo.subscription.currentPeriodEnd).toLocaleDateString('ja-JP')
@@ -514,11 +476,22 @@ export default function AdminPage() {
     }
   }, [status, fetchCourses, fetchRooms, fetchPlanInfo]);
 
+  // ページネーション：データ件数変化時に範囲外なら調整
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(courses.length / CARDS_PER_PAGE));
+    if (coursePage > totalPages) setCoursePage(totalPages);
+  }, [courses.length, coursePage]);
+
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(rooms.length / CARDS_PER_PAGE));
+    if (roomPage > totalPages) setRoomPage(totalPages);
+  }, [rooms.length, roomPage]);
+
   // 決済結果の処理
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const paymentStatus = urlParams.get('payment');
-    
+
     if (paymentStatus === 'success') {
       showToast('決済完了', 'Proプランへのアップグレードが完了しました！', 'default');
       const refreshPlanInfo = async () => {
@@ -558,35 +531,6 @@ export default function AdminPage() {
   if (!session) {
     return null;
   }
-
-  // ログアウト処理
-  const handleSignOut = () => {
-    signOut({ callbackUrl: '/admin/login' });
-  };
-
-  // アカウント削除処理
-  const handleDeleteAccount = async () => {
-    setDeletingAccount(true);
-    try {
-      const response = await fetch('/api/auth/delete-account', {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        showToast('エラー', data.error || 'アカウントの削除に失敗しました', 'destructive');
-        return;
-      }
-
-      // セッション破棄してログインページへリダイレクト
-      signOut({ callbackUrl: '/admin/login' });
-    } catch {
-      showToast('エラー', 'アカウントの削除中にエラーが発生しました', 'destructive');
-    } finally {
-      setDeletingAccount(false);
-      setShowDeleteAccountModal(false);
-    }
-  };
 
   // 新規講義の追加（Supabase v2 API）
   const handleAddCourse = async () => {
@@ -882,223 +826,17 @@ export default function AdminPage() {
     link.click();
   };
 
+  const activeSection: AdminSection = activeTab;
+
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Minimal top nav */}
-      <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200/60">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
-          {/* Left: Logo + title */}
-          <div className="flex items-center gap-3">
-            <a href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-              <Image
-                src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_200/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png"
-                alt="ざせきくん"
-                width={32}
-                height={32}
-                className="rounded-lg"
-              />
-              <span className="text-base font-semibold text-slate-900 tracking-tight hidden sm:block">
-                ざせきくん
-              </span>
-            </a>
-          </div>
-
-          {/* Right: user + logout */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            {/* Desktop user info */}
-            <div className="hidden sm:flex items-center gap-2 text-sm text-slate-600">
-              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white text-xs font-medium">
-                {session.user?.name?.charAt(0) || 'U'}
-              </div>
-              <span className="max-w-[160px] truncate">{session.user?.email}</span>
-            </div>
-            {/* Mobile menu toggle */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="sm:hidden h-8 w-8 p-0"
-            >
-              {isMobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
-            </Button>
-            <Button
-              onClick={handleSignOut}
-              variant="ghost"
-              size="sm"
-              className="hidden sm:flex text-slate-500 hover:text-slate-900 h-8 gap-1.5"
-            >
-              <LogOut className="h-3.5 w-3.5" />
-              <span className="text-sm">ログアウト</span>
-            </Button>
-            <Button
-              onClick={() => setShowDeleteAccountModal(true)}
-              variant="ghost"
-              size="sm"
-              className="hidden sm:flex text-red-400 hover:text-red-600 hover:bg-red-50 h-8 gap-1.5"
-            >
-              <UserX className="h-3.5 w-3.5" />
-              <span className="text-sm">アカウント削除</span>
-            </Button>
-          </div>
-        </div>
-
-        {/* Mobile dropdown menu */}
-        {isMobileMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.15 }}
-            className="sm:hidden border-t border-slate-100 bg-white px-4 py-3 space-y-3"
-          >
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white text-xs font-medium">
-                {session.user?.name?.charAt(0) || 'U'}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-900 truncate">{session.user?.name}</p>
-                <p className="text-xs text-slate-500 truncate">{session.user?.email}</p>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                onClick={handleSignOut}
-                variant="outline"
-                size="sm"
-                className="flex-1 h-10 text-sm"
-              >
-                <LogOut className="h-3.5 w-3.5 mr-1.5" />
-                ログアウト
-              </Button>
-              <Button
-                onClick={() => setShowDeleteAccountModal(true)}
-                variant="outline"
-                size="sm"
-                className="flex-1 h-10 text-sm text-red-600 border-red-200 hover:bg-red-50"
-              >
-                <UserX className="h-3.5 w-3.5 mr-1.5" />
-                アカウント削除
-              </Button>
-            </div>
-          </motion.div>
-        )}
-      </header>
-
-      {/* Main content */}
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        {/* KPI summary */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
-          className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8"
-        >
-          {/* Forms KPI */}
-          <div className="bg-white rounded-2xl ring-1 ring-black/5 shadow-sm p-4 sm:p-5 flex items-center gap-4 hover:shadow-md transition-shadow duration-300">
-            <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
-              <FileText className="h-5 w-5" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs sm:text-sm font-semibold tracking-wide uppercase text-slate-400">出席フォーム</p>
-              <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight tabular-nums">{courses.length}</span>
-                {planInfo && (
-                  <span className="text-xs text-slate-400 tabular-nums">/ {planInfo.limits.maxForms === Infinity ? '∞' : planInfo.limits.maxForms}</span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Rooms KPI */}
-          <div className="bg-white rounded-2xl ring-1 ring-black/5 shadow-sm p-4 sm:p-5 flex items-center gap-4 hover:shadow-md transition-shadow duration-300">
-            <div className="w-11 h-11 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
-              <Airplay className="h-5 w-5" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs sm:text-sm font-semibold tracking-wide uppercase text-slate-400">ルーム</p>
-              <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight tabular-nums">{rooms.length}</span>
-                {planInfo && (
-                  <span className="text-xs text-slate-400 tabular-nums">/ {planInfo.limits.maxRooms === Infinity ? '∞' : planInfo.limits.maxRooms}</span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Plan KPI */}
-          <div className={`rounded-2xl shadow-sm p-4 sm:p-5 flex items-center gap-4 transition-shadow duration-300 hover:shadow-md ${
-            planInfo?.subscription.plan === 'enterprise'
-              ? 'bg-slate-900 ring-1 ring-slate-900/40 text-white'
-              : planInfo?.subscription.plan === 'paid'
-                ? 'bg-gradient-to-br from-indigo-600 via-indigo-600 to-blue-700 ring-1 ring-indigo-700/30 text-white'
-                : 'bg-white ring-1 ring-black/5'
-          }`}>
-            <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${
-              planInfo?.subscription.plan === 'enterprise' || planInfo?.subscription.plan === 'paid'
-                ? 'bg-white/15 text-white backdrop-blur-sm'
-                : 'bg-emerald-50 text-emerald-600'
-            }`}>
-              <Sparkles className="h-5 w-5" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className={`text-xs sm:text-sm font-semibold tracking-wide uppercase ${
-                planInfo?.subscription.plan === 'enterprise' || planInfo?.subscription.plan === 'paid'
-                  ? 'text-white/70'
-                  : 'text-slate-400'
-              }`}>プラン</p>
-              <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className={`text-2xl sm:text-3xl font-extrabold tracking-tight ${
-                  planInfo?.subscription.plan === 'enterprise' || planInfo?.subscription.plan === 'paid'
-                    ? 'text-white'
-                    : 'text-slate-900'
-                }`}>
-                  {planInfo?.subscription.plan === 'enterprise' ? 'Enterprise' : planInfo?.subscription.plan === 'paid' ? 'Pro' : 'Free'}
-                </span>
-              </div>
-              {planInfo?.subscription.status === 'cancelled' && currentPeriodEndLabel && (
-                <p className={`mt-1 text-xs ${
-                  planInfo.subscription.plan === 'enterprise' || planInfo.subscription.plan === 'paid'
-                    ? 'text-white/80'
-                    : 'text-slate-500'
-                }`}>
-                  {currentPeriodEndLabel}で解約予定
-                </p>
-              )}
-            </div>
-          </div>
-        </motion.div>
-
-        <Tabs defaultValue="courses" className="w-full">
-          {/* Card-style tabs (KPIカードと揃えたグリッドレイアウト) */}
-          <TabsList className="grid grid-cols-3 gap-2 sm:gap-4 mb-6 sm:mb-8 bg-transparent p-0 h-auto w-full">
-            <TabsTrigger
-              value="courses"
-              className="group bg-white ring-1 ring-black/5 shadow-sm rounded-2xl p-3 sm:p-4 flex items-center gap-2.5 sm:gap-3 justify-start text-slate-700 hover:shadow-md transition-all duration-300 data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-indigo-200/50 h-auto"
-            >
-              <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 transition-colors group-data-[state=active]:bg-white group-data-[state=active]:text-indigo-600 group-data-[state=active]:shadow-sm">
-                <FileText className="h-4 w-4 sm:h-5 sm:w-5" />
-              </div>
-              <span className="text-xs sm:text-base font-bold tracking-tight truncate">出席管理</span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="export"
-              className="group bg-white ring-1 ring-black/5 shadow-sm rounded-2xl p-3 sm:p-4 flex items-center gap-2.5 sm:gap-3 justify-start text-slate-700 hover:shadow-md transition-all duration-300 data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-indigo-200/50 h-auto"
-            >
-              <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 transition-colors group-data-[state=active]:bg-white group-data-[state=active]:text-emerald-600 group-data-[state=active]:shadow-sm">
-                <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5" />
-              </div>
-              <span className="text-xs sm:text-base font-bold tracking-tight truncate">データ管理</span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="rooms"
-              className="group bg-white ring-1 ring-black/5 shadow-sm rounded-2xl p-3 sm:p-4 flex items-center gap-2.5 sm:gap-3 justify-start text-slate-700 hover:shadow-md transition-all duration-300 data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-indigo-200/50 h-auto"
-            >
-              <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0 transition-colors group-data-[state=active]:bg-white group-data-[state=active]:text-purple-600 group-data-[state=active]:shadow-sm">
-                <Airplay className="h-4 w-4 sm:h-5 sm:w-5" />
-              </div>
-              <span className="text-xs sm:text-base font-bold tracking-tight truncate">ルーム管理</span>
-            </TabsTrigger>
-          </TabsList>
-
+    <AdminShell
+      activeSection={activeSection}
+      planInfo={planInfo}
+      formCount={courses.length}
+      roomCount={rooms.length}
+      onSelectInPageSection={(section) => setActiveTab(section)}
+    >
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'courses' | 'export' | 'rooms')} className="w-full">
           {/* ===== COURSES TAB ===== */}
           <TabsContent value="courses" className="mt-0">
             {/* Section header */}
@@ -1108,7 +846,7 @@ export default function AdminPage() {
                   <BookOpen className="h-3 w-3" />
                   Forms
                 </span>
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">出席管理</h1>
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">フォーム管理</h1>
                 <p className="text-sm sm:text-base text-slate-500 mt-1">
                   {courses.length > 0
                     ? `${courses.length} 件の出席フォームを管理中`
@@ -1131,42 +869,6 @@ export default function AdminPage() {
                     </span>
                   </div>
                 )}
-                {planInfo && (
-                  <Button
-                    asChild
-                    variant="outline"
-                    size="sm"
-                    className="h-9 px-3 text-slate-600 border-slate-200"
-                  >
-                    <Link href="/admin/billing/institutional">
-                      <FileText className="h-3.5 w-3.5 mr-1.5" />
-                      公費払い
-                    </Link>
-                  </Button>
-                )}
-                {planInfo && (planInfo.subscription.plan === 'paid' || planInfo.subscription.plan === 'enterprise') && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleOpenBillingPortal}
-                    disabled={isSubscriptionActionPending}
-                    className="h-9 px-3 text-slate-600 border-slate-200"
-                  >
-                    <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
-                    請求書・領収書
-                  </Button>
-                )}
-                {planInfo && (planInfo.subscription.plan === 'paid' || planInfo.subscription.plan === 'enterprise') && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsCancelSubscriptionModalOpen(true)}
-                    disabled={isSubscriptionActionPending || planInfo.subscription.status === 'cancelled'}
-                    className="h-9 px-3 text-slate-600 border-slate-200"
-                  >
-                    {planInfo.subscription.status === 'cancelled' ? '解約予約済み' : 'プランを解約'}
-                  </Button>
-                )}
                 <Button
                   variant="outline"
                   size="sm"
@@ -1184,14 +886,14 @@ export default function AdminPage() {
                   <Plus className="h-3.5 w-3.5 mr-1.5" />
                   新規作成
                 </Button>
-                {/* 無料プランの場合のアップグレードボタン */}
                 {planInfo && planInfo.subscription.plan === 'free' && !planInfo.canCreateForm && (
                   <Button
-                    onClick={handleUpgrade}
-                    disabled={isProcessingPayment}
+                    asChild
                     className="h-9 px-4 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white shadow-sm"
                   >
-                    Proにアップグレード
+                    <Link href="/admin/account">
+                      Proにアップグレード
+                    </Link>
                   </Button>
                 )}
               </div>
@@ -1201,7 +903,7 @@ export default function AdminPage() {
             <div className="bg-gradient-to-br from-blue-50 to-indigo-50/60 ring-1 ring-blue-100 rounded-2xl p-5 mb-5 shadow-sm">
               <h3 className="text-sm sm:text-base font-semibold text-blue-900 mb-2 flex items-center gap-1.5">
                 <BookOpen className="h-4 w-4" />
-                出席管理について
+                フォーム管理について
               </h3>
               <ul className="text-xs sm:text-sm text-blue-800 space-y-1.5 leading-relaxed">
                 <li>• <strong>出席フォーム</strong>：日付・フォーム名・ID・学年・名前・所属・レポートなど、標準の出席項目が含まれたフォームです。すぐに使い始められます。</li>
@@ -1906,8 +1608,9 @@ export default function AdminPage() {
               </motion.div>
             ) : (
               /* Course cards grid */
+              <>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {courses.map((course, index) => {
+                {courses.slice((coursePage - 1) * CARDS_PER_PAGE, coursePage * CARDS_PER_PAGE).map((course, index) => {
                   const basePath = course.formType === 'invitation' ? '/invitation/' : '/attendance/';
                   const formUrl = typeof window !== 'undefined'
                     ? `${window.location.origin}${basePath}${course.code}`
@@ -2063,6 +1766,12 @@ export default function AdminPage() {
                   );
                 })}
               </div>
+              {renderPagination(
+                coursePage,
+                Math.max(1, Math.ceil(courses.length / CARDS_PER_PAGE)),
+                setCoursePage
+              )}
+              </>
             )}
           </TabsContent>
 
@@ -2126,14 +1835,14 @@ export default function AdminPage() {
                   <Plus className="h-3.5 w-3.5 mr-1.5" />
                   ルーム作成
                 </Button>
-                {/* 無料プランの場合のアップグレードボタン */}
                 {planInfo && planInfo.subscription.plan === 'free' && !planInfo.canCreateRoom && (
                   <Button
-                    onClick={handleUpgrade}
-                    disabled={isProcessingPayment}
+                    asChild
                     className="h-9 px-4 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white shadow-sm"
                   >
-                    Proにアップグレード
+                    <Link href="/admin/account">
+                      Proにアップグレード
+                    </Link>
                   </Button>
                 )}
               </div>
@@ -2276,8 +1985,9 @@ export default function AdminPage() {
               </motion.div>
             ) : (
               /* Room cards grid */
+              <>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {rooms.map((room, index) => {
+                {rooms.slice((roomPage - 1) * CARDS_PER_PAGE, roomPage * CARDS_PER_PAGE).map((room, index) => {
                   return (
                     <motion.div
                       key={room.id}
@@ -2441,6 +2151,12 @@ export default function AdminPage() {
                   );
                 })}
               </div>
+              {renderPagination(
+                roomPage,
+                Math.max(1, Math.ceil(rooms.length / CARDS_PER_PAGE)),
+                setRoomPage
+              )}
+              </>
             )}
           </TabsContent>
 
@@ -2469,52 +2185,6 @@ export default function AdminPage() {
             <AttendanceExport />
           </TabsContent>
         </Tabs>
-      </main>
-
-      <CustomModal
-        isOpen={isCancelSubscriptionModalOpen}
-        onClose={() => { if (!isSubscriptionActionPending) setIsCancelSubscriptionModalOpen(false); }}
-        title="プランを解約"
-        description="解約後も現在の請求期間が終了するまでは、Proプランの機能を引き続き利用できます。"
-        className="max-w-sm"
-      >
-        <div className="space-y-4">
-          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-            <p className="text-sm font-medium text-amber-900">
-              {currentPeriodEndLabel
-                ? `${currentPeriodEndLabel}までは現在のプランを利用できます。`
-                : '次回更新を停止し、期間終了時に解約します。'}
-            </p>
-          </div>
-          <p className="text-sm text-slate-600">
-            本当に解約を予約しますか？
-          </p>
-          <div className="flex gap-3">
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={() => setIsCancelSubscriptionModalOpen(false)}
-              disabled={isSubscriptionActionPending}
-            >
-              キャンセル
-            </Button>
-            <Button
-              className="flex-1 bg-slate-900 hover:bg-slate-800 text-white"
-              onClick={handleCancelSubscription}
-              disabled={isSubscriptionActionPending}
-            >
-              {isSubscriptionActionPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  処理中...
-                </>
-              ) : (
-                '解約する'
-              )}
-            </Button>
-          </div>
-        </div>
-      </CustomModal>
 
       {/* 削除確認モーダル */}
       <CustomModal
@@ -2567,63 +2237,14 @@ export default function AdminPage() {
         </div>
       </CustomModal>
 
-      {/* アカウント削除確認モーダル */}
-      <CustomModal
-        isOpen={showDeleteAccountModal}
-        onClose={() => setShowDeleteAccountModal(false)}
-        title="アカウント削除"
-      >
-        <div className="space-y-4">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-            <p className="text-sm text-red-800 font-medium mb-2">
-              この操作は取り消せません
-            </p>
-            <p className="text-sm text-red-700">
-              アカウントを削除すると、すべてのデータ（出席管理フォーム、ルーム、出席データなど）が完全に削除されます。
-            </p>
-          </div>
-          <p className="text-sm text-slate-600">
-            本当にアカウントを削除しますか？
-          </p>
-          <div className="flex gap-3 pt-2">
-            <Button
-              variant="outline"
-              onClick={() => setShowDeleteAccountModal(false)}
-              className="flex-1 h-10"
-              disabled={deletingAccount}
-            >
-              キャンセル
-            </Button>
-            <Button
-              onClick={handleDeleteAccount}
-              disabled={deletingAccount}
-              className="flex-1 h-10 bg-red-600 hover:bg-red-700 text-white"
-            >
-              {deletingAccount ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  削除中...
-                </>
-              ) : (
-                <>
-                  <UserX className="h-4 w-4 mr-2" />
-                  削除する
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
-      </CustomModal>
+    </AdminShell>
+  );
+}
 
-      {/* Subtle footer */}
-      <footer className="max-w-6xl mx-auto px-4 sm:px-6 py-6 mt-4">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-400">
-          <span>Powered by Supabase</span>
-          <Link href="/legal/tokusho" target="_blank" className="hover:text-slate-600 transition-colors">
-            特定商取引法に基づく表記
-          </Link>
-        </div>
-      </footer>
-    </div>
+export default function AdminPage() {
+  return (
+    <Suspense fallback={null}>
+      <AdminPageInner />
+    </Suspense>
   );
 }

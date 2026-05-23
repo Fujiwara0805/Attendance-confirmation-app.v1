@@ -73,12 +73,12 @@ export default function InstitutionalBillingPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || '公費払い請求書の作成に失敗しました');
+        throw new Error(data.error || '請求書払いの請求書作成に失敗しました');
       }
 
       setResult(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '公費払い請求書の作成に失敗しました');
+      setError(err instanceof Error ? err.message : '請求書払いの請求書作成に失敗しました');
     } finally {
       setSubmitting(false);
     }
@@ -98,7 +98,7 @@ export default function InstitutionalBillingPage() {
         <div className="mx-auto max-w-xl rounded-2xl bg-white p-8 shadow-sm ring-1 ring-black/5">
           <h1 className="text-2xl font-bold text-slate-900">ログインが必要です</h1>
           <p className="mt-3 text-sm leading-6 text-slate-600">
-            公費払いの請求書をアカウントに紐づけるため、管理画面へログインしてください。
+            請求書払いの請求書をアカウントに紐づけるため、管理画面へログインしてください。
           </p>
           <Button asChild className="mt-6 bg-indigo-600 hover:bg-indigo-700">
             <Link href="/admin/login">ログインへ</Link>
@@ -111,9 +111,12 @@ export default function InstitutionalBillingPage() {
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-6 sm:px-6 sm:py-10">
       <div className="mx-auto max-w-4xl">
-        <Link href="/admin" className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-900">
+        <Link
+          href="/admin/account"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-900"
+        >
           <ArrowLeft className="h-4 w-4" />
-          管理画面に戻る
+          アカウント設定に戻る
         </Link>
 
         <div className="mt-6 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5 sm:p-8">
@@ -121,13 +124,13 @@ export default function InstitutionalBillingPage() {
             <div>
               <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-xs font-bold text-indigo-700 ring-1 ring-indigo-100">
                 <Building2 className="h-3.5 w-3.5" />
-                Public Institution Billing
+                Invoice Billing
               </div>
               <h1 className="mt-4 text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">
-                公費払い・請求書払い
+                請求書払い
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-                見積書PDF、銀行振込対応の後払い請求書、印刷用納品書を作成します。支払い確認後、対象期間の有料プランが有効になります。
+                大学・研究費・法人向けの銀行振込支払いに対応します。見積書PDF・後払い請求書・印刷用納品書を作成し、支払い確認後に対象期間の有料プランが有効になります。
               </p>
             </div>
             <div className="rounded-xl bg-slate-50 px-4 py-3 text-sm ring-1 ring-slate-200">
@@ -150,21 +153,21 @@ export default function InstitutionalBillingPage() {
                   </p>
                   <div className="mt-4 flex flex-wrap gap-2">
                     <Button asChild variant="outline" className="bg-white">
-                      <a href={result.quotePdfUrl} target="_blank" rel="noreferrer">
+                      <a href={result.quotePdfUrl} target="_blank" rel="noopener noreferrer">
                         <FileText className="mr-2 h-4 w-4" />
                         見積書PDF
                       </a>
                     </Button>
                     {result.hostedInvoiceUrl && (
                       <Button asChild variant="outline" className="bg-white">
-                        <a href={result.hostedInvoiceUrl} target="_blank" rel="noreferrer">
+                        <a href={result.hostedInvoiceUrl} target="_blank" rel="noopener noreferrer">
                           <ExternalLink className="mr-2 h-4 w-4" />
                           請求書・銀行振込
                         </a>
                       </Button>
                     )}
                     <Button asChild variant="outline" className="bg-white">
-                      <a href={result.deliveryNoteUrl} target="_blank" rel="noreferrer">
+                      <a href={result.deliveryNoteUrl} target="_blank" rel="noopener noreferrer">
                         <FileText className="mr-2 h-4 w-4" />
                         納品書
                       </a>
