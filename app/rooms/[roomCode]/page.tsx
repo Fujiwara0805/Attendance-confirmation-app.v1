@@ -85,6 +85,10 @@ interface Room {
 
 const MAX_LEN = 500;
 
+function getPollRunKey(poll: Pick<Poll, 'id' | 'started_at'>) {
+  return `${poll.id}:${poll.started_at || 'draft'}`;
+}
+
 export default function ParticipantPage() {
   const params = useParams();
   const roomCode = (params.roomCode as string).toUpperCase();
@@ -160,10 +164,16 @@ export default function ParticipantPage() {
     for (const poll of polls) {
       const prev = prevPollStateRef.current[poll.id];
       if (prev) {
-        const startedAtChanged = prev.started_at !== poll.started_at;
         const becameDraft = prev.status !== 'draft' && poll.status === 'draft';
-        if ((startedAtChanged || becameDraft) && next.has(poll.id)) {
+        const hasLegacyVote = next.has(poll.id);
+        const pollRunPrefix = `${poll.id}:`;
+        const storedRunKeys = Array.from(next).filter((key) => key.startsWith(pollRunPrefix));
+        if (hasLegacyVote) {
           next.delete(poll.id);
+          changed = true;
+        }
+        if (becameDraft && storedRunKeys.length > 0) {
+          storedRunKeys.forEach((key) => next.delete(key));
           changed = true;
         }
       }
@@ -315,15 +325,16 @@ export default function ParticipantPage() {
   );
 
   const handlePollVote = useCallback(
-    async (pollId: string, optionIndexes: number[]) => {
-      if (!participantId || hasVotedPoll.has(pollId) || optionIndexes.length === 0) return;
+    async (poll: Poll, optionIndexes: number[]) => {
+      const runKey = getPollRunKey(poll);
+      if (!participantId || optionIndexes.length === 0) return;
       const newVoted = new Set(hasVotedPoll);
-      newVoted.add(pollId);
+      newVoted.add(runKey);
       setHasVotedPoll(newVoted);
       localStorage.setItem(`voted_polls_${roomCode}`, JSON.stringify(Array.from(newVoted)));
 
       try {
-        const res = await fetch(`/api/rooms/${roomCode}/polls/${pollId}/vote`, {
+        const res = await fetch(`/api/rooms/${roomCode}/polls/${poll.id}/vote`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ participantId, optionIndexes }),
@@ -331,7 +342,7 @@ export default function ParticipantPage() {
         if (!res.ok) throw new Error('poll vote failed');
       } catch {
         const reverted = new Set(hasVotedPoll);
-        reverted.delete(pollId);
+        reverted.delete(runKey);
         setHasVotedPoll(reverted);
         localStorage.setItem(`voted_polls_${roomCode}`, JSON.stringify(Array.from(reverted)));
       }
@@ -567,9 +578,9 @@ export default function ParticipantPage() {
               <ActivePollCard
                 poll={activePoll}
                 votes={pollVotes[activePoll.id] || []}
-                hasVoted={hasVotedPoll.has(activePoll.id)}
+                hasVoted={hasVotedPoll.has(getPollRunKey(activePoll))}
                 participantId={participantId}
-                onSubmit={(indexes) => handlePollVote(activePoll.id, indexes)}
+                onSubmit={(indexes) => handlePollVote(activePoll, indexes)}
               />
             )}
 
@@ -951,7 +962,7 @@ function ActivePollCard({
     setImagePreview(null);
     submittingRef.current = false;
     setSubmitting(false);
-  }, [poll.id]);
+  }, [poll.id, poll.started_at]);
 
   useEffect(() => {
     if (!imagePreview) return;

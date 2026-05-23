@@ -253,6 +253,25 @@ export async function PATCH(
       if (currentPoll?.options) {
         const clearedAt = new Date().toISOString();
         const { meta, options } = extractPollPayload(currentPoll.options);
+        const { data: liveVotes } = await supabase
+          .from('poll_votes')
+          .select('option_index, value, participant_id, created_at')
+          .eq('poll_id', params.pollId)
+          .is('cleared_at', null);
+        const voteSnapshot =
+          currentPoll.started_at && liveVotes && liveVotes.length > 0
+            ? {
+                startedAt: currentPoll.started_at,
+                startedAtClientAt: meta.startedAtClientAt ?? null,
+                startedAtTimeZone: meta.startedAtTimeZone ?? null,
+                votes: liveVotes.map((v) => ({
+                  optionIndex: v.option_index,
+                  value: v.value,
+                  participantId: v.participant_id,
+                  createdAt: v.created_at,
+                })),
+              }
+            : undefined;
         await supabase
           .from('poll_votes')
           .update({ cleared_at: clearedAt })
@@ -280,6 +299,12 @@ export async function PATCH(
                     [clearedAt]: meta.startedAtTimeZone,
                   }
                 : meta.runStartedAtTimeZoneByClearedAt,
+              runVoteSnapshotsByClearedAt: voteSnapshot
+                ? {
+                    ...(meta.runVoteSnapshotsByClearedAt || {}),
+                    [clearedAt]: voteSnapshot,
+                  }
+                : meta.runVoteSnapshotsByClearedAt,
             },
             options
           );
