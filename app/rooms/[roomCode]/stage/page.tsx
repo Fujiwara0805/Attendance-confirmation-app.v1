@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useRealtimeQuestions } from '@/lib/hooks/useRealtimeQuestions';
 import { useRealtimePolls } from '@/lib/hooks/useRealtimePolls';
+import { useCaptureStream } from '../layout';
 
 interface Room {
   id: string;
@@ -40,13 +41,20 @@ export default function StagePage() {
   const [roomLoading, setRoomLoading] = useState(true);
   const [qrUrl, setQrUrl] = useState<string | null>(null);
   const [qrModalOpen, setQrModalOpen] = useState(false);
-  const [captureStream, setCaptureStream] = useState<MediaStream | null>(null);
-  const [captureError, setCaptureError] = useState<string | null>(null);
   const [videoReady, setVideoReady] = useState(false);
-  const [captureSurface, setCaptureSurface] = useState<string | null>(null);
   const [sharedPercent, setSharedPercent] = useState(70);
   const [isDesktop, setIsDesktop] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
+
+  // MediaStream はルーム共通の Layout (CaptureStreamProvider) で保持し、
+  // stage <-> present の遷移でも画面共有が継続するようにする。
+  const {
+    captureStream,
+    captureSurface,
+    captureError,
+    startScreenShare,
+    stopScreenShare,
+  } = useCaptureStream();
 
   useEffect(() => {
     fetch(`/api/rooms/${roomCode}`)
@@ -94,79 +102,6 @@ export default function StagePage() {
     return () => mediaQuery.removeEventListener('change', update);
   }, []);
 
-  const stopScreenShare = useCallback(() => {
-    setVideoReady(false);
-    setCaptureSurface(null);
-    setCaptureStream((stream) => {
-      stream?.getTracks().forEach((track) => track.stop());
-      return null;
-    });
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-  }, []);
-
-  const startScreenShare = useCallback(async () => {
-    setCaptureError(null);
-    setVideoReady(false);
-    if (!navigator.mediaDevices?.getDisplayMedia) {
-      setCaptureError('このブラウザでは画面共有を利用できません。Chrome または Edge でお試しください。');
-      return;
-    }
-
-    try {
-      captureStream?.getTracks().forEach((track) => track.stop());
-      // CaptureController で「共有先にフォーカスを移さない」よう指示する。
-      // これを使わないと Chrome/Edge は共有対象のタブ/ウィンドウへ自動でフォーカスを移し、
-      // ざせきくんの画面から離れてしまう。
-      const CaptureControllerCtor = (
-        window as unknown as {
-          CaptureController?: new () => {
-            setFocusBehavior: (behavior: 'focus-captured-surface' | 'no-focus-change') => void;
-          };
-        }
-      ).CaptureController;
-      const controller = CaptureControllerCtor ? new CaptureControllerCtor() : undefined;
-      const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: {
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
-          frameRate: { ideal: 30, max: 60 },
-          displaySurface: 'monitor',
-        },
-        audio: false,
-        preferCurrentTab: false,
-        selfBrowserSurface: 'exclude',
-        surfaceSwitching: 'include',
-        systemAudio: 'exclude',
-        controller,
-      } as DisplayMediaStreamOptions);
-      try {
-        // 一度しか呼べず、呼び出しが遅すぎると例外になるため握りつぶす。
-        controller?.setFocusBehavior('no-focus-change');
-      } catch {
-        /* CaptureController 非対応／呼び出しタイミング超過時は無視 */
-      }
-      const [track] = stream.getVideoTracks();
-      const settings = track?.getSettings() as MediaTrackSettings & { displaySurface?: string };
-      setCaptureSurface(settings?.displaySurface || null);
-      track?.addEventListener('ended', () => {
-        setVideoReady(false);
-        setCaptureSurface(null);
-        setCaptureStream(null);
-        if (videoRef.current) videoRef.current.srcObject = null;
-      });
-      setCaptureStream(stream);
-      // CaptureController 非対応ブラウザ向けのフォールバック（従来挙動を維持）
-      if (!controller) {
-        window.setTimeout(() => window.focus(), 200);
-      }
-    } catch (error) {
-      const isAbort = error instanceof DOMException && error.name === 'NotAllowedError';
-      setCaptureError(isAbort ? '資料の取り込みがキャンセルされました。' : '資料画面の取り込みに失敗しました。');
-    }
-  }, [captureStream]);
-
   useEffect(() => {
     if (!videoRef.current) return;
     videoRef.current.srcObject = captureStream;
@@ -174,27 +109,23 @@ export default function StagePage() {
       videoRef.current.play().catch(() => {
         setVideoReady(false);
       });
+    } else {
+      setVideoReady(false);
     }
-  }, [captureStream]);
-
-  useEffect(() => {
-    return () => {
-      captureStream?.getTracks().forEach((track) => track.stop());
-    };
   }, [captureStream]);
 
   const enterFullscreen = () => {
     stageRef.current?.requestFullscreen?.();
   };
 
+  // 画面共有は Layout の Context が保持しているため、遷移時に停止しない。
+  // stage に戻ったときに同じ MediaStream を再アタッチして共有を継続する。
   const openClassicScreen = () => {
-    stopScreenShare();
     router.push(`/rooms/${roomCode}/present`);
   };
 
   // 投票タブを選択した状態のスクリーン画面へ
   const openPollScreen = () => {
-    stopScreenShare();
     router.push(`/rooms/${roomCode}/present?view=poll`);
   };
 
