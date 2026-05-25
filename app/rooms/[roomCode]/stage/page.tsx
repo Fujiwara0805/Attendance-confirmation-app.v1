@@ -72,11 +72,14 @@ function debugStageCapture(label: string, payload?: Record<string, unknown>) {
   console.log(DEBUG_PREFIX, label, payload || {});
 }
 
-function consumeStageReturnSource() {
+function getStageReturnSource() {
   if (typeof window === 'undefined') return null;
-  const source = window.sessionStorage.getItem(STAGE_RETURN_SOURCE_KEY);
-  if (source) window.sessionStorage.removeItem(STAGE_RETURN_SOURCE_KEY);
-  return source;
+  return window.sessionStorage.getItem(STAGE_RETURN_SOURCE_KEY);
+}
+
+function clearStageReturnSource() {
+  if (typeof window === 'undefined') return;
+  window.sessionStorage.removeItem(STAGE_RETURN_SOURCE_KEY);
 }
 
 function setStageReturnSource(source: string) {
@@ -162,7 +165,19 @@ export default function StagePage() {
   // このコンテナへ移動する。ページ遷移で video 要素を破棄しないことで、Chrome の
   // MediaStream 再アタッチ黒画面を避ける。
   useBrowserLayoutEffect(() => {
-    const returnSource = consumeStageReturnSource();
+    const returnSource = getStageReturnSource();
+
+    if (roomLoading || !room) {
+      debugStageCapture('資料投影画面の表示準備中です', {
+        returnSource,
+        roomLoading,
+        hasRoom: !!room,
+        captureSurface,
+        stream: getStreamDebugState(captureStream),
+      });
+      return;
+    }
+
     debugStageCapture(
       returnSource === 'poll'
         ? '資料投影画面に戻りました（ライブ投票画面から）'
@@ -177,6 +192,7 @@ export default function StagePage() {
     );
 
     if (!captureStream) {
+      clearStageReturnSource();
       debugStageCapture('共有ストリームがありません', {
         returnSource,
         captureSurface,
@@ -202,6 +218,7 @@ export default function StagePage() {
       });
       return;
     }
+    clearStageReturnSource();
 
     debugStageCapture('共有映像 video を資料投影画面へ接続しました', {
       returnSource,
@@ -308,7 +325,7 @@ export default function StagePage() {
       debugTimeoutIds.forEach((id) => window.clearTimeout(id));
       captureStreamStore.parkVideo();
     };
-  }, [captureStream, captureSurface]);
+  }, [captureStream, captureSurface, roomLoading, room]);
 
   const enterFullscreen = () => {
     stageRef.current?.requestFullscreen?.();
