@@ -17,6 +17,8 @@ type Listener = () => void;
 let stream: MediaStream | null = null;
 let surface: string | null = null;
 let error: string | null = null;
+let persistentVideo: HTMLVideoElement | null = null;
+let hiddenVideoHost: HTMLDivElement | null = null;
 const listeners = new Set<Listener>();
 
 function emit() {
@@ -37,6 +39,86 @@ function stopCurrentTracks() {
     } catch {
       /* 既に stop 済みなど */
     }
+  });
+}
+
+function getHiddenVideoHost() {
+  if (typeof document === 'undefined') return null;
+  if (hiddenVideoHost && document.body.contains(hiddenVideoHost)) return hiddenVideoHost;
+
+  hiddenVideoHost = document.createElement('div');
+  hiddenVideoHost.setAttribute('data-capture-video-host', 'true');
+  hiddenVideoHost.setAttribute('aria-hidden', 'true');
+  Object.assign(hiddenVideoHost.style, {
+    position: 'fixed',
+    right: '0',
+    bottom: '0',
+    width: '2px',
+    height: '2px',
+    overflow: 'hidden',
+    pointerEvents: 'none',
+    opacity: '0.01',
+    zIndex: '0',
+  });
+  document.body.appendChild(hiddenVideoHost);
+  return hiddenVideoHost;
+}
+
+function getPersistentVideo() {
+  if (typeof document === 'undefined') return null;
+  if (persistentVideo) return persistentVideo;
+
+  persistentVideo = document.createElement('video');
+  persistentVideo.muted = true;
+  persistentVideo.autoplay = true;
+  persistentVideo.playsInline = true;
+  persistentVideo.controls = false;
+  persistentVideo.setAttribute('aria-hidden', 'true');
+  persistentVideo.tabIndex = -1;
+  persistentVideo.disablePictureInPicture = true;
+  return persistentVideo;
+}
+
+function syncPersistentVideo() {
+  const video = persistentVideo;
+  if (!video) return;
+  if (video.srcObject !== stream) {
+    video.srcObject = stream;
+  }
+  if (stream) {
+    video.play().catch(() => {
+      /* 表示側のイベント／再試行に任せる */
+    });
+  }
+}
+
+function setVisibleVideoStyles(video: HTMLVideoElement) {
+  Object.assign(video.style, {
+    position: 'absolute',
+    inset: '0',
+    width: '100%',
+    height: '100%',
+    display: 'block',
+    objectFit: 'contain',
+    background: '#000',
+    opacity: '1',
+    pointerEvents: 'none',
+    zIndex: '0',
+  });
+}
+
+function setParkedVideoStyles(video: HTMLVideoElement) {
+  Object.assign(video.style, {
+    position: 'absolute',
+    inset: '0',
+    width: '2px',
+    height: '2px',
+    display: 'block',
+    objectFit: 'contain',
+    background: '#000',
+    opacity: '1',
+    pointerEvents: 'none',
+    zIndex: '0',
   });
 }
 
@@ -76,6 +158,7 @@ export const captureStreamStore = {
     stopCurrentTracks();
     stream = null;
     surface = null;
+    syncPersistentVideo();
 
     try {
       // CaptureController で「共有先にフォーカスを移さない」よう指示する。
@@ -117,12 +200,14 @@ export const captureStreamStore = {
         if (stream === next) {
           stream = null;
           surface = null;
+          syncPersistentVideo();
           emit();
         }
       });
 
       stream = next;
       surface = settings?.displaySurface || null;
+      syncPersistentVideo();
 
       if (!controller) {
         window.setTimeout(() => window.focus(), 200);
@@ -143,7 +228,38 @@ export const captureStreamStore = {
     stopCurrentTracks();
     stream = null;
     surface = null;
+    syncPersistentVideo();
     emit();
+  },
+
+  /**
+   * 共有映像用の video 要素を表示コンテナへ移動する。
+   * video DOM 自体を破棄しないことで、stage <-> present の遷移時に
+   * Chrome が同じ MediaStream の再アタッチで黒画面になる挙動を避ける。
+   */
+  mountVideo(container: HTMLElement) {
+    const video = getPersistentVideo();
+    if (!video) return null;
+    setVisibleVideoStyles(video);
+    if (video.parentElement !== container) {
+      container.prepend(video);
+    }
+    syncPersistentVideo();
+    return video;
+  },
+
+  /**
+   * video 要素を隠しホストへ退避して再生を維持する。
+   */
+  parkVideo() {
+    const video = getPersistentVideo();
+    const host = getHiddenVideoHost();
+    if (!video || !host) return;
+    setParkedVideoStyles(video);
+    if (video.parentElement !== host) {
+      host.appendChild(video);
+    }
+    syncPersistentVideo();
   },
 };
 

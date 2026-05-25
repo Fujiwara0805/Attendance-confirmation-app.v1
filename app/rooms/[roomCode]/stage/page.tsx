@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { useRealtimeQuestions } from '@/lib/hooks/useRealtimeQuestions';
 import { useRealtimePolls } from '@/lib/hooks/useRealtimePolls';
-import { useCaptureStream } from '@/lib/captureStreamStore';
+import { captureStreamStore, useCaptureStream } from '@/lib/captureStreamStore';
 
 interface Room {
   id: string;
@@ -35,7 +35,7 @@ export default function StagePage() {
   const roomCode = (params.roomCode as string).toUpperCase();
   const stageRef = useRef<HTMLDivElement>(null);
   const splitRef = useRef<HTMLDivElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const videoHostRef = useRef<HTMLDivElement>(null);
 
   const [room, setRoom] = useState<Room | null>(null);
   const [roomLoading, setRoomLoading] = useState(true);
@@ -103,33 +103,24 @@ export default function StagePage() {
     return () => mediaQuery.removeEventListener('change', update);
   }, []);
 
-  // stage を再マウントしたとき、ストア保持の既存 MediaStream を新しい video 要素に
-  // アタッチし直す。Chrome では同じ MediaStream を別 video へ再アタッチすると
-  // canplay/playing が発火しないことがあるため、
-  //   1. 既存トラックから新しい MediaStream を生成（clone）して srcObject に渡す
-  //   2. play() Promise / readyState ポーリング / セーフティタイマー の三段構え
-  // で確実に再生開始まで持っていく。
+  // 共有映像用の video DOM は captureStreamStore 側で保持し、stage 表示中だけ
+  // このコンテナへ移動する。ページ遷移で video 要素を破棄しないことで、Chrome の
+  // MediaStream 再アタッチ黒画面を避ける。
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-
     if (!captureStream) {
-      video.srcObject = null;
       setVideoReady(false);
       return;
     }
 
+    const videoHost = videoHostRef.current;
+    if (!videoHost) return;
+
+    const video = captureStreamStore.mountVideo(videoHost);
+    if (!video) return;
+
     let cancelled = false;
     let pollId: number | null = null;
     let safetyId: number | null = null;
-
-    // 既存のトラックから別 MediaStream を作って渡す（参照の使い回しによる
-    // 再アタッチ取りこぼしを回避）
-    const tracks = captureStream.getTracks();
-    const fresh = tracks.length > 0 ? new MediaStream(tracks) : captureStream;
-
-    video.srcObject = null;
-    video.srcObject = fresh;
 
     const markReady = () => {
       if (cancelled) return;
@@ -143,6 +134,11 @@ export default function StagePage() {
         safetyId = null;
       }
     };
+
+    const onReady = () => markReady();
+    video.addEventListener('loadeddata', onReady);
+    video.addEventListener('canplay', onReady);
+    video.addEventListener('playing', onReady);
 
     video
       .play()
@@ -168,8 +164,12 @@ export default function StagePage() {
 
     return () => {
       cancelled = true;
+      video.removeEventListener('loadeddata', onReady);
+      video.removeEventListener('canplay', onReady);
+      video.removeEventListener('playing', onReady);
       if (pollId !== null) window.clearInterval(pollId);
       if (safetyId !== null) window.clearTimeout(safetyId);
+      captureStreamStore.parkVideo();
     };
   }, [captureStream]);
 
@@ -251,24 +251,7 @@ export default function StagePage() {
         <main className="relative h-[55vh] min-h-0 lg:h-full bg-black flex items-center justify-center overflow-hidden">
           {captureStream ? (
             <>
-              <video
-                ref={videoRef}
-                muted
-                autoPlay
-                playsInline
-                controls={false}
-                onLoadedMetadata={(event) => {
-                  event.currentTarget.play().catch(() => {
-                    /* ポーリングのフォールバックが拾う */
-                  });
-                }}
-                onLoadedData={() => setVideoReady(true)}
-                onCanPlay={() => setVideoReady(true)}
-                onPlaying={() => setVideoReady(true)}
-                /* onWaiting で false に戻すと、stage 再マウント直後の一瞬の
-                   buffering で常時ローディングになるため、ここでは false にしない */
-                className="absolute inset-0 h-full w-full object-contain bg-black"
-              />
+              <div ref={videoHostRef} className="absolute inset-0 h-full w-full bg-black" />
               {!videoReady && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black">
                   <div className="rounded-2xl bg-white/10 px-5 py-4 text-center ring-1 ring-white/15 backdrop-blur-md">
