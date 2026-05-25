@@ -158,11 +158,13 @@ export default function StagePage() {
       if (video.readyState >= 2 && !video.paused) markReady();
     }, 150);
 
-    // ストリームが active ならいずれフレームは来るので、最終手段として 1.2 秒後に強制 ready
+    // 最終手段: ストリーム状態に関わらず一定時間後に loading を解除する。
+    // Layout の keep-alive video がストリームを保持しているので、表示用 video には
+    // 通常すぐにフレームが届くはずだが、念のためのフォールバック。
     safetyId = window.setTimeout(() => {
       if (cancelled) return;
-      if (captureStream.active) markReady();
-    }, 1200);
+      markReady();
+    }, 800);
 
     return () => {
       cancelled = true;
