@@ -30,62 +30,6 @@ interface Room {
 }
 
 const useBrowserLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
-const STAGE_RETURN_SOURCE_KEY = 'zasekikun-stage-return-source';
-const DEBUG_PREFIX = '[StageCaptureDebug]';
-
-function getStreamDebugState(stream: MediaStream | null) {
-  const tracks = stream?.getTracks() || [];
-  return {
-    hasStream: !!stream,
-    streamId: stream?.id || null,
-    streamActive: stream?.active ?? false,
-    tracks: tracks.map((track) => ({
-      id: track.id,
-      kind: track.kind,
-      label: track.label,
-      enabled: track.enabled,
-      muted: track.muted,
-      readyState: track.readyState,
-      settings: track.getSettings(),
-    })),
-  };
-}
-
-function getVideoDebugState(video: HTMLVideoElement | null) {
-  if (!video) return null;
-  return {
-    isConnected: video.isConnected,
-    parentTag: video.parentElement?.tagName || null,
-    readyState: video.readyState,
-    networkState: video.networkState,
-    paused: video.paused,
-    ended: video.ended,
-    currentTime: Number.isFinite(video.currentTime) ? Number(video.currentTime.toFixed(3)) : null,
-    videoWidth: video.videoWidth,
-    videoHeight: video.videoHeight,
-    srcObjectType: video.srcObject ? video.srcObject.constructor.name : null,
-  };
-}
-
-function debugStageCapture(label: string, payload?: Record<string, unknown>) {
-  if (typeof window === 'undefined') return;
-  console.log(DEBUG_PREFIX, label, payload || {});
-}
-
-function getStageReturnSource() {
-  if (typeof window === 'undefined') return null;
-  return window.sessionStorage.getItem(STAGE_RETURN_SOURCE_KEY);
-}
-
-function clearStageReturnSource() {
-  if (typeof window === 'undefined') return;
-  window.sessionStorage.removeItem(STAGE_RETURN_SOURCE_KEY);
-}
-
-function setStageReturnSource(source: string) {
-  if (typeof window === 'undefined') return;
-  window.sessionStorage.setItem(STAGE_RETURN_SOURCE_KEY, source);
-}
 
 export default function StagePage() {
   const params = useParams();
@@ -165,87 +109,27 @@ export default function StagePage() {
   // このコンテナへ移動する。ページ遷移で video 要素を破棄しないことで、Chrome の
   // MediaStream 再アタッチ黒画面を避ける。
   useBrowserLayoutEffect(() => {
-    const returnSource = getStageReturnSource();
-
     if (roomLoading || !room) {
-      debugStageCapture('資料投影画面の表示準備中です', {
-        returnSource,
-        roomLoading,
-        hasRoom: !!room,
-        captureSurface,
-        stream: getStreamDebugState(captureStream),
-      });
       return;
     }
 
-    debugStageCapture(
-      returnSource === 'poll'
-        ? '資料投影画面に戻りました（ライブ投票画面から）'
-        : '資料投影画面を表示しました',
-      {
-        returnSource,
-        captureSurface,
-        stream: getStreamDebugState(captureStream),
-        videoHostConnected: videoHostRef.current?.isConnected ?? false,
-        videoHostChildCount: videoHostRef.current?.childElementCount ?? 0,
-      }
-    );
-
     if (!captureStream) {
-      clearStageReturnSource();
-      debugStageCapture('共有ストリームがありません', {
-        returnSource,
-        captureSurface,
-      });
       setVideoReady(false);
       return;
     }
 
     const videoHost = videoHostRef.current;
-    if (!videoHost) {
-      debugStageCapture('videoHost が未生成です', {
-        returnSource,
-        stream: getStreamDebugState(captureStream),
-      });
-      return;
-    }
+    if (!videoHost) return;
 
     const video = captureStreamStore.mountVideo(videoHost);
-    if (!video) {
-      debugStageCapture('共有映像 video を取得できません', {
-        returnSource,
-        stream: getStreamDebugState(captureStream),
-      });
-      return;
-    }
-    clearStageReturnSource();
-
-    debugStageCapture('共有映像 video を資料投影画面へ接続しました', {
-      returnSource,
-      captureSurface,
-      stream: getStreamDebugState(captureStream),
-      video: getVideoDebugState(video),
-      videoHostConnected: videoHost.isConnected,
-      videoHostChildCount: videoHost.childElementCount,
-    });
+    if (!video) return;
 
     let cancelled = false;
     let pollId: number | null = null;
     let safetyId: number | null = null;
-    const debugTimeoutIds: number[] = [];
-    let firstReadyLogged = false;
 
-    const markReady = (reason: string) => {
+    const markReady = () => {
       if (cancelled) return;
-      if (!firstReadyLogged) {
-        firstReadyLogged = true;
-        debugStageCapture('共有映像 ready 判定', {
-          reason,
-          returnSource,
-          stream: getStreamDebugState(captureStream),
-          video: getVideoDebugState(video),
-        });
-      }
       setVideoReady(true);
       if (pollId !== null) {
         window.clearInterval(pollId);
@@ -257,7 +141,7 @@ export default function StagePage() {
       }
     };
 
-    const onReady = (event: Event) => markReady(event.type);
+    const onReady = () => markReady();
     video.addEventListener('loadeddata', onReady);
     video.addEventListener('canplay', onReady);
     video.addEventListener('playing', onReady);
@@ -265,67 +149,35 @@ export default function StagePage() {
     video
       .play()
       .then(() => {
-        debugStageCapture('video.play() が解決しました', {
-          returnSource,
-          video: getVideoDebugState(video),
-        });
-        if (!cancelled && !video.paused) markReady('play-resolved');
+        if (!cancelled && !video.paused) markReady();
       })
-      .catch((error) => {
-        debugStageCapture('video.play() が失敗しました', {
-          returnSource,
-          error: error instanceof Error ? error.message : String(error),
-          video: getVideoDebugState(video),
-        });
+      .catch(() => {
+        /* イベント or ポーリングのフォールバックに任せる */
       });
 
     pollId = window.setInterval(() => {
       if (cancelled) return;
-      if (video.readyState >= 2 && !video.paused) markReady('readyState-poll');
+      if (video.readyState >= 2 && !video.paused) markReady();
     }, 150);
-
-    debugTimeoutIds.push(window.setTimeout(() => {
-      if (cancelled) return;
-      debugStageCapture('戻り後 1 秒の共有映像状態', {
-        returnSource,
-        stream: getStreamDebugState(captureStream),
-        video: getVideoDebugState(video),
-      });
-    }, 1000));
-
-    debugTimeoutIds.push(window.setTimeout(() => {
-      if (cancelled) return;
-      debugStageCapture('戻り後 3 秒の共有映像状態', {
-        returnSource,
-        stream: getStreamDebugState(captureStream),
-        video: getVideoDebugState(video),
-      });
-    }, 3000));
 
     // 最終手段: ストリーム状態に関わらず一定時間後に loading を解除する。
     // video DOM 自体を維持しているので通常すぐにフレームが届くはずだが、
     // イベントを取りこぼした場合に備える。
     safetyId = window.setTimeout(() => {
       if (cancelled) return;
-      markReady('safety-timeout');
+      markReady();
     }, 800);
 
     return () => {
-      debugStageCapture('資料投影画面を離れます。共有映像 video を退避します', {
-        returnSource,
-        stream: getStreamDebugState(captureStream),
-        video: getVideoDebugState(video),
-      });
       cancelled = true;
       video.removeEventListener('loadeddata', onReady);
       video.removeEventListener('canplay', onReady);
       video.removeEventListener('playing', onReady);
       if (pollId !== null) window.clearInterval(pollId);
       if (safetyId !== null) window.clearTimeout(safetyId);
-      debugTimeoutIds.forEach((id) => window.clearTimeout(id));
       captureStreamStore.parkVideo();
     };
-  }, [captureStream, captureSurface, roomLoading, room]);
+  }, [captureStream, roomLoading, room]);
 
   const enterFullscreen = () => {
     stageRef.current?.requestFullscreen?.();
@@ -334,20 +186,12 @@ export default function StagePage() {
   // 画面共有は captureStreamStore が保持しているため、遷移時に停止しない。
   // present へ移る前に video DOM を退避し、stage に戻ったら同じ DOM を表示へ戻す。
   const openClassicScreen = () => {
-    debugStageCapture('スクリーン画面へ遷移します', {
-      stream: getStreamDebugState(captureStream),
-    });
-    setStageReturnSource('screen');
     captureStreamStore.parkVideo();
     router.push(`/rooms/${roomCode}/present`);
   };
 
   // 投票タブを選択した状態のスクリーン画面へ
   const openPollScreen = () => {
-    debugStageCapture('ライブ投票画面へ遷移します', {
-      stream: getStreamDebugState(captureStream),
-    });
-    setStageReturnSource('poll');
     captureStreamStore.parkVideo();
     router.push(`/rooms/${roomCode}/present?view=poll`);
   };
