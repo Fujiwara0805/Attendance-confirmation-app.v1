@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
@@ -28,6 +28,8 @@ interface Room {
   status: string;
   moderation_enabled?: boolean;
 }
+
+const useBrowserLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 export default function StagePage() {
   const params = useParams();
@@ -106,7 +108,7 @@ export default function StagePage() {
   // 共有映像用の video DOM は captureStreamStore 側で保持し、stage 表示中だけ
   // このコンテナへ移動する。ページ遷移で video 要素を破棄しないことで、Chrome の
   // MediaStream 再アタッチ黒画面を避ける。
-  useEffect(() => {
+  useBrowserLayoutEffect(() => {
     if (!captureStream) {
       setVideoReady(false);
       return;
@@ -155,8 +157,8 @@ export default function StagePage() {
     }, 150);
 
     // 最終手段: ストリーム状態に関わらず一定時間後に loading を解除する。
-    // Layout の keep-alive video がストリームを保持しているので、表示用 video には
-    // 通常すぐにフレームが届くはずだが、念のためのフォールバック。
+    // video DOM 自体を維持しているので通常すぐにフレームが届くはずだが、
+    // イベントを取りこぼした場合に備える。
     safetyId = window.setTimeout(() => {
       if (cancelled) return;
       markReady();
@@ -177,14 +179,16 @@ export default function StagePage() {
     stageRef.current?.requestFullscreen?.();
   };
 
-  // 画面共有は Layout の Context が保持しているため、遷移時に停止しない。
-  // stage に戻ったときに同じ MediaStream を再アタッチして共有を継続する。
+  // 画面共有は captureStreamStore が保持しているため、遷移時に停止しない。
+  // present へ移る前に video DOM を退避し、stage に戻ったら同じ DOM を表示へ戻す。
   const openClassicScreen = () => {
+    captureStreamStore.parkVideo();
     router.push(`/rooms/${roomCode}/present`);
   };
 
   // 投票タブを選択した状態のスクリーン画面へ
   const openPollScreen = () => {
+    captureStreamStore.parkVideo();
     router.push(`/rooms/${roomCode}/present?view=poll`);
   };
 
