@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { useRealtimeQuestions } from '@/lib/hooks/useRealtimeQuestions';
 import { useRealtimePolls } from '@/lib/hooks/useRealtimePolls';
-import { useCaptureStream } from '../layout';
+import { useCaptureStream } from '@/lib/captureStreamStore';
 
 interface Room {
   id: string;
@@ -46,8 +46,9 @@ export default function StagePage() {
   const [isDesktop, setIsDesktop] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
 
-  // MediaStream はルーム共通の Layout (CaptureStreamProvider) で保持し、
-  // stage <-> present の遷移でも画面共有が継続するようにする。
+  // MediaStream はモジュールスコープのシングルトン (captureStreamStore) で保持。
+  // どんな再マウントが起きてもストリーム参照が消えないため、
+  // stage <-> present の遷移で画面共有が確実に継続する。
   const {
     captureStream,
     captureSurface,
@@ -102,14 +103,12 @@ export default function StagePage() {
     return () => mediaQuery.removeEventListener('change', update);
   }, []);
 
-  // stage を再マウントしたとき、Context に保持された既存 MediaStream を新しい
-  // video 要素にアタッチし直す必要がある。
-  // 既に他要素にバインドされていたストリームを再アタッチすると canplay/playing が
-  // 取りこぼされてローディングが固まる Chrome のケースがあるため、
-  // ・srcObject を一度 null にしてから付け直す
-  // ・play() Promise の解決で videoReady を true にする
-  // ・フォールバックで readyState をポーリング
-  // の三段構えで確実に再生開始まで持っていく。
+  // stage を再マウントしたとき、ストア保持の既存 MediaStream を新しい video 要素に
+  // アタッチし直す。Chrome では同じ MediaStream を別 video へ再アタッチすると
+  // canplay/playing が発火しないことがあるため、
+  //   1. 既存トラックから新しい MediaStream を生成（clone）して srcObject に渡す
+  //   2. play() Promise / readyState ポーリング / セーフティタイマー の三段構え
+  // で確実に再生開始まで持っていく。
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -122,9 +121,15 @@ export default function StagePage() {
 
     let cancelled = false;
     let pollId: number | null = null;
+    let safetyId: number | null = null;
+
+    // 既存のトラックから別 MediaStream を作って渡す（参照の使い回しによる
+    // 再アタッチ取りこぼしを回避）
+    const tracks = captureStream.getTracks();
+    const fresh = tracks.length > 0 ? new MediaStream(tracks) : captureStream;
 
     video.srcObject = null;
-    video.srcObject = captureStream;
+    video.srcObject = fresh;
 
     const markReady = () => {
       if (cancelled) return;
@@ -132,6 +137,10 @@ export default function StagePage() {
       if (pollId !== null) {
         window.clearInterval(pollId);
         pollId = null;
+      }
+      if (safetyId !== null) {
+        window.clearTimeout(safetyId);
+        safetyId = null;
       }
     };
 
@@ -144,15 +153,21 @@ export default function StagePage() {
         /* イベント or ポーリングのフォールバックに任せる */
       });
 
-    // フレーム到着検知のフォールバック（イベントが取りこぼされた場合の保険）。
     pollId = window.setInterval(() => {
       if (cancelled) return;
       if (video.readyState >= 2 && !video.paused) markReady();
-    }, 250);
+    }, 150);
+
+    // ストリームが active ならいずれフレームは来るので、最終手段として 1.2 秒後に強制 ready
+    safetyId = window.setTimeout(() => {
+      if (cancelled) return;
+      if (captureStream.active) markReady();
+    }, 1200);
 
     return () => {
       cancelled = true;
       if (pollId !== null) window.clearInterval(pollId);
+      if (safetyId !== null) window.clearTimeout(safetyId);
     };
   }, [captureStream]);
 
