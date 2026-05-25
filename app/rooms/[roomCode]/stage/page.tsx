@@ -102,16 +102,58 @@ export default function StagePage() {
     return () => mediaQuery.removeEventListener('change', update);
   }, []);
 
+  // stage を再マウントしたとき、Context に保持された既存 MediaStream を新しい
+  // video 要素にアタッチし直す必要がある。
+  // 既に他要素にバインドされていたストリームを再アタッチすると canplay/playing が
+  // 取りこぼされてローディングが固まる Chrome のケースがあるため、
+  // ・srcObject を一度 null にしてから付け直す
+  // ・play() Promise の解決で videoReady を true にする
+  // ・フォールバックで readyState をポーリング
+  // の三段構えで確実に再生開始まで持っていく。
   useEffect(() => {
-    if (!videoRef.current) return;
-    videoRef.current.srcObject = captureStream;
-    if (captureStream) {
-      videoRef.current.play().catch(() => {
-        setVideoReady(false);
-      });
-    } else {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (!captureStream) {
+      video.srcObject = null;
       setVideoReady(false);
+      return;
     }
+
+    let cancelled = false;
+    let pollId: number | null = null;
+
+    video.srcObject = null;
+    video.srcObject = captureStream;
+
+    const markReady = () => {
+      if (cancelled) return;
+      setVideoReady(true);
+      if (pollId !== null) {
+        window.clearInterval(pollId);
+        pollId = null;
+      }
+    };
+
+    video
+      .play()
+      .then(() => {
+        if (!cancelled && !video.paused) markReady();
+      })
+      .catch(() => {
+        /* イベント or ポーリングのフォールバックに任せる */
+      });
+
+    // フレーム到着検知のフォールバック（イベントが取りこぼされた場合の保険）。
+    pollId = window.setInterval(() => {
+      if (cancelled) return;
+      if (video.readyState >= 2 && !video.paused) markReady();
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      if (pollId !== null) window.clearInterval(pollId);
+    };
   }, [captureStream]);
 
   const enterFullscreen = () => {
@@ -199,11 +241,15 @@ export default function StagePage() {
                 playsInline
                 controls={false}
                 onLoadedMetadata={(event) => {
-                  event.currentTarget.play().catch(() => setVideoReady(false));
+                  event.currentTarget.play().catch(() => {
+                    /* ポーリングのフォールバックが拾う */
+                  });
                 }}
+                onLoadedData={() => setVideoReady(true)}
                 onCanPlay={() => setVideoReady(true)}
                 onPlaying={() => setVideoReady(true)}
-                onWaiting={() => setVideoReady(false)}
+                /* onWaiting で false に戻すと、stage 再マウント直後の一瞬の
+                   buffering で常時ローディングになるため、ここでは false にしない */
                 className="absolute inset-0 h-full w-full object-contain bg-black"
               />
               {!videoReady && (
