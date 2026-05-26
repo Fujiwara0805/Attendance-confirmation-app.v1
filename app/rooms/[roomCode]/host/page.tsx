@@ -854,6 +854,8 @@ export default function HostPage() {
       setExportLoadingType(type);
       try {
         const qs = new URLSearchParams({ type, format: 'csv' });
+        const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (timeZone) qs.set('timeZone', timeZone);
         if (pollId) qs.set('pollId', pollId);
         const res = await fetch(`/api/rooms/${roomCode}/export?${qs.toString()}`);
         if (!res.ok) throw new Error('failed');
@@ -1144,20 +1146,6 @@ export default function HostPage() {
               </div>
               <button
                 type="button"
-                disabled={questionResetting || resettableQuestionCount === 0}
-                onClick={handleResetQuestions}
-                title="画面上の質問をリセット"
-                className="inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-lg bg-white text-xs font-semibold text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-50 disabled:pointer-events-none transition-colors"
-              >
-                {questionResetting ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <RotateCcw className="w-3.5 h-3.5" />
-                )}
-                リセット
-              </button>
-              <button
-                type="button"
                 role="switch"
                 aria-checked={!!room.moderation_enabled}
                 disabled={moderationLoading}
@@ -1236,6 +1224,20 @@ export default function HostPage() {
               >
                 非表示 ({counts.rejected})
               </FilterPill>
+              <button
+                type="button"
+                disabled={questionResetting || resettableQuestionCount === 0}
+                onClick={handleResetQuestions}
+                title="画面上の質問をリセット"
+                className="inline-flex h-8 items-center gap-1.5 rounded-full bg-white px-3 text-xs sm:text-sm font-semibold text-red-600 ring-1 ring-red-200 transition-colors hover:bg-red-50 disabled:pointer-events-none disabled:opacity-40"
+              >
+                {questionResetting ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <RotateCcw className="w-3.5 h-3.5" />
+                )}
+                リセット
+              </button>
             </div>
 
             {qLoading ? (

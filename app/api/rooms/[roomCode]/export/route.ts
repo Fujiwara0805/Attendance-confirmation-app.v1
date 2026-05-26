@@ -37,6 +37,7 @@ export async function GET(
 
     const type = req.nextUrl.searchParams.get('type') || 'summary';
     const format = req.nextUrl.searchParams.get('format') || 'json';
+    const exportTimeZone = getValidExportTimeZone(req.nextUrl.searchParams.get('timeZone'));
 
     if (type === 'questions') {
       const { data: questions } = await supabase
@@ -46,7 +47,7 @@ export async function GET(
         .order('upvote_count', { ascending: false });
 
       if (format === 'csv') {
-        const csv = questionsToCSV(questions || []);
+        const csv = questionsToCSV(questions || [], exportTimeZone);
         return new NextResponse(csv, {
           headers: {
             'Content-Type': 'text/csv; charset=utf-8',
@@ -184,12 +185,24 @@ function questionStatusForExport(status: string | null | undefined, deletedAt?: 
   return '公開';
 }
 
-function questionsToCSV(questions: Array<{ text: string; author_name: string; upvote_count: number; is_answered: boolean; status?: string | null; created_at: string; deleted_at?: string | null }>) {
+function questionsToCSV(
+  questions: Array<{
+    text: string;
+    author_name: string;
+    upvote_count: number;
+    is_answered: boolean;
+    status?: string | null;
+    created_at: string;
+    deleted_at?: string | null;
+  }>,
+  timeZone?: string
+) {
   const header = '質問,投稿者,いいね数,回答済み,表示状態,投稿日時,削除日時\n';
   const rows = questions.map((q) => {
     const author = displayAuthorForExport(q.author_name).replace(/"/g, '""');
-    const deletedAt = q.deleted_at ? new Date(q.deleted_at).toLocaleString('ja-JP') : '';
-    return `"${q.text.replace(/"/g, '""')}","${author}",${q.upvote_count},${q.is_answered ? 'はい' : 'いいえ'},"${questionStatusForExport(q.status, q.deleted_at)}","${new Date(q.created_at).toLocaleString('ja-JP')}","${deletedAt}"`;
+    const createdAt = formatExportDate(q.created_at, timeZone);
+    const deletedAt = formatExportDate(q.deleted_at, timeZone);
+    return `"${q.text.replace(/"/g, '""')}","${author}",${q.upvote_count},${q.is_answered ? 'はい' : 'いいえ'},"${questionStatusForExport(q.status, q.deleted_at)}","${createdAt}","${deletedAt}"`;
   }).join('\n');
   return '\uFEFF' + header + rows; // BOM for Excel
 }
@@ -222,6 +235,16 @@ function csvEscape(v: string | number | null | undefined) {
 }
 
 const DEFAULT_EXPORT_TIME_ZONE = 'Asia/Tokyo';
+
+function getValidExportTimeZone(value: string | null) {
+  if (!value) return DEFAULT_EXPORT_TIME_ZONE;
+  try {
+    Intl.DateTimeFormat('ja-JP', { timeZone: value });
+    return value;
+  } catch {
+    return DEFAULT_EXPORT_TIME_ZONE;
+  }
+}
 
 function formatExportDate(value: string | null | undefined, timeZone?: string) {
   if (!value) return '';
