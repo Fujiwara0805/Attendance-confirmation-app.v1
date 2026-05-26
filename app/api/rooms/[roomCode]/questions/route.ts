@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getCurrentUser } from '@/lib/auth';
 import { createServerClient } from '@/lib/supabase';
 
 // GET: Fetch questions for a room (public)
@@ -23,6 +24,7 @@ export async function GET(
       .from('questions')
       .select('*')
       .eq('room_id', room.id)
+      .is('deleted_at', null)
       .order('is_pinned', { ascending: false })
       .order('upvote_count', { ascending: false })
       .order('created_at', { ascending: false });
@@ -33,6 +35,54 @@ export async function GET(
   } catch (err) {
     console.error('Questions fetch error:', err);
     return NextResponse.json({ error: 'Failed to fetch questions' }, { status: 500 });
+  }
+}
+
+// PATCH: Reset visible questions for a room (host only)
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: { roomCode: string } }
+) {
+  try {
+    const session = await getCurrentUser();
+    if (!session?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const supabase = createServerClient();
+
+    const { data: room } = await supabase
+      .from('rooms')
+      .select('id, host_id')
+      .eq('code', params.roomCode.toUpperCase())
+      .single();
+
+    if (!room || room.host_id !== session.email) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const body = (await req.json().catch(() => ({}))) as { resetVisible?: boolean };
+    if (!body.resetVisible) {
+      return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+    }
+
+    const deletedAt = new Date().toISOString();
+    const { data, error } = await supabase
+      .from('questions')
+      .update({
+        deleted_at: deletedAt,
+        is_pinned: false,
+      })
+      .eq('room_id', room.id)
+      .is('deleted_at', null)
+      .select();
+
+    if (error) throw error;
+
+    return NextResponse.json({ questions: data || [], count: data?.length || 0 });
+  } catch (err) {
+    console.error('Questions reset error:', err);
+    return NextResponse.json({ error: 'Failed to reset questions' }, { status: 500 });
   }
 }
 

@@ -45,6 +45,7 @@ export async function PATCH(
         .update(updates)
         .eq('id', params.questionId)
         .eq('room_id', room.id)
+        .is('deleted_at', null)
         .select()
         .single();
 
@@ -63,6 +64,7 @@ export async function PATCH(
         .select('participant_id')
         .eq('id', params.questionId)
         .eq('room_id', room.id)
+        .is('deleted_at', null)
         .single();
 
       if (question?.participant_id && question.participant_id !== participantId) {
@@ -75,6 +77,7 @@ export async function PATCH(
       .update({ text: text.trim() })
       .eq('id', params.questionId)
       .eq('room_id', room.id)
+      .is('deleted_at', null)
       .select()
       .single();
 
@@ -105,7 +108,8 @@ export async function DELETE(
       return NextResponse.json({ error: 'Room not found' }, { status: 404 });
     }
 
-    // Check if caller is participant (via query param) — verify ownership
+    // Check if caller is participant (via query param) — verify ownership.
+    // Otherwise require host auth.
     const participantId = req.nextUrl.searchParams.get('participantId');
     if (participantId) {
       const { data: question } = await supabase
@@ -113,22 +117,34 @@ export async function DELETE(
         .select('participant_id')
         .eq('id', params.questionId)
         .eq('room_id', room.id)
+        .is('deleted_at', null)
         .single();
 
-      if (question?.participant_id && question.participant_id !== participantId) {
+      if (!question || question.participant_id !== participantId) {
         return NextResponse.json({ error: 'Not authorized to delete this question' }, { status: 403 });
+      }
+    } else {
+      const session = await getCurrentUser();
+      if (!session?.email || session.email !== room.host_id) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
     }
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('questions')
-      .delete()
+      .update({
+        deleted_at: new Date().toISOString(),
+        is_pinned: false,
+      })
       .eq('id', params.questionId)
-      .eq('room_id', room.id);
+      .eq('room_id', room.id)
+      .is('deleted_at', null)
+      .select()
+      .single();
 
     if (error) throw error;
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, question: data });
   } catch (err) {
     console.error('Question delete error:', err);
     return NextResponse.json({ error: 'Failed to delete question' }, { status: 500 });

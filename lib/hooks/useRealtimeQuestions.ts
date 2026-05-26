@@ -13,6 +13,7 @@ export interface Question {
   is_answered: boolean;
   is_pinned: boolean;
   created_at: string;
+  deleted_at?: string | null;
   status?: 'pending' | 'approved' | 'rejected';
   participant_id?: string | null;
 }
@@ -48,15 +49,21 @@ export function useRealtimeQuestions(
 
   const filterForView = useCallback(
     (qs: Question[]) => {
-      if (!participantOnly) return qs;
-      return qs.filter(
+      const liveQuestions = qs.filter((q) => !q.deleted_at);
+      if (!participantOnly) return liveQuestions;
+      return liveQuestions.filter(
         (q) =>
-          q.status === undefined || q.status === 'approved' ||
-          (ownIds && ownIds.has(q.id))
+          q.status === undefined ||
+          q.status === 'approved' ||
+          (q.status === 'pending' && ownIds && ownIds.has(q.id))
       );
     },
     [participantOnly, ownIds]
   );
+
+  // 楽観的挿入: ユーザーが自分の投稿を即時画面に表示するため
+  const sortRef = useRef(sortQuestions);
+  sortRef.current = sortQuestions;
 
   // 楽観的削除/更新
   const optimisticDelete = useCallback((questionId: string) => {
@@ -69,9 +76,14 @@ export function useRealtimeQuestions(
     );
   }, []);
 
-  // 楽観的挿入: ユーザーが自分の投稿を即時画面に表示するため
-  const sortRef = useRef(sortQuestions);
-  sortRef.current = sortQuestions;
+  const optimisticUpdateQuestions = useCallback((updates: Question[]) => {
+    if (updates.length === 0) return;
+    setQuestions((prev) => {
+      const map = new Map(prev.map((q) => [q.id, q] as const));
+      updates.forEach((q) => map.set(q.id, q));
+      return sortRef.current(Array.from(map.values()));
+    });
+  }, []);
 
   const optimisticInsert = useCallback((q: Question) => {
     setQuestions((prev) => {
@@ -106,6 +118,7 @@ export function useRealtimeQuestions(
         .from('questions')
         .select('*')
         .eq('room_id', roomId)
+        .is('deleted_at', null)
         .order('upvote_count', { ascending: false });
       if (cancelled) return;
       if (data) {
@@ -152,7 +165,11 @@ export function useRealtimeQuestions(
           table: 'questions',
           filter: `room_id=eq.${roomId}`,
         },
-        (payload) => upsertQuestion(payload.new as Question)
+        (payload) => {
+          const next = payload.new as Question;
+          if (next.deleted_at) removeQuestion(next.id);
+          else upsertQuestion(next);
+        }
       )
       .on(
         'postgres_changes',
@@ -196,6 +213,7 @@ export function useRealtimeQuestions(
     connected,
     optimisticDelete,
     optimisticUpdateUpvote,
+    optimisticUpdateQuestions,
     optimisticInsert,
   };
 }

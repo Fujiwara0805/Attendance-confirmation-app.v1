@@ -46,7 +46,6 @@ import Link from 'next/link';
 import { useRealtimeQuestions } from '@/lib/hooks/useRealtimeQuestions';
 import { useRealtimePolls, type Poll } from '@/lib/hooks/useRealtimePolls';
 import { useRoomPresence } from '@/lib/hooks/useRoomPresence';
-import { createBrowserClient } from '@/lib/supabase';
 import { formatDistanceToNow } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import {
@@ -246,6 +245,7 @@ export default function HostPage() {
   const [pollStatusPendingId, setPollStatusPendingId] = useState<string | null>(null);
   const [pollDeletingId, setPollDeletingId] = useState<string | null>(null);
   const [moderationLoading, setModerationLoading] = useState(false);
+  const [questionResetting, setQuestionResetting] = useState(false);
   const [exportLoadingType, setExportLoadingType] = useState<'questions' | 'polls' | null>(null);
   // 出席フォーム紐付け
   const [availableCourses, setAvailableCourses] = useState<CourseOption[]>([]);
@@ -387,7 +387,12 @@ export default function HostPage() {
   }, [roomCode]);
 
   // Realtime
-  const { questions, loading: qLoading, optimisticDelete } = useRealtimeQuestions(room?.id || null);
+  const {
+    questions,
+    loading: qLoading,
+    optimisticDelete,
+    optimisticUpdateQuestions,
+  } = useRealtimeQuestions(room?.id || null);
   const {
     polls,
     pollVotes,
@@ -429,13 +434,12 @@ export default function HostPage() {
       setActionFor(questionId, 'delete');
       try {
         optimisticDelete(questionId);
-        const supabase = createBrowserClient();
-        await supabase.from('questions').delete().eq('id', questionId);
+        await fetch(`/api/rooms/${roomCode}/questions/${questionId}`, { method: 'DELETE' });
       } finally {
         setActionFor(questionId, null);
       }
     },
-    [optimisticDelete, setActionFor]
+    [optimisticDelete, roomCode, setActionFor]
   );
 
   const handleSetQuestionStatus = useCallback(
@@ -453,6 +457,36 @@ export default function HostPage() {
     },
     [roomCode, setActionFor]
   );
+
+  const handleResetQuestions = useCallback(async () => {
+    if (questionResetting) return;
+    const resettableCount = questions.length;
+    if (resettableCount === 0) return;
+    if (
+      !window.confirm(
+        '現在表示対象になっている質問を画面上からリセットします。質問データは削除されず、CSVエクスポートには引き続き含まれます。よろしいですか？'
+      )
+    ) {
+      return;
+    }
+    setQuestionResetting(true);
+    try {
+      const res = await fetch(`/api/rooms/${roomCode}/questions`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resetVisible: true }),
+      });
+      if (!res.ok) throw new Error('Failed to reset questions');
+      const json = (await res.json()) as {
+        questions?: Parameters<typeof optimisticUpdateQuestions>[0];
+      };
+      optimisticUpdateQuestions(json.questions || []);
+      setStatusFilter('approved');
+      setExportData(null);
+    } finally {
+      setQuestionResetting(false);
+    }
+  }, [optimisticUpdateQuestions, questionResetting, questions, roomCode]);
 
   const loadAvailableCourses = useCallback(async () => {
     if (coursesLoaded || coursesLoading) return;
@@ -948,6 +982,7 @@ export default function HostPage() {
   const selectedEditingPoll = editingPollId ? polls.find((poll) => poll.id === editingPollId) : null;
   const pollLimit = userPlan === 'free' ? 2 : Infinity;
   const atPollLimit = Number.isFinite(pollLimit) && polls.length >= pollLimit;
+  const resettableQuestionCount = questions.length;
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50/60">
@@ -1107,6 +1142,20 @@ export default function HostPage() {
                   </p>
                 </div>
               </div>
+              <button
+                type="button"
+                disabled={questionResetting || resettableQuestionCount === 0}
+                onClick={handleResetQuestions}
+                title="画面上の質問をリセット"
+                className="inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-lg bg-white text-xs font-semibold text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50 disabled:opacity-50 disabled:pointer-events-none transition-colors"
+              >
+                {questionResetting ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <RotateCcw className="w-3.5 h-3.5" />
+                )}
+                リセット
+              </button>
               <button
                 type="button"
                 role="switch"

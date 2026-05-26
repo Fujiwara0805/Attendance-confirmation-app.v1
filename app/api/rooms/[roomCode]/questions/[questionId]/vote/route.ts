@@ -14,6 +14,28 @@ export async function POST(
 
     const supabase = createServerClient();
 
+    const { data: room } = await supabase
+      .from('rooms')
+      .select('id')
+      .eq('code', params.roomCode.toUpperCase())
+      .single();
+
+    if (!room) {
+      return NextResponse.json({ error: 'Room not found' }, { status: 404 });
+    }
+
+    const { data: question } = await supabase
+      .from('questions')
+      .select('id')
+      .eq('id', params.questionId)
+      .eq('room_id', room.id)
+      .is('deleted_at', null)
+      .single();
+
+    if (!question) {
+      return NextResponse.json({ error: 'Question not found' }, { status: 404 });
+    }
+
     const { data, error } = await supabase.rpc('toggle_upvote', {
       p_question_id: params.questionId,
       p_participant_id: participantId,

@@ -117,7 +117,7 @@ export async function GET(
 
     // Default: summary
     const [questionsRes, pollsRes, votesRes] = await Promise.all([
-      supabase.from('questions').select('id, upvote_count, text').eq('room_id', room.id).order('upvote_count', { ascending: false }),
+      supabase.from('questions').select('id, upvote_count, text').eq('room_id', room.id).is('deleted_at', null).order('upvote_count', { ascending: false }),
       supabase.from('polls').select('id, question, status').eq('room_id', room.id),
       supabase.from('poll_votes').select('participant_id').eq('room_id', room.id),
     ]);
@@ -130,7 +130,8 @@ export async function GET(
     const { data: qVotes } = await supabase
       .from('question_votes')
       .select('participant_id, question_id, questions!inner(room_id)')
-      .eq('questions.room_id', room.id);
+      .eq('questions.room_id', room.id)
+      .is('questions.deleted_at', null);
 
     if (qVotes) {
       qVotes.forEach((v) => uniqueParticipants.add(v.participant_id));
@@ -176,11 +177,19 @@ function displayAuthorForExport(name: string) {
   return name === 'Anonymous' ? '匿名' : name;
 }
 
-function questionsToCSV(questions: Array<{ text: string; author_name: string; upvote_count: number; is_answered: boolean; created_at: string }>) {
-  const header = '質問,投稿者,いいね数,回答済み,投稿日時\n';
+function questionStatusForExport(status: string | null | undefined, deletedAt?: string | null) {
+  if (deletedAt) return '削除済み';
+  if (status === 'pending') return '承認待ち';
+  if (status === 'rejected') return '非表示';
+  return '公開';
+}
+
+function questionsToCSV(questions: Array<{ text: string; author_name: string; upvote_count: number; is_answered: boolean; status?: string | null; created_at: string; deleted_at?: string | null }>) {
+  const header = '質問,投稿者,いいね数,回答済み,表示状態,投稿日時,削除日時\n';
   const rows = questions.map((q) => {
     const author = displayAuthorForExport(q.author_name).replace(/"/g, '""');
-    return `"${q.text.replace(/"/g, '""')}","${author}",${q.upvote_count},${q.is_answered ? 'はい' : 'いいえ'},"${new Date(q.created_at).toLocaleString('ja-JP')}"`;
+    const deletedAt = q.deleted_at ? new Date(q.deleted_at).toLocaleString('ja-JP') : '';
+    return `"${q.text.replace(/"/g, '""')}","${author}",${q.upvote_count},${q.is_answered ? 'はい' : 'いいえ'},"${questionStatusForExport(q.status, q.deleted_at)}","${new Date(q.created_at).toLocaleString('ja-JP')}","${deletedAt}"`;
   }).join('\n');
   return '\uFEFF' + header + rows; // BOM for Excel
 }
