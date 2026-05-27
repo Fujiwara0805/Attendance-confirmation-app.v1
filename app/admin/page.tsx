@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -74,6 +74,71 @@ interface Course {
   cooldownMinutes?: number;
 }
 
+function AdminPageHeader({
+  title,
+  description,
+  icon: Icon,
+  children,
+}: {
+  title: string;
+  description: string;
+  icon: React.ComponentType<{ className?: string }>;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="-mx-4 -mt-6 mb-5 border-b border-[#dce8ff] bg-[#edf4ff] px-4 py-3 sm:-mx-6 sm:-mt-8 sm:px-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#aac8ff] bg-[#dce8ff] text-[#2864f0]">
+            <Icon className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <h1 className="truncate text-xl font-bold leading-tight text-[#323232] sm:text-2xl">
+              {title}
+            </h1>
+            <p className="mt-0.5 truncate text-xs text-[#595959] sm:text-sm">{description}</p>
+          </div>
+        </div>
+        {children && <div className="flex flex-wrap items-center gap-2 sm:justify-end">{children}</div>}
+      </div>
+    </div>
+  );
+}
+
+function AdminInfoCard({
+  title,
+  icon: Icon,
+  children,
+}: {
+  title: string;
+  icon: React.ComponentType<{ className?: string }>;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="mb-5 rounded-lg border border-[#aac8ff] bg-[#ebf3ff]">
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+      >
+        <span className="flex min-w-0 items-center gap-2 text-sm font-bold text-[#23418c] sm:text-base">
+          <Icon className="h-4 w-4 shrink-0 text-[#2864f0]" />
+          <span className="truncate">{title}</span>
+        </span>
+        {open ? (
+          <ChevronUp className="h-4 w-4 shrink-0 text-[#2864f0]" />
+        ) : (
+          <ChevronDown className="h-4 w-4 shrink-0 text-[#2864f0]" />
+        )}
+      </button>
+      {open && <div className="border-t border-[#aac8ff] px-4 pb-4 pt-3">{children}</div>}
+    </div>
+  );
+}
+
 function AdminPageInner() {
   const { toast } = useToast();
   const { data: session, status } = useSession();
@@ -88,6 +153,8 @@ function AdminPageInner() {
   const CARDS_PER_PAGE = 4;
   const [coursePage, setCoursePage] = useState(1);
   const [roomPage, setRoomPage] = useState(1);
+  const [courseSearch, setCourseSearch] = useState('');
+  const [roomSearch, setRoomSearch] = useState('');
 
   const renderPagination = useCallback(
     (currentPage: number, totalPages: number, onChange: (page: number) => void) => {
@@ -480,16 +547,59 @@ function AdminPageInner() {
     }
   }, [status, fetchCourses, fetchRooms, fetchPlanInfo]);
 
+  const filteredCourses = useMemo(() => {
+    const query = courseSearch.trim().toLowerCase();
+    if (!query) return courses;
+    return courses.filter((course) => {
+      const typeLabel =
+        course.formType === 'invitation'
+          ? '招待フォーム 招待状 invitation'
+          : course.isCustomForm
+          ? 'カスタムフォーム custom'
+          : '出席フォーム attendance';
+      return [
+        course.courseName,
+        course.teacherName,
+        course.code,
+        typeLabel,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(query);
+    });
+  }, [courseSearch, courses]);
+
+  const filteredRooms = useMemo(() => {
+    const query = roomSearch.trim().toLowerCase();
+    if (!query) return rooms;
+    return rooms.filter((room) =>
+      [room.title, room.code, room.status]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(query)
+    );
+  }, [roomSearch, rooms]);
+
   // ページネーション：データ件数変化時に範囲外なら調整
   useEffect(() => {
-    const totalPages = Math.max(1, Math.ceil(courses.length / CARDS_PER_PAGE));
+    const totalPages = Math.max(1, Math.ceil(filteredCourses.length / CARDS_PER_PAGE));
     if (coursePage > totalPages) setCoursePage(totalPages);
-  }, [courses.length, coursePage]);
+  }, [filteredCourses.length, coursePage]);
 
   useEffect(() => {
-    const totalPages = Math.max(1, Math.ceil(rooms.length / CARDS_PER_PAGE));
+    const totalPages = Math.max(1, Math.ceil(filteredRooms.length / CARDS_PER_PAGE));
     if (roomPage > totalPages) setRoomPage(totalPages);
-  }, [rooms.length, roomPage]);
+  }, [filteredRooms.length, roomPage]);
+
+  useEffect(() => {
+    setCoursePage(1);
+  }, [courseSearch]);
+
+  useEffect(() => {
+    setRoomPage(1);
+  }, [roomSearch]);
 
   // 決済結果の処理
   useEffect(() => {
@@ -843,28 +953,22 @@ function AdminPageInner() {
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'courses' | 'export' | 'rooms')} className="w-full">
           {/* ===== COURSES TAB ===== */}
           <TabsContent value="courses" className="mt-0">
-            {/* Section header */}
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
-              <div>
-                <span className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold tracking-wide uppercase text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-full px-3 py-1 mb-2">
-                  <BookOpen className="h-3 w-3" />
-                  Forms
-                </span>
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">フォーム管理</h1>
-                <p className="text-sm sm:text-base text-slate-500 mt-1">
-                  {courses.length > 0
-                    ? `${courses.length} 件のフォームを管理中`
-                    : '出席フォームを作成して始めましょう'}
-                </p>
-              </div>
-              <div className="flex items-center gap-2 flex-wrap">
+            <AdminPageHeader
+              title="フォーム管理"
+              description={
+                courses.length > 0
+                  ? `${courses.length} 件のフォームを管理中`
+                  : '出席フォームを作成して始めましょう'
+              }
+              icon={BookOpen}
+            >
                 {/* プランバッジ */}
                 {planInfo && (
-                  <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
+                  <div className={`inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-bold ${
                     planInfo.subscription.plan === 'enterprise'
                       ? 'bg-slate-800 text-white'
                       : planInfo.subscription.plan === 'paid'
-                        ? 'bg-indigo-100 text-indigo-700'
+                        ? 'bg-[#dce8ff] text-[#23418c]'
                         : 'bg-slate-100 text-slate-600'
                   }`}>
                     {planInfo.subscription.plan === 'enterprise' ? '✦ Enterprise' : planInfo.subscription.plan === 'paid' ? '✦ Pro' : 'Free'}
@@ -878,14 +982,14 @@ function AdminPageInner() {
                   size="sm"
                   onClick={fetchCourses}
                   disabled={loadingCourses}
-                  className="h-9 px-3 text-slate-600 border-slate-200"
+                  className="h-9 rounded-md border-[#e1dcdc] bg-white px-3 text-[#595959]"
                 >
                   <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loadingCourses ? 'animate-spin' : ''}`} />
                   更新
                 </Button>
                 <Button
                   onClick={() => setIsCreateTypeDialogOpen(true)}
-                  className="h-9 px-4 bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
+                  className="h-9 rounded-md bg-[#2864f0] px-4 text-white shadow-sm hover:bg-[#285ac8]"
                 >
                   <Plus className="h-3.5 w-3.5 mr-1.5" />
                   新規作成
@@ -893,28 +997,43 @@ function AdminPageInner() {
                 {planInfo && planInfo.subscription.plan === 'free' && !planInfo.canCreateForm && (
                   <Button
                     asChild
-                    className="h-9 px-4 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white shadow-sm"
+                    className="h-9 rounded-md bg-[#2864f0] px-4 text-white shadow-sm hover:bg-[#285ac8]"
                   >
                     <Link href="/admin/account">
                       Proにアップグレード
                     </Link>
                   </Button>
                 )}
-              </div>
-            </div>
+            </AdminPageHeader>
 
-            {/* 機能紹介 */}
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50/60 ring-1 ring-blue-100 rounded-2xl p-5 mb-5 shadow-sm">
-              <h3 className="text-sm sm:text-base font-semibold text-blue-900 mb-2 flex items-center gap-1.5">
-                <BookOpen className="h-4 w-4" />
-                フォーム管理について
-              </h3>
-              <ul className="text-xs sm:text-sm text-blue-800 space-y-1.5 leading-relaxed">
+            <AdminInfoCard title="フォーム管理について" icon={BookOpen}>
+              <ul className="space-y-1.5 text-xs leading-relaxed text-[#23418c] sm:text-sm">
                 <li>• <strong>出席フォーム</strong>：日付・フォーム名・ID・学年・名前・所属・レポートなど、標準の出席項目が含まれたフォームです。すぐに使い始められます。</li>
                 <li>• <strong>カスタムフォーム</strong>：項目を自由に追加・削除・並び替えできます。不要な項目を無効化して、用途に合わせたフォームを作成できます。</li>
                 <li>• <strong>招待フォーム</strong>：イベント参加申込用。日時選択＋個人QRコードを発行し、当日の受付確認に使えます。</li>
                 <li>• 作成後にQRコードやURLを参加者に共有するだけで、すぐに出席管理を開始できます。</li>
               </ul>
+            </AdminInfoCard>
+
+            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="relative w-full sm:max-w-sm">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8c8989]" />
+                <Input
+                  value={courseSearch}
+                  onChange={(e) => setCourseSearch(e.target.value)}
+                  placeholder="フォーム名・担当者・コードで検索"
+                  className="h-9 rounded-md border-[#cccccc] bg-white pl-9 text-sm"
+                />
+              </div>
+              {courseSearch.trim() && (
+                <button
+                  type="button"
+                  onClick={() => setCourseSearch('')}
+                  className="self-start text-xs font-bold text-[#2864f0] hover:text-[#285ac8] sm:self-auto"
+                >
+                  クリア
+                </button>
+              )}
             </div>
 
             {/* Add Course Modal */}
@@ -1617,11 +1736,17 @@ function AdminPageInner() {
                   最初の出席フォームを作成する
                 </Button>
               </motion.div>
+            ) : filteredCourses.length === 0 ? (
+              <div className="flex flex-col items-center justify-center rounded-lg border border-[#e9e7e7] bg-white px-4 py-16 text-center">
+                <Search className="mb-3 h-8 w-8 text-[#aac8ff]" />
+                <h3 className="text-sm font-bold text-[#323232]">一致するフォームはありません</h3>
+                <p className="mt-1 text-xs text-[#595959]">検索条件を変更してください。</p>
+              </div>
             ) : (
               /* Course cards grid */
               <>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {courses.slice((coursePage - 1) * CARDS_PER_PAGE, coursePage * CARDS_PER_PAGE).map((course, index) => {
+                {filteredCourses.slice((coursePage - 1) * CARDS_PER_PAGE, coursePage * CARDS_PER_PAGE).map((course, index) => {
                   const basePath = course.formType === 'invitation' ? '/invitation/' : '/attendance/';
                   const formUrl = typeof window !== 'undefined'
                     ? `${window.location.origin}${basePath}${course.code}`
@@ -1795,7 +1920,7 @@ function AdminPageInner() {
               </div>
               {renderPagination(
                 coursePage,
-                Math.max(1, Math.ceil(courses.length / CARDS_PER_PAGE)),
+                Math.max(1, Math.ceil(filteredCourses.length / CARDS_PER_PAGE)),
                 setCoursePage
               )}
               </>
@@ -1804,28 +1929,22 @@ function AdminPageInner() {
 
           {/* ===== ROOMS TAB ===== */}
           <TabsContent value="rooms" className="mt-0">
-            {/* Section header */}
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
-              <div>
-                <span className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold tracking-wide uppercase text-purple-600 bg-purple-50 border border-purple-100 rounded-full px-3 py-1 mb-2">
-                  <Airplay className="h-3 w-3" />
-                  Live Rooms
-                </span>
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">ルーム管理</h1>
-                <p className="text-sm sm:text-base text-slate-500 mt-1">
-                  {rooms.length > 0
-                    ? `${rooms.length} 件のルームを管理中`
-                    : 'ルームを作成してインタラクティブなQ&Aや投票を始めましょう'}
-                </p>
-              </div>
-              <div className="flex items-center gap-2 flex-wrap">
+            <AdminPageHeader
+              title="ルーム管理"
+              description={
+                rooms.length > 0
+                  ? `${rooms.length} 件のルームを管理中`
+                  : 'ルームを作成してインタラクティブなQ&Aや投票を始めましょう'
+              }
+              icon={Airplay}
+            >
                 {/* ルーム数バッジ */}
                 {planInfo && (
-                  <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
+                  <div className={`inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-bold ${
                     planInfo.subscription.plan === 'enterprise'
                       ? 'bg-slate-800 text-white'
                       : planInfo.subscription.plan === 'paid'
-                        ? 'bg-indigo-100 text-indigo-700'
+                        ? 'bg-[#dce8ff] text-[#23418c]'
                         : 'bg-slate-100 text-slate-600'
                   }`}>
                     {planInfo.subscription.plan === 'enterprise' ? '✦ Enterprise' : planInfo.subscription.plan === 'paid' ? '✦ Pro' : 'Free'}
@@ -1844,7 +1963,7 @@ function AdminPageInner() {
                   size="sm"
                   onClick={fetchRooms}
                   disabled={loadingRooms}
-                  className="h-9 px-3 text-slate-600 border-slate-200"
+                  className="h-9 rounded-md border-[#e1dcdc] bg-white px-3 text-[#595959]"
                 >
                   <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loadingRooms ? 'animate-spin' : ''}`} />
                   更新
@@ -1857,7 +1976,7 @@ function AdminPageInner() {
                     }
                     setIsCreateRoomDialogOpen(true);
                   }}
-                  className="h-9 px-4 bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
+                  className="h-9 rounded-md bg-[#2864f0] px-4 text-white shadow-sm hover:bg-[#285ac8]"
                 >
                   <Plus className="h-3.5 w-3.5 mr-1.5" />
                   ルーム作成
@@ -1865,27 +1984,42 @@ function AdminPageInner() {
                 {planInfo && planInfo.subscription.plan === 'free' && !planInfo.canCreateRoom && (
                   <Button
                     asChild
-                    className="h-9 px-4 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white shadow-sm"
+                    className="h-9 rounded-md bg-[#2864f0] px-4 text-white shadow-sm hover:bg-[#285ac8]"
                   >
                     <Link href="/admin/account">
                       Proにアップグレード
                     </Link>
                   </Button>
                 )}
-              </div>
-            </div>
+            </AdminPageHeader>
 
-            {/* ルーム機能紹介 */}
-            <div className="bg-gradient-to-br from-purple-50 to-fuchsia-50/60 ring-1 ring-purple-100 rounded-2xl p-5 mb-5 shadow-sm">
-              <h3 className="text-sm sm:text-base font-semibold text-purple-900 mb-2 flex items-center gap-1.5">
-                <Airplay className="h-4 w-4" />
-                ルーム機能について
-              </h3>
-              <ul className="text-xs sm:text-sm text-purple-800 space-y-1.5 leading-relaxed">
+            <AdminInfoCard title="ルーム機能について" icon={Airplay}>
+              <ul className="space-y-1.5 text-xs leading-relaxed text-[#23418c] sm:text-sm">
                 <li>• <strong>リアルタイムQ&A</strong>：参加者から匿名で質問を受付。いいね機能で重要な質問を可視化。</li>
                 <li>• <strong>ライブ投票</strong>：理解度チェックやアンケートをリアルタイムで集計・表示。</li>
                 <li>• ルーム作成後、参加者にコードやURLを共有するだけで誰でも参加可能。ログイン不要です。</li>
               </ul>
+            </AdminInfoCard>
+
+            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="relative w-full sm:max-w-sm">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8c8989]" />
+                <Input
+                  value={roomSearch}
+                  onChange={(e) => setRoomSearch(e.target.value)}
+                  placeholder="ルーム名・コード・ステータスで検索"
+                  className="h-9 rounded-md border-[#cccccc] bg-white pl-9 text-sm"
+                />
+              </div>
+              {roomSearch.trim() && (
+                <button
+                  type="button"
+                  onClick={() => setRoomSearch('')}
+                  className="self-start text-xs font-bold text-[#2864f0] hover:text-[#285ac8] sm:self-auto"
+                >
+                  クリア
+                </button>
+              )}
             </div>
 
             {/* Room Creation Modal */}
@@ -2010,11 +2144,17 @@ function AdminPageInner() {
                   最初のルームを作成する
                 </Button>
               </motion.div>
+            ) : filteredRooms.length === 0 ? (
+              <div className="flex flex-col items-center justify-center rounded-lg border border-[#e9e7e7] bg-white px-4 py-16 text-center">
+                <Search className="mb-3 h-8 w-8 text-[#aac8ff]" />
+                <h3 className="text-sm font-bold text-[#323232]">一致するルームはありません</h3>
+                <p className="mt-1 text-xs text-[#595959]">検索条件を変更してください。</p>
+              </div>
             ) : (
               /* Room cards grid */
               <>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {rooms.slice((roomPage - 1) * CARDS_PER_PAGE, roomPage * CARDS_PER_PAGE).map((room, index) => {
+                {filteredRooms.slice((roomPage - 1) * CARDS_PER_PAGE, roomPage * CARDS_PER_PAGE).map((room, index) => {
                   return (
                     <motion.div
                       key={room.id}
@@ -2180,7 +2320,7 @@ function AdminPageInner() {
               </div>
               {renderPagination(
                 roomPage,
-                Math.max(1, Math.ceil(rooms.length / CARDS_PER_PAGE)),
+                Math.max(1, Math.ceil(filteredRooms.length / CARDS_PER_PAGE)),
                 setRoomPage
               )}
               </>
@@ -2189,26 +2329,16 @@ function AdminPageInner() {
 
           {/* ===== ATTENDANCE DATA TAB ===== */}
           <TabsContent value="export" className="mt-0">
-            <div className="mb-6">
-              <span className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold tracking-wide uppercase text-emerald-600 bg-emerald-50 border border-emerald-100 rounded-full px-3 py-1 mb-2">
-                <BarChart3 className="h-3 w-3" />
-                Export
-              </span>
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">データ管理</h1>
-              <p className="text-sm text-slate-500 mt-1">
-                フォームごとのデータをCSV形式でエクスポートできます
-              </p>
-            </div>
-            {/* エクスポート機能紹介 */}
-            <div className="bg-gradient-to-br from-emerald-50 to-teal-50/60 ring-1 ring-emerald-100 rounded-2xl p-5 mb-5 shadow-sm">
-              <h3 className="text-sm sm:text-base font-semibold text-emerald-900 mb-2 flex items-center gap-1.5">
-                <BarChart3 className="h-4 w-4" />
-                データエクスポートについて
-              </h3>
-              <p className="text-xs sm:text-sm text-emerald-800 leading-relaxed">
+            <AdminPageHeader
+              title="データ管理"
+              description="フォームごとのデータをCSV形式でエクスポートできます"
+              icon={BarChart3}
+            />
+            <AdminInfoCard title="データエクスポートについて" icon={BarChart3}>
+              <p className="text-xs leading-relaxed text-[#23418c] sm:text-sm">
                 フォームに登録されたデータをCSV（Excel対応）またはJSON形式でダウンロードできます。日付フィルタで特定期間のデータを絞り込むことも可能です。
               </p>
-            </div>
+            </AdminInfoCard>
             <AttendanceExport />
           </TabsContent>
         </Tabs>

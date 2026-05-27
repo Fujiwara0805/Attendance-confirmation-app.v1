@@ -31,6 +31,26 @@ const PLAN_DISPLAY: Record<'free' | 'paid' | 'enterprise', { label: string; desc
   enterprise: { label: 'Enterprise', description: '月額2,000円 / 無制限' },
 };
 
+function AccountPageHeader() {
+  return (
+    <div className="-mx-4 -mt-6 mb-5 border-b border-[#dce8ff] bg-[#edf4ff] px-4 py-3 sm:-mx-6 sm:-mt-8 sm:px-6">
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#aac8ff] bg-[#dce8ff] text-[#2864f0]">
+          <SettingsIcon className="h-5 w-5" />
+        </span>
+        <div className="min-w-0">
+          <h1 className="truncate text-xl font-bold leading-tight text-[#323232] sm:text-2xl">
+            アカウント設定
+          </h1>
+          <p className="mt-0.5 truncate text-xs text-[#595959] sm:text-sm">
+            プラン・請求・アカウント情報を管理します。
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AccountSettingsPage() {
   const router = useRouter();
   const { toast } = useToast();
@@ -201,19 +221,7 @@ export default function AccountSettingsPage() {
   return (
     <AdminShell activeSection="account" planInfo={planInfo}>
       <div className="space-y-6">
-        {/* Header */}
-        <div>
-          <span className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold tracking-wide uppercase text-slate-600 bg-slate-100 border border-slate-200 rounded-full px-3 py-1 mb-2">
-            <SettingsIcon className="h-3 w-3" />
-            Account
-          </span>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-            アカウント設定
-          </h1>
-          <p className="text-sm sm:text-base text-slate-500 mt-1">
-            プラン・請求・アカウント情報を管理します。
-          </p>
-        </div>
+        <AccountPageHeader />
 
         {/* Account info + Plan info (2 separate cards, side by side) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

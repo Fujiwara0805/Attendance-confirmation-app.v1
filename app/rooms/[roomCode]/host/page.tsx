@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, type ComponentType, type ReactNode } from 'react';
 import { useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -35,6 +35,8 @@ import {
   Image as ImageIcon,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   PanelLeftClose,
   PanelLeftOpen,
   Pencil,
@@ -42,6 +44,7 @@ import {
   Play,
   Link2,
   ClipboardCheck,
+  Search,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -180,6 +183,71 @@ const HOST_NAV_ITEMS: Array<{
   { key: 'export', label: 'エクスポート', description: 'CSV出力', icon: Download },
 ];
 
+function HostPageHeader({
+  title,
+  description,
+  icon: Icon,
+  children,
+}: {
+  title: string;
+  description: string;
+  icon: ComponentType<{ className?: string }>;
+  children?: ReactNode;
+}) {
+  return (
+    <div className="border-b border-[#dce8ff] bg-[#edf4ff] px-5 py-3">
+      <div className="mx-auto flex max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#aac8ff] bg-[#dce8ff] text-[#2864f0]">
+            <Icon className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <h1 className="truncate text-xl font-bold leading-tight text-[#323232] sm:text-2xl">
+              {title}
+            </h1>
+            <p className="mt-0.5 truncate text-xs text-[#595959] sm:text-sm">{description}</p>
+          </div>
+        </div>
+        {children && <div className="flex flex-wrap items-center gap-2 sm:justify-end">{children}</div>}
+      </div>
+    </div>
+  );
+}
+
+function HostInfoCard({
+  title,
+  icon: Icon,
+  children,
+}: {
+  title: string;
+  icon: ComponentType<{ className?: string }>;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="rounded-lg border border-[#aac8ff] bg-[#ebf3ff]">
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+      >
+        <span className="flex min-w-0 items-center gap-2 text-sm font-bold text-[#23418c] sm:text-base">
+          <Icon className="h-4 w-4 shrink-0 text-[#2864f0]" />
+          <span className="truncate">{title}</span>
+        </span>
+        {open ? (
+          <ChevronUp className="h-4 w-4 shrink-0 text-[#2864f0]" />
+        ) : (
+          <ChevronDown className="h-4 w-4 shrink-0 text-[#2864f0]" />
+        )}
+      </button>
+      {open && <div className="border-t border-[#aac8ff] px-4 pb-4 pt-3">{children}</div>}
+    </div>
+  );
+}
+
 function avatarTone(name: string) {
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
@@ -257,6 +325,7 @@ export default function HostPage() {
   const [showAllQuestions, setShowAllQuestions] = useState(false);
   const [userPlan, setUserPlan] = useState<'free' | 'paid' | 'enterprise'>('free');
   const [pollPage, setPollPage] = useState(1);
+  const [pollSearch, setPollSearch] = useState('');
   const POLLS_PER_PAGE = 6;
   const [roomStatusLoading, setRoomStatusLoading] = useState(false);
   const [pollStatusPendingId, setPollStatusPendingId] = useState<string | null>(null);
@@ -945,6 +1014,10 @@ export default function HostPage() {
     }
   }, [tab, loadAvailableCourses]);
 
+  useEffect(() => {
+    setPollPage(1);
+  }, [pollSearch]);
+
   // ==== カウント計算（pillsバッジ・サマリー両方で利用） ====
   const counts = useMemo(() => {
     const all = questions.length;
@@ -995,6 +1068,32 @@ export default function HostPage() {
     });
   }, [questions, statusFilter, sortMode]);
 
+  const filteredPolls = useMemo(() => {
+    const query = pollSearch.trim().toLowerCase();
+    const visible = polls.filter((poll) => poll.id !== editingPollId);
+    if (!query) return visible;
+    return visible.filter((poll) => {
+      const { meta, options } = extractPollPayload(poll.options);
+      const mode = getPollMode(meta.mode || poll.type);
+      const optionText = options.map((option, index) =>
+        getPollOptionLabel(option, `選択肢 ${index + 1}`)
+      );
+      const quizText = getQuizQuestions(meta, options).map((question) => question.question);
+      return [
+        poll.question,
+        poll.status,
+        poll.type,
+        POLL_MODE_LABELS[mode],
+        ...optionText,
+        ...quizText,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(query);
+    });
+  }, [editingPollId, pollSearch, polls]);
+
   // Auth check
   if (authStatus === 'loading' || loading) {
     return (
@@ -1022,6 +1121,7 @@ export default function HostPage() {
   const pollLimit = userPlan === 'free' ? 2 : Infinity;
   const atPollLimit = Number.isFinite(pollLimit) && polls.length >= pollLimit;
   const resettableQuestionCount = questions.length;
+  const activeHostItem = HOST_NAV_ITEMS.find((item) => item.key === tab) || HOST_NAV_ITEMS[0];
 
   return (
     <div className="min-h-screen bg-[#f7f5f5] lg:flex">
@@ -1043,12 +1143,16 @@ export default function HostPage() {
       <div className="flex min-w-0 flex-1 flex-col">
       {/* Header */}
       <header className="sticky top-0 z-40 border-b border-[#e9e7e7] bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-end gap-2 px-5 py-3">
+        <HostPageHeader
+          title={activeHostItem.label}
+          description={`${room.title} / ${activeHostItem.description}`}
+          icon={activeHostItem.icon}
+        >
             <a
               href={`/rooms/${roomCode}/present`}
               target={`zasekikun-present-${roomCode}`}
               rel="noopener noreferrer"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#e1dcdc] bg-white text-[#2864f0] transition-colors hover:border-[#aac8ff] hover:bg-[#ebf3ff]"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#e1dcdc] bg-white text-[#2864f0] transition-colors hover:border-[#aac8ff] hover:bg-[#ebf3ff]"
               title="スクリーン画面を開く"
             >
               <Monitor className="w-4 h-4" />
@@ -1057,7 +1161,7 @@ export default function HostPage() {
               type="button"
               disabled={roomStatusLoading}
               onClick={handleToggleRoomStatus}
-              className={`inline-flex h-9 min-w-[5rem] items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-bold transition-colors disabled:pointer-events-none disabled:opacity-60 ${
+              className={`inline-flex h-9 min-w-[5rem] items-center justify-center gap-1.5 rounded-md px-3 text-xs font-bold transition-colors disabled:pointer-events-none disabled:opacity-60 ${
                 room.status === 'active'
                   ? 'bg-[#dc1e32] text-white hover:bg-[#a51428]'
                   : 'bg-[#2864f0] text-white hover:bg-[#285ac8]'
@@ -1077,7 +1181,7 @@ export default function HostPage() {
                 </>
               )}
             </button>
-        </div>
+        </HostPageHeader>
 
         {/* Mobile tabs */}
         <div className="mx-auto flex max-w-6xl gap-5 overflow-x-auto px-5 -mb-px lg:hidden">
@@ -1095,7 +1199,7 @@ export default function HostPage() {
               onClick={() => setTab(t.key)}
               className={`flex items-center gap-1.5 px-1 py-2.5 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${
                 tab === t.key
-                  ? 'border-emerald-500 text-emerald-700'
+                  ? 'border-[#2864f0] text-[#2864f0]'
                   : 'border-transparent text-slate-400 hover:text-slate-600'
               }`}
             >
@@ -1264,22 +1368,38 @@ export default function HostPage() {
         {/* === Polls Tab === */}
         {tab === 'polls' && (
           <div className="space-y-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl font-extrabold tracking-tight text-slate-900">ライブ投票</h2>
-                <p className="mt-0.5 text-xs text-slate-500">通常投票 / クイズ形式 / ランキング形式</p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="relative w-full sm:max-w-sm">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8c8989]" />
+                <input
+                  value={pollSearch}
+                  onChange={(e) => setPollSearch(e.target.value)}
+                  placeholder="投票タイトル・選択肢・形式で検索"
+                  className="h-9 w-full rounded-md border border-[#cccccc] bg-white pl-9 pr-3 text-sm text-[#323232] outline-none focus:border-[#2864f0] focus:ring-2 focus:ring-[#dce8ff]"
+                />
               </div>
+              <div className="flex items-center gap-2">
+                {pollSearch.trim() && (
+                  <button
+                    type="button"
+                    onClick={() => setPollSearch('')}
+                    className="text-xs font-bold text-[#2864f0] hover:text-[#285ac8]"
+                  >
+                    クリア
+                  </button>
+                )}
               {room.status === 'active' && (
                 <button
                   onClick={() => setShowPollTypeModal(true)}
                   disabled={atPollLimit}
                   title={atPollLimit ? `Freeプランではライブ投票カードを${pollLimit}個まで作成できます` : undefined}
-                  className="inline-flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-300 disabled:hover:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold px-4 h-10 rounded-lg shadow-sm shadow-emerald-200/60 transition-colors text-sm"
+                  className="inline-flex h-9 items-center gap-1.5 rounded-md bg-[#2864f0] px-4 text-sm font-bold text-white shadow-sm transition-colors hover:bg-[#285ac8] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:hover:bg-slate-300"
                 >
                   <Plus className="w-4 h-4" />
                   新規作成
                 </button>
               )}
+              </div>
             </div>
 
             {atPollLimit && (
@@ -1300,19 +1420,15 @@ export default function HostPage() {
               )}
             </AnimatePresence>
 
-            <div className="rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50/60 p-5 shadow-sm ring-1 ring-emerald-100">
-              <h3 className="flex items-center gap-1.5 text-sm sm:text-base font-semibold text-emerald-900 mb-2">
-                <BookOpen className="h-4 w-4" />
-                ライブ投票について
-              </h3>
-              <ul className="space-y-1.5 text-xs sm:text-sm leading-relaxed text-emerald-800">
+            <HostInfoCard title="ライブ投票について" icon={BookOpen}>
+              <ul className="space-y-1.5 text-xs leading-relaxed text-[#23418c] sm:text-sm">
                 <li>• <strong>通常投票</strong>：選択肢から回答してもらう基本の投票です。複数選択にも対応します。</li>
                 <li>• <strong>クイズ形式</strong>：複数の問題をまとめて出題し、正解を設定して回答結果を確認できます。</li>
                 <li>• <strong>ランキング形式</strong>：候補を順位で回答してもらい、順位ごとの重みでランキングを集計します。</li>
                 <li>• <strong>リセット</strong>：直近の回答結果をリセットして同じカードを繰り返し利用できます。リセットした回答結果もカードに蓄積され、CSVデータとして出力できます。</li>
                 <li>• 投票時間を設定した場合は、スクリーン画面の「開始」ボタンを押すと投票がスタートし、設定した時間でカウントダウンします。</li>
               </ul>
-            </div>
+            </HostInfoCard>
 
             {/* Create poll form */}
             <AnimatePresence>
@@ -1947,14 +2063,19 @@ export default function HostPage() {
               </div>
             ) : polls.length > 0 ? (
               (() => {
-                // 編集中のカードは編集フォームと内容が重複して紛らわしいため一覧からは隠す
-                const visiblePolls = polls.filter((poll) => poll.id !== editingPollId);
-                const totalPages = Math.max(1, Math.ceil(visiblePolls.length / POLLS_PER_PAGE));
+                const totalPages = Math.max(1, Math.ceil(filteredPolls.length / POLLS_PER_PAGE));
                 const currentPage = Math.min(pollPage, totalPages);
                 const pageStart = (currentPage - 1) * POLLS_PER_PAGE;
-                const pagedPolls = visiblePolls.slice(pageStart, pageStart + POLLS_PER_PAGE);
+                const pagedPolls = filteredPolls.slice(pageStart, pageStart + POLLS_PER_PAGE);
                 return (
                   <>
+                    {filteredPolls.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center rounded-lg border border-[#e9e7e7] bg-white px-4 py-14 text-center">
+                        <Search className="mb-3 h-8 w-8 text-[#aac8ff]" />
+                        <p className="text-sm font-bold text-[#323232]">一致するライブ投票はありません</p>
+                        <p className="mt-1 text-xs text-[#595959]">検索条件を変更してください。</p>
+                      </div>
+                    ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                       {pagedPolls.map((poll) => (
                         <PollResultCard
@@ -1973,6 +2094,7 @@ export default function HostPage() {
                         />
                       ))}
                     </div>
+                    )}
                     {totalPages > 1 && (
                       <div className="flex items-center justify-center gap-2 pt-2">
                         <button
