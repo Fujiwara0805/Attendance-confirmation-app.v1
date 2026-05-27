@@ -134,7 +134,7 @@ export default function ParticipantPage() {
     participantOnly: true,
     ownIds: ownQuestionIds,
   });
-  const { activePoll, polls, pollVotes, loading: pLoading, connected: pConnected } =
+  const { activePoll, activePolls, polls, pollVotes, loading: pLoading, connected: pConnected } =
     useRealtimePolls(room?.id || null);
 
   const presenceCount = useRoomPresence(room?.id || null, participantId || null);
@@ -574,21 +574,22 @@ export default function ParticipantPage() {
         {/* Polls Tab */}
         {tab === 'polls' && (
           <div className="space-y-4">
-            {activePoll && (
+            {activePolls.map((poll) => (
               <ActivePollCard
-                poll={activePoll}
-                votes={pollVotes[activePoll.id] || []}
-                hasVoted={hasVotedPoll.has(getPollRunKey(activePoll))}
+                key={poll.id}
+                poll={poll}
+                votes={pollVotes[poll.id] || []}
+                hasVoted={hasVotedPoll.has(getPollRunKey(poll))}
                 participantId={participantId}
-                onSubmit={(indexes) => handlePollVote(activePoll, indexes)}
+                onSubmit={(indexes) => handlePollVote(poll, indexes)}
               />
-            )}
+            ))}
 
             {pLoading ? (
               <p className="text-center text-sm text-slate-400 py-8">読み込み中...</p>
             ) : null}
 
-            {!activePoll && !pLoading && (
+            {activePolls.length === 0 && !pLoading && (
               <EmptyState
                 icon={<BarChart3 className="w-8 h-8 text-emerald-300" />}
                 title="まだ投票はありません"

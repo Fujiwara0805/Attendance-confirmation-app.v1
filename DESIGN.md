@@ -46,6 +46,8 @@
 - **White** (`#ffffff`): コンポーネントのベース背景
 - **Background Light** (`#f7f5f5`): カード背景、セクション背景
 - **Background Lighter** (`#f0eded`): 軽いグレー背景
+- **App Sidebar Blue** (`#f3f7ff`): freee会計系アプリのサイドバー背景
+- **App Sidebar Active** (`#dce8ff`): サイドバー選択中背景
 - **Border** (`#e9e7e7`): 区切り線、ボーダー
 - **Input Border** (`#e1dcdc`): フォーム入力欄の枠
 
@@ -108,6 +110,21 @@ font-family: "Noto Sans", "Noto Sans JP", sans-serif;
 | Body | FontSize0875 | 0.875rem (14px) | 400 | 1.5 | 0 | 本文（標準） |
 | Caption | FontSize0750 | 0.75rem (12px) | 400 | 1.5 | 0 | キャプション |
 | Smallest | FontSize0625 | 0.625rem (10px) | 400 | 1.5 | 0 | アイコンラベル |
+
+**freee会計アプリUI観察値（2026-05-27）**
+
+| Role | Size | Weight | Line Height | Color | 備考 |
+|------|------|--------|-------------|-------|------|
+| App Header Label | 14px | 700 | 1.5 | `#323232` | ヘッダー、期間・会社名 |
+| Sidebar Item | 14px | 500 / 700 | 1.5 | `#323232` | 左ナビ項目 |
+| Sidebar Group Label | 12px | 500 | 1.5 | `#8c8989` | 経理・会計などの分類 |
+| Sidebar Caption | 11px | 400 / 700 | 1.5 | `#595959` | 補助情報、カード内ラベル |
+| Icon | 18px-20px | 2px stroke | - | `#2864f0` | サイドバー・ヘッダーの線アイコン |
+
+**アプリUI適用ルール**
+- 管理画面・ホスト管理画面などのプロダクトUIでは、サイドバー背景を `#f3f7ff`、選択中背景を `#dce8ff`、アイコンを `#2864f0` に寄せる。
+- サイドバー項目は 14px、補助説明は 11px-12px を基準にし、アイコンは 18px-20px の線アイコンを使う。
+- 選択中ナビは濃色ベタ塗りではなく、淡い青背景 + 青アイコン + 濃い本文色を基本にする。
 
 **コーポレートサイト** — computed style 実測値（2026-04-06）
 

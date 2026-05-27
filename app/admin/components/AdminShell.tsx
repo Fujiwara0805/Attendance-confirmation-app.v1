@@ -6,8 +6,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import {
-  Airplay,
   BarChart3,
+  ClipboardList,
   FileText,
   HelpCircle,
   LogOut,
@@ -59,29 +59,29 @@ const MENU_ITEMS: Array<{
     label: 'フォーム管理',
     description: 'フォーム作成・管理',
     icon: FileText,
-    iconBg: 'bg-indigo-50',
-    iconColor: 'text-indigo-600',
-    activeBg: 'bg-indigo-600',
+    iconBg: 'bg-[#ebf3ff]',
+    iconColor: 'text-[#2864f0]',
+    activeBg: 'bg-[#dce8ff] text-[#23418c]',
     inPage: true,
   },
   {
     key: 'rooms',
     label: 'ルーム管理',
     description: 'Q&A / ライブ投票',
-    icon: Airplay,
-    iconBg: 'bg-purple-50',
-    iconColor: 'text-purple-600',
-    activeBg: 'bg-purple-600',
+    icon: BarChart3,
+    iconBg: 'bg-[#ebf3ff]',
+    iconColor: 'text-[#2864f0]',
+    activeBg: 'bg-[#dce8ff] text-[#23418c]',
     inPage: true,
   },
   {
     key: 'export',
     label: 'データ出力',
     description: 'CSV / JSON エクスポート',
-    icon: BarChart3,
-    iconBg: 'bg-emerald-50',
-    iconColor: 'text-emerald-600',
-    activeBg: 'bg-emerald-600',
+    icon: ClipboardList,
+    iconBg: 'bg-[#ebf3ff]',
+    iconColor: 'text-[#2864f0]',
+    activeBg: 'bg-[#dce8ff] text-[#23418c]',
     inPage: true,
   },
   {
@@ -89,9 +89,9 @@ const MENU_ITEMS: Array<{
     label: 'アカウント設定',
     description: 'プラン・請求情報',
     icon: Settings,
-    iconBg: 'bg-slate-100',
-    iconColor: 'text-slate-700',
-    activeBg: 'bg-slate-800',
+    iconBg: 'bg-[#ebf3ff]',
+    iconColor: 'text-[#2864f0]',
+    activeBg: 'bg-[#dce8ff] text-[#23418c]',
     inPage: false,
   },
   {
@@ -99,9 +99,9 @@ const MENU_ITEMS: Array<{
     label: 'FAQ',
     description: 'よくある質問',
     icon: HelpCircle,
-    iconBg: 'bg-amber-50',
-    iconColor: 'text-amber-600',
-    activeBg: 'bg-amber-600',
+    iconBg: 'bg-[#ebf3ff]',
+    iconColor: 'text-[#2864f0]',
+    activeBg: 'bg-[#dce8ff] text-[#23418c]',
     inPage: false,
     href: '/faq',
   },
@@ -173,10 +173,10 @@ function SidebarContent({
   const showRoomLimit = !isUnlimited(limits?.maxRooms);
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col bg-[#f3f7ff]">
       {/* Brand + collapse toggle */}
       <div
-        className={`flex items-center border-b border-slate-100 ${
+        className={`flex items-center border-b border-[#dce8ff] ${
           collapsed ? 'justify-center px-2 py-3' : 'justify-between px-4 py-3 gap-2'
         }`}
       >
@@ -189,7 +189,7 @@ function SidebarContent({
               height={32}
               className="rounded-lg shrink-0"
             />
-            <span className="text-base font-semibold text-slate-900 tracking-tight truncate">ざせきくん</span>
+            <span className="text-sm font-bold text-[#323232] tracking-tight truncate">ざせきくん</span>
           </Link>
         )}
         {collapsed && (
@@ -207,7 +207,7 @@ function SidebarContent({
           <button
             type="button"
             onClick={onToggleCollapsed}
-            className="h-8 w-8 rounded-md inline-flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors shrink-0"
+            className="h-8 w-8 rounded-md inline-flex items-center justify-center text-[#2864f0] hover:bg-[#dce8ff] transition-colors shrink-0"
             aria-label="サイドバーを閉じる"
             title="サイドバーを閉じる"
           >
@@ -217,11 +217,11 @@ function SidebarContent({
       </div>
 
       {showCollapseToggle && onToggleCollapsed && collapsed && (
-        <div className="px-2 py-2 border-b border-slate-100 flex justify-center">
+        <div className="px-2 py-2 border-b border-[#dce8ff] flex justify-center">
           <button
             type="button"
             onClick={onToggleCollapsed}
-            className="h-8 w-8 rounded-md inline-flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+            className="h-8 w-8 rounded-md inline-flex items-center justify-center text-[#2864f0] hover:bg-[#dce8ff] transition-colors"
             aria-label="サイドバーを開く"
             title="サイドバーを開く"
           >
@@ -232,15 +232,15 @@ function SidebarContent({
 
       {/* KPI */}
       {!collapsed ? (
-        <div className="px-4 py-4 space-y-2 border-b border-slate-100">
+        <div className="px-4 py-4 space-y-2 border-b border-[#dce8ff]">
           <div className="grid grid-cols-2 gap-2">
-            <div className="bg-white rounded-xl ring-1 ring-black/5 shadow-sm p-2.5">
-              <div className="flex items-center gap-1.5 text-[10px] font-semibold tracking-wide uppercase text-slate-400">
-                <FileText className="h-3 w-3 text-indigo-500" />
+            <div className="bg-white rounded-lg ring-1 ring-[#dce8ff] p-2.5">
+              <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#8c8989]">
+                <FileText className="h-4 w-4 text-[#2864f0]" />
                 フォーム
               </div>
               <div className="mt-1 flex items-baseline gap-1">
-                <span className="text-lg font-extrabold text-slate-900 tabular-nums">
+                <span className="text-base font-extrabold text-[#323232] tabular-nums">
                   {formCount ?? usage?.formCount ?? 0}
                 </span>
                 {showFormLimit && (
@@ -250,13 +250,13 @@ function SidebarContent({
                 )}
               </div>
             </div>
-            <div className="bg-white rounded-xl ring-1 ring-black/5 shadow-sm p-2.5">
-              <div className="flex items-center gap-1.5 text-[10px] font-semibold tracking-wide uppercase text-slate-400">
-                <Airplay className="h-3 w-3 text-purple-500" />
+            <div className="bg-white rounded-lg ring-1 ring-[#dce8ff] p-2.5">
+              <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#8c8989]">
+                <BarChart3 className="h-4 w-4 text-[#2864f0]" />
                 ルーム
               </div>
               <div className="mt-1 flex items-baseline gap-1">
-                <span className="text-lg font-extrabold text-slate-900 tabular-nums">
+                <span className="text-base font-extrabold text-[#323232] tabular-nums">
                   {roomCount ?? usage?.roomCount ?? 0}
                 </span>
                 {showRoomLimit && (
@@ -267,7 +267,7 @@ function SidebarContent({
               </div>
             </div>
           </div>
-          <div className={`rounded-xl ring-1 shadow-sm p-2.5 ${planClasses}`}>
+          <div className={`rounded-lg ring-1 p-2.5 ${planClasses}`}>
             <div
               className={`flex items-center gap-1.5 text-[10px] font-semibold tracking-wide uppercase ${
                 subscription?.plan === 'paid' || subscription?.plan === 'enterprise'
@@ -305,7 +305,7 @@ function SidebarContent({
             </span>
           </div>
           <div
-            className="w-10 h-10 rounded-lg bg-purple-50 text-purple-600 flex flex-col items-center justify-center"
+            className="w-10 h-10 rounded-lg bg-[#e8f7ee] text-[#00963c] flex flex-col items-center justify-center"
             title={
               showRoomLimit
                 ? `ルーム: ${roomCount ?? usage?.roomCount ?? 0} / ${formatLimit(limits?.maxRooms)}`
@@ -346,12 +346,12 @@ function SidebarContent({
                 title={item.label}
                 aria-label={item.label}
                 className={`w-full flex items-center justify-center p-2 rounded-xl transition-colors ${
-                  isActive ? `${item.activeBg} text-white shadow-sm` : 'text-slate-700 hover:bg-slate-50'
+                  isActive ? `${item.activeBg}` : 'text-[#323232] hover:bg-[#dce8ff]/60'
                 }`}
               >
                 <div
                   className={`w-9 h-9 rounded-lg flex items-center justify-center ${
-                    isActive ? 'bg-white/15 text-white backdrop-blur-sm' : `${item.iconBg} ${item.iconColor}`
+                    isActive ? 'bg-white text-[#2864f0]' : `${item.iconBg} ${item.iconColor}`
                   }`}
                 >
                   <Icon className="h-4 w-4" />
@@ -366,22 +366,22 @@ function SidebarContent({
               onClick={() => handleSelect(item)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors ${
                 isActive
-                  ? `${item.activeBg} text-white shadow-sm`
-                  : 'text-slate-700 hover:bg-slate-50'
+                  ? `${item.activeBg}`
+                  : 'text-[#323232] hover:bg-[#dce8ff]/60'
               }`}
             >
               <div
                 className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
-                  isActive ? 'bg-white/15 text-white backdrop-blur-sm' : `${item.iconBg} ${item.iconColor}`
+                  isActive ? 'bg-white text-[#2864f0]' : `${item.iconBg} ${item.iconColor}`
                 }`}
               >
                 <Icon className="h-4 w-4" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold leading-none">{item.label}</p>
+                <p className="text-sm font-bold leading-none">{item.label}</p>
                 <p
                   className={`mt-1 text-[11px] leading-none truncate ${
-                    isActive ? 'text-white/70' : 'text-slate-400'
+                    isActive ? 'text-[#595959]' : 'text-[#8c8989]'
                   }`}
                 >
                   {item.description}
@@ -394,18 +394,18 @@ function SidebarContent({
 
       {/* Footer: user + logout */}
       <div
-        className={`border-t border-slate-100 py-3 space-y-2 ${
+        className={`border-t border-[#dce8ff] py-3 space-y-2 ${
           collapsed ? 'px-2 flex flex-col items-center' : 'px-4'
         }`}
       >
         {session?.user && !collapsed && (
           <div className="flex items-center gap-2 px-1">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white text-xs font-medium shrink-0">
+            <div className="w-8 h-8 rounded-full bg-[#2864f0] flex items-center justify-center text-white text-xs font-medium shrink-0">
               {session.user.name?.charAt(0) || session.user.email?.charAt(0) || 'U'}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-medium text-slate-900 truncate">{session.user.name}</p>
-              <p className="text-[10px] text-slate-500 truncate">{session.user.email}</p>
+              <p className="text-xs font-bold text-[#323232] truncate">{session.user.name}</p>
+              <p className="text-[10px] text-[#595959] truncate">{session.user.email}</p>
             </div>
           </div>
         )}
@@ -474,7 +474,7 @@ export default function AdminShell(props: AdminShellProps) {
     <div className="min-h-screen bg-slate-50 lg:flex">
       {/* Desktop sidebar */}
       <aside
-        className={`hidden lg:flex shrink-0 border-r border-slate-200 bg-white sticky top-0 h-screen transition-[width] duration-200 ease-out ${
+        className={`hidden lg:flex shrink-0 border-r border-[#dce8ff] bg-[#f3f7ff] sticky top-0 h-screen transition-[width] duration-200 ease-out ${
           collapsed ? 'w-16' : 'w-72'
         }`}
       >

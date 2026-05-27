@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   BarChart3,
+  Clock,
   Loader2,
   Maximize,
   MessageSquare,
@@ -18,8 +19,15 @@ import {
   X,
 } from 'lucide-react';
 import { useRealtimeQuestions } from '@/lib/hooks/useRealtimeQuestions';
-import { useRealtimePolls } from '@/lib/hooks/useRealtimePolls';
+import { useRealtimePolls, type Poll, type PollVote } from '@/lib/hooks/useRealtimePolls';
 import { captureStreamStore, useCaptureStream } from '@/lib/captureStreamStore';
+import {
+  extractPollPayload,
+  getPollMode,
+  getPollOptionLabel,
+  getRankingDisplayMode,
+} from '@/lib/pollModes';
+import RankingResults from '../../components/RankingResults';
 
 interface Room {
   id: string;
@@ -47,6 +55,7 @@ export default function StagePage() {
   const [sharedPercent, setSharedPercent] = useState(70);
   const [isDesktop, setIsDesktop] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
   // MediaStream はモジュールスコープのシングルトン (captureStreamStore) で保持。
   // どんな再マウントが起きてもストリーム参照が消えないため、
@@ -82,7 +91,7 @@ export default function StagePage() {
   }, [roomCode]);
 
   const { questions, connected: qConnected } = useRealtimeQuestions(room?.id || null);
-  const { connected: pConnected } = useRealtimePolls(room?.id || null);
+  const { activePolls, pollVotes, connected: pConnected } = useRealtimePolls(room?.id || null);
 
   const visibleQuestions = useMemo(() => {
     return questions
@@ -96,6 +105,11 @@ export default function StagePage() {
   }, [questions]);
 
   const realtimeOffline = !qConnected && !pConnected;
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNowMs(Date.now()), 500);
+    return () => window.clearInterval(id);
+  }, []);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(min-width: 1024px)');
@@ -435,6 +449,19 @@ export default function StagePage() {
             </p>
           </header>
 
+          <section className="shrink-0 border-b border-slate-200 bg-white">
+            <div className="flex items-center justify-between px-5 py-3">
+              <div className="inline-flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-[#2864f0]" />
+                <h3 className="text-sm font-extrabold tracking-tight text-slate-900">ライブ投票</h3>
+              </div>
+              <span className="text-xs font-semibold text-slate-400">{activePolls.length}</span>
+            </div>
+            <div className="max-h-[42vh] overflow-y-auto px-4 pb-4">
+              <StagePollDeck polls={activePolls} pollVotes={pollVotes} nowMs={nowMs} />
+            </div>
+          </section>
+
           <section className="flex min-h-0 flex-1 flex-col">
             <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-5 py-3">
               <div className="inline-flex items-center gap-2">
@@ -518,5 +545,155 @@ export default function StagePage() {
         </div>
       )}
     </div>
+  );
+}
+
+function StagePollDeck({
+  polls,
+  pollVotes,
+  nowMs,
+}: {
+  polls: Poll[];
+  pollVotes: Record<string, PollVote[]>;
+  nowMs: number;
+}) {
+  if (polls.length === 0) {
+    return (
+      <div className="rounded-lg border border-[#e9e7e7] bg-[#f7f5f5] px-4 py-6 text-center">
+        <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-lg bg-[#ebf3ff]">
+          <BarChart3 className="h-5 w-5 text-[#aac8ff]" />
+        </div>
+        <p className="text-sm font-bold text-[#595959]">アクティブな投票はありません</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {polls.map((poll, index) => (
+        <StagePollCard
+          key={poll.id}
+          poll={poll}
+          votes={pollVotes[poll.id] || []}
+          nowMs={nowMs}
+          label={`カード ${index + 1}`}
+        />
+      ))}
+    </div>
+  );
+}
+
+function StagePollCard({
+  poll,
+  votes,
+  nowMs,
+  label,
+}: {
+  poll: Poll;
+  votes: PollVote[];
+  nowMs: number;
+  label: string;
+}) {
+  const { meta, options } = extractPollPayload(poll.options);
+  const mode = getPollMode(meta.mode);
+  const counts = options.map((_, i) => votes.filter((v) => v.option_index === i).length);
+  const totalCast = counts.reduce((sum, count) => sum + count, 0);
+  const totalRespondents =
+    mode === 'ranking' || mode === 'quiz'
+      ? new Set(votes.map((v) => v.participant_id).filter(Boolean)).size || totalCast
+      : totalCast;
+  const maxSelections = Math.max(1, Number(poll.max_selections ?? 1));
+  const timeLimit = Number(meta.timeLimitSeconds || 0);
+  const timerStartMs = poll.started_at ? new Date(poll.started_at).getTime() : null;
+  const timerRemaining =
+    timeLimit > 0 && timerStartMs
+      ? Math.max(0, Math.ceil(timeLimit - (nowMs - timerStartMs) / 1000))
+      : null;
+  const timerNotStarted = timeLimit > 0 && !timerStartMs;
+  const revealed = timeLimit === 0 || (timerRemaining !== null && timerRemaining <= 0);
+  const fmtTime = (seconds: number) =>
+    `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
+
+  return (
+    <article className="rounded-lg border border-[#e9e7e7] bg-white p-3 shadow-sm">
+      <div className="mb-2 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="rounded-full bg-[#ebf3ff] px-2 py-0.5 text-[11px] font-bold text-[#1e46aa]">
+              {label}
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#e8f7ee] px-2 py-0.5 text-[11px] font-bold text-[#00963c]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#00963c]" />
+              Live
+            </span>
+          </div>
+          <h4 className="mt-1.5 break-words text-sm font-extrabold leading-snug text-[#323232]">
+            {poll.question}
+          </h4>
+        </div>
+        <span className="shrink-0 text-xs font-bold tabular-nums text-[#595959]">
+          {totalRespondents}件
+        </span>
+      </div>
+
+      {timeLimit > 0 && (
+        <div className="mb-2 inline-flex items-center gap-1.5 rounded-lg bg-[#f7f5f5] px-2 py-1 text-xs font-bold text-[#595959]">
+          <Clock className="h-3.5 w-3.5 text-[#2864f0]" />
+          {timerNotStarted ? `開始待ち ${fmtTime(timeLimit)}` : fmtTime(timerRemaining ?? 0)}
+        </div>
+      )}
+
+      {mode === 'ranking' ? (
+        revealed ? (
+          <RankingResults
+            options={options}
+            votes={votes}
+            rankCount={maxSelections}
+            weights={meta.rankingWeights}
+            displayMode={getRankingDisplayMode(meta.rankingDisplayMode)}
+            size="compact"
+          />
+        ) : (
+          <p className="rounded-lg bg-[#f7f5f5] px-3 py-4 text-center text-xs font-bold text-[#595959]">
+            回答受付中です。結果は投票時間後に表示します。
+          </p>
+        )
+      ) : (
+        <div className="space-y-2">
+          {!revealed && (
+            <p className="rounded-lg bg-[#f7f5f5] px-3 py-3 text-center text-xs font-bold text-[#595959]">
+              回答受付中です。結果は投票時間後に表示します。
+            </p>
+          )}
+          {options.slice(0, mode === 'quiz' ? 4 : options.length).map((option, i) => {
+            const count = counts[i] || 0;
+            const pct = totalCast > 0 ? Math.round((count / totalCast) * 100) : 0;
+            return (
+              <div key={i} className="relative overflow-hidden rounded-lg border border-[#e9e7e7] bg-white">
+                {revealed && (
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${pct}%` }}
+                    transition={{ duration: 0.45 }}
+                    className="absolute inset-y-0 left-0 bg-[#dce8ff]"
+                    aria-hidden
+                  />
+                )}
+                <div className="relative flex items-center justify-between gap-2 px-3 py-2.5">
+                  <span className="min-w-0 truncate text-sm font-semibold text-[#323232]">
+                    {getPollOptionLabel(option, `選択肢 ${i + 1}`)}
+                  </span>
+                  {revealed && (
+                    <span className="shrink-0 text-xs font-bold tabular-nums text-[#595959]">
+                      {count} ({pct}%)
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </article>
   );
 }

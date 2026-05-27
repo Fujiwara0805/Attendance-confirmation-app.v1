@@ -164,6 +164,19 @@ const POLL_MODE_VISUAL: Record<
   },
 };
 
+const HOST_NAV_ITEMS: Array<{
+  key: HostTab;
+  label: string;
+  description: string;
+  icon: React.ComponentType<{ className?: string }>;
+}> = [
+  { key: 'questions', label: '質問', description: '承認・回答管理', icon: MessageSquare },
+  { key: 'polls', label: 'ライブ投票', description: 'カード作成・集計', icon: BarChart3 },
+  { key: 'summary', label: 'サマリー', description: '状況の確認', icon: PieChart },
+  { key: 'integration', label: '連携', description: '出席フォーム紐付け', icon: Link2 },
+  { key: 'export', label: 'エクスポート', description: 'CSV出力', icon: Download },
+];
+
 function avatarTone(name: string) {
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
@@ -987,90 +1000,41 @@ export default function HostPage() {
   const resettableQuestionCount = questions.length;
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50/60">
+    <div className="min-h-screen bg-[#f7f5f5] lg:flex">
+      <HostSideNav
+        room={room}
+        roomCode={roomCode}
+        activeTab={tab}
+        onSelectTab={setTab}
+        presenceCount={Math.max(presenceCount, 1)}
+        qrUrl={qrUrl}
+        copied={copied}
+        onCopyCode={handleCopyCode}
+        roomStatus={room.status}
+        roomStatusLoading={roomStatusLoading}
+        onToggleRoomStatus={handleToggleRoomStatus}
+      />
+      <div className="flex min-w-0 flex-1 flex-col">
       {/* Header */}
-      <header className="border-b border-slate-200/70 bg-white sticky top-0 z-40">
-        <div className="mx-auto max-w-6xl px-5 py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <Link
-              href="/admin"
-              className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors shrink-0"
-              title="管理画面に戻る"
-              aria-label="管理画面に戻る"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Link>
-            <div className="w-9 h-9 rounded-xl bg-emerald-100 ring-1 ring-emerald-200 flex items-center justify-center shrink-0">
-              <Image src={LOGO_URL} alt="" width={22} height={22} className="rounded-md" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight truncate">
-                {room.title}
-              </h1>
-              <div className="flex items-center gap-2 text-[11px] sm:text-xs text-slate-400">
-                <button
-                  onClick={handleCopyCode}
-                  className="font-mono tracking-wider hover:text-slate-600 inline-flex items-center gap-1"
-                  title="コードをコピー"
-                >
-                  #{room.code}
-                  {copied ? (
-                    <Check className="w-3 h-3 text-emerald-500" />
-                  ) : (
-                    <Copy className="w-3 h-3" />
-                  )}
-                </button>
-                <span className="text-slate-300">·</span>
-                <span className="inline-flex items-center gap-1">
-                  <Users className="w-3 h-3" />
-                  {Math.max(presenceCount, 1)}人
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            {qrUrl && (
-              <a
-                href={qrUrl}
-                download={`qr-${roomCode}.png`}
-                className="inline-flex items-center gap-1 text-xs font-medium text-slate-600 bg-white ring-1 ring-slate-200 hover:bg-slate-50 px-2.5 h-9 rounded-lg transition-colors"
-                title="QRコードをダウンロード"
-              >
-                <QrCode className="w-4 h-4" />
-                <span className="hidden sm:inline">QR</span>
-              </a>
-            )}
+      <header className="sticky top-0 z-40 border-b border-[#e9e7e7] bg-white">
+        <div className="mx-auto flex max-w-6xl items-center justify-end gap-2 px-5 py-3">
             <a
               href={`/rooms/${roomCode}/present`}
               target={`zasekikun-present-${roomCode}`}
               rel="noopener noreferrer"
-              className="inline-flex items-center justify-center text-slate-600 bg-white ring-1 ring-slate-200 hover:bg-slate-50 w-9 h-9 rounded-lg transition-colors"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#e1dcdc] bg-white text-[#2864f0] transition-colors hover:border-[#aac8ff] hover:bg-[#ebf3ff]"
               title="スクリーン画面を開く"
             >
               <Monitor className="w-4 h-4" />
             </a>
             <button
               type="button"
-              disabled={exportLoadingType !== null}
-              onClick={() => handleExportCSV('questions')}
-              className="inline-flex items-center justify-center text-slate-600 bg-white ring-1 ring-slate-200 hover:bg-slate-50 w-9 h-9 rounded-lg transition-colors disabled:opacity-60 disabled:pointer-events-none"
-              title="ダウンロード"
-            >
-              {exportLoadingType === 'questions' ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Download className="w-4 h-4" />
-              )}
-            </button>
-            <button
-              type="button"
               disabled={roomStatusLoading}
               onClick={handleToggleRoomStatus}
-              className={`inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-3 h-9 rounded-lg transition-colors min-w-[5rem] disabled:opacity-60 disabled:pointer-events-none ${
+              className={`inline-flex h-9 min-w-[5rem] items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-bold transition-colors disabled:pointer-events-none disabled:opacity-60 ${
                 room.status === 'active'
-                  ? 'bg-rose-500 hover:bg-rose-600 text-white'
-                  : 'bg-emerald-500 hover:bg-emerald-600 text-white'
+                  ? 'bg-[#dc1e32] text-white hover:bg-[#a51428]'
+                  : 'bg-[#2864f0] text-white hover:bg-[#285ac8]'
               }`}
             >
               {roomStatusLoading ? (
@@ -1087,11 +1051,10 @@ export default function HostPage() {
                 </>
               )}
             </button>
-          </div>
         </div>
 
-        {/* Tabs */}
-        <div className="mx-auto max-w-6xl flex px-5 gap-5 -mb-px">
+        {/* Mobile tabs */}
+        <div className="mx-auto flex max-w-6xl gap-5 overflow-x-auto px-5 -mb-px lg:hidden">
           {(
             [
               { key: 'questions', icon: <MessageSquare className="w-4 h-4" />, label: '質問' },
@@ -2254,6 +2217,7 @@ export default function HostPage() {
           </div>
         )}
       </div>
+      </div>
 
       {/* CSV出力対象カード選択モーダル: タブをまたいで動作させたいので最上位で描画 */}
       <AnimatePresence>
@@ -2274,6 +2238,162 @@ export default function HostPage() {
 }
 
 /* ====== Subcomponents ====== */
+
+function HostSideNav({
+  room,
+  roomCode,
+  activeTab,
+  onSelectTab,
+  presenceCount,
+  qrUrl,
+  copied,
+  onCopyCode,
+  roomStatus,
+  roomStatusLoading,
+  onToggleRoomStatus,
+}: {
+  room: Room;
+  roomCode: string;
+  activeTab: HostTab;
+  onSelectTab: (tab: HostTab) => void;
+  presenceCount: number;
+  qrUrl: string;
+  copied: boolean;
+  onCopyCode: () => void;
+  roomStatus: string;
+  roomStatusLoading: boolean;
+  onToggleRoomStatus: () => void;
+}) {
+  return (
+    <aside className="hidden h-screen w-72 shrink-0 border-r border-[#dce8ff] bg-[#f3f7ff] lg:sticky lg:top-0 lg:flex lg:flex-col">
+      <div className="border-b border-[#dce8ff] px-4 py-4">
+        <Link href="/admin" className="flex items-center gap-2.5 transition-opacity hover:opacity-80">
+          <Image src={LOGO_URL} alt="ざせきくん" width={32} height={32} className="rounded-lg" />
+          <span className="truncate text-sm font-bold text-[#323232]">ざせきくん</span>
+        </Link>
+      </div>
+
+      <div className="border-b border-[#dce8ff] px-4 py-4">
+        <div className="mb-3 flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white ring-1 ring-[#dce8ff]">
+            <Image src={LOGO_URL} alt="" width={24} height={24} className="rounded-md" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2 className="truncate text-sm font-bold leading-snug text-[#323232]">{room.title}</h2>
+            <button
+              type="button"
+              onClick={onCopyCode}
+              className="mt-1 inline-flex items-center gap-1 font-mono text-xs font-bold tracking-wider text-[#595959] hover:text-[#2864f0]"
+              title="コードをコピー"
+            >
+              #{room.code}
+              {copied ? <Check className="h-3 w-3 text-[#00963c]" /> : <Copy className="h-3 w-3" />}
+            </button>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div className="rounded-lg border border-[#dce8ff] bg-white p-2">
+            <p className="font-bold text-[#8c8989]">参加者</p>
+            <p className="mt-1 inline-flex items-center gap-1 font-extrabold tabular-nums text-[#323232]">
+              <Users className="h-3.5 w-3.5 text-[#2864f0]" />
+              {presenceCount}人
+            </p>
+          </div>
+          <a
+            href={qrUrl || '#'}
+            download={`qr-${roomCode}.png`}
+            className={`rounded-lg border border-[#dce8ff] bg-white p-2 transition-colors hover:border-[#aac8ff] ${
+              qrUrl ? '' : 'pointer-events-none opacity-50'
+            }`}
+          >
+            <p className="font-bold text-[#8c8989]">参加QR</p>
+            <p className="mt-1 inline-flex items-center gap-1 font-extrabold text-[#323232]">
+              <QrCode className="h-3.5 w-3.5 text-[#2864f0]" />
+              保存
+            </p>
+          </a>
+        </div>
+        <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
+          <a
+            href={`/rooms/${roomCode}/present`}
+            target={`zasekikun-present-${roomCode}`}
+            rel="noopener noreferrer"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#dce8ff] bg-white text-sm font-bold text-[#2864f0] transition-colors hover:border-[#aac8ff] hover:bg-[#ebf3ff]"
+            title="スクリーン画面を開く"
+          >
+            <Monitor className="h-4 w-4" />
+            スクリーン
+          </a>
+          <button
+            type="button"
+            disabled={roomStatusLoading}
+            onClick={onToggleRoomStatus}
+            className={`inline-flex h-10 min-w-[4.75rem] items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-bold transition-colors disabled:pointer-events-none disabled:opacity-60 ${
+              roomStatus === 'active'
+                ? 'bg-[#dc1e32] text-white hover:bg-[#a51428]'
+                : 'bg-[#2864f0] text-white hover:bg-[#285ac8]'
+            }`}
+          >
+            {roomStatusLoading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : roomStatus === 'active' ? (
+              <>
+                <StopCircle className="h-3.5 w-3.5" />
+                終了
+              </>
+            ) : (
+              <>
+                <RotateCcw className="h-3.5 w-3.5" />
+                再開
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+        {HOST_NAV_ITEMS.map((item) => {
+          const Icon = item.icon;
+          const active = item.key === activeTab;
+          return (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => onSelectTab(item.key)}
+              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors ${
+                active ? 'bg-[#dce8ff] text-[#23418c]' : 'text-[#323232] hover:bg-[#dce8ff]/60'
+              }`}
+            >
+              <span
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                  active ? 'bg-white text-[#2864f0]' : 'bg-transparent text-[#2864f0]'
+                }`}
+              >
+                <Icon className="h-5 w-5" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-bold leading-none">{item.label}</span>
+                <span className={`mt-1 block truncate text-[11px] leading-none ${active ? 'text-[#595959]' : 'text-[#8c8989]'}`}>
+                  {item.description}
+                </span>
+              </span>
+            </button>
+          );
+        })}
+      </nav>
+
+      <div className="border-t border-[#dce8ff] p-4">
+        <Link
+          href="/admin"
+          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-[#dce8ff] bg-white text-sm font-bold text-[#595959] transition-colors hover:border-[#aac8ff] hover:text-[#2864f0]"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          管理画面へ
+        </Link>
+      </div>
+    </aside>
+  );
+}
 
 function PollTypeModal({
   onClose,
@@ -2831,16 +2951,16 @@ function PollResultCard({
 
   return (
     <div
-      className={`rounded-2xl bg-white ring-1 transition-all ${
+      className={`overflow-hidden rounded-lg border bg-white transition-all ${
         editing
-          ? 'ring-2 ring-emerald-400 shadow-sm shadow-emerald-100'
-          : `ring-slate-200 ${visual.cardRing} hover:shadow-sm`
+          ? 'border-[#2864f0] shadow-sm shadow-blue-100'
+          : `border-[#e9e7e7] hover:border-[#aac8ff] hover:shadow-sm`
       }`}
     >
-      <div className="p-4">
+      <div className="border-b border-[#e9e7e7] p-4">
         <div className="flex items-start gap-3">
           <span
-            className={`shrink-0 inline-flex h-11 w-11 items-center justify-center rounded-xl ring-1 ${visual.iconBg} ${visual.iconText} ${visual.iconRing}`}
+            className={`shrink-0 inline-flex h-11 w-11 items-center justify-center rounded-lg ring-1 ${visual.iconBg} ${visual.iconText} ${visual.iconRing}`}
             aria-hidden
           >
             <ModeIcon className="w-5 h-5" />
@@ -2904,7 +3024,7 @@ function PollResultCard({
       </div>
 
       {/* アクション行 */}
-      <div className="flex flex-wrap items-center gap-1.5 px-4 pb-3 -mt-1">
+      <div className="flex flex-wrap items-center gap-1.5 bg-[#f7f5f5] px-4 py-3">
         {poll.status !== 'active' ? (
           <button
             type="button"

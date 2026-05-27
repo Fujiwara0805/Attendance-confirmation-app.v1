@@ -230,12 +230,14 @@ export function useRealtimePolls(roomId: string | null) {
     };
   }, [roomId, upsertVote]);
 
-  const activePoll = polls.find((p) => p.status === 'active') || null;
+  const activePolls = polls.filter((p) => p.status === 'active');
+  const activePoll = activePolls[0] || null;
 
   return {
     polls,
     pollVotes,
     activePoll,
+    activePolls,
     loading,
     connected,
     optimisticDeletePoll,

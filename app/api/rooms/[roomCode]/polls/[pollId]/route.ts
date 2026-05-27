@@ -242,7 +242,8 @@ export async function PATCH(
     }
 
     let nextOptionsForStart: unknown | undefined;
-    // If activating, close any other active poll in this room
+    // If activating, reset this card's live run. Multiple active cards are allowed so
+    // presenters can show card 1 and card 2 on the live polling screen together.
     if (status === 'active') {
       const { data: currentPoll } = await supabase
         .from('polls')
@@ -310,11 +311,6 @@ export async function PATCH(
           );
         }
       }
-      await supabase
-        .from('polls')
-        .update({ status: 'closed' })
-        .eq('room_id', room.id)
-        .eq('status', 'active');
     }
 
     // 投影画面の「開始」ボタンで started_at を記録する。

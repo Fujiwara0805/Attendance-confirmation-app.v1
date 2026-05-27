@@ -137,11 +137,12 @@ export default function PresentPage() {
   }, [imagePreview]);
 
   const { questions, connected: qConnected } = useRealtimeQuestions(room?.id || null);
-  const { activePoll, pollVotes, connected: pConnected } = useRealtimePolls(room?.id || null);
+  const { activePolls, pollVotes, connected: pConnected } = useRealtimePolls(room?.id || null);
+  const activePollIds = activePolls.map((poll) => poll.id).join(',');
 
   useEffect(() => {
     setActiveQuizIndex(0);
-  }, [activePoll?.id]);
+  }, [activePollIds]);
 
   // タイマー再描画（0.5 秒間隔）
   useEffect(() => {
@@ -152,11 +153,11 @@ export default function PresentPage() {
   // 出題タイマーを開始ボタンを押した端末時刻で開始（present の「開始」ボタン）。
   // realtime UPDATE が他端末（参加者・他の投影）にも propagate する。
   const [startingTimer, setStartingTimer] = useState(false);
-  const startPollTimer = useCallback(async () => {
-    if (!activePoll || startingTimer) return;
+  const startPollTimer = useCallback(async (pollId: string) => {
+    if (!pollId || startingTimer) return;
     setStartingTimer(true);
     try {
-      await fetch(`/api/rooms/${roomCode}/polls/${activePoll.id}`, {
+      await fetch(`/api/rooms/${roomCode}/polls/${pollId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -170,7 +171,7 @@ export default function PresentPage() {
     } finally {
       setStartingTimer(false);
     }
-  }, [activePoll, roomCode, startingTimer]);
+  }, [roomCode, startingTimer]);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -356,10 +357,20 @@ export default function PresentPage() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className="w-full max-w-3xl"
+              className="w-full max-w-5xl"
             >
-              {activePoll ? (
-                (() => {
+              {activePolls.length > 0 ? (
+                <div className="w-full space-y-6">
+                  {activePolls.map((activePoll) => (
+                    <section
+                      key={activePoll.id}
+                      className={`${
+                        activePolls.length > 1
+                          ? 'rounded-xl bg-white/85 p-5 shadow-sm ring-1 ring-[#e9e7e7]'
+                          : ''
+                      }`}
+                    >
+                      {(() => {
                   const { meta, options } = extractPollPayload(activePoll.options);
                   const mode = getPollMode(meta.mode);
                   const votes = pollVotes[activePoll.id] || [];
@@ -475,7 +486,7 @@ export default function PresentPage() {
                             {timerNotStarted ? (
                               <button
                                 type="button"
-                                onClick={startPollTimer}
+                                onClick={() => startPollTimer(activePoll.id)}
                                 disabled={startingTimer}
                                 className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-extrabold text-white shadow-sm ring-1 ring-emerald-600 transition-colors hover:bg-emerald-700 disabled:opacity-60"
                               >
@@ -745,7 +756,10 @@ export default function PresentPage() {
 	                      )}
                     </div>
                   );
-                })()
+                      })()}
+                    </section>
+                  ))}
+                </div>
               ) : (
                 <div className="text-center py-20">
                   <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-indigo-50 to-blue-50 ring-1 ring-indigo-100 shadow-sm mx-auto mb-5 flex items-center justify-center">
