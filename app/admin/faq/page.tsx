@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
@@ -18,7 +18,7 @@ import {
   PieChart,
   Settings,
 } from 'lucide-react';
-import AdminShell from '../components/AdminShell';
+import AdminShell, { type AdminShellPlanInfo } from '../components/AdminShell';
 
 const supportSections = [
   {
@@ -107,11 +107,27 @@ const supportSections = [
 export default function AdminFAQPage() {
   const router = useRouter();
   const { data: session, status } = useSession();
+  const [planInfo, setPlanInfo] = useState<AdminShellPlanInfo | null>(null);
 
   useEffect(() => {
     if (status === 'loading') return;
     if (!session) router.push('/admin/login');
   }, [router, session, status]);
+
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    (async () => {
+      try {
+        const response = await fetch('/api/v2/subscription');
+        if (response.ok) {
+          const data = await response.json();
+          setPlanInfo(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch plan info:', error);
+      }
+    })();
+  }, [status]);
 
   if (status === 'loading' || !session) {
     return (
@@ -122,7 +138,7 @@ export default function AdminFAQPage() {
   }
 
   return (
-    <AdminShell activeSection="faq">
+    <AdminShell activeSection="faq" planInfo={planInfo}>
       <div className="border-b border-[#aac8ff] bg-[#ebf3ff]">
         <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-5 sm:px-6">
           <span className="flex h-9 w-9 items-center justify-center rounded-md border border-[#aac8ff] bg-[#dce8ff] text-[#2864f0]">

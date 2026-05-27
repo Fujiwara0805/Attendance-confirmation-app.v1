@@ -396,6 +396,8 @@ export default function HostPage() {
   const [roomStatusLoading, setRoomStatusLoading] = useState(false);
   const [pollStatusPendingId, setPollStatusPendingId] = useState<string | null>(null);
   const [pollDeletingId, setPollDeletingId] = useState<string | null>(null);
+  const [selectedPollIds, setSelectedPollIds] = useState<Set<string>>(new Set());
+  const [bulkStartPending, setBulkStartPending] = useState(false);
   const [moderationLoading, setModerationLoading] = useState(false);
   const [questionResetting, setQuestionResetting] = useState(false);
   const [exportLoadingType, setExportLoadingType] = useState<'questions' | 'polls' | null>(null);
@@ -918,6 +920,72 @@ export default function HostPage() {
       setPollStatusPendingId(null);
     }
   };
+
+  const handleTogglePollSelect = useCallback((pollId: string) => {
+    setSelectedPollIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(pollId)) {
+        next.delete(pollId);
+        return next;
+      }
+      const targetPoll = polls.find((p) => p.id === pollId);
+      if (!targetPoll) return prev;
+      const targetMode = getPollMode(extractPollPayload(targetPoll.options).meta.mode);
+      if (next.size > 0) {
+        const firstSelected = polls.find((p) => next.has(p.id));
+        if (firstSelected) {
+          const selectedMode = getPollMode(extractPollPayload(firstSelected.options).meta.mode);
+          if (selectedMode !== targetMode) {
+            window.alert('同じ形式のカードのみ複数選択できます。');
+            return prev;
+          }
+        }
+      }
+      if (next.size >= 3) {
+        window.alert('一度に開始できるのは最大3件までです。');
+        return prev;
+      }
+      next.add(pollId);
+      return next;
+    });
+  }, [polls]);
+
+  const clearPollSelection = useCallback(() => {
+    setSelectedPollIds(new Set());
+  }, []);
+
+  const handleBulkStartPolls = useCallback(async () => {
+    if (selectedPollIds.size === 0) return;
+    setBulkStartPending(true);
+    try {
+      const ids = Array.from(selectedPollIds);
+      await Promise.all(
+        ids.map(async (pollId) => {
+          const res = await fetch(`/api/rooms/${roomCode}/polls/${pollId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'active' }),
+          });
+          if (res.ok) {
+            const updatedPoll = (await res.json()) as Poll;
+            optimisticUpsertPoll(updatedPoll);
+          }
+        })
+      );
+      setExportData(null);
+      setSelectedPollIds(new Set());
+    } finally {
+      setBulkStartPending(false);
+    }
+  }, [selectedPollIds, roomCode, optimisticUpsertPoll]);
+
+  const selectedPollsInfo = useMemo(() => {
+    if (selectedPollIds.size === 0) return null;
+    const selected = polls.filter((p) => selectedPollIds.has(p.id));
+    if (selected.length === 0) return null;
+    const mode = getPollMode(extractPollPayload(selected[0].options).meta.mode);
+    return { count: selected.length, mode };
+  }, [selectedPollIds, polls]);
 
   const handleDeletePoll = async (pollId: string) => {
     setPollDeletingId(pollId);
@@ -1520,23 +1588,14 @@ export default function HostPage() {
         {tab === 'polls' && (
           <div className="space-y-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex w-full items-center gap-2 sm:max-w-2xl">
-                <div className="relative w-full">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8c8989]" />
-                  <input
-                    value={pollSearch}
-                    onChange={(e) => setPollSearch(e.target.value)}
-                    placeholder="投票タイトル・選択肢・形式で検索"
-                    className="h-9 w-full rounded-md border border-[#cccccc] bg-white pl-9 pr-3 text-sm text-[#323232] outline-none focus:border-[#2864f0] focus:ring-2 focus:ring-[#dce8ff]"
-                  />
-                </div>
-                <span
-                  className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md border border-[#9dd8b1] bg-white px-3 text-xs font-bold text-[#00963c]"
-                  title="カードをドラッグして並び替えできます"
-                >
-                  <GripVertical className="h-3.5 w-3.5" />
-                  並び替え
-                </span>
+              <div className="relative w-full max-w-2xl">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8c8989]" />
+                <input
+                  value={pollSearch}
+                  onChange={(e) => setPollSearch(e.target.value)}
+                  placeholder="投票タイトル・選択肢・形式で検索"
+                  className="h-9 w-full rounded-md border border-[#cccccc] bg-white pl-9 pr-3 text-sm text-[#323232] outline-none focus:border-[#2864f0] focus:ring-2 focus:ring-[#dce8ff]"
+                />
               </div>
               <div className="flex items-center gap-2">
                 {pollSearch.trim() && (
@@ -1557,6 +1616,40 @@ export default function HostPage() {
                 <p className="mt-1 text-xs leading-relaxed text-amber-800">
                   Proプランにアップグレードすると、ライブ投票カードを無制限に作成できます（1ページに最大{POLLS_PER_PAGE}件表示、超過分はページ送りで表示されます）。
                 </p>
+              </div>
+            )}
+
+            {selectedPollsInfo && (
+              <div className="flex flex-col gap-2 rounded-lg border border-[#9dd8b1] bg-[#eaf8ef] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="text-sm font-bold text-[#00963c]">
+                  <span className="tabular-nums">{selectedPollsInfo.count}</span> 件選択中
+                  <span className="ml-2 text-xs font-semibold text-[#1e7a35]">
+                    （{POLL_MODE_LABELS[selectedPollsInfo.mode]} / 最大3件・同じ形式のみ）
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={clearPollSelection}
+                    disabled={bulkStartPending}
+                    className="inline-flex h-9 items-center rounded-md border border-[#9dd8b1] bg-white px-3 text-xs font-bold text-[#00963c] hover:bg-white/80 disabled:opacity-60"
+                  >
+                    選択をクリア
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleBulkStartPolls}
+                    disabled={bulkStartPending}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-md bg-emerald-500 px-3 text-xs font-bold text-white shadow-sm hover:bg-emerald-600 disabled:opacity-60"
+                  >
+                    {bulkStartPending ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Play className="h-3.5 w-3.5" />
+                    )}
+                    一斉開始
+                  </button>
+                </div>
               </div>
             )}
 
@@ -1724,85 +1817,78 @@ export default function HostPage() {
                             </div>
                           </div>
 
-                          <textarea
-                            value={activeQuizQuestion.question}
-                            onChange={(e) => {
-                              const value = e.target.value;
-                              updateQuizQuestion(activeQuizQuestionIndex, (q) => ({ ...q, question: value }));
-                            }}
-                            placeholder="問題文を入力してください"
-                            className="min-h-[88px] w-full resize-y rounded-xl bg-white px-4 py-3 text-lg leading-relaxed font-medium ring-1 ring-slate-200 outline-none focus:ring-emerald-300"
-                            style={{ fontSize: '18px' }}
-                          />
-
-                          <div className="mt-3 rounded-xl bg-white p-3 ring-1 ring-slate-200">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <p className="text-xs font-semibold text-slate-500">問題画像</p>
-                              <p className="text-[11px] text-slate-400">
-                                推奨: 1600x900px（16:9）/ 10MB以内
-                              </p>
-                              <label
-                                className={`inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg bg-slate-50 px-3 text-xs font-bold text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100 ${
-                                  imageUploading[`${activeQuizQuestion.id}-question`]
-                                    ? 'pointer-events-none opacity-60'
-                                    : ''
-                                }`}
-                                title="問題文に画像をアップロード"
-                              >
-                                <input
-                                  type="file"
-                                  accept="image/*"
-                                  className="sr-only"
-                                  onChange={(e) => {
-                                    const file = e.target.files?.[0];
-                                    const key = `${activeQuizQuestion.id}-question`;
-                                    if (file) {
-                                      void uploadPollImage(
-                                        file,
-                                        (url) => {
-                                          updateQuizQuestion(activeQuizQuestionIndex, (q) => ({
-                                            ...q,
-                                            questionImageUrl: url,
-                                          }));
-                                        },
-                                        key
-                                      );
-                                    }
-                                    e.target.value = '';
-                                  }}
-                                />
-                                {imageUploading[`${activeQuizQuestion.id}-question`] ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <ImageIcon className="h-4 w-4" />
-                                )}
-                                アップロード
-                              </label>
-                            </div>
-                            {activeQuizQuestion.questionImageUrl && (
-                              <div className="relative mt-3 overflow-hidden rounded-xl ring-1 ring-slate-200">
-                                <img
-                                  src={activeQuizQuestion.questionImageUrl}
-                                  alt={`問題 ${activeQuizQuestion.questionNumber} の画像`}
-                                  className="max-h-72 w-full object-contain bg-slate-50"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    updateQuizQuestion(activeQuizQuestionIndex, (q) => ({
-                                      ...q,
-                                      questionImageUrl: '',
-                                    }))
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+                            <textarea
+                              value={activeQuizQuestion.question}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                updateQuizQuestion(activeQuizQuestionIndex, (q) => ({ ...q, question: value }));
+                              }}
+                              placeholder="問題文を入力してください"
+                              className="min-h-[88px] w-full resize-y rounded-xl bg-white px-4 py-3 text-lg leading-relaxed font-medium ring-1 ring-slate-200 outline-none focus:ring-emerald-300 sm:flex-1"
+                              style={{ fontSize: '18px' }}
+                            />
+                            <label
+                              className={`inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg bg-slate-50 px-3 text-xs font-bold text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100 sm:self-start ${
+                                imageUploading[`${activeQuizQuestion.id}-question`]
+                                  ? 'pointer-events-none opacity-60'
+                                  : ''
+                              }`}
+                              title="問題文に画像をアップロード（推奨: 1600x900px / 10MB以内）"
+                            >
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="sr-only"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  const key = `${activeQuizQuestion.id}-question`;
+                                  if (file) {
+                                    void uploadPollImage(
+                                      file,
+                                      (url) => {
+                                        updateQuizQuestion(activeQuizQuestionIndex, (q) => ({
+                                          ...q,
+                                          questionImageUrl: url,
+                                        }));
+                                      },
+                                      key
+                                    );
                                   }
-                                  title="画像を削除"
-                                  aria-label="画像を削除"
-                                  className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-rose-500 text-white ring-2 ring-white hover:bg-rose-600"
-                                >
-                                  <X className="h-4 w-4" />
-                                </button>
-                              </div>
-                            )}
+                                  e.target.value = '';
+                                }}
+                              />
+                              {imageUploading[`${activeQuizQuestion.id}-question`] ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <ImageIcon className="h-4 w-4" />
+                              )}
+                              アップロード
+                            </label>
                           </div>
+                          {activeQuizQuestion.questionImageUrl && (
+                            <div className="relative mt-3 overflow-hidden rounded-xl ring-1 ring-slate-200">
+                              <img
+                                src={activeQuizQuestion.questionImageUrl}
+                                alt={`問題 ${activeQuizQuestion.questionNumber} の画像`}
+                                className="max-h-72 w-full object-contain bg-slate-50"
+                              />
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  updateQuizQuestion(activeQuizQuestionIndex, (q) => ({
+                                    ...q,
+                                    questionImageUrl: '',
+                                  }))
+                                }
+                                title="画像を削除"
+                                aria-label="画像を削除"
+                                className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-rose-500 text-white ring-2 ring-white hover:bg-rose-600"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            </div>
+                          )}
 
                           <div className="mt-3">
                             <label className="text-xs sm:text-sm text-slate-600">
@@ -2231,23 +2317,6 @@ export default function HostPage() {
                           }}
                           className={`transition-opacity ${draggingPollId === poll.id ? 'opacity-50' : 'opacity-100'}`}
                         >
-                          <div className="mb-1.5 flex justify-end">
-                            <button
-                              type="button"
-                              draggable
-                              onDragStart={(e) => {
-                                setDraggingPollId(poll.id);
-                                e.dataTransfer.effectAllowed = 'move';
-                                e.dataTransfer.setData('text/plain', poll.id);
-                              }}
-                              onDragEnd={() => setDraggingPollId(null)}
-                              className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-[#e9e7e7] bg-white text-[#595959] cursor-grab transition-colors hover:border-[#9dd8b1] hover:text-[#00963c] active:cursor-grabbing"
-                              title="ドラッグして並び替え"
-                              aria-label="ドラッグして並び替え"
-                            >
-                              <GripVertical className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
                           <PollResultCard
                             poll={poll}
                             votes={pollVotes[poll.id] || []}
@@ -2260,6 +2329,14 @@ export default function HostPage() {
                             onEdit={() => handleEditPoll(poll)}
                             onReset={() => handleResetPoll(poll.id)}
                             resetting={pollResettingId === poll.id}
+                            onDragStart={(e) => {
+                              setDraggingPollId(poll.id);
+                              e.dataTransfer.effectAllowed = 'move';
+                              e.dataTransfer.setData('text/plain', poll.id);
+                            }}
+                            onDragEnd={() => setDraggingPollId(null)}
+                            selected={selectedPollIds.has(poll.id)}
+                            onToggleSelect={() => handleTogglePollSelect(poll.id)}
                           />
                         </div>
                       ))}
@@ -3297,6 +3374,10 @@ function PollResultCard({
   onEdit,
   onReset,
   resetting,
+  onDragStart,
+  onDragEnd,
+  selected,
+  onToggleSelect,
 }: {
   poll: Poll;
   votes: Array<{ option_index: number | null; value?: string | null; participant_id?: string }>;
@@ -3309,6 +3390,10 @@ function PollResultCard({
   onEdit: () => void;
   onReset: () => void;
   resetting: boolean;
+  onDragStart?: (e: React.DragEvent<HTMLButtonElement>) => void;
+  onDragEnd?: () => void;
+  selected?: boolean;
+  onToggleSelect?: () => void;
 }) {
   const { meta, options } = extractPollPayload(poll.options);
   const mode = getPollMode(meta.mode);
@@ -3333,11 +3418,29 @@ function PollResultCard({
       className={`overflow-hidden rounded-lg border bg-white transition-all ${
         editing
           ? 'border-[#2864f0] shadow-sm shadow-blue-100'
-          : `border-[#e9e7e7] hover:border-[#aac8ff] hover:shadow-sm`
+          : selected
+            ? 'border-[#00963c] shadow-sm shadow-emerald-100'
+            : 'border-[#e9e7e7] hover:border-[#aac8ff] hover:shadow-sm'
       }`}
     >
       <div className="border-b border-[#e9e7e7] p-4">
         <div className="flex items-start gap-3">
+          {onToggleSelect && (
+            <button
+              type="button"
+              onClick={onToggleSelect}
+              className={`shrink-0 mt-1 inline-flex h-5 w-5 items-center justify-center rounded border transition-colors ${
+                selected
+                  ? 'border-[#00963c] bg-[#00963c] text-white'
+                  : 'border-slate-300 bg-white hover:border-[#00963c]'
+              }`}
+              title={selected ? '選択を解除' : 'カードを選択（同じ形式で最大3件まで）'}
+              aria-label={selected ? '選択を解除' : 'カードを選択'}
+              aria-pressed={selected}
+            >
+              {selected && <Check className="h-3 w-3" />}
+            </button>
+          )}
           <span
             className={`shrink-0 inline-flex h-11 w-11 items-center justify-center rounded-lg ring-1 ${visual.iconBg} ${visual.iconText} ${visual.iconRing}`}
             aria-hidden
@@ -3365,6 +3468,20 @@ function PollResultCard({
                 <span className="inline-flex items-center rounded-full bg-emerald-600 px-2 py-0.5 font-bold text-white">
                   編集中
                 </span>
+              )}
+              {onDragStart && (
+                <button
+                  type="button"
+                  draggable
+                  onDragStart={onDragStart}
+                  onDragEnd={onDragEnd}
+                  className="ml-auto inline-flex flex-col items-center justify-center rounded-md border border-[#e9e7e7] bg-white px-1.5 py-0.5 text-[#595959] cursor-grab transition-colors hover:border-[#9dd8b1] hover:text-[#00963c] active:cursor-grabbing"
+                  title="ドラッグして並び替え"
+                  aria-label="ドラッグして並び替え"
+                >
+                  <GripVertical className="h-3.5 w-3.5" />
+                  <span className="text-[9px] font-bold leading-none mt-0.5">掴んで動かす</span>
+                </button>
               )}
             </div>
             <h3 className="mt-1.5 text-sm sm:text-base font-bold text-slate-900 leading-snug break-words line-clamp-2">
