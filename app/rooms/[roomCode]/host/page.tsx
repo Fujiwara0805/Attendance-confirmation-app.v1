@@ -35,6 +35,8 @@ import {
   Image as ImageIcon,
   ChevronLeft,
   ChevronRight,
+  PanelLeftClose,
+  PanelLeftOpen,
   Pencil,
   BadgeCheck,
   Play,
@@ -68,6 +70,7 @@ import {
 
 const LOGO_URL =
   'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_200/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png';
+const HOST_SIDEBAR_COLLAPSED_KEY = 'host-sidebar-collapsed';
 
 interface LinkedCourseSummary {
   code: string;
@@ -205,6 +208,7 @@ export default function HostPage() {
   const [tab, setTab] = useState<HostTab>('questions');
   const [copied, setCopied] = useState(false);
   const [qrUrl, setQrUrl] = useState('');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Question filters
   const [sortMode, setSortMode] = useState<SortMode>('popular');
@@ -235,7 +239,7 @@ export default function HostPage() {
     Array.from({ length: 50 }, () => '')
   );
   const [creatingPoll, setCreatingPoll] = useState(false);
-  // 出題形式の編集・更新（null=新規作成 / pollId=編集中）
+  // クイズ形式の編集・更新（null=新規作成 / pollId=編集中）
   const [editingPollId, setEditingPollId] = useState<string | null>(null);
 
   // Export
@@ -276,6 +280,26 @@ export default function HostPage() {
       const next = { ...prev };
       if (action === null) delete next[id];
       else next[id] = action;
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    try {
+      setSidebarCollapsed(localStorage.getItem(HOST_SIDEBAR_COLLAPSED_KEY) === '1');
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const toggleSidebarCollapsed = useCallback(() => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(HOST_SIDEBAR_COLLAPSED_KEY, next ? '1' : '0');
+      } catch {
+        // ignore
+      }
       return next;
     });
   }, []);
@@ -674,7 +698,7 @@ export default function HostPage() {
         if (
           hadVotes &&
           !window.confirm(
-            'この出題には既に回答があります。更新すると既存の回答はリセットされます。よろしいですか？'
+            'このクイズには既に回答があります。更新すると既存の回答はリセットされます。よろしいですか？'
           )
         ) {
           setCreatingPoll(false);
@@ -753,13 +777,13 @@ export default function HostPage() {
     });
   }, []);
 
-  // 同じ出題形式を再利用するためのリセット（票削除＋タイマー初期化＋draft 化）
+  // 同じクイズ形式を再利用するためのリセット（票削除＋タイマー初期化＋draft 化）
   const [pollResettingId, setPollResettingId] = useState<string | null>(null);
   const handleResetPoll = useCallback(
     async (pollId: string) => {
       if (
         !window.confirm(
-          'この出題のすべての回答・タイマーをリセットし、下書きに戻します。よろしいですか？'
+          'このクイズのすべての回答・タイマーをリセットし、下書きに戻します。よろしいですか？'
         )
       )
         return;
@@ -781,7 +805,7 @@ export default function HostPage() {
     [optimisticUpsertPoll, roomCode]
   );
 
-  // 通常投票・出題形式・ランキング形式を編集フォームに読み込む（編集・更新）
+  // 通常投票・クイズ形式・ランキング形式を編集フォームに読み込む（編集・更新）
   const handleEditPoll = useCallback((poll: Poll) => {
     const { meta, options } = extractPollPayload(poll.options);
     const mode = getPollMode(meta.mode);
@@ -1013,6 +1037,8 @@ export default function HostPage() {
         roomStatus={room.status}
         roomStatusLoading={roomStatusLoading}
         onToggleRoomStatus={handleToggleRoomStatus}
+        collapsed={sidebarCollapsed}
+        onToggleCollapsed={toggleSidebarCollapsed}
       />
       <div className="flex min-w-0 flex-1 flex-col">
       {/* Header */}
@@ -1241,7 +1267,7 @@ export default function HostPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-2xl font-extrabold tracking-tight text-slate-900">ライブ投票</h2>
-                <p className="mt-0.5 text-xs text-slate-500">通常投票 / 出題形式 / ランキング形式</p>
+                <p className="mt-0.5 text-xs text-slate-500">通常投票 / クイズ形式 / ランキング形式</p>
               </div>
               {room.status === 'active' && (
                 <button
@@ -1281,7 +1307,7 @@ export default function HostPage() {
               </h3>
               <ul className="space-y-1.5 text-xs sm:text-sm leading-relaxed text-emerald-800">
                 <li>• <strong>通常投票</strong>：選択肢から回答してもらう基本の投票です。複数選択にも対応します。</li>
-                <li>• <strong>出題形式</strong>：複数の問題をまとめて出題し、正解を設定して回答結果を確認できます。</li>
+                <li>• <strong>クイズ形式</strong>：複数の問題をまとめて出題し、正解を設定して回答結果を確認できます。</li>
                 <li>• <strong>ランキング形式</strong>：候補を順位で回答してもらい、順位ごとの重みでランキングを集計します。</li>
                 <li>• <strong>リセット</strong>：直近の回答結果をリセットして同じカードを繰り返し利用できます。リセットした回答結果もカードに蓄積され、CSVデータとして出力できます。</li>
                 <li>• 投票時間を設定した場合は、スクリーン画面の「開始」ボタンを押すと投票がスタートし、設定した時間でカウントダウンします。</li>
@@ -1308,12 +1334,12 @@ export default function HostPage() {
                           ? pollMode === 'standard'
                             ? '通常投票を編集'
                             : pollMode === 'quiz'
-                            ? '出題形式を編集'
+                            ? 'クイズ形式を編集'
                             : 'ランキング形式を編集'
                           : pollMode === 'standard'
                           ? '通常投票を作成'
                           : pollMode === 'quiz'
-                          ? '出題形式を作成'
+                          ? 'クイズ形式を作成'
                           : 'ランキング形式を作成'}
                       </h3>
                       {editingPollId && selectedEditingPoll && (
@@ -1337,7 +1363,7 @@ export default function HostPage() {
                       type="text"
                       value={pollQuestion}
                       onChange={(e) => setPollQuestion(e.target.value)}
-                      placeholder={pollMode === 'quiz' ? '出題タイトル（例: 確認問題）' : pollMode === 'ranking' ? '投票タイトル（例: ランキングテーマを選んでください）' : '質問文（例: 今日の授業の理解度は？）'}
+                      placeholder={pollMode === 'quiz' ? 'クイズタイトル（例: 確認問題）' : pollMode === 'ranking' ? '投票タイトル（例: ランキングテーマを選んでください）' : '質問文（例: 今日の授業の理解度は？）'}
                       className={`h-11 rounded-xl bg-slate-50 px-3 ring-1 ring-slate-200 focus:bg-white focus:ring-emerald-300 outline-none transition-colors text-sm ${
                         pollMode === 'quiz' ? 'min-w-[180px] flex-1' : 'w-full'
                       }`}
@@ -1550,7 +1576,7 @@ export default function HostPage() {
                             </p>
                           </div>
                           <p className="mt-1 text-[11px] text-slate-400">
-                            任意: ✓で正解を設定（未設定でも出題できます）
+                            任意: ✓で正解を設定（未設定でもクイズにできます）
                           </p>
                           <div className="mt-1.5 space-y-2">
                             {activeQuizQuestion.options.map((opt, optionIndex) => {
@@ -2251,6 +2277,8 @@ function HostSideNav({
   roomStatus,
   roomStatusLoading,
   onToggleRoomStatus,
+  collapsed,
+  onToggleCollapsed,
 }: {
   room: Room;
   roomCode: string;
@@ -2263,16 +2291,53 @@ function HostSideNav({
   roomStatus: string;
   roomStatusLoading: boolean;
   onToggleRoomStatus: () => void;
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
 }) {
   return (
-    <aside className="hidden h-screen w-72 shrink-0 border-r border-[#dce8ff] bg-[#f3f7ff] lg:sticky lg:top-0 lg:flex lg:flex-col">
-      <div className="border-b border-[#dce8ff] px-4 py-4">
-        <Link href="/admin" className="flex items-center gap-2.5 transition-opacity hover:opacity-80">
-          <Image src={LOGO_URL} alt="ざせきくん" width={32} height={32} className="rounded-lg" />
-          <span className="truncate text-sm font-bold text-[#323232]">ざせきくん</span>
-        </Link>
+    <aside
+      className={`hidden h-screen shrink-0 border-r border-[#dce8ff] bg-[#f3f7ff] transition-[width] duration-200 ease-out lg:sticky lg:top-0 lg:flex lg:flex-col ${
+        collapsed ? 'w-16' : 'w-72'
+      }`}
+    >
+      <div className={`border-b border-[#dce8ff] ${collapsed ? 'px-2 py-3' : 'px-4 py-4'}`}>
+        <div className={`flex items-center ${collapsed ? 'justify-center' : 'justify-between gap-2'}`}>
+          <Link
+            href="/admin"
+            className={`flex min-w-0 items-center transition-opacity hover:opacity-80 ${
+              collapsed ? 'justify-center' : 'gap-2.5'
+            }`}
+            title="管理画面へ"
+          >
+            <Image src={LOGO_URL} alt="ざせきくん" width={collapsed ? 28 : 32} height={collapsed ? 28 : 32} className="rounded-lg" />
+            {!collapsed && <span className="truncate text-sm font-bold text-[#323232]">ざせきくん</span>}
+          </Link>
+          {!collapsed && (
+            <button
+              type="button"
+              onClick={onToggleCollapsed}
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[#2864f0] transition-colors hover:bg-[#dce8ff]"
+              aria-label="サイドバーを閉じる"
+              title="サイドバーを閉じる"
+            >
+              <PanelLeftClose className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+        {collapsed && (
+          <button
+            type="button"
+            onClick={onToggleCollapsed}
+            className="mt-2 inline-flex h-8 w-full items-center justify-center rounded-md text-[#2864f0] transition-colors hover:bg-[#dce8ff]"
+            aria-label="サイドバーを開く"
+            title="サイドバーを開く"
+          >
+            <PanelLeftOpen className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
+      {!collapsed && (
       <div className="border-b border-[#dce8ff] px-4 py-4">
         <div className="mb-3 flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white ring-1 ring-[#dce8ff]">
@@ -2313,43 +2378,55 @@ function HostSideNav({
             </p>
           </a>
         </div>
-        <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
+        <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
           <a
             href={`/rooms/${roomCode}/present`}
             target={`zasekikun-present-${roomCode}`}
             rel="noopener noreferrer"
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#dce8ff] bg-white text-sm font-bold text-[#2864f0] transition-colors hover:border-[#aac8ff] hover:bg-[#ebf3ff]"
+            className="rounded-lg border border-[#dce8ff] bg-white p-2 transition-colors hover:border-[#aac8ff] hover:bg-[#ebf3ff]"
             title="スクリーン画面を開く"
           >
-            <Monitor className="h-4 w-4" />
-            スクリーン
+            <p className="font-bold text-[#8c8989]">スクリーン</p>
+            <p className="mt-1 inline-flex items-center gap-1 font-extrabold text-[#323232]">
+              <Monitor className="h-3.5 w-3.5 text-[#2864f0]" />
+              開く
+            </p>
           </a>
           <button
             type="button"
             disabled={roomStatusLoading}
             onClick={onToggleRoomStatus}
-            className={`inline-flex h-10 min-w-[4.75rem] items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-bold transition-colors disabled:pointer-events-none disabled:opacity-60 ${
+            className={`rounded-lg p-2 text-left transition-colors disabled:pointer-events-none disabled:opacity-60 ${
               roomStatus === 'active'
-                ? 'bg-[#dc1e32] text-white hover:bg-[#a51428]'
-                : 'bg-[#2864f0] text-white hover:bg-[#285ac8]'
+                ? 'border border-[#dc1e32] bg-white hover:bg-red-50'
+                : 'border border-[#dce8ff] bg-white hover:border-[#aac8ff] hover:bg-[#ebf3ff]'
             }`}
           >
             {roomStatusLoading ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <span className="flex h-full items-center justify-center">
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-[#2864f0]" />
+              </span>
             ) : roomStatus === 'active' ? (
               <>
-                <StopCircle className="h-3.5 w-3.5" />
-                終了
+                <p className="font-bold text-[#8c8989]">セッション</p>
+                <p className="mt-1 inline-flex items-center gap-1 font-extrabold text-[#dc1e32]">
+                  <StopCircle className="h-3.5 w-3.5" />
+                  終了
+                </p>
               </>
             ) : (
               <>
-                <RotateCcw className="h-3.5 w-3.5" />
-                再開
+                <p className="font-bold text-[#8c8989]">セッション</p>
+                <p className="mt-1 inline-flex items-center gap-1 font-extrabold text-[#2864f0]">
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  再開
+                </p>
               </>
             )}
           </button>
         </div>
       </div>
+      )}
 
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
         {HOST_NAV_ITEMS.map((item) => {
@@ -2360,7 +2437,11 @@ function HostSideNav({
               key={item.key}
               type="button"
               onClick={() => onSelectTab(item.key)}
-              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors ${
+              title={collapsed ? item.label : undefined}
+              aria-label={item.label}
+              className={`flex w-full items-center rounded-lg text-left transition-colors ${
+                collapsed ? 'justify-center px-2 py-2' : 'gap-3 px-3 py-2.5'
+              } ${
                 active ? 'bg-[#dce8ff] text-[#23418c]' : 'text-[#323232] hover:bg-[#dce8ff]/60'
               }`}
             >
@@ -2371,12 +2452,12 @@ function HostSideNav({
               >
                 <Icon className="h-5 w-5" />
               </span>
-              <span className="min-w-0 flex-1">
+              {!collapsed && <span className="min-w-0 flex-1">
                 <span className="block text-sm font-bold leading-none">{item.label}</span>
                 <span className={`mt-1 block truncate text-[11px] leading-none ${active ? 'text-[#595959]' : 'text-[#8c8989]'}`}>
                   {item.description}
                 </span>
-              </span>
+              </span>}
             </button>
           );
         })}
@@ -2385,10 +2466,14 @@ function HostSideNav({
       <div className="border-t border-[#dce8ff] p-4">
         <Link
           href="/admin"
-          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-[#dce8ff] bg-white text-sm font-bold text-[#595959] transition-colors hover:border-[#aac8ff] hover:text-[#2864f0]"
+          className={`inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-[#dce8ff] bg-white text-sm font-bold text-[#595959] transition-colors hover:border-[#aac8ff] hover:text-[#2864f0] ${
+            collapsed ? 'px-0' : ''
+          }`}
+          title="管理画面へ"
+          aria-label="管理画面へ"
         >
           <ArrowLeft className="h-4 w-4" />
-          管理画面へ
+          {!collapsed && '管理画面へ'}
         </Link>
       </div>
     </aside>
@@ -2416,7 +2501,7 @@ function PollTypeModal({
     },
     {
       mode: 'quiz',
-      title: '出題形式',
+      title: 'クイズ形式',
       desc: '1つの投票内に1-1、1-2、1-3のような複数問題を作成します。',
       icon: <BookOpen className="w-5 h-5" />,
     },

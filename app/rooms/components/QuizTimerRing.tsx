@@ -9,7 +9,7 @@ interface QuizTimerRingProps {
 }
 
 /**
- * 出題形式の解答時間カウントダウンリング。残り時間が減ると amber→rose に変化。
+ * クイズ形式の解答時間カウントダウンリング。残り時間が減ると amber→rose に変化。
  */
 export default function QuizTimerRing({ remaining, total, size = 44 }: QuizTimerRingProps) {
   const safeTotal = Math.max(total, 1);

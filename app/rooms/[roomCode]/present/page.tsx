@@ -435,7 +435,7 @@ export default function PresentPage() {
                       <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
                         <h2 className="min-w-0 flex-1 text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-gray-800 leading-tight">{activePoll.question}</h2>
                         {requiresManualStart && (
-                          /* タイマー＆コンパクトページャー＆開始ボタンを出題タイトルと同じ行の右端に */
+                          /* タイマー＆コンパクトページャー＆開始ボタンをタイトルと同じ行の右端に */
                           <div
                             className={`ml-auto inline-flex flex-wrap items-center gap-2 rounded-xl ${
                               quizAnswering || rankingAnswering || standardAnswering

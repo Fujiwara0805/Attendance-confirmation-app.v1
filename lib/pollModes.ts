@@ -58,7 +58,7 @@ type PollMetaEntry = PollMeta & { __pollMeta: true };
 
 export const POLL_MODE_LABELS: Record<PollMode, string> = {
   standard: '通常投票',
-  quiz: '出題形式',
+  quiz: 'クイズ形式',
   ranking: 'ランキング形式',
 };
 
@@ -242,7 +242,7 @@ export function getRankingLeaderboard(
 }
 
 /**
- * 参加者の選択 index 群から、出題形式の採点結果を算出。
+ * 参加者の選択 index 群から、クイズ形式の採点結果を算出。
  * 正解未設定の問題は採点対象外（gradable に含めない）。
  */
 export function getQuizScore(

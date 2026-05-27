@@ -52,7 +52,7 @@ export async function PATCH(
       reset?: boolean;
     };
 
-    // --- Reset path: 同じ出題形式を繰り返し使うためのリセット ---
+    // --- Reset path: 同じクイズ形式を繰り返し使うためのリセット ---
     // 投票結果は削除せず cleared_at=now() でアーカイブ（CSV では過去回として出力可）。
     if (body.reset) {
       const clearedAt = new Date().toISOString();
@@ -181,7 +181,7 @@ export async function PATCH(
       return NextResponse.json(data);
     }
 
-    // --- Content edit path (出題形式などの編集・更新) ---
+    // --- Content edit path (クイズ形式などの編集・更新) ---
     const isContentEdit =
       typeof body.question === 'string' ||
       Array.isArray(body.options) ||

@@ -6,6 +6,8 @@ import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   BarChart3,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   Loader2,
   Maximize,
@@ -25,6 +27,7 @@ import {
   extractPollPayload,
   getPollMode,
   getPollOptionLabel,
+  getQuizQuestions,
   getRankingDisplayMode,
 } from '@/lib/pollModes';
 import RankingResults from '../../components/RankingResults';
@@ -56,6 +59,7 @@ export default function StagePage() {
   const [isDesktop, setIsDesktop] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [startingPollId, setStartingPollId] = useState<string | null>(null);
 
   // MediaStream はモジュールスコープのシングルトン (captureStreamStore) で保持。
   // どんな再マウントが起きてもストリーム参照が消えないため、
@@ -209,6 +213,26 @@ export default function StagePage() {
     captureStreamStore.parkVideo();
     router.push(`/rooms/${roomCode}/present?view=poll`);
   };
+
+  const startPollTimer = useCallback(async (pollId: string) => {
+    if (startingPollId) return;
+    setStartingPollId(pollId);
+    try {
+      await fetch(`/api/rooms/${roomCode}/polls/${pollId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          startTimer: true,
+          clientStartedAt: new Date().toISOString(),
+          clientTimeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        }),
+      });
+    } catch (error) {
+      console.error('start timer failed', error);
+    } finally {
+      setStartingPollId(null);
+    }
+  }, [roomCode, startingPollId]);
 
   useEffect(() => {
     if (!qrModalOpen) return;
@@ -458,7 +482,13 @@ export default function StagePage() {
               <span className="text-xs font-semibold text-slate-400">{activePolls.length}</span>
             </div>
             <div className="max-h-[42vh] overflow-y-auto px-4 pb-4">
-              <StagePollDeck polls={activePolls} pollVotes={pollVotes} nowMs={nowMs} />
+              <StagePollDeck
+                polls={activePolls}
+                pollVotes={pollVotes}
+                nowMs={nowMs}
+                startingPollId={startingPollId}
+                onStartPoll={startPollTimer}
+              />
             </div>
           </section>
 
@@ -552,10 +582,14 @@ function StagePollDeck({
   polls,
   pollVotes,
   nowMs,
+  startingPollId,
+  onStartPoll,
 }: {
   polls: Poll[];
   pollVotes: Record<string, PollVote[]>;
   nowMs: number;
+  startingPollId: string | null;
+  onStartPoll: (pollId: string) => void;
 }) {
   if (polls.length === 0) {
     return (
@@ -577,6 +611,8 @@ function StagePollDeck({
           votes={pollVotes[poll.id] || []}
           nowMs={nowMs}
           label={`カード ${index + 1}`}
+          starting={startingPollId === poll.id}
+          onStart={() => onStartPoll(poll.id)}
         />
       ))}
     </div>
@@ -588,14 +624,21 @@ function StagePollCard({
   votes,
   nowMs,
   label,
+  starting,
+  onStart,
 }: {
   poll: Poll;
   votes: PollVote[];
   nowMs: number;
   label: string;
+  starting: boolean;
+  onStart: () => void;
 }) {
   const { meta, options } = extractPollPayload(poll.options);
   const mode = getPollMode(meta.mode);
+  const [activeQuizIndex, setActiveQuizIndex] = useState(0);
+  const quizQuestions = mode === 'quiz' ? getQuizQuestions(meta, options) : [];
+  const safeQuizIndex = Math.min(activeQuizIndex, Math.max(quizQuestions.length - 1, 0));
   const counts = options.map((_, i) => votes.filter((v) => v.option_index === i).length);
   const totalCast = counts.reduce((sum, count) => sum + count, 0);
   const totalRespondents =
@@ -609,10 +652,27 @@ function StagePollCard({
     timeLimit > 0 && timerStartMs
       ? Math.max(0, Math.ceil(timeLimit - (nowMs - timerStartMs) / 1000))
       : null;
-  const timerNotStarted = timeLimit > 0 && !timerStartMs;
-  const revealed = timeLimit === 0 || (timerRemaining !== null && timerRemaining <= 0);
+  const requiresManualStart = mode === 'standard' || timeLimit > 0;
+  const timerNotStarted = requiresManualStart && !timerStartMs;
+  const revealed =
+    mode === 'standard'
+      ? !!timerStartMs && (timeLimit === 0 || (timerRemaining !== null && timerRemaining <= 0))
+      : mode === 'quiz'
+      ? !timerNotStarted && (timeLimit === 0 || (timerRemaining !== null && timerRemaining <= 0))
+      : timeLimit === 0 || (!!timerStartMs && timerRemaining !== null && timerRemaining <= 0);
+  const answering = timeLimit > 0 && !!timerStartMs && !revealed;
   const fmtTime = (seconds: number) =>
     `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
+  const activeQuizQuestion = quizQuestions[safeQuizIndex];
+  const displayOptions =
+    mode === 'quiz' && activeQuizQuestion
+      ? options.slice(
+          activeQuizQuestion.optionStart,
+          activeQuizQuestion.optionStart + activeQuizQuestion.optionCount
+        )
+      : options;
+  const optionIndexOffset = mode === 'quiz' && activeQuizQuestion ? activeQuizQuestion.optionStart : 0;
+  const optionGridClass = displayOptions.length >= 5 ? 'grid-cols-3' : 'grid-cols-2';
 
   return (
     <article className="rounded-lg border border-[#e9e7e7] bg-white p-3 shadow-sm">
@@ -636,10 +696,62 @@ function StagePollCard({
         </span>
       </div>
 
-      {timeLimit > 0 && (
-        <div className="mb-2 inline-flex items-center gap-1.5 rounded-lg bg-[#f7f5f5] px-2 py-1 text-xs font-bold text-[#595959]">
-          <Clock className="h-3.5 w-3.5 text-[#2864f0]" />
-          {timerNotStarted ? `開始待ち ${fmtTime(timeLimit)}` : fmtTime(timerRemaining ?? 0)}
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        {mode === 'quiz' && quizQuestions.length > 0 && (
+          <div className="inline-flex items-center gap-1 rounded-lg bg-[#f7f5f5] p-1">
+            <button
+              type="button"
+              onClick={() => setActiveQuizIndex((index) => Math.max(0, index - 1))}
+              disabled={safeQuizIndex === 0}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-white text-[#2864f0] ring-1 ring-[#e1dcdc] disabled:opacity-40"
+              aria-label="前の問題"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </button>
+            <span className="px-1 text-xs font-bold tabular-nums text-[#595959]">
+              問題 {safeQuizIndex + 1}/{quizQuestions.length}
+            </span>
+            <button
+              type="button"
+              onClick={() => setActiveQuizIndex((index) => Math.min(quizQuestions.length - 1, index + 1))}
+              disabled={safeQuizIndex >= quizQuestions.length - 1}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-white text-[#2864f0] ring-1 ring-[#e1dcdc] disabled:opacity-40"
+              aria-label="次の問題"
+            >
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+        {timerNotStarted ? (
+          <button
+            type="button"
+            onClick={onStart}
+            disabled={starting}
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#2864f0] px-3 text-xs font-bold text-white transition-colors hover:bg-[#285ac8] disabled:opacity-60"
+          >
+            {starting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5 fill-current" />}
+            {timeLimit > 0 ? `開始（${fmtTime(timeLimit)}）` : '開始'}
+          </button>
+        ) : timeLimit > 0 ? (
+          <div className={`inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-bold ${
+            answering ? 'bg-[#e8f7ee] text-[#00963c]' : 'bg-[#f7f5f5] text-[#595959]'
+          }`}>
+            <Clock className="h-3.5 w-3.5 text-[#2864f0]" />
+            {answering ? fmtTime(timerRemaining ?? timeLimit) : '0:00'}
+          </div>
+        ) : requiresManualStart ? (
+          <div className="inline-flex items-center gap-1.5 rounded-lg bg-[#e8f7ee] px-2 py-1 text-xs font-bold text-[#00963c]">
+            開始済み
+          </div>
+        ) : null}
+      </div>
+
+      {mode === 'quiz' && activeQuizQuestion && (
+        <div className="mb-2 rounded-lg bg-[#f7f5f5] px-3 py-2">
+          <p className="text-[11px] font-bold text-[#2864f0]">問題 {activeQuizQuestion.questionNumber}</p>
+          <p className="mt-0.5 break-words text-xs font-bold leading-snug text-[#323232]">
+            {activeQuizQuestion.question}
+          </p>
         </div>
       )}
 
@@ -662,36 +774,43 @@ function StagePollCard({
         <div className="space-y-2">
           {!revealed && (
             <p className="rounded-lg bg-[#f7f5f5] px-3 py-3 text-center text-xs font-bold text-[#595959]">
-              回答受付中です。結果は投票時間後に表示します。
+              {timerNotStarted ? '開始ボタンを押すと回答受付が始まります。' : '回答受付中です。結果は投票時間後に表示します。'}
             </p>
           )}
-          {options.slice(0, mode === 'quiz' ? 4 : options.length).map((option, i) => {
-            const count = counts[i] || 0;
-            const pct = totalCast > 0 ? Math.round((count / totalCast) * 100) : 0;
-            return (
-              <div key={i} className="relative overflow-hidden rounded-lg border border-[#e9e7e7] bg-white">
-                {revealed && (
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${pct}%` }}
-                    transition={{ duration: 0.45 }}
-                    className="absolute inset-y-0 left-0 bg-[#dce8ff]"
-                    aria-hidden
-                  />
-                )}
-                <div className="relative flex items-center justify-between gap-2 px-3 py-2.5">
-                  <span className="min-w-0 truncate text-sm font-semibold text-[#323232]">
-                    {getPollOptionLabel(option, `選択肢 ${i + 1}`)}
-                  </span>
+          <div className={`grid gap-2 ${optionGridClass}`}>
+            {displayOptions.map((option, i) => {
+              const optionIndex = optionIndexOffset + i;
+              const count = counts[optionIndex] || 0;
+              const questionTotal =
+                mode === 'quiz'
+                  ? votes.filter((vote) => Number(vote.value) === safeQuizIndex + 1).length
+                  : totalCast;
+              const pct = questionTotal > 0 ? Math.round((count / questionTotal) * 100) : 0;
+              return (
+                <div key={i} className="relative min-h-[64px] overflow-hidden rounded-lg border border-[#e9e7e7] bg-white">
                   {revealed && (
-                    <span className="shrink-0 text-xs font-bold tabular-nums text-[#595959]">
-                      {count} ({pct}%)
-                    </span>
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${pct}%` }}
+                      transition={{ duration: 0.45 }}
+                      className="absolute inset-y-0 left-0 bg-[#dce8ff]"
+                      aria-hidden
+                    />
                   )}
+                  <div className="relative flex h-full flex-col justify-between gap-2 px-3 py-2.5">
+                    <span className="line-clamp-2 break-words text-xs font-semibold leading-snug text-[#323232]">
+                      {getPollOptionLabel(option, `選択肢 ${i + 1}`)}
+                    </span>
+                    {revealed && (
+                      <span className="self-end text-xs font-bold tabular-nums text-[#595959]">
+                        {count} ({pct}%)
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       )}
     </article>
