@@ -527,7 +527,6 @@ export default function AdminShell(props: AdminShellProps) {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.25 }}
-          className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8"
         >
           {props.children}
         </motion.div>

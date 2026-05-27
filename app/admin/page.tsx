@@ -148,10 +148,10 @@ function AdminPageHeader({
 }) {
   return (
     <div
-      className="-mx-4 -mt-6 mb-5 border-b px-4 py-3 sm:-mx-6 sm:-mt-8 sm:px-6"
+      className="border-b"
       style={{ backgroundColor: theme.headerBg, borderColor: theme.headerBorder }}
     >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
           <span
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border"
@@ -160,24 +160,12 @@ function AdminPageHeader({
             <Icon className="h-5 w-5" />
           </span>
           <div className="min-w-0">
-            <div className="flex min-w-0 items-center gap-2">
-              <h1
-                className="truncate text-lg font-bold leading-tight sm:text-xl"
-                style={{ color: theme.titleText }}
-              >
-                {title}
-              </h1>
-              {helpHref && (
-                <Link
-                  href={helpHref}
-                  className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-[#aac8ff] bg-white text-[#2864f0] transition-colors hover:bg-[#ebf3ff]"
-                  aria-label={`${title}のヘルプを開く`}
-                  title={`${title}のヘルプ`}
-                >
-                  <HelpCircle className="h-4 w-4" />
-                </Link>
-              )}
-            </div>
+            <h1
+              className="truncate text-lg font-bold leading-tight sm:text-xl"
+              style={{ color: theme.titleText }}
+            >
+              {title}
+            </h1>
             <p
               className="mt-0.5 truncate text-xs sm:text-sm"
               style={{ color: theme.descriptionText }}
@@ -186,7 +174,21 @@ function AdminPageHeader({
             </p>
           </div>
         </div>
-        {children && <div className="flex flex-wrap items-center gap-2 sm:justify-end">{children}</div>}
+        {(children || helpHref) && (
+          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+            {children}
+            {helpHref && (
+              <Link
+                href={helpHref}
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#aac8ff] bg-white text-[#2864f0] transition-colors hover:bg-[#ebf3ff]"
+                aria-label={`${title}のヘルプを開く`}
+                title={`${title}のヘルプ`}
+              >
+                <HelpCircle className="h-4 w-4" />
+              </Link>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1112,6 +1114,7 @@ function AdminPageInner() {
                 )}
             </AdminPageHeader>
 
+            <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
             <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div className="relative w-full max-w-2xl">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8c8989]" />
@@ -2022,6 +2025,7 @@ function AdminPageInner() {
               )}
               </>
             )}
+            </div>
           </TabsContent>
 
           {/* ===== ROOMS TAB ===== */}
@@ -2092,6 +2096,7 @@ function AdminPageInner() {
                 )}
             </AdminPageHeader>
 
+            <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
             <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div className="relative w-full max-w-2xl">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8c8989]" />
@@ -2416,6 +2421,7 @@ function AdminPageInner() {
               )}
               </>
             )}
+            </div>
           </TabsContent>
 
           {/* ===== ATTENDANCE DATA TAB ===== */}
@@ -2427,7 +2433,9 @@ function AdminPageInner() {
               theme={ADMIN_COLOR_THEMES.export}
               helpHref="/admin/faq#export"
             />
-            <AttendanceExport />
+            <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+              <AttendanceExport />
+            </div>
           </TabsContent>
         </Tabs>
 

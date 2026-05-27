@@ -123,21 +123,20 @@ export default function AdminFAQPage() {
 
   return (
     <AdminShell activeSection="faq">
-      <div className="space-y-6">
-        <div className="-mx-4 -mt-6 border-b border-[#aac8ff] bg-[#ebf3ff] px-4 py-5 sm:-mx-6 sm:-mt-8 sm:px-6">
-          <div className="flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-md border border-[#aac8ff] bg-[#dce8ff] text-[#2864f0]">
-              <HelpCircle className="h-5 w-5" />
-            </span>
-            <div>
-              <h1 className="text-lg font-bold text-[#323232] sm:text-xl">サポート</h1>
-              <p className="mt-0.5 text-xs text-[#595959] sm:text-sm">
-                管理画面とホスト管理画面の使い方を確認できます。
-              </p>
-            </div>
+      <div className="border-b border-[#aac8ff] bg-[#ebf3ff]">
+        <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-5 sm:px-6">
+          <span className="flex h-9 w-9 items-center justify-center rounded-md border border-[#aac8ff] bg-[#dce8ff] text-[#2864f0]">
+            <HelpCircle className="h-5 w-5" />
+          </span>
+          <div>
+            <h1 className="text-lg font-bold text-[#323232] sm:text-xl">サポート</h1>
+            <p className="mt-0.5 text-xs text-[#595959] sm:text-sm">
+              管理画面とホスト管理画面の使い方を確認できます。
+            </p>
           </div>
         </div>
-
+      </div>
+      <div className="mx-auto w-full max-w-6xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {supportSections.map((section) => {
             const Icon = section.icon;

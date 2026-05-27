@@ -63,43 +63,45 @@ const ACCOUNT_COLOR_THEME: AccountColorTheme = {
 function AccountPageHeader() {
   return (
     <div
-      className="-mx-4 -mt-6 mb-5 border-b px-4 py-3 sm:-mx-6 sm:-mt-8 sm:px-6"
+      className="border-b"
       style={{ backgroundColor: ACCOUNT_COLOR_THEME.headerBg, borderColor: ACCOUNT_COLOR_THEME.headerBorder }}
     >
-      <div className="flex min-w-0 items-center gap-3">
-        <span
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border"
-          style={{
-            backgroundColor: ACCOUNT_COLOR_THEME.iconBg,
-            borderColor: ACCOUNT_COLOR_THEME.iconBorder,
-            color: ACCOUNT_COLOR_THEME.accent,
-          }}
-        >
-          <SettingsIcon className="h-5 w-5" />
-        </span>
-        <div className="min-w-0">
-          <div className="flex min-w-0 items-center gap-2">
+      <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        <div className="flex min-w-0 items-center gap-3">
+          <span
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border"
+            style={{
+              backgroundColor: ACCOUNT_COLOR_THEME.iconBg,
+              borderColor: ACCOUNT_COLOR_THEME.iconBorder,
+              color: ACCOUNT_COLOR_THEME.accent,
+            }}
+          >
+            <SettingsIcon className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
             <h1
               className="truncate text-lg font-bold leading-tight sm:text-xl"
               style={{ color: ACCOUNT_COLOR_THEME.titleText }}
             >
               アカウント設定
             </h1>
-            <Link
-              href="/admin/faq#account"
-              className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-[#aac8ff] bg-white text-[#2864f0] transition-colors hover:bg-[#ebf3ff]"
-              aria-label="アカウント設定のヘルプを開く"
-              title="アカウント設定のヘルプ"
+            <p
+              className="mt-0.5 truncate text-xs sm:text-sm"
+              style={{ color: ACCOUNT_COLOR_THEME.descriptionText }}
             >
-              <HelpCircle className="h-4 w-4" />
-            </Link>
+              プラン・請求・アカウント情報を管理します。
+            </p>
           </div>
-          <p
-            className="mt-0.5 truncate text-xs sm:text-sm"
-            style={{ color: ACCOUNT_COLOR_THEME.descriptionText }}
+        </div>
+        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+          <Link
+            href="/admin/faq#account"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#aac8ff] bg-white text-[#2864f0] transition-colors hover:bg-[#ebf3ff]"
+            aria-label="アカウント設定のヘルプを開く"
+            title="アカウント設定のヘルプ"
           >
-            プラン・請求・アカウント情報を管理します。
-          </p>
+            <HelpCircle className="h-4 w-4" />
+          </Link>
         </div>
       </div>
     </div>
@@ -275,8 +277,8 @@ export default function AccountSettingsPage() {
 
   return (
     <AdminShell activeSection="account" planInfo={planInfo}>
-      <div className="space-y-6">
-        <AccountPageHeader />
+      <AccountPageHeader />
+      <div className="mx-auto w-full max-w-6xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
 
         {/* Account info + Plan info (2 separate cards, side by side) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

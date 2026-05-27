@@ -200,7 +200,7 @@ type HostColorTheme = {
 const HOST_COLOR_THEMES: Record<HostTab, HostColorTheme> = {
   questions: {
     headerBg: '#eaf8ef',
-    headerBorder: '#00963c',
+    headerBorder: '#9dd8b1',
     iconBg: '#ffffff',
     iconBorder: '#00963c',
     accent: '#00963c',
@@ -213,7 +213,7 @@ const HOST_COLOR_THEMES: Record<HostTab, HostColorTheme> = {
   },
   polls: {
     headerBg: '#eaf8ef',
-    headerBorder: '#00963c',
+    headerBorder: '#9dd8b1',
     iconBg: '#ffffff',
     iconBorder: '#00963c',
     accent: '#00963c',
@@ -226,7 +226,7 @@ const HOST_COLOR_THEMES: Record<HostTab, HostColorTheme> = {
   },
   summary: {
     headerBg: '#eaf8ef',
-    headerBorder: '#00963c',
+    headerBorder: '#9dd8b1',
     iconBg: '#ffffff',
     iconBorder: '#00963c',
     accent: '#00963c',
@@ -239,7 +239,7 @@ const HOST_COLOR_THEMES: Record<HostTab, HostColorTheme> = {
   },
   integration: {
     headerBg: '#eaf8ef',
-    headerBorder: '#00963c',
+    headerBorder: '#9dd8b1',
     iconBg: '#ffffff',
     iconBorder: '#00963c',
     accent: '#00963c',
@@ -252,7 +252,7 @@ const HOST_COLOR_THEMES: Record<HostTab, HostColorTheme> = {
   },
   export: {
     headerBg: '#eaf8ef',
-    headerBorder: '#00963c',
+    headerBorder: '#9dd8b1',
     iconBg: '#ffffff',
     iconBorder: '#00963c',
     accent: '#00963c',
@@ -270,14 +270,12 @@ function HostPageHeader({
   description,
   icon: Icon,
   theme = HOST_COLOR_THEMES.questions,
-  helpHref,
   children,
 }: {
   title: string;
   description: string;
   icon: ComponentType<{ className?: string }>;
   theme?: HostColorTheme;
-  helpHref?: string;
   children?: ReactNode;
 }) {
   return (
@@ -294,24 +292,12 @@ function HostPageHeader({
             <Icon className="h-5 w-5" />
           </span>
           <div className="min-w-0">
-            <div className="flex min-w-0 items-center gap-2">
-              <h1
-                className="truncate text-lg font-bold leading-tight sm:text-xl"
-                style={{ color: theme.titleText }}
-              >
-                {title}
-              </h1>
-              {helpHref && (
-                <Link
-                  href={helpHref}
-                  className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-[#00963c] bg-white text-[#00963c] transition-colors hover:bg-[#eaf8ef]"
-                  aria-label={`${title}のヘルプを開く`}
-                  title={`${title}のヘルプ`}
-                >
-                  <HelpCircle className="h-4 w-4" />
-                </Link>
-              )}
-            </div>
+            <h1
+              className="truncate text-lg font-bold leading-tight sm:text-xl"
+              style={{ color: theme.titleText }}
+            >
+              {title}
+            </h1>
             <p
               className="mt-0.5 truncate text-xs sm:text-sm"
               style={{ color: theme.descriptionText }}
@@ -1295,7 +1281,6 @@ export default function HostPage() {
           description={`${room.title} / ${activeHostItem.description}`}
           icon={activeHostItem.icon}
           theme={activeHostTheme}
-          helpHref={`/admin/faq#host-${activeHostItem.key}`}
         >
             {tab === 'polls' && room.status === 'active' && (
               <button
@@ -1309,6 +1294,14 @@ export default function HostPage() {
                 新規作成
               </button>
             )}
+            <Link
+              href={`/admin/faq#host-${activeHostItem.key}`}
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#9dd8b1] bg-white text-[#00963c] transition-colors hover:bg-[#eaf8ef]"
+              aria-label={`${activeHostItem.label}のヘルプを開く`}
+              title={`${activeHostItem.label}のヘルプ`}
+            >
+              <HelpCircle className="h-4 w-4" />
+            </Link>
             <a
               href={`/rooms/${roomCode}/present`}
               target={`zasekikun-present-${roomCode}`}
@@ -1414,11 +1407,7 @@ export default function HostPage() {
                   className={`inline-flex items-center justify-center h-5 w-5 rounded-full bg-white shadow transform transition-transform ${
                     room.moderation_enabled ? 'translate-x-6' : 'translate-x-1'
                   }`}
-                >
-                  {moderationLoading && (
-                    <Loader2 className="w-3 h-3 animate-spin text-slate-400" />
-                  )}
-                </span>
+                />
               </button>
             </div>
             {room.moderation_enabled && counts.pending > 0 && (
@@ -1531,14 +1520,23 @@ export default function HostPage() {
         {tab === 'polls' && (
           <div className="space-y-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="relative w-full max-w-2xl">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8c8989]" />
-                <input
-                  value={pollSearch}
-                  onChange={(e) => setPollSearch(e.target.value)}
-                  placeholder="投票タイトル・選択肢・形式で検索"
-                  className="h-9 w-full rounded-md border border-[#cccccc] bg-white pl-9 pr-3 text-sm text-[#323232] outline-none focus:border-[#2864f0] focus:ring-2 focus:ring-[#dce8ff]"
-                />
+              <div className="flex w-full items-center gap-2 sm:max-w-2xl">
+                <div className="relative w-full">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8c8989]" />
+                  <input
+                    value={pollSearch}
+                    onChange={(e) => setPollSearch(e.target.value)}
+                    placeholder="投票タイトル・選択肢・形式で検索"
+                    className="h-9 w-full rounded-md border border-[#cccccc] bg-white pl-9 pr-3 text-sm text-[#323232] outline-none focus:border-[#2864f0] focus:ring-2 focus:ring-[#dce8ff]"
+                  />
+                </div>
+                <span
+                  className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md border border-[#9dd8b1] bg-white px-3 text-xs font-bold text-[#00963c]"
+                  title="カードをドラッグして並び替えできます"
+                >
+                  <GripVertical className="h-3.5 w-3.5" />
+                  並び替え
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 {pollSearch.trim() && (
@@ -2243,12 +2241,11 @@ export default function HostPage() {
                                 e.dataTransfer.setData('text/plain', poll.id);
                               }}
                               onDragEnd={() => setDraggingPollId(null)}
-                              className="inline-flex h-7 items-center gap-1 rounded-md border border-[#e9e7e7] bg-white px-2 text-[11px] font-bold text-[#595959] cursor-grab transition-colors hover:border-[#00963c] hover:text-[#00963c] active:cursor-grabbing"
+                              className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-[#e9e7e7] bg-white text-[#595959] cursor-grab transition-colors hover:border-[#9dd8b1] hover:text-[#00963c] active:cursor-grabbing"
                               title="ドラッグして並び替え"
                               aria-label="ドラッグして並び替え"
                             >
                               <GripVertical className="h-3.5 w-3.5" />
-                              並び替え
                             </button>
                           </div>
                           <PollResultCard
@@ -2593,11 +2590,11 @@ function HostSideNav({
 }) {
   return (
     <aside
-      className={`hidden h-screen shrink-0 border-r border-[#00963c] bg-[#eaf8ef] transition-[width] duration-200 ease-out lg:sticky lg:top-0 lg:flex lg:flex-col ${
+      className={`hidden h-screen shrink-0 border-r border-[#9dd8b1] bg-[#eaf8ef] transition-[width] duration-200 ease-out lg:sticky lg:top-0 lg:flex lg:flex-col ${
         collapsed ? 'w-16' : 'w-72'
       }`}
     >
-      <div className={`border-b border-[#00963c] ${collapsed ? 'px-2 py-3' : 'px-4 py-4'}`}>
+      <div className={`border-b border-[#9dd8b1] ${collapsed ? 'px-2 py-3' : 'px-4 py-4'}`}>
         <div className={`flex items-center ${collapsed ? 'justify-center' : 'justify-between gap-2'}`}>
           <Link
             href="/admin"
@@ -2635,7 +2632,7 @@ function HostSideNav({
       </div>
 
       {!collapsed && (
-      <div className="border-b border-[#00963c] px-4 py-4">
+      <div className="border-b border-[#9dd8b1] px-4 py-4">
         <div className="mb-3 flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white ring-1 ring-[#00963c]">
             <Image src={LOGO_URL} alt="" width={24} height={24} className="rounded-md" />
@@ -2654,7 +2651,7 @@ function HostSideNav({
           </div>
         </div>
         <div className="grid grid-cols-2 gap-2 text-xs">
-          <div className="rounded-lg border border-[#00963c] bg-white p-2">
+          <div className="rounded-lg border border-[#9dd8b1] bg-white p-2">
             <p className="font-bold text-[#8c8989]">参加者</p>
             <p className="mt-1 inline-flex items-center gap-1 font-extrabold tabular-nums text-[#323232]">
               <Users className="h-3.5 w-3.5 text-[#00963c]" />
@@ -2664,7 +2661,7 @@ function HostSideNav({
           <a
             href={qrUrl || '#'}
             download={`qr-${roomCode}.png`}
-            className={`rounded-lg border border-[#00963c] bg-white p-2 transition-colors hover:bg-[#eaf8ef] ${
+            className={`rounded-lg border border-[#9dd8b1] bg-white p-2 transition-colors hover:bg-[#eaf8ef] ${
               qrUrl ? '' : 'pointer-events-none opacity-50'
             }`}
           >
@@ -2680,7 +2677,7 @@ function HostSideNav({
             href={`/rooms/${roomCode}/present`}
             target={`zasekikun-present-${roomCode}`}
             rel="noopener noreferrer"
-            className="rounded-lg border border-[#00963c] bg-white p-2 transition-colors hover:bg-[#eaf8ef]"
+            className="rounded-lg border border-[#9dd8b1] bg-white p-2 transition-colors hover:bg-[#eaf8ef]"
             title="スクリーン画面を開く"
           >
             <p className="font-bold text-[#8c8989]">スクリーン</p>
@@ -2696,7 +2693,7 @@ function HostSideNav({
             className={`rounded-lg p-2 text-left transition-colors disabled:pointer-events-none disabled:opacity-60 ${
               roomStatus === 'active'
                 ? 'border border-[#dc1e32] bg-white hover:bg-red-50'
-                : 'border border-[#00963c] bg-white hover:bg-[#eaf8ef]'
+                : 'border border-[#9dd8b1] bg-white hover:bg-[#eaf8ef]'
             }`}
           >
             {roomStatusLoading ? (
@@ -2760,10 +2757,10 @@ function HostSideNav({
         })}
       </nav>
 
-      <div className="border-t border-[#00963c] p-4">
+      <div className="border-t border-[#9dd8b1] p-4">
         <Link
           href="/admin"
-          className={`inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-[#00963c] bg-white text-sm font-bold text-[#595959] transition-colors hover:bg-[#eaf8ef] hover:text-[#00963c] ${
+          className={`inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-[#9dd8b1] bg-white text-sm font-bold text-[#595959] transition-colors hover:bg-[#eaf8ef] hover:text-[#00963c] ${
             collapsed ? 'px-0' : ''
           }`}
           title="管理画面へ"
