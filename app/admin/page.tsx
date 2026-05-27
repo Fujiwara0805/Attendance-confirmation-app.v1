@@ -40,6 +40,7 @@ import {
   StopCircle,
   Clock,
   ClipboardEdit,
+  HelpCircle,
 } from 'lucide-react';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { CustomModal } from '@/components/ui/custom-modal';
@@ -74,29 +75,115 @@ interface Course {
   cooldownMinutes?: number;
 }
 
+type AdminColorTheme = {
+  headerBg: string;
+  headerBorder: string;
+  iconBg: string;
+  iconBorder: string;
+  accent: string;
+  titleText: string;
+  descriptionText: string;
+  strongText: string;
+  infoBg: string;
+  infoBorder: string;
+  infoText: string;
+};
+
+const ADMIN_COLOR_THEMES: Record<'courses' | 'rooms' | 'export', AdminColorTheme> = {
+  courses: {
+    headerBg: '#ebf3ff',
+    headerBorder: '#aac8ff',
+    iconBg: '#dce8ff',
+    iconBorder: '#aac8ff',
+    accent: '#2864f0',
+    titleText: '#323232',
+    descriptionText: '#595959',
+    strongText: '#23418c',
+    infoBg: '#ebf3ff',
+    infoBorder: '#aac8ff',
+    infoText: '#23418c',
+  },
+  rooms: {
+    headerBg: '#ebf3ff',
+    headerBorder: '#aac8ff',
+    iconBg: '#dce8ff',
+    iconBorder: '#aac8ff',
+    accent: '#2864f0',
+    titleText: '#323232',
+    descriptionText: '#595959',
+    strongText: '#23418c',
+    infoBg: '#ebf3ff',
+    infoBorder: '#aac8ff',
+    infoText: '#23418c',
+  },
+  export: {
+    headerBg: '#ebf3ff',
+    headerBorder: '#aac8ff',
+    iconBg: '#dce8ff',
+    iconBorder: '#aac8ff',
+    accent: '#2864f0',
+    titleText: '#323232',
+    descriptionText: '#595959',
+    strongText: '#23418c',
+    infoBg: '#ebf3ff',
+    infoBorder: '#aac8ff',
+    infoText: '#23418c',
+  },
+};
+
 function AdminPageHeader({
   title,
   description,
   icon: Icon,
+  theme = ADMIN_COLOR_THEMES.courses,
+  helpHref,
   children,
 }: {
   title: string;
   description: string;
   icon: React.ComponentType<{ className?: string }>;
+  theme?: AdminColorTheme;
+  helpHref?: string;
   children?: React.ReactNode;
 }) {
   return (
-    <div className="-mx-4 -mt-6 mb-5 border-b border-[#dce8ff] bg-[#edf4ff] px-4 py-3 sm:-mx-6 sm:-mt-8 sm:px-6">
+    <div
+      className="-mx-4 -mt-6 mb-5 border-b px-4 py-3 sm:-mx-6 sm:-mt-8 sm:px-6"
+      style={{ backgroundColor: theme.headerBg, borderColor: theme.headerBorder }}
+    >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#aac8ff] bg-[#dce8ff] text-[#2864f0]">
+          <span
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border"
+            style={{ backgroundColor: theme.iconBg, borderColor: theme.iconBorder, color: theme.accent }}
+          >
             <Icon className="h-5 w-5" />
           </span>
           <div className="min-w-0">
-            <h1 className="truncate text-xl font-bold leading-tight text-[#323232] sm:text-2xl">
-              {title}
-            </h1>
-            <p className="mt-0.5 truncate text-xs text-[#595959] sm:text-sm">{description}</p>
+            <div className="flex min-w-0 items-center gap-2">
+              <h1
+                className="truncate text-lg font-bold leading-tight sm:text-xl"
+                style={{ color: theme.titleText }}
+              >
+                {title}
+              </h1>
+              {helpHref && (
+                <Link
+                  href={helpHref}
+                  className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-[#aac8ff] bg-white text-[#2864f0] transition-colors hover:bg-[#ebf3ff]"
+                  aria-label={`${title}のヘルプを開く`}
+                  title={`${title}のヘルプ`}
+                >
+                  <HelpCircle className="h-4 w-4" />
+                </Link>
+              )}
+            </div>
+            <p
+              className="mt-0.5 truncate text-xs sm:text-sm"
+              style={{ color: theme.descriptionText }}
+            >
+              {description}
+            </p>
           </div>
         </div>
         {children && <div className="flex flex-wrap items-center gap-2 sm:justify-end">{children}</div>}
@@ -108,33 +195,50 @@ function AdminPageHeader({
 function AdminInfoCard({
   title,
   icon: Icon,
+  theme = ADMIN_COLOR_THEMES.courses,
   children,
 }: {
   title: string;
   icon: React.ComponentType<{ className?: string }>;
+  theme?: AdminColorTheme;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="mb-5 rounded-lg border border-[#aac8ff] bg-[#ebf3ff]">
+    <div
+      className="mb-5 w-full max-w-2xl rounded-lg border"
+      style={{ backgroundColor: theme.infoBg, borderColor: theme.infoBorder }}
+    >
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         aria-expanded={open}
         className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
       >
-        <span className="flex min-w-0 items-center gap-2 text-sm font-bold text-[#23418c] sm:text-base">
-          <Icon className="h-4 w-4 shrink-0 text-[#2864f0]" />
+        <span
+          className="flex min-w-0 items-center gap-2 text-sm font-bold sm:text-base"
+          style={{ color: theme.strongText }}
+        >
+          <span className="shrink-0" style={{ color: theme.accent }}>
+            <Icon className="h-4 w-4" />
+          </span>
           <span className="truncate">{title}</span>
         </span>
         {open ? (
-          <ChevronUp className="h-4 w-4 shrink-0 text-[#2864f0]" />
+          <ChevronUp className="h-4 w-4 shrink-0" style={{ color: theme.accent }} />
         ) : (
-          <ChevronDown className="h-4 w-4 shrink-0 text-[#2864f0]" />
+          <ChevronDown className="h-4 w-4 shrink-0" style={{ color: theme.accent }} />
         )}
       </button>
-      {open && <div className="border-t border-[#aac8ff] px-4 pb-4 pt-3">{children}</div>}
+      {open && (
+        <div
+          className="border-t px-4 pb-4 pt-3"
+          style={{ borderColor: theme.infoBorder, color: theme.infoText }}
+        >
+          {children}
+        </div>
+      )}
     </div>
   );
 }
@@ -961,6 +1065,8 @@ function AdminPageInner() {
                   : '出席フォームを作成して始めましょう'
               }
               icon={BookOpen}
+              theme={ADMIN_COLOR_THEMES.courses}
+              helpHref="/admin/faq#forms"
             >
                 {/* プランバッジ */}
                 {planInfo && (
@@ -1006,17 +1112,8 @@ function AdminPageInner() {
                 )}
             </AdminPageHeader>
 
-            <AdminInfoCard title="フォーム管理について" icon={BookOpen}>
-              <ul className="space-y-1.5 text-xs leading-relaxed text-[#23418c] sm:text-sm">
-                <li>• <strong>出席フォーム</strong>：日付・フォーム名・ID・学年・名前・所属・レポートなど、標準の出席項目が含まれたフォームです。すぐに使い始められます。</li>
-                <li>• <strong>カスタムフォーム</strong>：項目を自由に追加・削除・並び替えできます。不要な項目を無効化して、用途に合わせたフォームを作成できます。</li>
-                <li>• <strong>招待フォーム</strong>：イベント参加申込用。日時選択＋個人QRコードを発行し、当日の受付確認に使えます。</li>
-                <li>• 作成後にQRコードやURLを参加者に共有するだけで、すぐに出席管理を開始できます。</li>
-              </ul>
-            </AdminInfoCard>
-
             <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div className="relative w-full sm:max-w-sm">
+              <div className="relative w-full max-w-2xl">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8c8989]" />
                 <Input
                   value={courseSearch}
@@ -1937,6 +2034,8 @@ function AdminPageInner() {
                   : 'ルームを作成してインタラクティブなQ&Aや投票を始めましょう'
               }
               icon={Airplay}
+              theme={ADMIN_COLOR_THEMES.rooms}
+              helpHref="/admin/faq#rooms"
             >
                 {/* ルーム数バッジ */}
                 {planInfo && (
@@ -1993,16 +2092,8 @@ function AdminPageInner() {
                 )}
             </AdminPageHeader>
 
-            <AdminInfoCard title="ルーム機能について" icon={Airplay}>
-              <ul className="space-y-1.5 text-xs leading-relaxed text-[#23418c] sm:text-sm">
-                <li>• <strong>リアルタイムQ&A</strong>：参加者から匿名で質問を受付。いいね機能で重要な質問を可視化。</li>
-                <li>• <strong>ライブ投票</strong>：理解度チェックやアンケートをリアルタイムで集計・表示。</li>
-                <li>• ルーム作成後、参加者にコードやURLを共有するだけで誰でも参加可能。ログイン不要です。</li>
-              </ul>
-            </AdminInfoCard>
-
             <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div className="relative w-full sm:max-w-sm">
+              <div className="relative w-full max-w-2xl">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8c8989]" />
                 <Input
                   value={roomSearch}
@@ -2333,12 +2424,9 @@ function AdminPageInner() {
               title="データ管理"
               description="フォームごとのデータをCSV形式でエクスポートできます"
               icon={BarChart3}
+              theme={ADMIN_COLOR_THEMES.export}
+              helpHref="/admin/faq#export"
             />
-            <AdminInfoCard title="データエクスポートについて" icon={BarChart3}>
-              <p className="text-xs leading-relaxed text-[#23418c] sm:text-sm">
-                フォームに登録されたデータをCSV（Excel対応）またはJSON形式でダウンロードできます。日付フィルタで特定期間のデータを絞り込むことも可能です。
-              </p>
-            </AdminInfoCard>
             <AttendanceExport />
           </TabsContent>
         </Tabs>

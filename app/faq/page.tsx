@@ -1,179 +1,295 @@
 'use client';
 
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+import {
+  BarChart3,
+  ChevronDown,
+  ClipboardList,
+  FileText,
+  HelpCircle,
+  Lock,
+  Search,
+  Smartphone,
+  Users,
+} from 'lucide-react';
 import LPHeader from '@/app/components/LPHeader';
 import LPFooter from '@/app/components/LPFooter';
 
-const fadeIn = {
-  initial: { opacity: 0, y: 12 },
-  whileInView: { opacity: 1, y: 0 },
-  viewport: { once: true, margin: '-60px' },
-  transition: { duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] },
-};
-
-const faqItems = [
+const categories = [
   {
-    question: 'ざせきくんとは何ですか？',
-    answer:
-      'ざせきくんは、出席管理・招待フォーム・リアルタイムQ&A・ライブ投票をひとつにまとめたイベント運営プラットフォームです。授業、セミナー、カンファレンス、ワークショップなど、あらゆる学習・イベントシーンで活用いただけます。',
+    id: 'overview',
+    title: 'サービス概要',
+    icon: HelpCircle,
+    items: [
+      {
+        question: 'ざせきくんとは何ですか？',
+        answer:
+          'ざせきくんは、出席管理・招待フォーム・リアルタイムQ&A・ライブ投票をひとつにまとめたイベント運営プラットフォームです。授業、セミナー、カンファレンス、ワークショップなどで、受付から参加者とのやり取り、終了後のデータ出力までを同じサービス内で扱えます。',
+      },
+      {
+        question: '参加者はアプリのインストールが必要ですか？',
+        answer:
+          'いいえ、参加者はアプリをインストールする必要がありません。QRコードやURLを開くだけで、スマートフォンのブラウザから出席登録、質問投稿、ライブ投票に参加できます。参加者側のログインも不要です。',
+      },
+    ],
   },
   {
-    question: '無料プランではどこまで使えますか？',
-    answer:
-      '無料プランでは、フォーム2個・ルーム1個まで作成可能です。Q&A・投票機能、位置情報による出席管理、招待フォーム・事前登録、CSV/Excelエクスポート、QRコード生成、カスタムフォーム作成のすべての機能をご利用いただけます。',
+    id: 'forms',
+    title: 'フォーム・出席管理',
+    icon: FileText,
+    items: [
+      {
+        question: '出席フォームでは何ができますか？',
+        answer:
+          '出席フォームでは、名前、所属、学年、レポートなどの項目を使って参加者の出席情報を集められます。カスタムフォームでは項目を追加・削除・並び替えできるため、授業やイベントの運用に合わせて入力内容を調整できます。',
+      },
+      {
+        question: '位置情報はどのように使われますか？',
+        answer:
+          '位置情報は、出席登録時に参加者が対象エリア内にいるか確認するために使われます。GPS連携により、会場外からの代理出席やなりすましを抑止できます。位置情報チェックはフォームごとにON/OFFを設定できます。',
+      },
+    ],
   },
   {
-    question: '参加者はアプリのインストールが必要ですか？',
-    answer:
-      'いいえ、参加者はアプリのインストールもログインも不要です。QRコードやURLからスマホのブラウザでそのままアクセスし、すぐに出席登録・質問投稿・投票に参加できます。',
+    id: 'rooms',
+    title: 'Q&A・ライブ投票',
+    icon: BarChart3,
+    items: [
+      {
+        question: 'Q&Aや投票にログインは必要ですか？',
+        answer:
+          '参加者側のログインは不要です。ルームコード、QRコード、URLのいずれかからアクセスすると、匿名で質問を投稿したり投票に参加したりできます。ホスト管理画面を操作する管理者のみログインが必要です。',
+      },
+      {
+        question: 'ライブ投票ではどのような形式を使えますか？',
+        answer:
+          '通常投票、クイズ形式、ランキング形式を利用できます。通常投票は選択肢から回答する基本形式です。クイズ形式では正解を設定できます。ランキング形式では候補を順位で回答してもらい、順位ごとの重みで結果を集計できます。',
+      },
+    ],
   },
   {
-    question: '位置情報はどのように使われますか？',
-    answer:
-      '位置情報は出席登録時に、参加者が対象エリア内にいることを確認するために使用されます。GPS連携により、会場外からの不正な出席登録（代理出席など）を防止します。位置情報の利用は任意で、管理者がフォームごとにON/OFFを設定できます。',
+    id: 'data',
+    title: 'データ出力',
+    icon: ClipboardList,
+    items: [
+      {
+        question: 'データのエクスポートは可能ですか？',
+        answer:
+          'はい。出席データ、フォーム回答、Q&Aの質問一覧、ライブ投票結果をCSV形式で出力できます。フォームの回答データはJSON形式でも出力できるため、Excel、スプレッドシート、外部分析ツールでの集計に利用できます。',
+      },
+    ],
   },
   {
-    question: 'Q&Aや投票にログインは必要ですか？',
-    answer:
-      '参加者側はログイン不要です。ルームコードまたはQRコードでアクセスするだけで、匿名で質問投稿や投票に参加できます。管理者（ホスト）側のみ、ログインが必要です。',
+    id: 'account',
+    title: 'アカウント・料金',
+    icon: Users,
+    items: [
+      {
+        question: '無料プランではどこまで使えますか？',
+        answer:
+          '無料プランでは、フォーム2個・ルーム1個まで作成できます。Q&A、投票、位置情報による出席管理、招待フォーム、CSV/Excelエクスポート、QRコード生成、カスタムフォーム作成など、主要機能を試せます。',
+      },
+      {
+        question: '解約はいつでもできますか？',
+        answer:
+          'はい、いつでも解約できます。解約後も現在の請求期間が終了するまでは有料プランの機能を利用できます。解約手数料はかかりません。',
+      },
+    ],
   },
   {
-    question: '同一アカウントで複数端末にログインできますか？',
-    answer:
-      'はい、可能です。同一アカウントで複数の端末に同時ログインできます。例えば、受付用端末でQRコードスキャン、スクリーン投影用端末でライブQ&A・投票を表示、管理用端末でデータ確認、といった同時運用が可能です。',
-  },
-  {
-    question: 'データのエクスポートは可能ですか？',
-    answer:
-      'はい。出席データ、Q&Aの質問一覧、投票結果などをCSV形式でエクスポートできます。Excelやスプレッドシートでの分析に活用いただけます。',
-  },
-  {
-    question: 'セキュリティ対策はどうなっていますか？',
-    answer:
-      'パスワードはbcryptによるハッシュ化、通信はSSL/TLS暗号化で保護されています。Google OAuth認証にも対応しており、安全にご利用いただけます。',
-  },
-  {
-    question: '料金プランの違いは何ですか？',
-    answer:
-      'Freeプラン（¥0/月）はフォーム2個・ルーム1個まで、Proプラン（¥550/月）はフォーム・ルーム無制限＋優先サポート、Enterpriseプラン（料金は要相談）はさらに複数端末での同時運用サポートが含まれます。すべてのプランで全機能をご利用いただけます。',
-  },
-  {
-    question: '解約はいつでもできますか？',
-    answer:
-      'はい、いつでも解約可能です。解約後も現在の請求期間が終了するまでプランの機能をご利用いただけます。解約手数料等は一切かかりません。',
+    id: 'security',
+    title: 'セキュリティ',
+    icon: Lock,
+    items: [
+      {
+        question: 'セキュリティ対策はどうなっていますか？',
+        answer:
+          'パスワードはハッシュ化して保存し、通信はSSL/TLSで暗号化されます。Google OAuth認証にも対応しています。参加者側はログイン不要で利用できるため、イベント当日の参加ハードルを下げながら、管理者側の操作はログインで保護します。',
+      },
+      {
+        question: '複数端末で同時に使えますか？',
+        answer:
+          'はい、同一アカウントで複数端末にログインできます。受付端末、スクリーン投影端末、管理端末を分けて運用できるため、イベントスタッフが役割ごとに操作できます。',
+      },
+    ],
   },
 ];
 
-export default function FAQPage() {
-  const [openIndex, setOpenIndex] = useState<number | null>(null);
+const allItems = categories.flatMap((category) =>
+  category.items.map((item) => ({ ...item, category: category.title, categoryId: category.id }))
+);
 
-  const toggleItem = (index: number) => {
-    setOpenIndex(openIndex === index ? null : index);
-  };
+export default function FAQPage() {
+  const router = useRouter();
+  const { status } = useSession();
+  const [query, setQuery] = useState('');
+  const [openKey, setOpenKey] = useState<string | null>('overview-0');
+
+  useEffect(() => {
+    if (status === 'authenticated') router.replace('/admin/faq');
+  }, [router, status]);
+
+  const filteredItems = useMemo(() => {
+    const keyword = query.trim().toLowerCase();
+    if (!keyword) return allItems;
+    return allItems.filter((item) =>
+      [item.question, item.answer, item.category].join(' ').toLowerCase().includes(keyword)
+    );
+  }, [query]);
 
   return (
     <>
       <LPHeader />
-      <main className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
-        {/* Hero */}
-        <section className="pt-24 pb-12">
-          <div className="mx-auto max-w-3xl px-5 pt-16 text-center">
-            <motion.div {...fadeIn}>
-              <p className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold tracking-wide uppercase text-indigo-600 bg-indigo-50 ring-1 ring-indigo-100 px-3.5 py-1.5 rounded-full mb-4">
-                FAQ
-              </p>
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-900 leading-[1.1]">
-                よくある質問
+      <main className="min-h-screen bg-[#f7f5f5]">
+        <section className="border-b border-[#dce8ff] bg-[#ebf3ff] pt-24">
+          <div className="mx-auto max-w-6xl px-5 py-12">
+            <div className="max-w-3xl">
+              <p className="text-sm font-bold text-[#2864f0]">サポート</p>
+              <h1 className="mt-2 text-3xl font-bold tracking-tight text-[#323232] sm:text-4xl">
+                何にお困りですか？
               </h1>
-              <p className="mt-5 text-base sm:text-lg text-slate-600 leading-relaxed">
-                ざせきくんに関するよくあるご質問をまとめました。
-                <br className="hidden sm:block" />
-                お探しの回答が見つからない場合は、お気軽にお問い合わせください。
+              <p className="mt-3 text-sm leading-7 text-[#595959] sm:text-base">
+                ざせきくんの基本的な使い方、出席管理、Q&A、ライブ投票、データ出力について確認できます。
               </p>
-            </motion.div>
-          </div>
-        </section>
-
-        {/* FAQ Items */}
-        <section className="pb-20">
-          <div className="mx-auto max-w-3xl px-5">
-            <div className="space-y-3">
-              {faqItems.map((item, index) => (
-                <motion.div
-                  key={index}
-                  {...fadeIn}
-                  transition={{
-                    duration: 0.5,
-                    ease: [0.25, 0.46, 0.45, 0.94],
-                    delay: index * 0.04,
-                  }}
-                >
-                  <div className="overflow-hidden rounded-2xl ring-1 ring-black/5 bg-white shadow-sm transition-all hover:shadow-md">
-                    <button
-                      onClick={() => toggleItem(index)}
-                      className="flex w-full items-center justify-between gap-4 px-6 py-5 text-left"
-                    >
-                      <span className="text-sm sm:text-base font-semibold text-slate-900 leading-snug">
-                        {item.question}
-                      </span>
-                      <motion.div
-                        animate={{ rotate: openIndex === index ? 180 : 0 }}
-                        transition={{ duration: 0.25, ease: 'easeInOut' }}
-                        className="flex-shrink-0"
-                      >
-                        <ChevronDown className="h-5 w-5 text-slate-400" />
-                      </motion.div>
-                    </button>
-                    <AnimatePresence initial={false}>
-                      {openIndex === index && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: 'auto', opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
-                          className="overflow-hidden"
-                        >
-                          <div className="border-t border-slate-100 px-6 pb-5 pt-4">
-                            <p className="text-sm sm:text-base leading-relaxed text-slate-600">
-                              {item.answer}
-                            </p>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                </motion.div>
-              ))}
+            </div>
+            <div className="relative mt-8 max-w-2xl">
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#8c8989]" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="キーワードで検索"
+                className="h-12 w-full rounded-md border border-[#aac8ff] bg-white pl-11 pr-4 text-sm text-[#323232] outline-none focus:border-[#2864f0] focus:ring-2 focus:ring-[#dce8ff]"
+              />
             </div>
           </div>
         </section>
 
-        {/* CTA */}
-        <section className="pb-24">
-          <div className="mx-auto max-w-3xl px-5">
-            <motion.div
-              {...fadeIn}
-              className="rounded-2xl bg-gradient-to-br from-indigo-600 via-indigo-600 to-blue-700 px-8 py-12 text-center shadow-xl ring-1 ring-black/5"
-            >
-              <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white leading-tight">
-                他にご質問はありますか？
-              </h2>
-              <p className="mt-3 text-base sm:text-lg text-indigo-100 leading-relaxed">
-                お気軽にメールでお問い合わせください。サポートチームが迅速にお答えいたします。
-              </p>
-              <a
-                href="mailto:sobota@nobody-info.com"
-                className="mt-6 inline-flex items-center justify-center rounded-xl bg-white px-6 h-12 text-sm sm:text-base font-semibold text-indigo-600 shadow-lg transition-all hover:bg-indigo-50 active:scale-[0.98]"
-              >
-                お問い合わせはこちら
-              </a>
-            </motion.div>
+        <section className="mx-auto grid max-w-6xl gap-6 px-5 py-10 lg:grid-cols-[260px_1fr]">
+          <aside className="lg:sticky lg:top-24 lg:self-start">
+            <div className="rounded-lg border border-[#e9e7e7] bg-white p-3">
+              <p className="px-2 pb-2 text-xs font-bold text-[#8c8989]">カテゴリ</p>
+              <div className="space-y-1">
+                {categories.map((category) => {
+                  const Icon = category.icon;
+                  return (
+                    <a
+                      key={category.id}
+                      href={`#${category.id}`}
+                      className="flex items-center gap-2 rounded-md px-2 py-2 text-sm font-bold text-[#323232] hover:bg-[#ebf3ff]"
+                    >
+                      <Icon className="h-4 w-4 text-[#2864f0]" />
+                      {category.title}
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
+          </aside>
+
+          <div className="space-y-8">
+            {query.trim() ? (
+              <section className="rounded-lg border border-[#e9e7e7] bg-white p-5">
+                <h2 className="text-base font-bold text-[#323232]">検索結果</h2>
+                <div className="mt-4 divide-y divide-[#e9e7e7]">
+                  {filteredItems.map((item, index) => {
+                    const key = `search-${index}`;
+                    const open = openKey === key;
+                    return (
+                      <FAQRow
+                        key={key}
+                        item={item}
+                        open={open}
+                        onToggle={() => setOpenKey(open ? null : key)}
+                      />
+                    );
+                  })}
+                  {filteredItems.length === 0 && (
+                    <p className="py-8 text-sm text-[#595959]">一致する質問はありません。</p>
+                  )}
+                </div>
+              </section>
+            ) : (
+              categories.map((category) => {
+                const Icon = category.icon;
+                return (
+                  <section
+                    key={category.id}
+                    id={category.id}
+                    className="scroll-mt-24 rounded-lg border border-[#e9e7e7] bg-white p-5"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Icon className="h-5 w-5 text-[#2864f0]" />
+                      <h2 className="text-base font-bold text-[#323232]">{category.title}</h2>
+                    </div>
+                    <div className="mt-4 divide-y divide-[#e9e7e7]">
+                      {category.items.map((item, index) => {
+                        const key = `${category.id}-${index}`;
+                        const open = openKey === key;
+                        return (
+                          <FAQRow
+                            key={key}
+                            item={{ ...item, category: category.title }}
+                            open={open}
+                            onToggle={() => setOpenKey(open ? null : key)}
+                          />
+                        );
+                      })}
+                    </div>
+                  </section>
+                );
+              })
+            )}
+
+            <section className="rounded-lg border border-[#dce8ff] bg-[#f3f7ff] p-5">
+              <div className="flex items-start gap-3">
+                <Smartphone className="mt-0.5 h-5 w-5 text-[#2864f0]" />
+                <div>
+                  <h2 className="text-base font-bold text-[#323232]">解決しない場合</h2>
+                  <p className="mt-1 text-sm leading-7 text-[#595959]">
+                    詳しい状況を添えてお問い合わせください。管理者としてログインしている場合は、管理者向けサポートページに自動で移動します。
+                  </p>
+                  <a
+                    href="mailto:sobota@nobody-info.com"
+                    className="mt-3 inline-flex h-9 items-center rounded-md bg-[#2864f0] px-4 text-sm font-bold text-white hover:bg-[#285ac8]"
+                  >
+                    お問い合わせ
+                  </a>
+                </div>
+              </div>
+            </section>
           </div>
         </section>
       </main>
       <LPFooter />
     </>
+  );
+}
+
+function FAQRow({
+  item,
+  open,
+  onToggle,
+}: {
+  item: { question: string; answer: string; category?: string };
+  open: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center justify-between gap-4 py-4 text-left"
+      >
+        <span>
+          {item.category && <span className="block text-[11px] font-bold text-[#2864f0]">{item.category}</span>}
+          <span className="mt-1 block text-sm font-bold text-[#323232] sm:text-base">{item.question}</span>
+        </span>
+        <ChevronDown className={`h-5 w-5 shrink-0 text-[#8c8989] transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && <p className="pb-4 text-sm leading-7 text-[#595959]">{item.answer}</p>}
+    </div>
   );
 }

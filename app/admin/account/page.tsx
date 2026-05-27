@@ -14,6 +14,7 @@ import {
   Settings as SettingsIcon,
   ShieldAlert,
   Building2,
+  HelpCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CustomModal } from '@/components/ui/custom-modal';
@@ -31,18 +32,72 @@ const PLAN_DISPLAY: Record<'free' | 'paid' | 'enterprise', { label: string; desc
   enterprise: { label: 'Enterprise', description: '月額2,000円 / 無制限' },
 };
 
+type AccountColorTheme = {
+  headerBg: string;
+  headerBorder: string;
+  iconBg: string;
+  iconBorder: string;
+  accent: string;
+  titleText: string;
+  descriptionText: string;
+  strongText: string;
+  infoBg: string;
+  infoBorder: string;
+  infoText: string;
+};
+
+const ACCOUNT_COLOR_THEME: AccountColorTheme = {
+  headerBg: '#ebf3ff',
+  headerBorder: '#aac8ff',
+  iconBg: '#dce8ff',
+  iconBorder: '#aac8ff',
+  accent: '#2864f0',
+  titleText: '#323232',
+  descriptionText: '#595959',
+  strongText: '#23418c',
+  infoBg: '#ebf3ff',
+  infoBorder: '#aac8ff',
+  infoText: '#23418c',
+};
+
 function AccountPageHeader() {
   return (
-    <div className="-mx-4 -mt-6 mb-5 border-b border-[#dce8ff] bg-[#edf4ff] px-4 py-3 sm:-mx-6 sm:-mt-8 sm:px-6">
+    <div
+      className="-mx-4 -mt-6 mb-5 border-b px-4 py-3 sm:-mx-6 sm:-mt-8 sm:px-6"
+      style={{ backgroundColor: ACCOUNT_COLOR_THEME.headerBg, borderColor: ACCOUNT_COLOR_THEME.headerBorder }}
+    >
       <div className="flex min-w-0 items-center gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#aac8ff] bg-[#dce8ff] text-[#2864f0]">
+        <span
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border"
+          style={{
+            backgroundColor: ACCOUNT_COLOR_THEME.iconBg,
+            borderColor: ACCOUNT_COLOR_THEME.iconBorder,
+            color: ACCOUNT_COLOR_THEME.accent,
+          }}
+        >
           <SettingsIcon className="h-5 w-5" />
         </span>
         <div className="min-w-0">
-          <h1 className="truncate text-xl font-bold leading-tight text-[#323232] sm:text-2xl">
-            アカウント設定
-          </h1>
-          <p className="mt-0.5 truncate text-xs text-[#595959] sm:text-sm">
+          <div className="flex min-w-0 items-center gap-2">
+            <h1
+              className="truncate text-lg font-bold leading-tight sm:text-xl"
+              style={{ color: ACCOUNT_COLOR_THEME.titleText }}
+            >
+              アカウント設定
+            </h1>
+            <Link
+              href="/admin/faq#account"
+              className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-[#aac8ff] bg-white text-[#2864f0] transition-colors hover:bg-[#ebf3ff]"
+              aria-label="アカウント設定のヘルプを開く"
+              title="アカウント設定のヘルプ"
+            >
+              <HelpCircle className="h-4 w-4" />
+            </Link>
+          </div>
+          <p
+            className="mt-0.5 truncate text-xs sm:text-sm"
+            style={{ color: ACCOUNT_COLOR_THEME.descriptionText }}
+          >
             プラン・請求・アカウント情報を管理します。
           </p>
         </div>

@@ -35,8 +35,6 @@ import {
   Image as ImageIcon,
   ChevronLeft,
   ChevronRight,
-  ChevronDown,
-  ChevronUp,
   PanelLeftClose,
   PanelLeftOpen,
   Pencil,
@@ -45,6 +43,8 @@ import {
   Link2,
   ClipboardCheck,
   Search,
+  GripVertical,
+  HelpCircle,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -183,67 +183,145 @@ const HOST_NAV_ITEMS: Array<{
   { key: 'export', label: 'エクスポート', description: 'CSV出力', icon: Download },
 ];
 
+type HostColorTheme = {
+  headerBg: string;
+  headerBorder: string;
+  iconBg: string;
+  iconBorder: string;
+  accent: string;
+  titleText: string;
+  descriptionText: string;
+  strongText: string;
+  infoBg: string;
+  infoBorder: string;
+  infoText: string;
+};
+
+const HOST_COLOR_THEMES: Record<HostTab, HostColorTheme> = {
+  questions: {
+    headerBg: '#eaf8ef',
+    headerBorder: '#00963c',
+    iconBg: '#ffffff',
+    iconBorder: '#00963c',
+    accent: '#00963c',
+    titleText: '#323232',
+    descriptionText: '#595959',
+    strongText: '#323232',
+    infoBg: '#eaf8ef',
+    infoBorder: '#00963c',
+    infoText: '#323232',
+  },
+  polls: {
+    headerBg: '#eaf8ef',
+    headerBorder: '#00963c',
+    iconBg: '#ffffff',
+    iconBorder: '#00963c',
+    accent: '#00963c',
+    titleText: '#323232',
+    descriptionText: '#595959',
+    strongText: '#323232',
+    infoBg: '#eaf8ef',
+    infoBorder: '#00963c',
+    infoText: '#323232',
+  },
+  summary: {
+    headerBg: '#eaf8ef',
+    headerBorder: '#00963c',
+    iconBg: '#ffffff',
+    iconBorder: '#00963c',
+    accent: '#00963c',
+    titleText: '#323232',
+    descriptionText: '#595959',
+    strongText: '#323232',
+    infoBg: '#eaf8ef',
+    infoBorder: '#00963c',
+    infoText: '#323232',
+  },
+  integration: {
+    headerBg: '#eaf8ef',
+    headerBorder: '#00963c',
+    iconBg: '#ffffff',
+    iconBorder: '#00963c',
+    accent: '#00963c',
+    titleText: '#323232',
+    descriptionText: '#595959',
+    strongText: '#323232',
+    infoBg: '#eaf8ef',
+    infoBorder: '#00963c',
+    infoText: '#323232',
+  },
+  export: {
+    headerBg: '#eaf8ef',
+    headerBorder: '#00963c',
+    iconBg: '#ffffff',
+    iconBorder: '#00963c',
+    accent: '#00963c',
+    titleText: '#323232',
+    descriptionText: '#595959',
+    strongText: '#323232',
+    infoBg: '#eaf8ef',
+    infoBorder: '#00963c',
+    infoText: '#323232',
+  },
+};
+
 function HostPageHeader({
   title,
   description,
   icon: Icon,
+  theme = HOST_COLOR_THEMES.questions,
+  helpHref,
   children,
 }: {
   title: string;
   description: string;
   icon: ComponentType<{ className?: string }>;
+  theme?: HostColorTheme;
+  helpHref?: string;
   children?: ReactNode;
 }) {
   return (
-    <div className="border-b border-[#dce8ff] bg-[#edf4ff] px-5 py-3">
+    <div
+      className="border-b px-5 py-3"
+      style={{ backgroundColor: theme.headerBg, borderColor: theme.headerBorder }}
+    >
       <div className="mx-auto flex max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#aac8ff] bg-[#dce8ff] text-[#2864f0]">
+          <span
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border"
+            style={{ backgroundColor: theme.iconBg, borderColor: theme.iconBorder, color: theme.accent }}
+          >
             <Icon className="h-5 w-5" />
           </span>
           <div className="min-w-0">
-            <h1 className="truncate text-xl font-bold leading-tight text-[#323232] sm:text-2xl">
-              {title}
-            </h1>
-            <p className="mt-0.5 truncate text-xs text-[#595959] sm:text-sm">{description}</p>
+            <div className="flex min-w-0 items-center gap-2">
+              <h1
+                className="truncate text-lg font-bold leading-tight sm:text-xl"
+                style={{ color: theme.titleText }}
+              >
+                {title}
+              </h1>
+              {helpHref && (
+                <Link
+                  href={helpHref}
+                  className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-[#00963c] bg-white text-[#00963c] transition-colors hover:bg-[#eaf8ef]"
+                  aria-label={`${title}のヘルプを開く`}
+                  title={`${title}のヘルプ`}
+                >
+                  <HelpCircle className="h-4 w-4" />
+                </Link>
+              )}
+            </div>
+            <p
+              className="mt-0.5 truncate text-xs sm:text-sm"
+              style={{ color: theme.descriptionText }}
+            >
+              {description}
+            </p>
           </div>
         </div>
         {children && <div className="flex flex-wrap items-center gap-2 sm:justify-end">{children}</div>}
       </div>
-    </div>
-  );
-}
-
-function HostInfoCard({
-  title,
-  icon: Icon,
-  children,
-}: {
-  title: string;
-  icon: ComponentType<{ className?: string }>;
-  children: ReactNode;
-}) {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <div className="rounded-lg border border-[#aac8ff] bg-[#ebf3ff]">
-      <button
-        type="button"
-        onClick={() => setOpen((prev) => !prev)}
-        aria-expanded={open}
-        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
-      >
-        <span className="flex min-w-0 items-center gap-2 text-sm font-bold text-[#23418c] sm:text-base">
-          <Icon className="h-4 w-4 shrink-0 text-[#2864f0]" />
-          <span className="truncate">{title}</span>
-        </span>
-        {open ? (
-          <ChevronUp className="h-4 w-4 shrink-0 text-[#2864f0]" />
-        ) : (
-          <ChevronDown className="h-4 w-4 shrink-0 text-[#2864f0]" />
-        )}
-      </button>
-      {open && <div className="border-t border-[#aac8ff] px-4 pb-4 pt-3">{children}</div>}
     </div>
   );
 }
@@ -285,6 +363,8 @@ export default function HostPage() {
   // Poll creation
   const [showCreatePoll, setShowCreatePoll] = useState(false);
   const [showPollTypeModal, setShowPollTypeModal] = useState(false);
+  const [pollOrder, setPollOrder] = useState<string[]>([]);
+  const [draggingPollId, setDraggingPollId] = useState<string | null>(null);
   const pollEditorRef = useRef<HTMLDivElement>(null);
   const [pollMode, setPollMode] = useState<PollMode>('standard');
   const [pollQuestion, setPollQuestion] = useState('');
@@ -507,6 +587,35 @@ export default function HostPage() {
     optimisticUpsertPoll,
   } = useRealtimePolls(room?.id || null);
   const presenceCount = useRoomPresence(room?.id || null, session?.user?.email || null);
+  const pollOrderStorageKey = `host-poll-order:${roomCode}`;
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(pollOrderStorageKey);
+      const parsed = saved ? JSON.parse(saved) : [];
+      setPollOrder(Array.isArray(parsed) ? parsed.filter((id) => typeof id === 'string') : []);
+    } catch {
+      setPollOrder([]);
+    }
+  }, [pollOrderStorageKey]);
+
+  useEffect(() => {
+    setPollOrder((prev) => {
+      const currentIds = polls.map((poll) => poll.id);
+      const currentIdSet = new Set(currentIds);
+      const next = [
+        ...prev.filter((id) => currentIdSet.has(id)),
+        ...currentIds.filter((id) => !prev.includes(id)),
+      ];
+      if (next.length === prev.length && next.every((id, index) => id === prev[index])) {
+        return prev;
+      }
+      try {
+        window.localStorage.setItem(pollOrderStorageKey, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }, [pollOrderStorageKey, polls]);
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(roomCode);
@@ -1068,9 +1177,46 @@ export default function HostPage() {
     });
   }, [questions, statusFilter, sortMode]);
 
+  const orderedPolls = useMemo(() => {
+    const orderIndex = new Map(pollOrder.map((id, index) => [id, index]));
+    return [...polls].sort((a, b) => {
+      const aIndex = orderIndex.get(a.id);
+      const bIndex = orderIndex.get(b.id);
+      if (aIndex !== undefined && bIndex !== undefined) return aIndex - bIndex;
+      if (aIndex !== undefined) return -1;
+      if (bIndex !== undefined) return 1;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+  }, [pollOrder, polls]);
+
+  const movePollCard = useCallback(
+    (sourceId: string, targetId: string) => {
+      if (sourceId === targetId) return;
+      setPollOrder((prev) => {
+        const pollIds = polls.map((poll) => poll.id);
+        const currentIdSet = new Set(pollIds);
+        const base = [
+          ...prev.filter((id) => currentIdSet.has(id)),
+          ...pollIds.filter((id) => !prev.includes(id)),
+        ];
+        const from = base.indexOf(sourceId);
+        const to = base.indexOf(targetId);
+        if (from < 0 || to < 0) return prev;
+        const next = [...base];
+        const [moved] = next.splice(from, 1);
+        next.splice(to, 0, moved);
+        try {
+          window.localStorage.setItem(pollOrderStorageKey, JSON.stringify(next));
+        } catch {}
+        return next;
+      });
+    },
+    [pollOrderStorageKey, polls]
+  );
+
   const filteredPolls = useMemo(() => {
     const query = pollSearch.trim().toLowerCase();
-    const visible = polls.filter((poll) => poll.id !== editingPollId);
+    const visible = orderedPolls.filter((poll) => poll.id !== editingPollId);
     if (!query) return visible;
     return visible.filter((poll) => {
       const { meta, options } = extractPollPayload(poll.options);
@@ -1092,7 +1238,7 @@ export default function HostPage() {
         .toLowerCase()
         .includes(query);
     });
-  }, [editingPollId, pollSearch, polls]);
+  }, [editingPollId, orderedPolls, pollSearch]);
 
   // Auth check
   if (authStatus === 'loading' || loading) {
@@ -1122,6 +1268,7 @@ export default function HostPage() {
   const atPollLimit = Number.isFinite(pollLimit) && polls.length >= pollLimit;
   const resettableQuestionCount = questions.length;
   const activeHostItem = HOST_NAV_ITEMS.find((item) => item.key === tab) || HOST_NAV_ITEMS[0];
+  const activeHostTheme = HOST_COLOR_THEMES[activeHostItem.key];
 
   return (
     <div className="min-h-screen bg-[#f7f5f5] lg:flex">
@@ -1147,7 +1294,21 @@ export default function HostPage() {
           title={activeHostItem.label}
           description={`${room.title} / ${activeHostItem.description}`}
           icon={activeHostItem.icon}
+          theme={activeHostTheme}
+          helpHref={`/admin/faq#host-${activeHostItem.key}`}
         >
+            {tab === 'polls' && room.status === 'active' && (
+              <button
+                type="button"
+                onClick={() => setShowPollTypeModal(true)}
+                disabled={atPollLimit}
+                title={atPollLimit ? `Freeプランではライブ投票カードを${pollLimit}個まで作成できます` : 'ライブ投票を新規作成'}
+                className="inline-flex h-9 items-center gap-1.5 rounded-md bg-[#2864f0] px-3 text-xs font-bold text-white shadow-sm transition-colors hover:bg-[#285ac8] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:hover:bg-slate-300"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                新規作成
+              </button>
+            )}
             <a
               href={`/rooms/${roomCode}/present`}
               target={`zasekikun-present-${roomCode}`}
@@ -1199,9 +1360,10 @@ export default function HostPage() {
               onClick={() => setTab(t.key)}
               className={`flex items-center gap-1.5 px-1 py-2.5 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${
                 tab === t.key
-                  ? 'border-[#2864f0] text-[#2864f0]'
+                  ? ''
                   : 'border-transparent text-slate-400 hover:text-slate-600'
               }`}
+              style={tab === t.key ? { borderColor: HOST_COLOR_THEMES[t.key].accent, color: HOST_COLOR_THEMES[t.key].accent } : undefined}
             >
               {t.icon}
               {t.label}
@@ -1369,7 +1531,7 @@ export default function HostPage() {
         {tab === 'polls' && (
           <div className="space-y-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="relative w-full sm:max-w-sm">
+              <div className="relative w-full max-w-2xl">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8c8989]" />
                 <input
                   value={pollSearch}
@@ -1388,17 +1550,6 @@ export default function HostPage() {
                     クリア
                   </button>
                 )}
-              {room.status === 'active' && (
-                <button
-                  onClick={() => setShowPollTypeModal(true)}
-                  disabled={atPollLimit}
-                  title={atPollLimit ? `Freeプランではライブ投票カードを${pollLimit}個まで作成できます` : undefined}
-                  className="inline-flex h-9 items-center gap-1.5 rounded-md bg-[#2864f0] px-4 text-sm font-bold text-white shadow-sm transition-colors hover:bg-[#285ac8] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:hover:bg-slate-300"
-                >
-                  <Plus className="w-4 h-4" />
-                  新規作成
-                </button>
-              )}
               </div>
             </div>
 
@@ -1419,16 +1570,6 @@ export default function HostPage() {
                 />
               )}
             </AnimatePresence>
-
-            <HostInfoCard title="ライブ投票について" icon={BookOpen}>
-              <ul className="space-y-1.5 text-xs leading-relaxed text-[#23418c] sm:text-sm">
-                <li>• <strong>通常投票</strong>：選択肢から回答してもらう基本の投票です。複数選択にも対応します。</li>
-                <li>• <strong>クイズ形式</strong>：複数の問題をまとめて出題し、正解を設定して回答結果を確認できます。</li>
-                <li>• <strong>ランキング形式</strong>：候補を順位で回答してもらい、順位ごとの重みでランキングを集計します。</li>
-                <li>• <strong>リセット</strong>：直近の回答結果をリセットして同じカードを繰り返し利用できます。リセットした回答結果もカードに蓄積され、CSVデータとして出力できます。</li>
-                <li>• 投票時間を設定した場合は、スクリーン画面の「開始」ボタンを押すと投票がスタートし、設定した時間でカウントダウンします。</li>
-              </ul>
-            </HostInfoCard>
 
             {/* Create poll form */}
             <AnimatePresence>
@@ -2078,20 +2219,52 @@ export default function HostPage() {
                     ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                       {pagedPolls.map((poll) => (
-                        <PollResultCard
+                        <div
                           key={poll.id}
-                          poll={poll}
-                          votes={pollVotes[poll.id] || []}
-                          pendingId={pollStatusPendingId}
-                          deletingId={pollDeletingId}
-                          editing={editingPollId === poll.id}
-                          onStart={() => handlePollStatus(poll.id, 'active')}
-                          onClose={() => handlePollStatus(poll.id, 'closed')}
-                          onDelete={() => handleDeletePoll(poll.id)}
-                          onEdit={() => handleEditPoll(poll)}
-                          onReset={() => handleResetPoll(poll.id)}
-                          resetting={pollResettingId === poll.id}
-                        />
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            e.dataTransfer.dropEffect = 'move';
+                          }}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            const sourceId = e.dataTransfer.getData('text/plain') || draggingPollId;
+                            if (sourceId) movePollCard(sourceId, poll.id);
+                            setDraggingPollId(null);
+                          }}
+                          className={`transition-opacity ${draggingPollId === poll.id ? 'opacity-50' : 'opacity-100'}`}
+                        >
+                          <div className="mb-1.5 flex justify-end">
+                            <button
+                              type="button"
+                              draggable
+                              onDragStart={(e) => {
+                                setDraggingPollId(poll.id);
+                                e.dataTransfer.effectAllowed = 'move';
+                                e.dataTransfer.setData('text/plain', poll.id);
+                              }}
+                              onDragEnd={() => setDraggingPollId(null)}
+                              className="inline-flex h-7 items-center gap-1 rounded-md border border-[#e9e7e7] bg-white px-2 text-[11px] font-bold text-[#595959] cursor-grab transition-colors hover:border-[#00963c] hover:text-[#00963c] active:cursor-grabbing"
+                              title="ドラッグして並び替え"
+                              aria-label="ドラッグして並び替え"
+                            >
+                              <GripVertical className="h-3.5 w-3.5" />
+                              並び替え
+                            </button>
+                          </div>
+                          <PollResultCard
+                            poll={poll}
+                            votes={pollVotes[poll.id] || []}
+                            pendingId={pollStatusPendingId}
+                            deletingId={pollDeletingId}
+                            editing={editingPollId === poll.id}
+                            onStart={() => handlePollStatus(poll.id, 'active')}
+                            onClose={() => handlePollStatus(poll.id, 'closed')}
+                            onDelete={() => handleDeletePoll(poll.id)}
+                            onEdit={() => handleEditPoll(poll)}
+                            onReset={() => handleResetPoll(poll.id)}
+                            resetting={pollResettingId === poll.id}
+                          />
+                        </div>
                       ))}
                     </div>
                     )}
@@ -2139,18 +2312,20 @@ export default function HostPage() {
 
         {/* === Summary Tab === */}
         {tab === 'summary' && (
-          <SummaryTab
-            counts={counts}
-            totalQuestions={questions.length}
-            totalUpvotes={totalUpvotes}
-            totalPolls={totalPolls}
-            totalParticipants={totalParticipants}
-            attendanceLinked={!!room.linked_course_code}
-            totalAttendance={exportData?.stats?.totalAttendance ?? null}
-            topQuestions={[...questions]
-              .sort((a, b) => b.upvote_count - a.upvote_count)
-              .slice(0, 5)}
-          />
+          <div className="space-y-5">
+            <SummaryTab
+              counts={counts}
+              totalQuestions={questions.length}
+              totalUpvotes={totalUpvotes}
+              totalPolls={totalPolls}
+              totalParticipants={totalParticipants}
+              attendanceLinked={!!room.linked_course_code}
+              totalAttendance={exportData?.stats?.totalAttendance ?? null}
+              topQuestions={[...questions]
+                .sort((a, b) => b.upvote_count - a.upvote_count)
+                .slice(0, 5)}
+            />
+          </div>
         )}
 
         {/* === Integration Tab === */}
@@ -2418,11 +2593,11 @@ function HostSideNav({
 }) {
   return (
     <aside
-      className={`hidden h-screen shrink-0 border-r border-[#dce8ff] bg-[#f3f7ff] transition-[width] duration-200 ease-out lg:sticky lg:top-0 lg:flex lg:flex-col ${
+      className={`hidden h-screen shrink-0 border-r border-[#00963c] bg-[#eaf8ef] transition-[width] duration-200 ease-out lg:sticky lg:top-0 lg:flex lg:flex-col ${
         collapsed ? 'w-16' : 'w-72'
       }`}
     >
-      <div className={`border-b border-[#dce8ff] ${collapsed ? 'px-2 py-3' : 'px-4 py-4'}`}>
+      <div className={`border-b border-[#00963c] ${collapsed ? 'px-2 py-3' : 'px-4 py-4'}`}>
         <div className={`flex items-center ${collapsed ? 'justify-center' : 'justify-between gap-2'}`}>
           <Link
             href="/admin"
@@ -2438,7 +2613,7 @@ function HostSideNav({
             <button
               type="button"
               onClick={onToggleCollapsed}
-              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[#2864f0] transition-colors hover:bg-[#dce8ff]"
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[#00963c] transition-colors hover:bg-white"
               aria-label="サイドバーを閉じる"
               title="サイドバーを閉じる"
             >
@@ -2450,7 +2625,7 @@ function HostSideNav({
           <button
             type="button"
             onClick={onToggleCollapsed}
-            className="mt-2 inline-flex h-8 w-full items-center justify-center rounded-md text-[#2864f0] transition-colors hover:bg-[#dce8ff]"
+            className="mt-2 inline-flex h-8 w-full items-center justify-center rounded-md text-[#00963c] transition-colors hover:bg-white"
             aria-label="サイドバーを開く"
             title="サイドバーを開く"
           >
@@ -2460,9 +2635,9 @@ function HostSideNav({
       </div>
 
       {!collapsed && (
-      <div className="border-b border-[#dce8ff] px-4 py-4">
+      <div className="border-b border-[#00963c] px-4 py-4">
         <div className="mb-3 flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white ring-1 ring-[#dce8ff]">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white ring-1 ring-[#00963c]">
             <Image src={LOGO_URL} alt="" width={24} height={24} className="rounded-md" />
           </div>
           <div className="min-w-0 flex-1">
@@ -2470,7 +2645,7 @@ function HostSideNav({
             <button
               type="button"
               onClick={onCopyCode}
-              className="mt-1 inline-flex items-center gap-1 font-mono text-xs font-bold tracking-wider text-[#595959] hover:text-[#2864f0]"
+              className="mt-1 inline-flex items-center gap-1 font-mono text-xs font-bold tracking-wider text-[#595959] hover:text-[#00963c]"
               title="コードをコピー"
             >
               #{room.code}
@@ -2479,23 +2654,23 @@ function HostSideNav({
           </div>
         </div>
         <div className="grid grid-cols-2 gap-2 text-xs">
-          <div className="rounded-lg border border-[#dce8ff] bg-white p-2">
+          <div className="rounded-lg border border-[#00963c] bg-white p-2">
             <p className="font-bold text-[#8c8989]">参加者</p>
             <p className="mt-1 inline-flex items-center gap-1 font-extrabold tabular-nums text-[#323232]">
-              <Users className="h-3.5 w-3.5 text-[#2864f0]" />
+              <Users className="h-3.5 w-3.5 text-[#00963c]" />
               {presenceCount}人
             </p>
           </div>
           <a
             href={qrUrl || '#'}
             download={`qr-${roomCode}.png`}
-            className={`rounded-lg border border-[#dce8ff] bg-white p-2 transition-colors hover:border-[#aac8ff] ${
+            className={`rounded-lg border border-[#00963c] bg-white p-2 transition-colors hover:bg-[#eaf8ef] ${
               qrUrl ? '' : 'pointer-events-none opacity-50'
             }`}
           >
             <p className="font-bold text-[#8c8989]">参加QR</p>
             <p className="mt-1 inline-flex items-center gap-1 font-extrabold text-[#323232]">
-              <QrCode className="h-3.5 w-3.5 text-[#2864f0]" />
+              <QrCode className="h-3.5 w-3.5 text-[#00963c]" />
               保存
             </p>
           </a>
@@ -2505,12 +2680,12 @@ function HostSideNav({
             href={`/rooms/${roomCode}/present`}
             target={`zasekikun-present-${roomCode}`}
             rel="noopener noreferrer"
-            className="rounded-lg border border-[#dce8ff] bg-white p-2 transition-colors hover:border-[#aac8ff] hover:bg-[#ebf3ff]"
+            className="rounded-lg border border-[#00963c] bg-white p-2 transition-colors hover:bg-[#eaf8ef]"
             title="スクリーン画面を開く"
           >
             <p className="font-bold text-[#8c8989]">スクリーン</p>
             <p className="mt-1 inline-flex items-center gap-1 font-extrabold text-[#323232]">
-              <Monitor className="h-3.5 w-3.5 text-[#2864f0]" />
+              <Monitor className="h-3.5 w-3.5 text-[#00963c]" />
               開く
             </p>
           </a>
@@ -2521,12 +2696,12 @@ function HostSideNav({
             className={`rounded-lg p-2 text-left transition-colors disabled:pointer-events-none disabled:opacity-60 ${
               roomStatus === 'active'
                 ? 'border border-[#dc1e32] bg-white hover:bg-red-50'
-                : 'border border-[#dce8ff] bg-white hover:border-[#aac8ff] hover:bg-[#ebf3ff]'
+                : 'border border-[#00963c] bg-white hover:bg-[#eaf8ef]'
             }`}
           >
             {roomStatusLoading ? (
               <span className="flex h-full items-center justify-center">
-                <Loader2 className="h-3.5 w-3.5 animate-spin text-[#2864f0]" />
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-[#00963c]" />
               </span>
             ) : roomStatus === 'active' ? (
               <>
@@ -2539,7 +2714,7 @@ function HostSideNav({
             ) : (
               <>
                 <p className="font-bold text-[#8c8989]">セッション</p>
-                <p className="mt-1 inline-flex items-center gap-1 font-extrabold text-[#2864f0]">
+                <p className="mt-1 inline-flex items-center gap-1 font-extrabold text-[#00963c]">
                   <RotateCcw className="h-3.5 w-3.5" />
                   再開
                 </p>
@@ -2564,12 +2739,12 @@ function HostSideNav({
               className={`flex w-full items-center rounded-lg text-left transition-colors ${
                 collapsed ? 'justify-center px-2 py-2' : 'gap-3 px-3 py-2.5'
               } ${
-                active ? 'bg-[#dce8ff] text-[#23418c]' : 'text-[#323232] hover:bg-[#dce8ff]/60'
+                active ? 'bg-white text-[#323232]' : 'text-[#323232] hover:bg-white/70'
               }`}
             >
               <span
                 className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
-                  active ? 'bg-white text-[#2864f0]' : 'bg-transparent text-[#2864f0]'
+                  active ? 'bg-[#eaf8ef] text-[#00963c]' : 'bg-transparent text-[#00963c]'
                 }`}
               >
                 <Icon className="h-5 w-5" />
@@ -2585,10 +2760,10 @@ function HostSideNav({
         })}
       </nav>
 
-      <div className="border-t border-[#dce8ff] p-4">
+      <div className="border-t border-[#00963c] p-4">
         <Link
           href="/admin"
-          className={`inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-[#dce8ff] bg-white text-sm font-bold text-[#595959] transition-colors hover:border-[#aac8ff] hover:text-[#2864f0] ${
+          className={`inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-[#00963c] bg-white text-sm font-bold text-[#595959] transition-colors hover:bg-[#eaf8ef] hover:text-[#00963c] ${
             collapsed ? 'px-0' : ''
           }`}
           title="管理画面へ"

@@ -103,7 +103,7 @@ const MENU_ITEMS: Array<{
     iconColor: 'text-[#2864f0]',
     activeBg: 'bg-[#dce8ff] text-[#23418c]',
     inPage: false,
-    href: '/faq',
+    href: '/admin/faq',
   },
 ];
 
