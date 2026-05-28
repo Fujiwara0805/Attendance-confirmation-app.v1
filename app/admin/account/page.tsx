@@ -19,7 +19,11 @@ import {
 import { Button } from '@/components/ui/button';
 import { CustomModal } from '@/components/ui/custom-modal';
 import { useToast } from '@/hooks/use-toast';
-import AdminShell, { type AdminShellPlanInfo } from '../components/AdminShell';
+import AdminShell, {
+  readCachedAdminShellPlanInfo,
+  type AdminShellPlanInfo,
+  writeCachedAdminShellPlanInfo,
+} from '../components/AdminShell';
 
 type PlanInfo = AdminShellPlanInfo & {
   canCreateForm: boolean;
@@ -135,6 +139,7 @@ export default function AccountSettingsPage() {
       if (res.ok) {
         const data = await res.json();
         setPlanInfo(data);
+        writeCachedAdminShellPlanInfo(data);
       }
     } catch (error) {
       console.error('Failed to fetch plan info:', error);
@@ -147,6 +152,12 @@ export default function AccountSettingsPage() {
     if (status === 'loading') return;
     if (!session) {
       router.push('/admin/login');
+      return;
+    }
+    const cached = readCachedAdminShellPlanInfo();
+    if (cached) {
+      setPlanInfo(cached as PlanInfo);
+      setLoadingPlan(false);
       return;
     }
     fetchPlanInfo();

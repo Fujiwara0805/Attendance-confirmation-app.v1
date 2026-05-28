@@ -33,6 +33,30 @@ export interface AdminShellPlanInfo {
   limits: { maxForms: number; maxRooms: number };
 }
 
+const ADMIN_SHELL_PLAN_INFO_STORAGE_KEY = 'admin-shell-plan-info';
+
+export function readCachedAdminShellPlanInfo(): AdminShellPlanInfo | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.sessionStorage.getItem(ADMIN_SHELL_PLAN_INFO_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as AdminShellPlanInfo;
+    if (!parsed?.subscription || !parsed?.usage || !parsed?.limits) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export function writeCachedAdminShellPlanInfo(planInfo: AdminShellPlanInfo | null | undefined) {
+  if (typeof window === 'undefined' || !planInfo) return;
+  try {
+    window.sessionStorage.setItem(ADMIN_SHELL_PLAN_INFO_STORAGE_KEY, JSON.stringify(planInfo));
+  } catch {
+    // ignore
+  }
+}
+
 interface AdminShellProps {
   activeSection: AdminSection;
   planInfo?: AdminShellPlanInfo | null;
@@ -135,6 +159,17 @@ function SidebarContent({
 }: SidebarContentProps) {
   const router = useRouter();
   const { data: session } = useSession();
+  const [cachedPlanInfo, setCachedPlanInfo] = useState<AdminShellPlanInfo | null>(null);
+
+  useEffect(() => {
+    setCachedPlanInfo(readCachedAdminShellPlanInfo());
+  }, []);
+
+  useEffect(() => {
+    if (!planInfo) return;
+    writeCachedAdminShellPlanInfo(planInfo);
+    setCachedPlanInfo(planInfo);
+  }, [planInfo]);
 
   const handleSelect = (item: typeof MENU_ITEMS[number]) => {
     const { key, inPage, href } = item;
@@ -156,9 +191,10 @@ function SidebarContent({
     onAfterNavigate?.();
   };
 
-  const subscription = planInfo?.subscription;
-  const usage = planInfo?.usage;
-  const limits = planInfo?.limits;
+  const displayPlanInfo = planInfo ?? cachedPlanInfo;
+  const subscription = displayPlanInfo?.subscription;
+  const usage = displayPlanInfo?.usage;
+  const limits = displayPlanInfo?.limits;
   const displayPlan = planLabel(subscription?.plan);
   const planClasses =
     subscription?.plan === 'enterprise'
@@ -423,7 +459,7 @@ function SidebarContent({
             onClick={() => signOut({ callbackUrl: '/admin/login' })}
             title="ログアウト"
             aria-label="ログアウト"
-            className="h-9 w-9 inline-flex items-center justify-center rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+            className="h-9 w-9 inline-flex items-center justify-center rounded-md text-red-600 hover:text-red-700 hover:bg-red-50 transition-colors"
           >
             <LogOut className="h-4 w-4" />
           </button>
@@ -432,9 +468,9 @@ function SidebarContent({
             variant="outline"
             size="sm"
             onClick={() => signOut({ callbackUrl: '/admin/login' })}
-            className="w-full h-9 text-sm text-slate-600 border-slate-200"
+            className="w-full h-9 text-sm border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
           >
-            <LogOut className="h-3.5 w-3.5 mr-1.5" />
+            <LogOut className="h-3.5 w-3.5 mr-1.5 text-red-600" />
             ログアウト
           </Button>
         )}

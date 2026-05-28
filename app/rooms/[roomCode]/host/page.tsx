@@ -99,7 +99,7 @@ interface CourseOption {
   form_type?: string;
 }
 
-type HostTab = 'questions' | 'polls' | 'summary' | 'export' | 'integration';
+type HostTab = 'questions' | 'polls' | 'summary' | 'export' | 'integration' | 'faq';
 type SortMode = 'popular' | 'newest';
 type StatusFilter = 'all' | 'unanswered' | 'pending' | 'approved' | 'answered' | 'rejected';
 
@@ -174,13 +174,14 @@ const HOST_NAV_ITEMS: Array<{
   key: HostTab;
   label: string;
   description: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: ComponentType<{ className?: string }>;
 }> = [
   { key: 'questions', label: '質問', description: '承認・回答管理', icon: MessageSquare },
   { key: 'polls', label: 'ライブ投票', description: 'カード作成・集計', icon: BarChart3 },
   { key: 'summary', label: 'サマリー', description: '状況の確認', icon: PieChart },
   { key: 'integration', label: '連携', description: '出席フォーム紐付け', icon: Link2 },
   { key: 'export', label: 'エクスポート', description: 'CSV出力', icon: Download },
+  { key: 'faq', label: 'FAQ', description: '操作ガイド', icon: HelpCircle },
 ];
 
 type HostColorTheme = {
@@ -263,7 +264,75 @@ const HOST_COLOR_THEMES: Record<HostTab, HostColorTheme> = {
     infoBorder: '#00963c',
     infoText: '#323232',
   },
+  faq: {
+    headerBg: '#eaf8ef',
+    headerBorder: '#9dd8b1',
+    iconBg: '#ffffff',
+    iconBorder: '#00963c',
+    accent: '#00963c',
+    titleText: '#323232',
+    descriptionText: '#595959',
+    strongText: '#323232',
+    infoBg: '#eaf8ef',
+    infoBorder: '#00963c',
+    infoText: '#323232',
+  },
 };
+
+const HOST_FAQ_SECTIONS: Array<{
+  id: string;
+  title: string;
+  icon: ComponentType<{ className?: string }>;
+  summary: string;
+  body: string;
+  tips: string[];
+}> = [
+  {
+    id: 'questions',
+    title: '質問',
+    icon: MessageSquare,
+    summary: '参加者から届いた質問を承認、非表示、回答済みに整理できます。',
+    body:
+      '承認制をONにすると、新規質問はホストが確認してから公開されます。いいね数や投稿日時で並び替えることで、進行中に扱う質問を見つけやすくなります。画面上のリセットは表示整理のための操作で、CSV出力に使う質問データは保持されます。',
+    tips: ['承認待ちがある場合は通知エリアから確認できます。', '質問はスクリーン画面にも表示できます。'],
+  },
+  {
+    id: 'polls',
+    title: 'ライブ投票',
+    icon: BarChart3,
+    summary: '投票カード、クイズ、ランキングを作成し、回答結果を集計できます。',
+    body:
+      '通常投票は選択肢から回答してもらう基本形式で、複数選択にも対応します。クイズ形式では正解を設定でき、ランキング形式では候補を順位で回答してもらい、重み付けされた結果を集計できます。カードはドラッグで並び替えでき、スクリーン画面で結果を共有できます。',
+    tips: ['新規作成はヘッダー右側のボタンから行います。', '検索欄で投票タイトル、選択肢、形式を絞り込めます。'],
+  },
+  {
+    id: 'summary',
+    title: 'サマリー',
+    icon: PieChart,
+    summary: 'ルーム全体の質問数、いいね数、参加者数、投票数を確認できます。',
+    body:
+      '出席フォームを連携している場合は出席数も表示されます。質問のステータス分布や人気の質問TOP5を確認できるため、イベント中の進行判断や終了後の振り返りに使えます。',
+    tips: ['数字はルームの現在データをもとに表示されます。', '詳細な出力はエクスポート画面を使います。'],
+  },
+  {
+    id: 'integration',
+    title: '連携',
+    icon: Link2,
+    summary: 'ルームと出席フォームを紐づけ、参加者画面に出席タブを追加できます。',
+    body:
+      '出席フォームを紐づけると、Q&Aや投票と同じ画面から出席登録できます。位置情報チェックや送信クールダウンなど、既存の出席フォーム設定はそのまま適用されます。',
+    tips: ['紐づけ可能なフォームがない場合は、先にフォーム管理で作成してください。', '紐づけはいつでも解除できます。'],
+  },
+  {
+    id: 'export',
+    title: 'エクスポート',
+    icon: ClipboardCheck,
+    summary: 'Q&Aとライブ投票結果をCSVで出力できます。',
+    body:
+      '質問一覧、いいね数、回答済み状態、投票結果などをCSV形式でダウンロードできます。ライブ投票は全カードまとめて出力することも、特定のカードだけを選んで出力することもできます。',
+    tips: ['イベント後の分析やレポート作成に使えます。', '投票の出力対象は確認画面で選択します。'],
+  },
+];
 
 function HostPageHeader({
   title,
@@ -280,7 +349,7 @@ function HostPageHeader({
 }) {
   return (
     <div
-      className="border-b px-5 py-3"
+      className="border-b px-4 py-3 sm:px-5"
       style={{ backgroundColor: theme.headerBg, borderColor: theme.headerBorder }}
     >
       <div className="mx-auto flex max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -306,7 +375,63 @@ function HostPageHeader({
             </p>
           </div>
         </div>
-        {children && <div className="flex flex-wrap items-center gap-2 sm:justify-end">{children}</div>}
+        {children && (
+          <div className="flex w-full flex-nowrap items-center gap-2 overflow-x-auto pb-1 sm:w-auto sm:flex-wrap sm:justify-end sm:overflow-visible sm:pb-0">
+            {children}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function HostMobileRoomBar({
+  room,
+  roomCode,
+  presenceCount,
+  qrUrl,
+  copied,
+  onCopyCode,
+}: {
+  room: Room;
+  roomCode: string;
+  presenceCount: number;
+  qrUrl: string;
+  copied: boolean;
+  onCopyCode: () => void;
+}) {
+  return (
+    <div className="border-b border-[#9dd8b1] bg-white px-4 py-3 lg:hidden">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-bold text-[#323232]">{room.title}</p>
+          <button
+            type="button"
+            onClick={onCopyCode}
+            className="mt-1 inline-flex items-center gap-1 font-mono text-xs font-bold tracking-wider text-[#595959] hover:text-[#00963c]"
+            title="コードをコピー"
+          >
+            #{room.code}
+            {copied ? <Check className="h-3 w-3 text-[#00963c]" /> : <Copy className="h-3 w-3" />}
+          </button>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="inline-flex h-9 items-center gap-1 rounded-md border border-[#9dd8b1] bg-[#eaf8ef] px-2.5 text-xs font-bold text-[#323232]">
+            <Users className="h-3.5 w-3.5 text-[#00963c]" />
+            {presenceCount}人
+          </span>
+          <a
+            href={qrUrl || '#'}
+            download={`qr-${roomCode}.png`}
+            className={`inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#9dd8b1] bg-white text-[#00963c] transition-colors hover:bg-[#eaf8ef] ${
+              qrUrl ? '' : 'pointer-events-none opacity-50'
+            }`}
+            aria-label="参加QRを保存"
+            title="参加QRを保存"
+          >
+            <QrCode className="h-4 w-4" />
+          </a>
+        </div>
       </div>
     </div>
   );
@@ -1357,25 +1482,26 @@ export default function HostPage() {
                 onClick={() => setShowPollTypeModal(true)}
                 disabled={atPollLimit}
                 title={atPollLimit ? `Freeプランではライブ投票カードを${pollLimit}個まで作成できます` : 'ライブ投票を新規作成'}
-                className="inline-flex h-9 items-center gap-1.5 rounded-md bg-[#2864f0] px-3 text-xs font-bold text-white shadow-sm transition-colors hover:bg-[#285ac8] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:hover:bg-slate-300"
+                className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md bg-[#2864f0] px-3 text-xs font-bold text-white shadow-sm transition-colors hover:bg-[#285ac8] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:hover:bg-slate-300"
               >
                 <Plus className="h-3.5 w-3.5" />
                 新規作成
               </button>
             )}
-            <Link
-              href={`/admin/faq#host-${activeHostItem.key}`}
+            <button
+              type="button"
+              onClick={() => setTab('faq')}
               className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#9dd8b1] bg-white text-[#00963c] transition-colors hover:bg-[#eaf8ef]"
-              aria-label={`${activeHostItem.label}のヘルプを開く`}
-              title={`${activeHostItem.label}のヘルプ`}
+              aria-label="ホスト管理のFAQを開く"
+              title="ホスト管理のFAQ"
             >
               <HelpCircle className="h-4 w-4" />
-            </Link>
+            </button>
             <a
               href={`/rooms/${roomCode}/present`}
               target={`zasekikun-present-${roomCode}`}
               rel="noopener noreferrer"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#e1dcdc] bg-white text-[#2864f0] transition-colors hover:border-[#aac8ff] hover:bg-[#ebf3ff]"
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#e1dcdc] bg-white text-[#2864f0] transition-colors hover:border-[#aac8ff] hover:bg-[#ebf3ff]"
               title="スクリーン画面を開く"
             >
               <Monitor className="w-4 h-4" />
@@ -1384,7 +1510,7 @@ export default function HostPage() {
               type="button"
               disabled={roomStatusLoading}
               onClick={handleToggleRoomStatus}
-              className={`inline-flex h-9 min-w-[5rem] items-center justify-center gap-1.5 rounded-md px-3 text-xs font-bold transition-colors disabled:pointer-events-none disabled:opacity-60 ${
+              className={`inline-flex h-9 min-w-[5rem] shrink-0 items-center justify-center gap-1.5 rounded-md px-3 text-xs font-bold transition-colors disabled:pointer-events-none disabled:opacity-60 ${
                 room.status === 'active'
                   ? 'bg-[#dc1e32] text-white hover:bg-[#a51428]'
                   : 'bg-[#2864f0] text-white hover:bg-[#285ac8]'
@@ -1405,37 +1531,40 @@ export default function HostPage() {
               )}
             </button>
         </HostPageHeader>
+        <HostMobileRoomBar
+          room={room}
+          roomCode={roomCode}
+          presenceCount={Math.max(presenceCount, 1)}
+          qrUrl={qrUrl}
+          copied={copied}
+          onCopyCode={handleCopyCode}
+        />
 
         {/* Mobile tabs */}
-        <div className="mx-auto flex max-w-6xl gap-5 overflow-x-auto px-5 -mb-px lg:hidden">
-          {(
-            [
-              { key: 'questions', icon: <MessageSquare className="w-4 h-4" />, label: '質問' },
-              { key: 'polls', icon: <BarChart3 className="w-4 h-4" />, label: 'ライブ投票' },
-              { key: 'summary', icon: <PieChart className="w-4 h-4" />, label: 'サマリー' },
-              { key: 'integration', icon: <Link2 className="w-4 h-4" />, label: '連携' },
-              { key: 'export', icon: <Download className="w-4 h-4" />, label: 'エクスポート' },
-            ] as const
-          ).map((t) => (
+        <div className="mx-auto flex max-w-6xl gap-3 overflow-x-auto px-4 -mb-px lg:hidden">
+          {HOST_NAV_ITEMS.map((t) => {
+            const Icon = t.icon;
+            return (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`flex items-center gap-1.5 px-1 py-2.5 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${
+              className={`flex shrink-0 items-center gap-1.5 px-1 py-2.5 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${
                 tab === t.key
                   ? ''
                   : 'border-transparent text-slate-400 hover:text-slate-600'
               }`}
               style={tab === t.key ? { borderColor: HOST_COLOR_THEMES[t.key].accent, color: HOST_COLOR_THEMES[t.key].accent } : undefined}
             >
-              {t.icon}
+              <Icon className="w-4 h-4" />
               {t.label}
             </button>
-          ))}
+            );
+          })}
         </div>
       </header>
 
       {/* Content */}
-      <div className="flex-1 mx-auto w-full max-w-6xl px-5 py-5">
+      <div className="flex-1 mx-auto w-full max-w-6xl px-4 py-4 sm:px-5 sm:py-5">
         {/* === Questions Tab === */}
         {tab === 'questions' && (
           <div className="space-y-4">
@@ -2407,8 +2536,8 @@ export default function HostPage() {
         {tab === 'integration' && (
           <div className="space-y-5">
             {/* 出席フォーム紐付け */}
-            <div className="rounded-2xl bg-white ring-1 ring-slate-200 p-6">
-              <div className="flex items-start justify-between gap-3 mb-2">
+            <div className="rounded-2xl bg-white ring-1 ring-slate-200 p-4 sm:p-6">
+              <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex items-start gap-3 min-w-0">
                   <div className="w-10 h-10 rounded-xl bg-emerald-50 ring-1 ring-emerald-100 flex items-center justify-center shrink-0">
                     <ClipboardCheck className="w-5 h-5 text-emerald-600" />
@@ -2475,7 +2604,7 @@ export default function HostPage() {
             </div>
 
             {/* 使い方ヒント */}
-            <div className="rounded-2xl bg-slate-50 ring-1 ring-slate-200 p-5">
+            <div className="rounded-2xl bg-slate-50 ring-1 ring-slate-200 p-4 sm:p-5">
               <p className="text-xs sm:text-sm font-bold text-slate-700 mb-2">使い方</p>
               <ul className="text-xs sm:text-sm text-slate-500 space-y-1.5 leading-relaxed list-disc list-inside">
                 <li>紐付けると、参加者画面のタブに「出席」が表示されます。</li>
@@ -2490,7 +2619,7 @@ export default function HostPage() {
         {tab === 'export' && (
           <div className="space-y-5">
             {exportData?.stats && (
-              <div className="rounded-2xl bg-white ring-1 ring-slate-200 p-6">
+              <div className="rounded-2xl bg-white ring-1 ring-slate-200 p-4 sm:p-6">
                 <h3 className="text-lg sm:text-xl font-extrabold tracking-tight text-slate-900 mb-4">
                   ルームサマリー
                 </h3>
@@ -2518,7 +2647,7 @@ export default function HostPage() {
             )}
 
             {exportData?.topQuestions && exportData.topQuestions.length > 0 && (
-              <div className="rounded-2xl bg-white ring-1 ring-slate-200 p-6">
+              <div className="rounded-2xl bg-white ring-1 ring-slate-200 p-4 sm:p-6">
                 <h3 className="text-base sm:text-lg font-bold text-slate-900 mb-3">
                   質問一覧（いいね順）
                 </h3>
@@ -2548,7 +2677,7 @@ export default function HostPage() {
               </div>
             )}
 
-            <div className="rounded-2xl bg-white ring-1 ring-slate-200 p-6">
+              <div className="rounded-2xl bg-white ring-1 ring-slate-200 p-4 sm:p-6">
               <h3 className="text-base sm:text-lg font-bold text-slate-900 mb-4">
                 データダウンロード
               </h3>
@@ -2583,7 +2712,7 @@ export default function HostPage() {
             </div>
 
             {/* Moderation toggle (placed under Export for housekeeping) */}
-            <div className="rounded-2xl bg-white ring-1 ring-slate-200 p-6 flex items-center justify-between">
+            <div className="flex flex-col gap-3 rounded-2xl bg-white p-4 ring-1 ring-slate-200 sm:flex-row sm:items-center sm:justify-between sm:p-6">
               <div>
                 <h4 className="text-sm sm:text-base font-bold text-slate-900">承認制（モデレーション）</h4>
                 <p className="text-xs sm:text-sm text-slate-500 mt-1">
@@ -2611,6 +2740,59 @@ export default function HostPage() {
                 )}
                 {room.moderation_enabled ? '承認制 ON' : '承認制 OFF'}
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* === FAQ Tab === */}
+        {tab === 'faq' && (
+          <div className="space-y-5">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {HOST_FAQ_SECTIONS.map((section) => {
+                const Icon = section.icon;
+                return (
+                  <a
+                    key={section.id}
+                    href={`#host-faq-${section.id}`}
+                    className="rounded-lg border border-[#9dd8b1] bg-white p-4 transition-colors hover:bg-[#eaf8ef]"
+                  >
+                    <Icon className="h-5 w-5 text-[#00963c]" />
+                    <p className="mt-2 text-sm font-bold text-[#323232]">{section.title}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-[#595959]">{section.summary}</p>
+                  </a>
+                );
+              })}
+            </div>
+
+            <div className="space-y-4">
+              {HOST_FAQ_SECTIONS.map((section) => {
+                const Icon = section.icon;
+                return (
+                  <section
+                    key={section.id}
+                    id={`host-faq-${section.id}`}
+                    className="scroll-mt-48 rounded-lg border border-[#e9e7e7] bg-white p-4 sm:p-5"
+                  >
+                    <div className="flex items-start gap-3">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[#eaf8ef] text-[#00963c]">
+                        <Icon className="h-5 w-5" />
+                      </span>
+                      <div>
+                        <h2 className="text-base font-bold text-[#323232]">{section.title}</h2>
+                        <p className="mt-1 text-sm font-bold text-[#1e7a35]">{section.summary}</p>
+                      </div>
+                    </div>
+                    <p className="mt-4 text-sm leading-7 text-[#595959]">{section.body}</p>
+                    <div className="mt-4 rounded-lg border border-[#9dd8b1] bg-[#eaf8ef] p-3">
+                      {section.tips.map((tip) => (
+                        <p key={tip} className="text-xs leading-6 text-[#1e7a35]">
+                          {tip}
+                        </p>
+                      ))}
+                    </div>
+                  </section>
+                );
+              })}
             </div>
           </div>
         )}
