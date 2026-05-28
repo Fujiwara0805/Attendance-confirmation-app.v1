@@ -75,6 +75,30 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/
 const LOGO_URL =
   'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_200/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png';
 const HOST_SIDEBAR_COLLAPSED_KEY = 'host-sidebar-collapsed';
+const POLL_TIME_SECONDS_OPTIONS = [5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 300, 600, 900, 1800, 3600];
+
+function formatSecondsOption(seconds: number) {
+  if (seconds <= 0) return 'なし';
+  if (seconds < 60) return `${seconds}秒`;
+  const minutes = Math.floor(seconds / 60);
+  const restSeconds = seconds % 60;
+  return restSeconds > 0 ? `${minutes}分${restSeconds}秒` : `${minutes}分`;
+}
+
+function getPollTimeOptions(current: number | '' | null | undefined, minSeconds = 0, allowZero = false) {
+  const options = POLL_TIME_SECONDS_OPTIONS.filter((seconds) => seconds >= minSeconds);
+  if (allowZero) options.unshift(0);
+  const currentNumber = typeof current === 'number' ? current : Number(current);
+  if (
+    Number.isFinite(currentNumber) &&
+    currentNumber >= minSeconds &&
+    currentNumber <= 3600 &&
+    !options.includes(currentNumber)
+  ) {
+    options.push(currentNumber);
+  }
+  return Array.from(new Set(options)).sort((a, b) => a - b);
+}
 
 interface LinkedCourseSummary {
   code: string;
@@ -2188,19 +2212,20 @@ export default function HostPage() {
                         </div>
                         <label className="ml-auto inline-flex items-center gap-1.5 rounded-xl bg-slate-50 px-3 py-1 ring-1 ring-slate-200">
                           <Clock className="h-4 w-4 text-slate-400" />
-                          <input
-                            type="number"
-                            min={5}
-                            max={3600}
+                          <select
                             value={quizTimeLimit}
                             onChange={(e) =>
                               setQuizTimeLimit(clampNumber(e.target.value, 5, 3600, 60))
                             }
-                            className="h-7 w-16 rounded-md bg-white px-2 text-center font-semibold tabular-nums ring-1 ring-slate-200 outline-none focus:ring-emerald-300"
-                            style={{ fontSize: '16px' }}
-                            aria-label="解答時間（全問題共通・秒）"
-                          />
-                          <span className="text-xs font-semibold text-slate-500">秒</span>
+                            className="h-8 w-28 rounded-md bg-white px-2 text-center text-sm font-semibold tabular-nums ring-1 ring-slate-200 outline-none focus:ring-emerald-300"
+                            aria-label="解答時間（全問題共通）"
+                          >
+                            {getPollTimeOptions(quizTimeLimit, 5).map((seconds) => (
+                              <option key={seconds} value={seconds}>
+                                {formatSecondsOption(seconds)}
+                              </option>
+                            ))}
+                          </select>
                         </label>
                       </>
                     )}
@@ -2559,16 +2584,17 @@ export default function HostPage() {
                         <label className="text-xs sm:text-sm text-slate-600">
                           投票時間
                           <div className="mt-1 flex items-center gap-2">
-                            <input
-                              type="number"
-                              min={0}
-                              max={3600}
+                            <select
                               value={rankingTimeLimit}
                               onChange={(e) => setRankingTimeLimit(clampNumber(e.target.value, 0, 3600, 60))}
                               className="h-11 w-full rounded-xl bg-slate-50 px-3 text-center font-semibold tabular-nums ring-1 ring-slate-200 outline-none"
-                              style={{ fontSize: '16px' }}
-                            />
-                            <span className="shrink-0 text-xs font-semibold text-slate-400">秒</span>
+                            >
+                              {getPollTimeOptions(rankingTimeLimit, 0, true).map((seconds) => (
+                                <option key={seconds} value={seconds}>
+                                  {formatSecondsOption(seconds)}
+                                </option>
+                              ))}
+                            </select>
                           </div>
                         </label>
                         <label className="text-xs sm:text-sm text-slate-600">
@@ -2642,23 +2668,24 @@ export default function HostPage() {
                     <div className="flex flex-wrap items-center gap-3">
                       <label className="inline-flex items-center gap-2 text-xs sm:text-sm text-slate-600">
                         投票時間
-                        <input
-                          type="number"
-                          min={0}
-                          max={3600}
-                          value={standardTimeLimit}
+                        <select
+                          value={standardTimeLimit === '' ? '' : standardTimeLimit}
                           onChange={(e) =>
                             setStandardTimeLimit(
                               e.target.value === ''
                                 ? ''
-                                : clampNumber(e.target.value, 0, 3600, 0)
+                                : clampNumber(e.target.value, 1, 3600, 60)
                             )
                           }
-                          placeholder="なし"
-                          className="h-9 w-20 rounded-lg bg-slate-50 px-2 text-center font-semibold tabular-nums ring-1 ring-slate-200 outline-none"
-                          style={{ fontSize: '16px' }}
-                        />
-                        <span className="text-slate-400">秒</span>
+                          className="h-9 w-32 rounded-lg bg-slate-50 px-2 text-center font-semibold tabular-nums ring-1 ring-slate-200 outline-none"
+                        >
+                          <option value="">なし</option>
+                          {getPollTimeOptions(standardTimeLimit, 1).map((seconds) => (
+                            <option key={seconds} value={seconds}>
+                              {formatSecondsOption(seconds)}
+                            </option>
+                          ))}
+                        </select>
                         <span className="text-[11px] font-semibold text-slate-400">
                           空欄で常時受付
                         </span>

@@ -76,6 +76,29 @@ interface Course {
   cooldownMinutes?: number;
 }
 
+const COOLDOWN_MINUTE_OPTIONS = [0, 1, 3, 5, 10, 15, 30, 45, 60, 90, 120, 180, 360, 720, 1440];
+
+function formatCooldownOption(minutes: number) {
+  if (minutes <= 0) return 'なし';
+  if (minutes < 60) return `${minutes}分`;
+  const hours = minutes / 60;
+  return Number.isInteger(hours) ? `${hours}時間` : `${minutes}分`;
+}
+
+function getCooldownOptions(current: number | undefined) {
+  const options = [...COOLDOWN_MINUTE_OPTIONS];
+  if (
+    typeof current === 'number' &&
+    Number.isFinite(current) &&
+    current >= 0 &&
+    current <= 1440 &&
+    !options.includes(current)
+  ) {
+    options.push(current);
+  }
+  return Array.from(new Set(options)).sort((a, b) => a - b);
+}
+
 type AdminColorTheme = {
   headerBg: string;
   headerBorder: string;
@@ -1355,27 +1378,20 @@ function AdminPageInner() {
                       <span className="text-sm font-medium text-slate-700">送信クールダウン</span>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <Input
-                        type="number"
-                        min={0}
-                        max={1440}
-                        step={1}
-                        inputMode="numeric"
+                      <select
                         value={newCourse.cooldownMinutes}
                         onChange={(e) => {
-                          const raw = e.target.value;
-                          if (raw === '') {
-                            setNewCourse({ ...newCourse, cooldownMinutes: 0 });
-                            return;
-                          }
-                          const n = parseInt(raw, 10);
-                          if (Number.isFinite(n)) {
-                            setNewCourse({ ...newCourse, cooldownMinutes: Math.max(0, Math.min(1440, n)) });
-                          }
+                          const n = parseInt(e.target.value, 10);
+                          setNewCourse({ ...newCourse, cooldownMinutes: Number.isFinite(n) ? n : 15 });
                         }}
-                        className="h-9 w-20 text-sm text-right"
-                      />
-                      <span className="text-xs text-slate-500">分</span>
+                        className="h-9 w-28 rounded-md border border-input bg-background px-3 text-sm font-medium text-slate-700 shadow-sm outline-none focus:ring-2 focus:ring-ring"
+                      >
+                        {getCooldownOptions(newCourse.cooldownMinutes).map((minutes) => (
+                          <option key={minutes} value={minutes}>
+                            {formatCooldownOption(minutes)}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   </div>
                   <p className="text-xs text-slate-400">
@@ -1604,27 +1620,20 @@ function AdminPageInner() {
                       <span className="text-sm font-medium text-slate-700">送信クールダウン</span>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <Input
-                        type="number"
-                        min={0}
-                        max={1440}
-                        step={1}
-                        inputMode="numeric"
+                      <select
                         value={editCourse.cooldownMinutes}
                         onChange={(e) => {
-                          const raw = e.target.value;
-                          if (raw === '') {
-                            setEditCourse({ ...editCourse, cooldownMinutes: 0 });
-                            return;
-                          }
-                          const n = parseInt(raw, 10);
-                          if (Number.isFinite(n)) {
-                            setEditCourse({ ...editCourse, cooldownMinutes: Math.max(0, Math.min(1440, n)) });
-                          }
+                          const n = parseInt(e.target.value, 10);
+                          setEditCourse({ ...editCourse, cooldownMinutes: Number.isFinite(n) ? n : 15 });
                         }}
-                        className="h-9 w-20 text-sm text-right"
-                      />
-                      <span className="text-xs text-slate-500">分</span>
+                        className="h-9 w-28 rounded-md border border-input bg-background px-3 text-sm font-medium text-slate-700 shadow-sm outline-none focus:ring-2 focus:ring-ring"
+                      >
+                        {getCooldownOptions(editCourse.cooldownMinutes).map((minutes) => (
+                          <option key={minutes} value={minutes}>
+                            {formatCooldownOption(minutes)}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   </div>
                   <p className="text-xs text-slate-400">
