@@ -71,7 +71,7 @@ import {
   type PollMode,
   type PollOption,
 } from '@/lib/pollModes';
-import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
 
 const LOGO_URL =
   'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_200/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png';
@@ -406,14 +406,16 @@ function HostMobileRoomBar({
   onCopyCode: () => void;
 }) {
   return (
-    <div className="border-b border-[#9dd8b1] bg-white px-4 py-3 lg:hidden">
+    <div className="border-b border-[#dce8ff] bg-white px-4 py-2.5 lg:hidden">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-sm font-bold text-[#323232]">{room.title}</p>
+          <p className="truncate text-[11px] font-bold uppercase tracking-wide text-[#8c8989]">
+            参加コード
+          </p>
           <button
             type="button"
             onClick={onCopyCode}
-            className="mt-1 inline-flex items-center gap-1 font-mono text-xs font-bold tracking-wider text-[#595959] hover:text-[#00963c]"
+            className="mt-0.5 inline-flex items-center gap-1 font-mono text-sm font-bold tracking-wider text-[#323232] hover:text-[#00963c]"
             title="コードをコピー"
           >
             #{room.code}
@@ -1502,6 +1504,7 @@ export default function HostPage() {
   const resettableQuestionCount = questions.length;
   const activeHostItem = HOST_NAV_ITEMS.find((item) => item.key === tab) || HOST_NAV_ITEMS[0];
   const activeHostTheme = HOST_COLOR_THEMES[activeHostItem.key];
+  const ActiveHostIcon = activeHostItem.icon;
 
   return (
     <div className="min-h-screen bg-[#f7f5f5] lg:flex">
@@ -1523,6 +1526,9 @@ export default function HostPage() {
       <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
         <SheetContent side="left" className="w-80 p-0 sm:max-w-sm">
           <SheetTitle className="sr-only">ホスト管理メニュー</SheetTitle>
+          <SheetDescription className="sr-only">
+            ホスト管理画面の各タブ、参加QR、スクリーン表示、セッション操作を切り替えます。
+          </SheetDescription>
           <HostSideNav
             room={room}
             roomCode={roomCode}
@@ -1545,23 +1551,34 @@ export default function HostPage() {
       <div className="flex min-w-0 flex-1 flex-col">
       {/* Header */}
       <header className="sticky top-0 z-40 border-b border-[#e9e7e7] bg-white">
-        <HostPageHeader
-          title={activeHostItem.label}
-          description={`${room.title} / ${activeHostItem.description}`}
-          icon={activeHostItem.icon}
-          theme={activeHostTheme}
-          leading={
+        <div className="border-b border-slate-200/60 bg-white/90 backdrop-blur-md lg:hidden">
+          <div className="flex h-14 items-center justify-between gap-3 px-4">
+            <Link href="/" className="flex min-w-0 items-center gap-2.5 transition-opacity hover:opacity-80">
+              <Image src={LOGO_URL} alt="ざせきくん" width={28} height={28} className="shrink-0 rounded-md" />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-bold leading-tight text-[#323232]">ざせきくん</p>
+                <p className="truncate text-[11px] font-semibold leading-tight text-[#8c8989]">{room.title}</p>
+              </div>
+            </Link>
             <button
               type="button"
               onClick={() => setMobileNavOpen(true)}
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#9dd8b1] bg-white text-[#00963c] transition-colors hover:bg-[#eaf8ef] lg:hidden"
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-[#323232] transition-colors hover:bg-slate-100"
               aria-label="メニューを開く"
               title="メニューを開く"
             >
-              <Menu className="h-4 w-4" />
+              <Menu className="h-5 w-5" />
             </button>
-          }
-        >
+          </div>
+        </div>
+
+        <div className="hidden lg:block">
+          <HostPageHeader
+            title={activeHostItem.label}
+            description={`${room.title} / ${activeHostItem.description}`}
+            icon={activeHostItem.icon}
+            theme={activeHostTheme}
+          >
             {tab === 'polls' && room.status === 'active' && (
               <button
                 type="button"
@@ -1616,7 +1633,88 @@ export default function HostPage() {
                 </>
               )}
             </button>
-        </HostPageHeader>
+          </HostPageHeader>
+        </div>
+
+        <div
+          className="border-b px-4 py-3 lg:hidden"
+          style={{ backgroundColor: activeHostTheme.headerBg, borderColor: activeHostTheme.headerBorder }}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <span
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border"
+                style={{
+                  backgroundColor: activeHostTheme.iconBg,
+                  borderColor: activeHostTheme.iconBorder,
+                  color: activeHostTheme.accent,
+                }}
+              >
+                <ActiveHostIcon className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <h1 className="truncate text-lg font-bold leading-tight" style={{ color: activeHostTheme.titleText }}>
+                  {activeHostItem.label}
+                </h1>
+                <p className="truncate text-xs" style={{ color: activeHostTheme.descriptionText }}>
+                  {activeHostItem.description}
+                </p>
+              </div>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              {tab === 'polls' && room.status === 'active' && (
+                <button
+                  type="button"
+                  onClick={() => setShowPollTypeModal(true)}
+                  disabled={atPollLimit}
+                  title={atPollLimit ? `Freeプランではライブ投票カードを${pollLimit}個まで作成できます` : 'ライブ投票を新規作成'}
+                  className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md bg-[#2864f0] px-3 text-xs font-bold text-white shadow-sm transition-colors hover:bg-[#285ac8] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:hover:bg-slate-300"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  新規作成
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setTab('faq')}
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#9dd8b1] bg-white text-[#00963c] transition-colors hover:bg-[#eaf8ef]"
+                aria-label="ホスト管理のFAQを開く"
+                title="ホスト管理のFAQ"
+              >
+                <HelpCircle className="h-4 w-4" />
+              </button>
+              <a
+                href={`/rooms/${roomCode}/present`}
+                target={`zasekikun-present-${roomCode}`}
+                rel="noopener noreferrer"
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#e1dcdc] bg-white text-[#2864f0] transition-colors hover:border-[#aac8ff] hover:bg-[#ebf3ff]"
+                title="スクリーン画面を開く"
+              >
+                <Monitor className="h-4 w-4" />
+              </a>
+              <button
+                type="button"
+                disabled={roomStatusLoading}
+                onClick={handleToggleRoomStatus}
+                className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-xs font-bold transition-colors disabled:pointer-events-none disabled:opacity-60 ${
+                  room.status === 'active'
+                    ? 'bg-[#dc1e32] text-white hover:bg-[#a51428]'
+                    : 'bg-[#2864f0] text-white hover:bg-[#285ac8]'
+                }`}
+                aria-label={room.status === 'active' ? 'セッションを終了' : 'セッションを再開'}
+                title={room.status === 'active' ? 'セッションを終了' : 'セッションを再開'}
+              >
+                {roomStatusLoading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : room.status === 'active' ? (
+                  <StopCircle className="h-3.5 w-3.5" />
+                ) : (
+                  <RotateCcw className="h-3.5 w-3.5" />
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
         <HostMobileRoomBar
           room={room}
           roomCode={roomCode}
@@ -1625,32 +1723,10 @@ export default function HostPage() {
           copied={copied}
           onCopyCode={handleCopyCode}
         />
-
-        {/* Mobile tabs */}
-        <div className="mx-auto flex max-w-6xl gap-3 overflow-x-auto px-4 -mb-px lg:hidden">
-          {HOST_NAV_ITEMS.map((t) => {
-            const Icon = t.icon;
-            return (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`flex shrink-0 items-center gap-1.5 px-1 py-2.5 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${
-                tab === t.key
-                  ? ''
-                  : 'border-transparent text-slate-400 hover:text-slate-600'
-              }`}
-              style={tab === t.key ? { borderColor: HOST_COLOR_THEMES[t.key].accent, color: HOST_COLOR_THEMES[t.key].accent } : undefined}
-            >
-              <Icon className="w-4 h-4" />
-              {t.label}
-            </button>
-            );
-          })}
-        </div>
       </header>
 
       {/* Content */}
-      <div className="flex-1 mx-auto w-full max-w-6xl px-4 py-4 sm:px-5 sm:py-5">
+      <div className="flex-1 mx-auto w-full max-w-6xl px-3 py-3 sm:px-5 sm:py-5">
         {/* === Questions Tab === */}
         {tab === 'questions' && (
           <div className="space-y-4">
