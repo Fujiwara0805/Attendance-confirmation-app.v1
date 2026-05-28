@@ -84,7 +84,7 @@ export async function PATCH(
 
     for (const key of allowedFields) {
       if (body[key] !== undefined) {
-        if (key === 'status' && !['active', 'closed'].includes(body[key])) {
+        if (key === 'status' && !['active', 'inactive', 'closed'].includes(body[key])) {
           return NextResponse.json({ message: 'Invalid status' }, { status: 400 });
         }
         updateData[key] = body[key];

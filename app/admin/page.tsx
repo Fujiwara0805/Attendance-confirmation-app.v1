@@ -880,7 +880,7 @@ function AdminPageInner() {
 
   const handleToggleCourseStatus = async (course: Course) => {
     if (courseStatusPendingCode) return;
-    const nextStatus = course.status === 'active' ? 'closed' : 'active';
+    const nextStatus = course.status === 'active' ? 'inactive' : 'active';
     setCourseStatusPendingCode(course.code);
     try {
       const response = await fetch(`/api/v2/courses/${course.code}`, {
@@ -1964,6 +1964,40 @@ function AdminPageInner() {
                             )}
                             <button
                               type="button"
+                              disabled={courseStatusPendingCode === course.code}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void handleToggleCourseStatus(course);
+                              }}
+                              className={`h-auto min-w-[2.25rem] sm:min-w-[1.75rem] px-1 py-1 flex flex-col items-center justify-center gap-0.5 rounded-md transition-colors disabled:pointer-events-none disabled:opacity-60 ${
+                                course.status === 'active'
+                                  ? 'text-red-500 hover:bg-red-50 hover:text-red-600 active:bg-red-100'
+                                  : 'text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 active:bg-emerald-100'
+                              }`}
+                              title={course.status === 'active' ? 'フォーム受付を終了' : 'フォーム受付を開始'}
+                              aria-label={course.status === 'active' ? 'フォーム受付を終了' : 'フォーム受付を開始'}
+                            >
+                              {courseStatusPendingCode === course.code ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 sm:h-3.5 sm:w-3.5 animate-spin" />
+                                  <span className="text-[10px] font-medium leading-none">
+                                    {course.status === 'active' ? '終了中' : '開始中'}
+                                  </span>
+                                </>
+                              ) : course.status === 'active' ? (
+                                <>
+                                  <StopCircle className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                                  <span className="text-[10px] font-medium leading-none">終了</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Play className="h-4 w-4 sm:h-3.5 sm:w-3.5 fill-current" />
+                                  <span className="text-[10px] font-medium leading-none">開始</span>
+                                </>
+                              )}
+                            </button>
+                            <button
+                              type="button"
                               onClick={(e) => { e.stopPropagation(); handleEditCourse(course); }}
                               className="h-9 w-9 sm:h-7 sm:w-7 flex items-center justify-center rounded-md text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 active:bg-indigo-100 transition-colors"
                               title="フォームを編集"
@@ -2045,37 +2079,7 @@ function AdminPageInner() {
                         )}
 
                         {/* Date */}
-                        <div className="mt-2.5 flex items-center justify-between gap-2">
-                          <button
-                            type="button"
-                            disabled={courseStatusPendingCode === course.code}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              void handleToggleCourseStatus(course);
-                            }}
-                            className={`inline-flex h-8 items-center justify-center gap-1.5 rounded-md px-3 text-xs font-semibold transition-colors disabled:pointer-events-none disabled:opacity-60 ${
-                              course.status === 'active'
-                                ? 'text-red-500 hover:bg-red-50 hover:text-red-600'
-                                : 'text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700'
-                            }`}
-                          >
-                            {courseStatusPendingCode === course.code ? (
-                              <>
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                {course.status === 'active' ? '終了中…' : '開始中…'}
-                              </>
-                            ) : course.status === 'active' ? (
-                              <>
-                                <StopCircle className="h-3.5 w-3.5" />
-                                終了
-                              </>
-                            ) : (
-                              <>
-                                <Play className="h-3.5 w-3.5 fill-current" />
-                                開始
-                              </>
-                            )}
-                          </button>
+                        <div className="mt-2.5 flex items-center justify-end">
                           <span className="text-xs text-slate-400">
                             更新: {new Date(course.lastUpdated).toLocaleDateString('ja-JP')}
                           </span>
