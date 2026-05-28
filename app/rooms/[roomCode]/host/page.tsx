@@ -13,6 +13,7 @@ import {
   Copy,
   Check,
   Download,
+  Menu,
   StopCircle,
   Trash2,
   Monitor,
@@ -70,6 +71,7 @@ import {
   type PollMode,
   type PollOption,
 } from '@/lib/pollModes';
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 
 const LOGO_URL =
   'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_200/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png';
@@ -339,12 +341,14 @@ function HostPageHeader({
   description,
   icon: Icon,
   theme = HOST_COLOR_THEMES.questions,
+  leading,
   children,
 }: {
   title: string;
   description: string;
   icon: ComponentType<{ className?: string }>;
   theme?: HostColorTheme;
+  leading?: ReactNode;
   children?: ReactNode;
 }) {
   return (
@@ -354,6 +358,7 @@ function HostPageHeader({
     >
       <div className="mx-auto flex max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-3">
+          {leading}
           <span
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border"
             style={{ backgroundColor: theme.iconBg, borderColor: theme.iconBorder, color: theme.accent }}
@@ -466,6 +471,7 @@ export default function HostPage() {
   const [copied, setCopied] = useState(false);
   const [qrUrl, setQrUrl] = useState('');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   // Question filters
   const [sortMode, setSortMode] = useState<SortMode>('popular');
@@ -1032,6 +1038,28 @@ export default function HostPage() {
   const handlePollStatus = async (pollId: string, status: string) => {
     setPollStatusPendingId(pollId);
     try {
+      if (status === 'active') {
+        const currentPoll = polls.find((p) => p.id === pollId);
+        if (currentPoll) {
+          const { meta, options } = extractPollPayload(currentPoll.options);
+          if (typeof meta.bulkOrder === 'number') {
+            const metaRes = await fetch(`/api/rooms/${roomCode}/polls/${pollId}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                question: currentPoll.question,
+                options,
+                meta: { ...meta, bulkOrder: null },
+                mode: meta.mode,
+              }),
+            });
+            if (metaRes.ok) {
+              const updatedPoll = (await metaRes.json()) as Poll;
+              optimisticUpsertPoll(updatedPoll);
+            }
+          }
+        }
+      }
       const res = await fetch(`/api/rooms/${roomCode}/polls/${pollId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -1112,6 +1140,31 @@ export default function HostPage() {
     if (selectedPollIds.length === 0) return null;
     return { count: selectedPollIds.length };
   }, [selectedPollIds]);
+
+  const activeBulkPolls = useMemo(() => {
+    return polls
+      .map((poll) => {
+        const order = extractPollPayload(poll.options).meta.bulkOrder;
+        return { poll, order: typeof order === 'number' ? order : null };
+      })
+      .filter((item): item is { poll: Poll; order: number } => item.poll.status === 'active' && item.order !== null)
+      .sort((a, b) => a.order - b.order);
+  }, [polls]);
+
+  const screenVisiblePolls = useMemo(() => {
+    return polls
+      .filter((poll) => poll.status === 'active')
+      .map((poll) => {
+        const order = extractPollPayload(poll.options).meta.bulkOrder;
+        return { poll, order: typeof order === 'number' ? order : null };
+      })
+      .sort((a, b) => {
+        if (a.order !== null && b.order !== null) return a.order - b.order;
+        if (a.order !== null) return -1;
+        if (b.order !== null) return 1;
+        return new Date(b.poll.created_at).getTime() - new Date(a.poll.created_at).getTime();
+      });
+  }, [polls]);
 
   const handleDeletePoll = async (pollId: string) => {
     setPollDeletingId(pollId);
@@ -1467,6 +1520,28 @@ export default function HostPage() {
         collapsed={sidebarCollapsed}
         onToggleCollapsed={toggleSidebarCollapsed}
       />
+      <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+        <SheetContent side="left" className="w-80 p-0 sm:max-w-sm">
+          <SheetTitle className="sr-only">ホスト管理メニュー</SheetTitle>
+          <HostSideNav
+            room={room}
+            roomCode={roomCode}
+            activeTab={tab}
+            onSelectTab={setTab}
+            presenceCount={Math.max(presenceCount, 1)}
+            qrUrl={qrUrl}
+            copied={copied}
+            onCopyCode={handleCopyCode}
+            roomStatus={room.status}
+            roomStatusLoading={roomStatusLoading}
+            onToggleRoomStatus={handleToggleRoomStatus}
+            collapsed={false}
+            onToggleCollapsed={() => {}}
+            mobile
+            onAfterSelect={() => setMobileNavOpen(false)}
+          />
+        </SheetContent>
+      </Sheet>
       <div className="flex min-w-0 flex-1 flex-col">
       {/* Header */}
       <header className="sticky top-0 z-40 border-b border-[#e9e7e7] bg-white">
@@ -1475,6 +1550,17 @@ export default function HostPage() {
           description={`${room.title} / ${activeHostItem.description}`}
           icon={activeHostItem.icon}
           theme={activeHostTheme}
+          leading={
+            <button
+              type="button"
+              onClick={() => setMobileNavOpen(true)}
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#9dd8b1] bg-white text-[#00963c] transition-colors hover:bg-[#eaf8ef] lg:hidden"
+              aria-label="メニューを開く"
+              title="メニューを開く"
+            >
+              <Menu className="h-4 w-4" />
+            </button>
+          }
         >
             {tab === 'polls' && room.status === 'active' && (
               <button
@@ -1779,6 +1865,48 @@ export default function HostPage() {
                     )}
                     一斉開始
                   </button>
+                </div>
+              </div>
+            )}
+
+            {!selectedPollsInfo && screenVisiblePolls.length > 0 && (
+              <div className="rounded-lg border border-[#9dd8b1] bg-[#eaf8ef] px-4 py-3">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex items-center gap-2 text-sm font-bold text-[#00963c]">
+                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#00963c] text-xs text-white">
+                      <Monitor className="h-3.5 w-3.5" />
+                    </span>
+                    スクリーン画面に表示中
+                    {activeBulkPolls.length > 1 && (
+                      <span className="text-xs font-semibold text-[#1e7a35]">
+                        （表示順 {activeBulkPolls.map(({ order }) => order).join('→')}）
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex min-w-0 flex-wrap gap-2">
+                    {screenVisiblePolls.map(({ poll, order }) => (
+                      <button
+                        key={poll.id}
+                        type="button"
+                        onClick={() => {
+                          document
+                            .getElementById(`poll-card-${poll.id}`)
+                            ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }}
+                        className="inline-flex min-w-0 max-w-full items-center gap-2 rounded-md border border-[#9dd8b1] bg-white px-2.5 py-1.5 text-xs font-bold text-[#323232] transition-colors hover:bg-white/80"
+                        title={order !== null ? `${order}番目: ${poll.question || '（無題）'}` : poll.question || '（無題）'}
+                      >
+                        {activeBulkPolls.length > 1 && order !== null ? (
+                          <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded bg-[#00963c] text-[11px] text-white tabular-nums">
+                            {order}
+                          </span>
+                        ) : (
+                          <Monitor className="h-4 w-4 shrink-0 text-[#00963c]" />
+                        )}
+                        <span className="max-w-[13rem] truncate">{poll.question || '（無題）'}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
@@ -2466,6 +2594,9 @@ export default function HostPage() {
                             }}
                             onDragEnd={() => setDraggingPollId(null)}
                             selectionIndex={selectedPollIds.indexOf(poll.id)}
+                            bulkOrder={extractPollPayload(poll.options).meta.bulkOrder}
+                            activeBulkCount={activeBulkPolls.length}
+                            hideSelection={polls.some((item) => item.status === 'active')}
                             onToggleSelect={() => handleTogglePollSelect(poll.id)}
                           />
                         </div>
@@ -2833,6 +2964,8 @@ function HostSideNav({
   onToggleRoomStatus,
   collapsed,
   onToggleCollapsed,
+  mobile = false,
+  onAfterSelect,
 }: {
   room: Room;
   roomCode: string;
@@ -2847,26 +2980,32 @@ function HostSideNav({
   onToggleRoomStatus: () => void;
   collapsed: boolean;
   onToggleCollapsed: () => void;
+  mobile?: boolean;
+  onAfterSelect?: () => void;
 }) {
+  const isCollapsed = mobile ? false : collapsed;
+
   return (
     <aside
-      className={`hidden h-screen shrink-0 border-r border-[#9dd8b1] bg-[#eaf8ef] transition-[width] duration-200 ease-out lg:sticky lg:top-0 lg:flex lg:flex-col ${
-        collapsed ? 'w-16' : 'w-72'
+      className={`shrink-0 border-r border-[#9dd8b1] bg-[#eaf8ef] transition-[width] duration-200 ease-out ${
+        mobile
+          ? 'flex h-full w-full flex-col'
+          : `hidden h-screen lg:sticky lg:top-0 lg:flex lg:flex-col ${isCollapsed ? 'w-16' : 'w-72'}`
       }`}
     >
-      <div className={`border-b border-[#9dd8b1] ${collapsed ? 'px-2 py-3' : 'px-4 py-4'}`}>
-        <div className={`flex items-center ${collapsed ? 'justify-center' : 'justify-between gap-2'}`}>
+      <div className={`border-b border-[#9dd8b1] ${isCollapsed ? 'px-2 py-3' : 'px-4 py-4'}`}>
+        <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between gap-2'}`}>
           <Link
             href="/admin"
             className={`flex min-w-0 items-center transition-opacity hover:opacity-80 ${
-              collapsed ? 'justify-center' : 'gap-2.5'
+              isCollapsed ? 'justify-center' : 'gap-2.5'
             }`}
             title="管理画面へ"
           >
-            <Image src={LOGO_URL} alt="ざせきくん" width={collapsed ? 28 : 32} height={collapsed ? 28 : 32} className="rounded-lg" />
-            {!collapsed && <span className="truncate text-sm font-bold text-[#323232]">ざせきくん</span>}
+            <Image src={LOGO_URL} alt="ざせきくん" width={isCollapsed ? 28 : 32} height={isCollapsed ? 28 : 32} className="rounded-lg" />
+            {!isCollapsed && <span className="truncate text-sm font-bold text-[#323232]">ざせきくん</span>}
           </Link>
-          {!collapsed && (
+          {!mobile && !isCollapsed && (
             <button
               type="button"
               onClick={onToggleCollapsed}
@@ -2878,7 +3017,7 @@ function HostSideNav({
             </button>
           )}
         </div>
-        {collapsed && (
+        {!mobile && isCollapsed && (
           <button
             type="button"
             onClick={onToggleCollapsed}
@@ -2891,7 +3030,7 @@ function HostSideNav({
         )}
       </div>
 
-      {!collapsed && (
+      {!isCollapsed && (
       <div className="border-b border-[#9dd8b1] px-4 py-4">
         <div className="mb-3 flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white ring-1 ring-[#00963c]">
@@ -2990,11 +3129,14 @@ function HostSideNav({
             <button
               key={item.key}
               type="button"
-              onClick={() => onSelectTab(item.key)}
-              title={collapsed ? item.label : undefined}
+              onClick={() => {
+                onSelectTab(item.key);
+                onAfterSelect?.();
+              }}
+              title={isCollapsed ? item.label : undefined}
               aria-label={item.label}
               className={`flex w-full items-center rounded-lg text-left transition-colors ${
-                collapsed ? 'justify-center px-2 py-2' : 'gap-3 px-3 py-2.5'
+                isCollapsed ? 'justify-center px-2 py-2' : 'gap-3 px-3 py-2.5'
               } ${
                 active ? 'bg-white text-[#323232]' : 'text-[#323232] hover:bg-white/70'
               }`}
@@ -3006,7 +3148,7 @@ function HostSideNav({
               >
                 <Icon className="h-5 w-5" />
               </span>
-              {!collapsed && <span className="min-w-0 flex-1">
+              {!isCollapsed && <span className="min-w-0 flex-1">
                 <span className="block text-sm font-bold leading-none">{item.label}</span>
                 <span className={`mt-1 block truncate text-[11px] leading-none ${active ? 'text-[#595959]' : 'text-[#8c8989]'}`}>
                   {item.description}
@@ -3021,13 +3163,13 @@ function HostSideNav({
         <Link
           href="/admin"
           className={`inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-[#9dd8b1] bg-white text-sm font-bold text-[#595959] transition-colors hover:bg-[#eaf8ef] hover:text-[#00963c] ${
-            collapsed ? 'px-0' : ''
+            isCollapsed ? 'px-0' : ''
           }`}
           title="管理画面へ"
           aria-label="管理画面へ"
         >
           <ArrowLeft className="h-4 w-4" />
-          {!collapsed && '管理画面へ'}
+          {!isCollapsed && '管理画面へ'}
         </Link>
       </div>
     </aside>
@@ -3560,6 +3702,9 @@ function PollResultCard({
   onDragStart,
   onDragEnd,
   selectionIndex = -1,
+  bulkOrder,
+  activeBulkCount = 0,
+  hideSelection = false,
   onToggleSelect,
 }: {
   poll: Poll;
@@ -3576,6 +3721,9 @@ function PollResultCard({
   onDragStart?: (e: React.DragEvent<HTMLButtonElement>) => void;
   onDragEnd?: () => void;
   selectionIndex?: number;
+  bulkOrder?: number | null;
+  activeBulkCount?: number;
+  hideSelection?: boolean;
   onToggleSelect?: () => void;
 }) {
   const selected = selectionIndex >= 0;
@@ -3597,33 +3745,58 @@ function PollResultCard({
   const ModeIcon = visual.icon;
   const statusLabel =
     poll.status === 'active' ? 'Live' : poll.status === 'draft' ? '下書き' : '終了';
+  const activeBulkOrder = poll.status === 'active' && typeof bulkOrder === 'number' ? bulkOrder : null;
+  const isActiveBulkPoll = activeBulkOrder !== null;
+  const isScreenVisible = poll.status === 'active';
 
   return (
     <div
+      id={`poll-card-${poll.id}`}
       className={`overflow-hidden rounded-lg border bg-white transition-all ${
         editing
           ? 'border-[#2864f0] shadow-sm shadow-blue-100'
-          : selected
+          : selected || isScreenVisible
             ? 'border-[#00963c] shadow-sm shadow-emerald-100'
             : 'border-[#e9e7e7] hover:border-[#aac8ff] hover:shadow-sm'
       }`}
     >
       <div className="border-b border-[#e9e7e7] p-4">
         <div className="flex items-start gap-3">
-          {onToggleSelect && (
+          {onToggleSelect && !hideSelection && (
             <button
               type="button"
               onClick={onToggleSelect}
+              disabled={isScreenVisible}
               className={`shrink-0 mt-1 inline-flex h-6 w-6 items-center justify-center rounded border text-[11px] font-extrabold transition-colors ${
-                selected
+                isScreenVisible
+                  ? 'cursor-not-allowed border-[#9dd8b1] bg-[#eaf8ef] text-[#00963c]'
+                  : selected
                   ? 'border-[#00963c] bg-[#00963c] text-white'
                   : 'border-slate-300 bg-white text-transparent hover:border-[#00963c]'
               }`}
-              title={selected ? `選択 ${selectionNumber}（クリックで解除）` : 'カードを選択（最大3件）'}
-              aria-label={selected ? `選択 ${selectionNumber}` : 'カードを選択'}
+              title={
+                isScreenVisible
+                  ? 'スクリーン画面に表示中のカードは選択できません'
+                  : selected
+                  ? `選択 ${selectionNumber}（クリックで解除）`
+                  : 'カードを選択（最大3件）'
+              }
+              aria-label={
+                isScreenVisible
+                  ? 'スクリーン画面に表示中'
+                  : selected
+                  ? `選択 ${selectionNumber}`
+                  : 'カードを選択'
+              }
               aria-pressed={selected}
             >
-              {selected ? <span className="leading-none">{selectionNumber}</span> : <Check className="h-3 w-3" />}
+              {isScreenVisible ? (
+                <Monitor className="h-3.5 w-3.5" />
+              ) : selected ? (
+                <span className="leading-none">{selectionNumber}</span>
+              ) : (
+                <Check className="h-3 w-3" />
+              )}
             </button>
           )}
           <span
@@ -3640,9 +3813,9 @@ function PollResultCard({
                 {POLL_MODE_LABELS[mode]}
               </span>
               {poll.status === 'active' ? (
-                <span className="inline-flex items-center gap-1 font-bold text-emerald-700">
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 font-bold text-emerald-700 ring-1 ring-emerald-200">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  {statusLabel}
+                  表示中
                 </span>
               ) : poll.status === 'draft' ? (
                 <span className="inline-flex items-center font-bold text-amber-700">{statusLabel}</span>

@@ -97,6 +97,7 @@ export function buildPollOptionsPayload(meta: PollMeta, options: PollOption[]) {
   const shouldStoreMeta =
     mode !== 'standard' ||
     !!meta.timeLimitSeconds ||
+    meta.bulkOrder !== undefined ||
     !!meta.startedAtClientAt ||
     !!meta.startedAtTimeZone ||
     !!meta.runStartedAtByClearedAt ||
