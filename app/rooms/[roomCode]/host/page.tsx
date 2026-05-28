@@ -57,7 +57,6 @@ import { ja } from 'date-fns/locale';
 import {
   POLL_MODE_LABELS,
   QUIZ_OPTION_COUNTS,
-  RANKING_CANDIDATE_PRESETS,
   clampNumber,
   extractPollPayload,
   getPollMode,
@@ -602,22 +601,29 @@ export default function HostPage() {
   }, [resetPollForm]);
 
   const handleRankingRankCountChange = useCallback((value: unknown) => {
-    const nextCount = clampNumber(value, 1, 10, 3);
+    const nextCount = clampNumber(value, 1, Math.min(10, rankingCandidateCount), 3);
     setRankingRankCount(nextCount);
     setRankingWeights((prev) =>
       Array.from({ length: nextCount }, (_, i) =>
         Number.isFinite(prev[i]) ? prev[i] : Math.max(1, nextCount - i)
       )
     );
-  }, []);
+  }, [rankingCandidateCount]);
 
   const handleRankingCandidateCountChange = useCallback((value: unknown) => {
-    const nextCount = clampNumber(value, 10, 100, 50);
+    const nextCount = clampNumber(value, 2, 100, 50);
+    const nextRankCount = Math.min(rankingRankCount, nextCount, 10);
     setRankingCandidateCount(nextCount);
     setRankingCandidateTexts((prev) =>
       Array.from({ length: nextCount }, (_, i) => prev[i] || '')
     );
-  }, []);
+    setRankingRankCount(nextRankCount);
+    setRankingWeights((prevWeights) =>
+      Array.from({ length: nextRankCount }, (_, i) =>
+        Number.isFinite(prevWeights[i]) ? prevWeights[i] : Math.max(1, nextRankCount - i)
+      )
+    );
+  }, [rankingRankCount]);
 
   // 問題/選択肢画像は Supabase Storage (`poll-images` バケット) にアップロードして URL を保存。
   // 旧 base64 経路（polls.options に埋め込み）は Disk IO 肥大の原因のため廃止。
@@ -2505,22 +2511,28 @@ export default function HostPage() {
                       <div className="grid gap-3 sm:grid-cols-2">
                         <label className="text-xs sm:text-sm text-slate-600">
                           候補数
-                          <select
-                            value={rankingCandidateCount}
-                            onChange={(e) => handleRankingCandidateCountChange(e.target.value)}
-                            className="mt-1 h-11 w-full rounded-xl bg-slate-50 px-3 font-semibold ring-1 ring-slate-200 outline-none"
-                          >
-                            {RANKING_CANDIDATE_PRESETS.map((count) => (
-                              <option key={count} value={count}>{count}件</option>
-                            ))}
-                          </select>
+                          <div className="mt-1 flex items-center gap-2">
+                            <input
+                              type="number"
+                              min={2}
+                              max={100}
+                              value={rankingCandidateCount}
+                              onChange={(e) => handleRankingCandidateCountChange(e.target.value)}
+                              className="h-11 w-full rounded-xl bg-slate-50 px-3 text-center font-semibold tabular-nums ring-1 ring-slate-200 outline-none"
+                              style={{ fontSize: '16px' }}
+                            />
+                            <span className="shrink-0 text-xs font-semibold text-slate-400">件</span>
+                          </div>
+                          <span className="mt-1 block text-[11px] font-semibold text-slate-400">
+                            2〜100件で入力できます
+                          </span>
                         </label>
                         <label className="text-xs sm:text-sm text-slate-600">
                           1人あたりの回答順位数
                           <input
                             type="number"
                             min={1}
-                            max={10}
+                            max={Math.min(10, rankingCandidateCount)}
                             value={rankingRankCount}
                             onChange={(e) => handleRankingRankCountChange(e.target.value)}
                             className="mt-1 h-11 w-full rounded-xl bg-slate-50 px-3 text-center font-semibold tabular-nums ring-1 ring-slate-200 outline-none"
