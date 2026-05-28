@@ -33,6 +33,8 @@ export interface PollMeta {
   candidateCount?: number;
   rankingWeights?: number[];
   rankingDisplayMode?: 'number' | 'number_text';
+  /** 一斉開始時にホスト選択順を保持する。値が小さいほど上に表示される（1始まり）。null/未設定は単独実行扱い。 */
+  bulkOrder?: number | null;
   startedAtClientAt?: string;
   startedAtTimeZone?: string;
   runStartedAtByClearedAt?: Record<string, string>;

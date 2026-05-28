@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquare, BarChart3, ThumbsUp, Maximize, Minimize, X, Loader2, WifiOff, MonitorUp, ChevronLeft, ChevronRight, Clock, Play } from 'lucide-react';
 import { useRealtimeQuestions } from '@/lib/hooks/useRealtimeQuestions';
-import { useRealtimePolls } from '@/lib/hooks/useRealtimePolls';
+import { useRealtimePolls, type Poll } from '@/lib/hooks/useRealtimePolls';
 import {
   extractPollPayload,
   getPollMode,
@@ -137,7 +137,20 @@ export default function PresentPage() {
   }, [imagePreview]);
 
   const { questions, connected: qConnected } = useRealtimeQuestions(room?.id || null);
-  const { activePolls, pollVotes, connected: pConnected } = useRealtimePolls(room?.id || null);
+  const { activePolls: rawActivePolls, pollVotes, connected: pConnected } = useRealtimePolls(room?.id || null);
+  // bulkOrder（一斉開始時の選択順）優先で並べ替え。未設定は created_at の新しい順を維持。
+  const activePolls = useMemo<Poll[]>(() => {
+    return [...rawActivePolls].sort((a: Poll, b: Poll) => {
+      const am = extractPollPayload(a.options).meta.bulkOrder;
+      const bm = extractPollPayload(b.options).meta.bulkOrder;
+      const aHas = typeof am === 'number';
+      const bHas = typeof bm === 'number';
+      if (aHas && bHas) return (am as number) - (bm as number);
+      if (aHas) return -1;
+      if (bHas) return 1;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+  }, [rawActivePolls]);
   const activePollIds = activePolls.map((poll) => poll.id).join(',');
 
   useEffect(() => {
@@ -361,7 +374,7 @@ export default function PresentPage() {
             >
               {activePolls.length > 0 ? (
                 <div className="w-full space-y-6">
-                  {activePolls.map((activePoll) => (
+                  {activePolls.map((activePoll: Poll) => (
                     <section
                       key={activePoll.id}
                       className={`${

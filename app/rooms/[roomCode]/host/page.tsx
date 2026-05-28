@@ -396,7 +396,7 @@ export default function HostPage() {
   const [roomStatusLoading, setRoomStatusLoading] = useState(false);
   const [pollStatusPendingId, setPollStatusPendingId] = useState<string | null>(null);
   const [pollDeletingId, setPollDeletingId] = useState<string | null>(null);
-  const [selectedPollIds, setSelectedPollIds] = useState<Set<string>>(new Set());
+  const [selectedPollIds, setSelectedPollIds] = useState<string[]>([]);
   const [bulkStartPending, setBulkStartPending] = useState(false);
   const [moderationLoading, setModerationLoading] = useState(false);
   const [questionResetting, setQuestionResetting] = useState(false);
@@ -923,69 +923,70 @@ export default function HostPage() {
 
   const handleTogglePollSelect = useCallback((pollId: string) => {
     setSelectedPollIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(pollId)) {
-        next.delete(pollId);
-        return next;
+      if (prev.includes(pollId)) {
+        return prev.filter((id) => id !== pollId);
       }
-      const targetPoll = polls.find((p) => p.id === pollId);
-      if (!targetPoll) return prev;
-      const targetMode = getPollMode(extractPollPayload(targetPoll.options).meta.mode);
-      if (next.size > 0) {
-        const firstSelected = polls.find((p) => next.has(p.id));
-        if (firstSelected) {
-          const selectedMode = getPollMode(extractPollPayload(firstSelected.options).meta.mode);
-          if (selectedMode !== targetMode) {
-            window.alert('同じ形式のカードのみ複数選択できます。');
-            return prev;
-          }
-        }
-      }
-      if (next.size >= 3) {
+      if (prev.length >= 3) {
         window.alert('一度に開始できるのは最大3件までです。');
         return prev;
       }
-      next.add(pollId);
-      return next;
+      return [...prev, pollId];
     });
-  }, [polls]);
+  }, []);
 
   const clearPollSelection = useCallback(() => {
-    setSelectedPollIds(new Set());
+    setSelectedPollIds([]);
   }, []);
 
   const handleBulkStartPolls = useCallback(async () => {
-    if (selectedPollIds.size === 0) return;
+    if (selectedPollIds.length === 0) return;
     setBulkStartPending(true);
     try {
-      const ids = Array.from(selectedPollIds);
-      await Promise.all(
-        ids.map(async (pollId) => {
-          const res = await fetch(`/api/rooms/${roomCode}/polls/${pollId}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: 'active' }),
-          });
-          if (res.ok) {
-            const updatedPoll = (await res.json()) as Poll;
-            optimisticUpsertPoll(updatedPoll);
-          }
-        })
-      );
+      // 選択順序を保持するために逐次実行（直列）
+      for (let i = 0; i < selectedPollIds.length; i++) {
+        const pollId = selectedPollIds[i];
+        const currentPoll = polls.find((p) => p.id === pollId);
+        if (!currentPoll) continue;
+        const { meta, options } = extractPollPayload(currentPoll.options);
+        const nextMeta = { ...meta, bulkOrder: i + 1 };
+        // まず meta(bulkOrder) を反映するために content update
+        const metaRes = await fetch(`/api/rooms/${roomCode}/polls/${pollId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            question: currentPoll.question,
+            options,
+            meta: nextMeta,
+            mode: nextMeta.mode,
+          }),
+        });
+        if (metaRes.ok) {
+          const updatedPoll = (await metaRes.json()) as Poll;
+          optimisticUpsertPoll(updatedPoll);
+        }
+        // つづいて status を active に
+        const statusRes = await fetch(`/api/rooms/${roomCode}/polls/${pollId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'active' }),
+        });
+        if (statusRes.ok) {
+          const updatedPoll = (await statusRes.json()) as Poll;
+          // bulkOrder は options 内に保持されるため、API レスポンスにそのまま含まれる
+          optimisticUpsertPoll(updatedPoll);
+        }
+      }
       setExportData(null);
-      setSelectedPollIds(new Set());
+      setSelectedPollIds([]);
     } finally {
       setBulkStartPending(false);
     }
-  }, [selectedPollIds, roomCode, optimisticUpsertPoll]);
+  }, [selectedPollIds, polls, roomCode, optimisticUpsertPoll]);
 
   const selectedPollsInfo = useMemo(() => {
-    if (selectedPollIds.size === 0) return null;
-    const selected = polls.filter((p) => selectedPollIds.has(p.id));
-    if (selected.length === 0) return null;
-    const mode = getPollMode(extractPollPayload(selected[0].options).meta.mode);
-    return { count: selected.length, mode };
-  }, [selectedPollIds, polls]);
+    if (selectedPollIds.length === 0) return null;
+    return { count: selectedPollIds.length };
+  }, [selectedPollIds]);
 
   const handleDeletePoll = async (pollId: string) => {
     setPollDeletingId(pollId);
@@ -1624,7 +1625,7 @@ export default function HostPage() {
                 <div className="text-sm font-bold text-[#00963c]">
                   <span className="tabular-nums">{selectedPollsInfo.count}</span> 件選択中
                   <span className="ml-2 text-xs font-semibold text-[#1e7a35]">
-                    （{POLL_MODE_LABELS[selectedPollsInfo.mode]} / 最大3件・同じ形式のみ）
+                    （最大3件・選択順 1→2→3 で表示）
                   </span>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -2335,7 +2336,7 @@ export default function HostPage() {
                               e.dataTransfer.setData('text/plain', poll.id);
                             }}
                             onDragEnd={() => setDraggingPollId(null)}
-                            selected={selectedPollIds.has(poll.id)}
+                            selectionIndex={selectedPollIds.indexOf(poll.id)}
                             onToggleSelect={() => handleTogglePollSelect(poll.id)}
                           />
                         </div>
@@ -3376,7 +3377,7 @@ function PollResultCard({
   resetting,
   onDragStart,
   onDragEnd,
-  selected,
+  selectionIndex = -1,
   onToggleSelect,
 }: {
   poll: Poll;
@@ -3392,9 +3393,11 @@ function PollResultCard({
   resetting: boolean;
   onDragStart?: (e: React.DragEvent<HTMLButtonElement>) => void;
   onDragEnd?: () => void;
-  selected?: boolean;
+  selectionIndex?: number;
   onToggleSelect?: () => void;
 }) {
+  const selected = selectionIndex >= 0;
+  const selectionNumber = selected ? `${selectionIndex + 1}` : null;
   const { meta, options } = extractPollPayload(poll.options);
   const mode = getPollMode(meta.mode);
   const counts = options.map((_, i) => votes.filter((v) => v.option_index === i).length);
@@ -3429,16 +3432,16 @@ function PollResultCard({
             <button
               type="button"
               onClick={onToggleSelect}
-              className={`shrink-0 mt-1 inline-flex h-5 w-5 items-center justify-center rounded border transition-colors ${
+              className={`shrink-0 mt-1 inline-flex h-6 w-6 items-center justify-center rounded border text-[11px] font-extrabold transition-colors ${
                 selected
                   ? 'border-[#00963c] bg-[#00963c] text-white'
-                  : 'border-slate-300 bg-white hover:border-[#00963c]'
+                  : 'border-slate-300 bg-white text-transparent hover:border-[#00963c]'
               }`}
-              title={selected ? '選択を解除' : 'カードを選択（同じ形式で最大3件まで）'}
-              aria-label={selected ? '選択を解除' : 'カードを選択'}
+              title={selected ? `選択 ${selectionNumber}（クリックで解除）` : 'カードを選択（最大3件）'}
+              aria-label={selected ? `選択 ${selectionNumber}` : 'カードを選択'}
               aria-pressed={selected}
             >
-              {selected && <Check className="h-3 w-3" />}
+              {selected ? <span className="leading-none">{selectionNumber}</span> : <Check className="h-3 w-3" />}
             </button>
           )}
           <span

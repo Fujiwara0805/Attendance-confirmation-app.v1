@@ -134,8 +134,21 @@ export default function ParticipantPage() {
     participantOnly: true,
     ownIds: ownQuestionIds,
   });
-  const { activePoll, activePolls, polls, pollVotes, loading: pLoading, connected: pConnected } =
+  const { activePoll, activePolls: rawActivePolls, polls, pollVotes, loading: pLoading, connected: pConnected } =
     useRealtimePolls(room?.id || null);
+  // bulkOrder（一斉開始時の選択順）優先で並べ替え。未設定は created_at 降順を維持。
+  const activePolls = useMemo<Poll[]>(() => {
+    return [...rawActivePolls].sort((a: Poll, b: Poll) => {
+      const am = extractPollPayload(a.options).meta.bulkOrder;
+      const bm = extractPollPayload(b.options).meta.bulkOrder;
+      const aHas = typeof am === 'number';
+      const bHas = typeof bm === 'number';
+      if (aHas && bHas) return (am as number) - (bm as number);
+      if (aHas) return -1;
+      if (bHas) return 1;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+  }, [rawActivePolls]);
 
   const presenceCount = useRoomPresence(room?.id || null, participantId || null);
 
