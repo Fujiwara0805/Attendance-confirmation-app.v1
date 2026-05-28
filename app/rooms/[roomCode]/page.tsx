@@ -948,7 +948,7 @@ function ActivePollCard({
     hasRankingTimer && timerStartMs
       ? Math.max(0, Math.ceil(rankingTimeLimit - (now - timerStartMs) / 1000))
       : null;
-  const standardNotStarted = isStandard && !timerStartMs;
+  const standardNotStarted = isStandard && hasStandardTimer && !timerStartMs;
   const standardExpired =
     hasStandardTimer && standardRemaining !== null && standardRemaining <= 0;
   const quizExpired =

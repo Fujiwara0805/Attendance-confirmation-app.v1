@@ -484,12 +484,13 @@ export default function HostPage() {
   const [showPollTypeModal, setShowPollTypeModal] = useState(false);
   const [pollOrder, setPollOrder] = useState<string[]>([]);
   const [draggingPollId, setDraggingPollId] = useState<string | null>(null);
+  const [dragOverPollId, setDragOverPollId] = useState<string | null>(null);
   const pollEditorRef = useRef<HTMLDivElement>(null);
   const [pollMode, setPollMode] = useState<PollMode>('standard');
   const [pollQuestion, setPollQuestion] = useState('');
   const [pollOptions, setPollOptions] = useState(['', '']);
   const [pollMaxSelections, setPollMaxSelections] = useState(1);
-  const [standardTimeLimit, setStandardTimeLimit] = useState(60);
+  const [standardTimeLimit, setStandardTimeLimit] = useState<number | ''>('');
   // 解答時間は全問題共通（1出題につき1つ）
   const [quizTimeLimit, setQuizTimeLimit] = useState(60);
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestionDraft[]>([
@@ -581,7 +582,7 @@ export default function HostPage() {
     setPollOptions(Array.from({ length: initialCount }, () => ''));
     setPollOptionImages(Array.from({ length: initialCount }, () => ''));
     setPollMaxSelections(1);
-    setStandardTimeLimit(60);
+    setStandardTimeLimit('');
     setQuizTimeLimit(60);
     setQuizQuestions([makeQuizQuestionDraft(0)]);
     setActiveQuizQuestionIndex(0);
@@ -971,7 +972,9 @@ export default function HostPage() {
           mode: pollMode,
           timeLimitSeconds:
             pollMode === 'standard'
-              ? standardTimeLimit
+              ? standardTimeLimit === '' || standardTimeLimit <= 0
+                ? undefined
+                : standardTimeLimit
               : pollMode === 'quiz'
               ? quizTimeLimit
               : pollMode === 'ranking'
@@ -1228,7 +1231,7 @@ export default function HostPage() {
       setPollOptions(options.map((o) => getPollOptionLabel(o, '')));
       setPollOptionImages(options.map((o) => getPollOptionImageUrl(o) || ''));
       setPollMaxSelections(Math.max(1, Number(poll.max_selections ?? 1)));
-      setStandardTimeLimit(meta.timeLimitSeconds || 60);
+      setStandardTimeLimit(meta.timeLimitSeconds || '');
       setEditingPollId(poll.id);
       setShowPollTypeModal(false);
       setShowCreatePoll(true);
@@ -1447,6 +1450,82 @@ export default function HostPage() {
       });
     },
     [pollOrderStorageKey, polls]
+  );
+
+  const findPollCardFromPoint = useCallback((clientX: number, clientY: number) => {
+    if (typeof document === 'undefined') return null;
+    const elements =
+      typeof document.elementsFromPoint === 'function'
+        ? document.elementsFromPoint(clientX, clientY)
+        : [document.elementFromPoint(clientX, clientY)].filter(Boolean);
+    for (const element of elements) {
+      if (!(element instanceof HTMLElement)) continue;
+      const card = element.closest<HTMLElement>('[data-poll-card-id]');
+      const id = card?.dataset.pollCardId;
+      if (id) return id;
+    }
+    return null;
+  }, []);
+
+  const handlePollPointerReorderStart = useCallback(
+    (sourceId: string, event: React.PointerEvent<HTMLButtonElement>) => {
+      if (event.pointerType === 'mouse' || event.button !== 0) return;
+      event.preventDefault();
+      const sourceElement = event.currentTarget;
+      sourceElement.setPointerCapture?.(event.pointerId);
+      setDraggingPollId(sourceId);
+      setDragOverPollId(sourceId);
+
+      const previousBodyOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+
+      const updateTarget = (clientX: number, clientY: number) => {
+        const targetId = findPollCardFromPoint(clientX, clientY);
+        setDragOverPollId(targetId || null);
+        return targetId;
+      };
+
+      const handlePointerMove = (moveEvent: PointerEvent) => {
+        moveEvent.preventDefault();
+        const edgeSize = 72;
+        if (moveEvent.clientY < edgeSize) {
+          window.scrollBy({ top: -14, behavior: 'auto' });
+        } else if (moveEvent.clientY > window.innerHeight - edgeSize) {
+          window.scrollBy({ top: 14, behavior: 'auto' });
+        }
+        updateTarget(moveEvent.clientX, moveEvent.clientY);
+      };
+
+      const handlePointerUp = (upEvent: PointerEvent) => {
+        upEvent.preventDefault();
+        const targetId = updateTarget(upEvent.clientX, upEvent.clientY);
+        if (targetId && targetId !== sourceId) {
+          movePollCard(sourceId, targetId);
+        }
+        sourceElement.releasePointerCapture?.(event.pointerId);
+        window.removeEventListener('pointermove', handlePointerMove);
+        window.removeEventListener('pointerup', handlePointerUp);
+        window.removeEventListener('pointercancel', handlePointerCancel);
+        document.body.style.overflow = previousBodyOverflow;
+        setDraggingPollId(null);
+        setDragOverPollId(null);
+      };
+
+      const handlePointerCancel = () => {
+        sourceElement.releasePointerCapture?.(event.pointerId);
+        window.removeEventListener('pointermove', handlePointerMove);
+        window.removeEventListener('pointerup', handlePointerUp);
+        window.removeEventListener('pointercancel', handlePointerCancel);
+        document.body.style.overflow = previousBodyOverflow;
+        setDraggingPollId(null);
+        setDragOverPollId(null);
+      };
+
+      window.addEventListener('pointermove', handlePointerMove, { passive: false });
+      window.addEventListener('pointerup', handlePointerUp, { passive: false });
+      window.addEventListener('pointercancel', handlePointerCancel);
+    },
+    [findPollCardFromPoint, movePollCard]
   );
 
   const filteredPolls = useMemo(() => {
@@ -2541,11 +2620,21 @@ export default function HostPage() {
                           min={0}
                           max={3600}
                           value={standardTimeLimit}
-                          onChange={(e) => setStandardTimeLimit(clampNumber(e.target.value, 0, 3600, 60))}
+                          onChange={(e) =>
+                            setStandardTimeLimit(
+                              e.target.value === ''
+                                ? ''
+                                : clampNumber(e.target.value, 0, 3600, 0)
+                            )
+                          }
+                          placeholder="なし"
                           className="h-9 w-20 rounded-lg bg-slate-50 px-2 text-center font-semibold tabular-nums ring-1 ring-slate-200 outline-none"
                           style={{ fontSize: '16px' }}
                         />
                         <span className="text-slate-400">秒</span>
+                        <span className="text-[11px] font-semibold text-slate-400">
+                          空欄で常時受付
+                        </span>
                       </label>
                       {pollOptions.length < 8 && (
                         <button
@@ -2639,17 +2728,26 @@ export default function HostPage() {
                       {pagedPolls.map((poll) => (
                         <div
                           key={poll.id}
+                          data-poll-card-id={poll.id}
                           onDragOver={(e) => {
                             e.preventDefault();
                             e.dataTransfer.dropEffect = 'move';
+                            if (dragOverPollId !== poll.id) setDragOverPollId(poll.id);
                           }}
                           onDrop={(e) => {
                             e.preventDefault();
                             const sourceId = e.dataTransfer.getData('text/plain') || draggingPollId;
                             if (sourceId) movePollCard(sourceId, poll.id);
                             setDraggingPollId(null);
+                            setDragOverPollId(null);
                           }}
-                          className={`transition-opacity ${draggingPollId === poll.id ? 'opacity-50' : 'opacity-100'}`}
+                          className={`rounded-lg transition-all ${
+                            draggingPollId === poll.id ? 'opacity-50' : 'opacity-100'
+                          } ${
+                            dragOverPollId === poll.id && draggingPollId !== poll.id
+                              ? 'ring-2 ring-[#00963c] ring-offset-2'
+                              : ''
+                          }`}
                         >
                           <PollResultCard
                             poll={poll}
@@ -2665,10 +2763,15 @@ export default function HostPage() {
                             resetting={pollResettingId === poll.id}
                             onDragStart={(e) => {
                               setDraggingPollId(poll.id);
+                              setDragOverPollId(poll.id);
                               e.dataTransfer.effectAllowed = 'move';
                               e.dataTransfer.setData('text/plain', poll.id);
                             }}
-                            onDragEnd={() => setDraggingPollId(null)}
+                            onDragEnd={() => {
+                              setDraggingPollId(null);
+                              setDragOverPollId(null);
+                            }}
+                            onPointerReorderStart={(e) => handlePollPointerReorderStart(poll.id, e)}
                             selectionIndex={selectedPollIds.indexOf(poll.id)}
                             bulkOrder={extractPollPayload(poll.options).meta.bulkOrder}
                             activeBulkCount={activeBulkPolls.length}
@@ -3777,6 +3880,7 @@ function PollResultCard({
   resetting,
   onDragStart,
   onDragEnd,
+  onPointerReorderStart,
   selectionIndex = -1,
   bulkOrder,
   activeBulkCount = 0,
@@ -3796,6 +3900,7 @@ function PollResultCard({
   resetting: boolean;
   onDragStart?: (e: React.DragEvent<HTMLButtonElement>) => void;
   onDragEnd?: () => void;
+  onPointerReorderStart?: (e: React.PointerEvent<HTMLButtonElement>) => void;
   selectionIndex?: number;
   bulkOrder?: number | null;
   activeBulkCount?: number;
@@ -3909,12 +4014,13 @@ function PollResultCard({
                   draggable
                   onDragStart={onDragStart}
                   onDragEnd={onDragEnd}
-                  className="ml-auto inline-flex flex-col items-center justify-center rounded-md border border-[#e9e7e7] bg-white px-1.5 py-0.5 text-[#595959] cursor-grab transition-colors hover:border-[#9dd8b1] hover:text-[#00963c] active:cursor-grabbing"
+                  onPointerDown={onPointerReorderStart}
+                  className="ml-auto inline-flex touch-none flex-col items-center justify-center rounded-md border border-[#e9e7e7] bg-white px-2 py-1 text-[#595959] cursor-grab select-none transition-colors hover:border-[#9dd8b1] hover:text-[#00963c] active:cursor-grabbing"
                   title="ドラッグして並び替え"
                   aria-label="ドラッグして並び替え"
                 >
                   <GripVertical className="h-3.5 w-3.5" />
-                  <span className="text-[9px] font-bold leading-none mt-0.5">掴んで動かす</span>
+                  <span className="text-[10px] font-bold leading-none mt-0.5">並び替え</span>
                 </button>
               )}
             </div>

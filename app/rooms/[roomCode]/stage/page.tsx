@@ -665,7 +665,7 @@ function StagePollCard({
     timeLimit > 0 && timerStartMs
       ? Math.max(0, Math.ceil(timeLimit - (nowMs - timerStartMs) / 1000))
       : null;
-  const requiresManualStart = mode === 'standard' || timeLimit > 0;
+  const requiresManualStart = timeLimit > 0;
   const timerNotStarted = requiresManualStart && !timerStartMs;
   const revealed =
     mode === 'standard'
@@ -780,14 +780,18 @@ function StagePollCard({
           />
         ) : (
           <p className="rounded-lg bg-[#f7f5f5] px-3 py-4 text-center text-xs font-bold text-[#595959]">
-            回答受付中です。結果は投票時間後に表示します。
+            回答受付中です。結果はホストが締め切るまで表示しません。
           </p>
         )
       ) : (
         <div className="space-y-2">
           {!revealed && (
             <p className="rounded-lg bg-[#f7f5f5] px-3 py-3 text-center text-xs font-bold text-[#595959]">
-              {timerNotStarted ? '開始ボタンを押すと回答受付が始まります。' : '回答受付中です。結果は投票時間後に表示します。'}
+              {timerNotStarted
+                ? '開始ボタンを押すと回答受付が始まります。'
+                : timeLimit > 0
+                ? '回答受付中です。結果は投票時間後に表示します。'
+                : '回答受付中です。選択肢は参加者画面にも表示されています。'}
             </p>
           )}
           <div className={`grid gap-2 ${optionGridClass}`}>

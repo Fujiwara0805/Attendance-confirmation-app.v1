@@ -413,12 +413,14 @@ export default function PresentPage() {
                       : null;
                   // 未開始（started_at 未セット） / 回答中 / 開示 の 3 状態
                   const timedMode = activeTimeLimit > 0;
-                  const requiresManualStart = mode === 'standard' || timedMode;
+                  const requiresManualStart = timedMode;
                   const timerNotStarted = requiresManualStart && !timerStartMs;
                   const standardRevealed =
                     mode === 'standard' &&
+                    standardTimeLimit > 0 &&
                     !!timerStartMs &&
-                    (standardTimeLimit === 0 || (timerRemaining !== null && timerRemaining <= 0));
+                    timerRemaining !== null &&
+                    timerRemaining <= 0;
                   const standardAnswering =
                     mode === 'standard' && standardTimeLimit > 0 && !!timerStartMs && !standardRevealed;
                   const quizRevealed =
@@ -730,7 +732,9 @@ export default function PresentPage() {
                             <p className="rounded-2xl bg-slate-50 px-5 py-4 text-center text-base font-semibold text-slate-500 ring-1 ring-slate-200">
                               {timerNotStarted
                                 ? `投票時間は${standardTimeLimit}秒です。ホスト側の開始を待っています。`
-                                : '回答受付中です。結果は投票時間後に表示します。'}
+                                : standardTimeLimit > 0
+                                ? '回答受付中です。結果は投票時間後に表示します。'
+                                : '回答受付中です。選択肢は参加者画面にも表示されています。'}
                             </p>
                             {options.map((option, i) => {
                               const imageUrl = getPollOptionImageUrl(option);
