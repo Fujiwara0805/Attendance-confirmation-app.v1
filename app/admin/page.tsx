@@ -880,7 +880,7 @@ function AdminPageInner() {
 
   const handleToggleCourseStatus = async (course: Course) => {
     if (courseStatusPendingCode) return;
-    const nextStatus = course.status === 'active' ? 'inactive' : 'active';
+    const nextStatus = course.status === 'active' ? 'archived' : 'active';
     setCourseStatusPendingCode(course.code);
     try {
       const response = await fetch(`/api/v2/courses/${course.code}`, {
@@ -896,7 +896,11 @@ function AdminPageInner() {
         await fetchCourses();
       } else {
         const errorData = await response.json().catch(() => null);
-        showToast('更新失敗', errorData?.message || 'フォーム受付状態の変更に失敗しました。', 'destructive');
+        showToast(
+          '更新失敗',
+          errorData?.error || errorData?.message || 'フォーム受付状態の変更に失敗しました。',
+          'destructive'
+        );
       }
     } catch {
       showToast('通信エラー', 'フォーム受付状態の変更中にエラーが発生しました。', 'destructive');
