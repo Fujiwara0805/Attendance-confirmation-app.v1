@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef, type ComponentType, type ReactNode } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -184,6 +184,10 @@ const HOST_NAV_ITEMS: Array<{
   { key: 'export', label: 'エクスポート', description: 'CSV出力', icon: Download },
   { key: 'faq', label: 'FAQ', description: '操作ガイド', icon: HelpCircle },
 ];
+
+function isHostTab(value: string | null): value is HostTab {
+  return HOST_NAV_ITEMS.some((item) => item.key === value);
+}
 
 type HostColorTheme = {
   headerBg: string;
@@ -463,16 +467,24 @@ function makeQuizQuestionDraft(index: number): QuizQuestionDraft {
 
 export default function HostPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const { data: session, status: authStatus } = useSession();
   const roomCode = (params.roomCode as string).toUpperCase();
+  const requestedTab = searchParams.get('tab');
 
   const [room, setRoom] = useState<Room | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<HostTab>('questions');
+  const [tab, setTab] = useState<HostTab>(isHostTab(requestedTab) ? requestedTab : 'questions');
   const [copied, setCopied] = useState(false);
   const [qrUrl, setQrUrl] = useState('');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  useEffect(() => {
+    if (isHostTab(requestedTab)) {
+      setTab(requestedTab);
+    }
+  }, [requestedTab]);
 
   // Question filters
   const [sortMode, setSortMode] = useState<SortMode>('popular');
@@ -611,7 +623,7 @@ export default function HostPage() {
   }, [rankingCandidateCount]);
 
   const handleRankingCandidateCountChange = useCallback((value: unknown) => {
-    const nextCount = clampNumber(value, 2, 100, 50);
+    const nextCount = clampNumber(value, 3, 100, 50);
     const nextRankCount = Math.min(rankingRankCount, nextCount, 10);
     setRankingCandidateCount(nextCount);
     setRankingCandidateTexts((prev) =>
@@ -2512,19 +2524,22 @@ export default function HostPage() {
                         <label className="text-xs sm:text-sm text-slate-600">
                           候補数
                           <div className="mt-1 flex items-center gap-2">
-                            <input
-                              type="number"
-                              min={2}
-                              max={100}
+                            <select
                               value={rankingCandidateCount}
                               onChange={(e) => handleRankingCandidateCountChange(e.target.value)}
                               className="h-11 w-full rounded-xl bg-slate-50 px-3 text-center font-semibold tabular-nums ring-1 ring-slate-200 outline-none"
                               style={{ fontSize: '16px' }}
-                            />
+                            >
+                              {Array.from({ length: 98 }, (_, i) => i + 3).map((count) => (
+                                <option key={count} value={count}>
+                                  {count}
+                                </option>
+                              ))}
+                            </select>
                             <span className="shrink-0 text-xs font-semibold text-slate-400">件</span>
                           </div>
                           <span className="mt-1 block text-[11px] font-semibold text-slate-400">
-                            2〜100件で入力できます
+                            3〜100件から選択できます
                           </span>
                         </label>
                         <label className="text-xs sm:text-sm text-slate-600">

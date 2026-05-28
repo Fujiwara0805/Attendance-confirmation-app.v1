@@ -21,12 +21,13 @@ export async function GET(req: NextRequest) {
     let query = supabase
       .from('courses')
       .select('id, code, name, description, teacher_name, category, template_id, enabled_default_fields, custom_fields, location_settings, status, created_at, form_type, invitation_settings, cooldown_minutes')
-      .eq('status', 'active')
       .order('created_at', { ascending: false });
 
     // 管理者フィルタ（自分の講義のみ）
     if (teacherEmail) {
       query = query.eq('teacher_email', teacherEmail);
+    } else {
+      query = query.eq('status', 'active');
     }
 
     // カテゴリフィルタ

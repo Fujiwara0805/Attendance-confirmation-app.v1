@@ -58,6 +58,7 @@ interface Course {
   code: string;
   courseName: string;
   teacherName: string;
+  status?: string;
   createdBy: string;
   createdAt: string;
   lastUpdated: string;
@@ -495,6 +496,7 @@ function AdminPageInner() {
   const [editRoomTitle, setEditRoomTitle] = useState<string>('');
   const [savingEditRoom, setSavingEditRoom] = useState<boolean>(false);
   const [roomStatusPendingCode, setRoomStatusPendingCode] = useState<string | null>(null);
+  const [courseStatusPendingCode, setCourseStatusPendingCode] = useState<string | null>(null);
   const [copyPendingCode, setCopyPendingCode] = useState<string | null>(null);
   const [viewPendingCode, setViewPendingCode] = useState<string | null>(null);
   const [hostPendingCode, setHostPendingCode] = useState<string | null>(null);
@@ -605,6 +607,7 @@ function AdminPageInner() {
           code: c.code,
           courseName: c.name,
           teacherName: c.teacher_name,
+          status: c.status || 'active',
           createdBy: '',
           createdAt: c.created_at || '',
           lastUpdated: c.created_at || '',
@@ -872,6 +875,33 @@ function AdminPageInner() {
       showToast("通信エラー", "サーバーとの通信中にエラーが発生しました。", "destructive");
     } finally {
       setSavingEditCourse(false);
+    }
+  };
+
+  const handleToggleCourseStatus = async (course: Course) => {
+    if (courseStatusPendingCode) return;
+    const nextStatus = course.status === 'active' ? 'closed' : 'active';
+    setCourseStatusPendingCode(course.code);
+    try {
+      const response = await fetch(`/api/v2/courses/${course.code}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      if (response.ok) {
+        showToast(
+          '更新完了',
+          nextStatus === 'active' ? 'フォーム受付を開始しました。' : 'フォーム受付を終了しました。'
+        );
+        await fetchCourses();
+      } else {
+        const errorData = await response.json().catch(() => null);
+        showToast('更新失敗', errorData?.message || 'フォーム受付状態の変更に失敗しました。', 'destructive');
+      }
+    } catch {
+      showToast('通信エラー', 'フォーム受付状態の変更中にエラーが発生しました。', 'destructive');
+    } finally {
+      setCourseStatusPendingCode(null);
     }
   };
 
@@ -1905,6 +1935,13 @@ function AdminPageInner() {
                                     カスタム
                                   </span>
                                 ) : null}
+                                <span className={`flex-shrink-0 inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+                                  course.status === 'active'
+                                    ? 'bg-emerald-100 text-emerald-700'
+                                    : 'bg-slate-100 text-slate-500'
+                                }`}>
+                                  {course.status === 'active' ? '受付中' : '停止中'}
+                                </span>
                               </div>
                               <p className="text-xs text-slate-500 truncate">
                                 {course.teacherName}
@@ -2008,7 +2045,37 @@ function AdminPageInner() {
                         )}
 
                         {/* Date */}
-                        <div className="mt-2.5 flex items-center justify-end">
+                        <div className="mt-2.5 flex items-center justify-between gap-2">
+                          <button
+                            type="button"
+                            disabled={courseStatusPendingCode === course.code}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleToggleCourseStatus(course);
+                            }}
+                            className={`inline-flex h-8 items-center justify-center gap-1.5 rounded-md px-3 text-xs font-semibold transition-colors disabled:pointer-events-none disabled:opacity-60 ${
+                              course.status === 'active'
+                                ? 'text-red-500 hover:bg-red-50 hover:text-red-600'
+                                : 'text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700'
+                            }`}
+                          >
+                            {courseStatusPendingCode === course.code ? (
+                              <>
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                {course.status === 'active' ? '終了中…' : '開始中…'}
+                              </>
+                            ) : course.status === 'active' ? (
+                              <>
+                                <StopCircle className="h-3.5 w-3.5" />
+                                終了
+                              </>
+                            ) : (
+                              <>
+                                <Play className="h-3.5 w-3.5 fill-current" />
+                                開始
+                              </>
+                            )}
+                          </button>
                           <span className="text-xs text-slate-400">
                             更新: {new Date(course.lastUpdated).toLocaleDateString('ja-JP')}
                           </span>
