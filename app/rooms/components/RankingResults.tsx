@@ -24,9 +24,16 @@ interface RankingResultsProps {
 /** デフォルトで表示する上位件数。残りは折りたたみで開閉。 */
 const DEFAULT_VISIBLE = 3;
 
-/** 上位ほど濃い emerald。順位数に依存せず連続的に色を割り当てる。 */
+/**
+ * 順位ごとのバー色。1〜3位はメダルカラー（金・銀・銅）で視覚的に区別し、
+ * 4位以降は emerald を薄くしていくグラデーションで割り当てる。
+ */
+const MEDAL_COLORS = ['#F5B301', '#9AA3AE', '#CD7F32']; // 金 / 銀 / 銅
 function rankColor(rankIndex: number, rankCount: number) {
-  const alpha = 0.9 - (rankIndex / Math.max(rankCount, 1)) * 0.65;
+  if (rankIndex < MEDAL_COLORS.length) return MEDAL_COLORS[rankIndex];
+  const remaining = Math.max(rankCount - MEDAL_COLORS.length, 1);
+  const step = (rankIndex - MEDAL_COLORS.length) / remaining;
+  const alpha = 0.7 - step * 0.45;
   return `rgba(16, 185, 129, ${alpha.toFixed(3)})`;
 }
 
@@ -119,7 +126,7 @@ export default function RankingResults({
               </div>
             </div>
 
-            {/* 第1〜第N希望の積み上げ内訳バー（数値ラベルは省略） */}
+            {/* 第1〜第N希望の積み上げ内訳バー（メダルカラーで色分け） */}
             <div className={`mt-2 flex ${large ? 'h-3.5' : 'h-2.5'} w-full overflow-hidden rounded-full bg-slate-100`}>
               {entry.rankCounts.map((count, rankIndex) => (
                 <motion.div
@@ -128,9 +135,24 @@ export default function RankingResults({
                   animate={{ width: `${(count / maxTotal) * 100}%` }}
                   transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
                   style={{ backgroundColor: rankColor(rankIndex, rankCount) }}
-                  title={`${rankLabel(rankIndex)}: ${count}人`}
+                  title={`${rankLabel(rankIndex)}: ${count}票`}
                   aria-hidden
                 />
+              ))}
+            </div>
+
+            {/* 順位ごとの得票数（1位が何票・2位が何票…） */}
+            <div className={`mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 ${large ? 'text-sm' : 'text-[11px]'}`}>
+              {entry.rankCounts.map((count, rankIndex) => (
+                <span key={rankIndex} className="inline-flex items-center gap-1.5 font-semibold text-slate-600">
+                  <span
+                    className={`inline-block rounded-sm ${large ? 'h-3 w-3' : 'h-2.5 w-2.5'}`}
+                    style={{ backgroundColor: rankColor(rankIndex, rankCount) }}
+                    aria-hidden
+                  />
+                  {rankLabel(rankIndex)}
+                  <span className="tabular-nums font-extrabold text-slate-900">{count}</span>票
+                </span>
               ))}
             </div>
           </div>
