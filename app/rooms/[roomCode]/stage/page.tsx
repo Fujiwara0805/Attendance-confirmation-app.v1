@@ -408,6 +408,9 @@ export default function StagePage() {
                 <p className="mt-3 text-xs leading-relaxed text-slate-400">
                   編集画面のタブを選ぶと編集画面が映ります。取り込み後、資料投影画面を全画面にしてスクリーンへ表示します。
                 </p>
+                <div className="mt-3 rounded-lg bg-amber-400/15 px-3 py-2 text-xs font-bold leading-relaxed text-amber-100 ring-1 ring-amber-300/25">
+                  <p>発表用スクリプトがスクリーンに映る場合は、PCの画面設定でミラーリングをOFFにし、拡張表示にしてください。</p>
+                </div>
               </div>
               <button
                 type="button"
@@ -669,7 +672,7 @@ function StagePollCard({
   const timerNotStarted = requiresManualStart && !timerStartMs;
   const revealed =
     mode === 'standard'
-      ? !!timerStartMs && (timeLimit === 0 || (timerRemaining !== null && timerRemaining <= 0))
+      ? timeLimit === 0 || (!!timerStartMs && timerRemaining !== null && timerRemaining <= 0)
       : mode === 'quiz'
       ? !timerNotStarted && (timeLimit === 0 || (timerRemaining !== null && timerRemaining <= 0))
       : timeLimit === 0 || (!!timerStartMs && timerRemaining !== null && timerRemaining <= 0);

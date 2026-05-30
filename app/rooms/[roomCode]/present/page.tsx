@@ -417,10 +417,8 @@ export default function PresentPage() {
                   const timerNotStarted = requiresManualStart && !timerStartMs;
                   const standardRevealed =
                     mode === 'standard' &&
-                    standardTimeLimit > 0 &&
-                    !!timerStartMs &&
-                    timerRemaining !== null &&
-                    timerRemaining <= 0;
+                    (standardTimeLimit === 0 ||
+                      (!!timerStartMs && timerRemaining !== null && timerRemaining <= 0));
                   const standardAnswering =
                     mode === 'standard' && standardTimeLimit > 0 && !!timerStartMs && !standardRevealed;
                   const quizRevealed =
