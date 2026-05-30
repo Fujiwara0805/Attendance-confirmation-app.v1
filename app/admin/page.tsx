@@ -280,7 +280,7 @@ function AdminPageInner() {
     return 'courses';
   })();
   const [activeTab, setActiveTab] = useState<'courses' | 'export' | 'rooms'>(initialSection);
-  const CARDS_PER_PAGE = 4;
+  const CARDS_PER_PAGE = 6;
   const [coursePage, setCoursePage] = useState(1);
   const [roomPage, setRoomPage] = useState(1);
   const [courseSearch, setCourseSearch] = useState('');

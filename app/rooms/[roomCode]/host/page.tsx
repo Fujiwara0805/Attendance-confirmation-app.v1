@@ -561,7 +561,7 @@ export default function HostPage() {
   const [userPlan, setUserPlan] = useState<'free' | 'paid' | 'enterprise'>('free');
   const [pollPage, setPollPage] = useState(1);
   const [pollSearch, setPollSearch] = useState('');
-  const POLLS_PER_PAGE = 6;
+  const POLLS_PER_PAGE = 9;
   const [roomStatusLoading, setRoomStatusLoading] = useState(false);
   const [pollStatusPendingId, setPollStatusPendingId] = useState<string | null>(null);
   const [pollDeletingId, setPollDeletingId] = useState<string | null>(null);
@@ -2827,8 +2827,6 @@ export default function HostPage() {
                             }}
                             onPointerReorderStart={(e) => handlePollPointerReorderStart(poll.id, e)}
                             selectionIndex={selectedPollIds.indexOf(poll.id)}
-                            bulkOrder={extractPollPayload(poll.options).meta.bulkOrder}
-                            activeBulkCount={activeBulkPolls.length}
                             hideSelection={polls.some((item) => item.status === 'active')}
                             onToggleSelect={() => handleTogglePollSelect(poll.id)}
                           />
@@ -3936,8 +3934,6 @@ function PollResultCard({
   onDragEnd,
   onPointerReorderStart,
   selectionIndex = -1,
-  bulkOrder,
-  activeBulkCount = 0,
   hideSelection = false,
   onToggleSelect,
 }: {
@@ -3956,8 +3952,6 @@ function PollResultCard({
   onDragEnd?: () => void;
   onPointerReorderStart?: (e: React.PointerEvent<HTMLButtonElement>) => void;
   selectionIndex?: number;
-  bulkOrder?: number | null;
-  activeBulkCount?: number;
   hideSelection?: boolean;
   onToggleSelect?: () => void;
 }) {
@@ -3980,8 +3974,6 @@ function PollResultCard({
   const ModeIcon = visual.icon;
   const statusLabel =
     poll.status === 'active' ? 'Live' : poll.status === 'draft' ? '下書き' : '終了';
-  const activeBulkOrder = poll.status === 'active' && typeof bulkOrder === 'number' ? bulkOrder : null;
-  const isActiveBulkPoll = activeBulkOrder !== null;
   const isScreenVisible = poll.status === 'active';
 
   return (
