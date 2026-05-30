@@ -71,6 +71,7 @@ import {
   type PollOption,
 } from '@/lib/pollModes';
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
+import { CustomModal } from '@/components/ui/custom-modal';
 
 const LOGO_URL =
   'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_200/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png';
@@ -565,6 +566,7 @@ export default function HostPage() {
   const [roomStatusLoading, setRoomStatusLoading] = useState(false);
   const [pollStatusPendingId, setPollStatusPendingId] = useState<string | null>(null);
   const [pollDeletingId, setPollDeletingId] = useState<string | null>(null);
+  const [pollDeleteConfirm, setPollDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   const [selectedPollIds, setSelectedPollIds] = useState<string[]>([]);
   const [bulkStartPending, setBulkStartPending] = useState(false);
   const [moderationLoading, setModerationLoading] = useState(false);
@@ -1227,6 +1229,12 @@ export default function HostPage() {
     } finally {
       setPollDeletingId(null);
     }
+  };
+
+  const executeDeletePoll = async () => {
+    if (!pollDeleteConfirm) return;
+    await handleDeletePoll(pollDeleteConfirm.id);
+    setPollDeleteConfirm(null);
   };
 
   const scrollToPollEditor = useCallback(() => {
@@ -2811,7 +2819,7 @@ export default function HostPage() {
                             editing={editingPollId === poll.id}
                             onStart={() => handlePollStatus(poll.id, 'active')}
                             onClose={() => handlePollStatus(poll.id, 'closed')}
-                            onDelete={() => handleDeletePoll(poll.id)}
+                            onDelete={() => setPollDeleteConfirm({ id: poll.id, name: poll.question || 'このカード' })}
                             onEdit={() => handleEditPoll(poll)}
                             onReset={() => handleResetPoll(poll.id)}
                             resetting={pollResettingId === poll.id}
@@ -3175,6 +3183,52 @@ export default function HostPage() {
           />
         )}
       </AnimatePresence>
+
+      {/* ライブ投票カード削除の確認モーダル */}
+      <CustomModal
+        isOpen={!!pollDeleteConfirm}
+        onClose={() => { if (!pollDeletingId) setPollDeleteConfirm(null); }}
+        title="削除の確認"
+        description={`「${pollDeleteConfirm?.name ?? ''}」を削除してもよろしいですか？\n回答データもすべて削除されます。`}
+        className="max-w-sm"
+      >
+        <div className="space-y-4">
+          <div className="flex items-center gap-3 p-3 bg-red-50 border border-red-100 rounded-lg">
+            <Trash2 className="h-5 w-5 text-red-500 flex-shrink-0" />
+            <p className="text-sm text-red-700">
+              このカードと回答データがすべて削除されます。この操作は取り消せません。
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setPollDeleteConfirm(null)}
+              disabled={!!pollDeletingId}
+              className="flex-1 h-10 rounded-lg border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-60"
+            >
+              キャンセル
+            </button>
+            <button
+              type="button"
+              onClick={executeDeletePoll}
+              disabled={!!pollDeletingId}
+              className="flex-1 inline-flex items-center justify-center gap-2 h-10 rounded-lg bg-red-600 hover:bg-red-700 text-sm font-semibold text-white transition-colors disabled:opacity-60"
+            >
+              {pollDeletingId ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  削除中...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4" />
+                  削除する
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </CustomModal>
     </div>
   );
 }
