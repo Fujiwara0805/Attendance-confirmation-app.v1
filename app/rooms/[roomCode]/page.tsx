@@ -938,6 +938,13 @@ function ActivePollCard({
   const answeredQuizCount = quizQuestions.filter(isAnswered).length;
   const activeQuizQuestion = quizQuestions[activeQuizIndex];
   const activeQuizAnswerLimit = activeQuizQuestion ? getQuizAnswerLimit(activeQuizQuestion) : 1;
+  const activeQuizSelectedCount = activeQuizQuestion
+    ? selected.filter(
+        (idx) =>
+          idx >= activeQuizQuestion.optionStart &&
+          idx < activeQuizQuestion.optionStart + activeQuizQuestion.optionCount
+      ).length
+    : 0;
 
   // 全問共通の制限時間でカウントダウン（管理者設定）。時間切れで送信不可・解答開示。
   const standardTimeLimit = isStandard ? meta.timeLimitSeconds || 0 : 0;
@@ -1555,7 +1562,10 @@ function ActivePollCard({
                     </div>
                     {activeQuizAnswerLimit > 1 && (
                       <p className="mt-2 text-xs font-semibold text-slate-500">
-                        この問題は最大{activeQuizAnswerLimit}つまで選択できます
+                        この問題は回答を{activeQuizAnswerLimit}つ選択してください
+                        <span className="ml-1 tabular-nums">
+                          （選択済み {activeQuizSelectedCount}/{activeQuizAnswerLimit}）
+                        </span>
                       </p>
                     )}
                     {/* 参加者投票画面: 選択肢は1列表示 */}
