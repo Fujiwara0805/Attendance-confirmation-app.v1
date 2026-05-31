@@ -109,17 +109,18 @@ export function buildPollOptionsPayload(meta: PollMeta, options: PollOption[]) {
   return [{ __pollMeta: true, ...meta }, ...options];
 }
 
-export function getPollOptionLabel(option: PollOption, fallback = '') {
+export function getPollOptionLabel(option: PollOption | null | undefined, fallback = '') {
   if (typeof option === 'string') return option;
-  return option.text || fallback;
+  if (option && typeof option === 'object') return option.text || fallback;
+  return fallback;
 }
 
-export function getPollOptionImageUrl(option: PollOption) {
-  return typeof option === 'string' ? undefined : option.imageUrl;
+export function getPollOptionImageUrl(option: PollOption | null | undefined) {
+  return option && typeof option === 'object' ? option.imageUrl : undefined;
 }
 
-export function getPollOptionDetail(option: PollOption) {
-  return typeof option === 'string' ? undefined : option.detail;
+export function getPollOptionDetail(option: PollOption | null | undefined) {
+  return option && typeof option === 'object' ? option.detail : undefined;
 }
 
 export function getRankingWeights(rankCount: number, weights?: number[]) {
@@ -134,7 +135,7 @@ export function getRankingDisplayMode(mode?: string | null): 'number' | 'number_
 }
 
 export function getRankingOptionLabel(
-  option: PollOption,
+  option: PollOption | null | undefined,
   optionIndex: number,
   displayMode: 'number' | 'number_text' = 'number_text'
 ) {

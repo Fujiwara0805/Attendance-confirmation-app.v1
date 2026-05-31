@@ -1294,18 +1294,27 @@ export default function HostPage() {
       return;
     }
     if (mode === 'ranking') {
-      const rankCount = Math.max(1, Number(poll.max_selections ?? meta.rankCount ?? 3));
+      const candidateCount = clampNumber(
+        meta.candidateCount ?? options.length,
+        3,
+        100,
+        Math.max(3, Math.min(options.length || 3, 100))
+      );
+      const rankCount = clampNumber(
+        poll.max_selections ?? meta.rankCount ?? 3,
+        1,
+        Math.min(10, candidateCount),
+        Math.min(3, candidateCount)
+      );
       setPollMode('ranking');
       setPollQuestion(poll.question || '');
-      setRankingCandidateCount(clampNumber(meta.candidateCount ?? options.length, 10, 100, 50));
+      setRankingCandidateCount(candidateCount);
       setRankingRankCount(rankCount);
       setRankingWeights(getRankingWeights(rankCount, meta.rankingWeights));
       setRankingTimeLimit(meta.timeLimitSeconds || 60);
       setRankingDisplayMode(getRankingDisplayMode(meta.rankingDisplayMode));
       setRankingCandidateTexts(
-        Array.from({ length: clampNumber(meta.candidateCount ?? options.length, 10, 100, 50) }, (_, i) =>
-          getPollOptionLabel(options[i], '')
-        )
+        Array.from({ length: candidateCount }, (_, i) => getPollOptionLabel(options[i], ''))
       );
       setEditingPollId(poll.id);
       setShowPollTypeModal(false);
