@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
-import { extractPollPayload, getPollMode, getQuizQuestions } from '@/lib/pollModes';
+import {
+  extractPollPayload,
+  getPollMode,
+  getQuizAnswerLimit,
+  getQuizQuestions,
+} from '@/lib/pollModes';
 
 type PollVoteRow = {
   poll_id: string;
@@ -150,9 +155,15 @@ export async function POST(
     if (indexes.length === 0) {
       return NextResponse.json({ error: 'optionIndex(es) required' }, { status: 400 });
     }
-    if (indexes.length > maxSelections) {
+    const quizQuestions = pollMode === 'quiz' ? getQuizQuestions(meta, options) : [];
+    const effectiveMaxSelections =
+      pollMode === 'quiz'
+        ? quizQuestions.reduce((sum, question) => sum + getQuizAnswerLimit(question), 0)
+        : maxSelections;
+
+    if (indexes.length > effectiveMaxSelections) {
       return NextResponse.json(
-        { error: `最大 ${maxSelections} 件まで選択できます` },
+        { error: `最大 ${effectiveMaxSelections} 件まで選択できます` },
         { status: 400 }
       );
     }
@@ -163,22 +174,29 @@ export async function POST(
       );
     }
     if (pollMode === 'quiz') {
-      // 各問題につき最大1解答。時間切れによる未回答（部分提出）は許容する。
-      const quizQuestions = getQuizQuestions(meta, options);
-      const answeredQuestions = new Set<number>();
+      // 各問題の正解数に応じて複数解答を許容。時間切れによる未回答（部分提出）は許容する。
+      const answerCountsByQuestion = new Map<number, number>();
       for (const idx of indexes) {
         const questionIndex = quizQuestions.findIndex(
           (q) => idx >= q.optionStart && idx < q.optionStart + q.optionCount
         );
-        if (questionIndex < 0 || answeredQuestions.has(questionIndex)) {
+        if (questionIndex < 0) {
           return NextResponse.json(
-            { error: '各問題につき1つの解答を選択してください' },
+            { error: '解答の選択範囲が正しくありません' },
             { status: 400 }
           );
         }
-        answeredQuestions.add(questionIndex);
+        const nextCount = (answerCountsByQuestion.get(questionIndex) || 0) + 1;
+        const answerLimit = getQuizAnswerLimit(quizQuestions[questionIndex]);
+        if (nextCount > answerLimit) {
+          return NextResponse.json(
+            { error: `問題${questionIndex + 1}は最大${answerLimit}つまで選択できます` },
+            { status: 400 }
+          );
+        }
+        answerCountsByQuestion.set(questionIndex, nextCount);
       }
-      if (answeredQuestions.size === 0) {
+      if (answerCountsByQuestion.size === 0) {
         return NextResponse.json(
           { error: '解答を選択してください' },
           { status: 400 }
@@ -196,7 +214,6 @@ export async function POST(
       .eq('participant_id', participantId)
       .is('cleared_at', null);
 
-    const quizQuestions = pollMode === 'quiz' ? getQuizQuestions(meta, options) : [];
     const rows: PollVoteRow[] = indexes.map((idx, rank) => {
       const quizQuestionIndex = pollMode === 'quiz'
         ? quizQuestions.findIndex(

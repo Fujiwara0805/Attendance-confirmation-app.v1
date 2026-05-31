@@ -5,6 +5,7 @@ import {
   extractPollPayload,
   getPollMode,
   getPollOptionLabel,
+  getQuizCorrectOptionOffsets,
   getQuizQuestions,
   getRankingLeaderboard,
   getRankingWeights,
@@ -397,14 +398,14 @@ function pollsToRichCSV(polls: PollRow[], votes: VoteRow[]) {
       if (mode === 'quiz') {
         const quizQuestions = getQuizQuestions(meta, options);
         quizQuestions.forEach((q, qIndex) => {
-          const qTotal = pollVotes.filter((v) => Number(v.value) === qIndex + 1).length;
+          const qVotes = pollVotes.filter((v) => Number(v.value) === qIndex + 1);
+          const qTotal = new Set(qVotes.map((v) => v.participant_id)).size;
           const slice = options.slice(q.optionStart, q.optionStart + q.optionCount);
           slice.forEach((opt: PollOption, offset: number) => {
             const i = q.optionStart + offset;
             const c = counts[i];
             const pct = qTotal > 0 ? Math.round((c / qTotal) * 100) : 0;
-            const isCorrect =
-              typeof q.correctOptionOffset === 'number' && q.correctOptionOffset === offset;
+            const isCorrect = getQuizCorrectOptionOffsets(q).includes(offset);
             lines.push(
               [
                 csvEscape(modeLabel),

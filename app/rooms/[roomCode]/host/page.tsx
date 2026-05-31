@@ -62,6 +62,7 @@ import {
   getPollMode,
   getPollOptionImageUrl,
   getPollOptionLabel,
+  getQuizCorrectOptionOffsets,
   getQuizQuestions,
   getRankingDisplayMode,
   getRankingWeights,
@@ -137,8 +138,8 @@ interface QuizQuestionDraft {
   questionNumber: number;
   options: string[];
   optionImages: string[];
-  /** 0-based offset of the correct answer. null = 採点しない（任意） */
-  correctOptionOffset: number | null;
+  /** 0-based offsets of correct answers. empty = 採点しない（任意） */
+  correctOptionOffsets: number[];
 }
 
 const AVATAR_PALETTE = [
@@ -486,7 +487,7 @@ function makeQuizQuestionDraft(index: number): QuizQuestionDraft {
     questionNumber: index + 1,
     options: Array.from({ length: 4 }, () => ''),
     optionImages: Array.from({ length: 4 }, () => ''),
-    correctOptionOffset: null,
+    correctOptionOffsets: [],
   };
 }
 
@@ -521,6 +522,8 @@ export default function HostPage() {
   const [pollOrder, setPollOrder] = useState<string[]>([]);
   const [draggingPollId, setDraggingPollId] = useState<string | null>(null);
   const [dragOverPollId, setDragOverPollId] = useState<string | null>(null);
+  const [dragOverPollPage, setDragOverPollPage] = useState<number | null>(null);
+  const [focusedPollId, setFocusedPollId] = useState<string | null>(null);
   const pollEditorRef = useRef<HTMLDivElement>(null);
   const [pollMode, setPollMode] = useState<PollMode>('standard');
   const [pollQuestion, setPollQuestion] = useState('');
@@ -960,12 +963,11 @@ export default function HostPage() {
             origIndex: i,
           }))
           .filter((o) => o.text);
-        // 正解 offset を「空欄除外後」の並びに合わせて補正
-        const correctOffset =
-          q.correctOptionOffset !== null
-            ? kept.findIndex((o) => o.origIndex === q.correctOptionOffset)
-            : -1;
-        return { ...q, kept, correctOffset };
+        // 正解 offsets を「空欄除外後」の並びに合わせて補正
+        const correctOffsets = q.correctOptionOffsets
+          .map((offset) => kept.findIndex((o) => o.origIndex === offset))
+          .filter((offset, index, offsets) => offset >= 0 && offsets.indexOf(offset) === index);
+        return { ...q, kept, correctOffsets };
       })
       .filter((q) => q.question.trim() && q.kept.length >= 2);
     const quizFlatOptions = validQuizQuestions.flatMap((q) =>
@@ -984,7 +986,10 @@ export default function HostPage() {
         pollMode === 'ranking'
           ? clampNumber(rankingRankCount, 1, validOptions.length, 3)
           : pollMode === 'quiz'
-          ? validQuizQuestions.length
+          ? validQuizQuestions.reduce(
+              (sum, q) => sum + Math.max(1, q.correctOffsets.length),
+              0
+            )
           : Math.max(1, Math.min(pollMaxSelections, validOptions.length));
       const optionsPayload: PollOption[] =
         pollMode === 'quiz'
@@ -1003,7 +1008,7 @@ export default function HostPage() {
           optionStart,
           optionCount,
           // 出題した問題ごとに正解を保持（編集・更新でも引き継ぐ）
-          correctOptionOffset: q.correctOffset >= 0 ? q.correctOffset : undefined,
+          correctOptionOffsets: q.correctOffsets.length > 0 ? q.correctOffsets : undefined,
         };
         optionStart += optionCount;
         return meta;
@@ -1319,8 +1324,7 @@ export default function HostPage() {
         questionNumber: q.questionNumber || i + 1,
         options: slice.map((o) => getPollOptionLabel(o, '')),
         optionImages: slice.map((o) => getPollOptionImageUrl(o) || ''),
-        correctOptionOffset:
-          typeof q.correctOptionOffset === 'number' ? q.correctOptionOffset : null,
+        correctOptionOffsets: getQuizCorrectOptionOffsets(q),
       };
     });
     setPollMode('quiz');
@@ -1502,6 +1506,31 @@ export default function HostPage() {
     [pollOrderStorageKey, polls]
   );
 
+  const movePollCardToPosition = useCallback(
+    (sourceId: string, position: number) => {
+      const targetPosition = clampNumber(position, 1, Math.max(1, polls.length), 1);
+      setPollOrder((prev) => {
+        const pollIds = polls.map((poll) => poll.id);
+        const currentIdSet = new Set(pollIds);
+        const base = [
+          ...prev.filter((id) => currentIdSet.has(id)),
+          ...pollIds.filter((id) => !prev.includes(id)),
+        ];
+        const from = base.indexOf(sourceId);
+        if (from < 0) return prev;
+        const next = [...base];
+        const [moved] = next.splice(from, 1);
+        next.splice(targetPosition - 1, 0, moved);
+        try {
+          window.localStorage.setItem(pollOrderStorageKey, JSON.stringify(next));
+        } catch {}
+        return next;
+      });
+      setPollPage(Math.max(1, Math.ceil(targetPosition / POLLS_PER_PAGE)));
+    },
+    [pollOrderStorageKey, polls]
+  );
+
   const findPollCardFromPoint = useCallback((clientX: number, clientY: number) => {
     if (typeof document === 'undefined') return null;
     const elements =
@@ -1559,6 +1588,7 @@ export default function HostPage() {
         document.body.style.overflow = previousBodyOverflow;
         setDraggingPollId(null);
         setDragOverPollId(null);
+        setDragOverPollPage(null);
       };
 
       const handlePointerCancel = () => {
@@ -1569,6 +1599,7 @@ export default function HostPage() {
         document.body.style.overflow = previousBodyOverflow;
         setDraggingPollId(null);
         setDragOverPollId(null);
+        setDragOverPollPage(null);
       };
 
       window.addEventListener('pointermove', handlePointerMove, { passive: false });
@@ -1603,6 +1634,29 @@ export default function HostPage() {
         .includes(query);
     });
   }, [editingPollId, orderedPolls, pollSearch]);
+
+  const handleFocusPollCard = useCallback(
+    (pollId: string) => {
+      const filteredIndex = filteredPolls.findIndex((poll) => poll.id === pollId);
+      const targetIndex =
+        filteredIndex >= 0 ? filteredIndex : orderedPolls.findIndex((poll) => poll.id === pollId);
+      if (targetIndex < 0) return;
+
+      if (filteredIndex < 0 && pollSearch.trim()) {
+        setPollSearch('');
+      }
+      setFocusedPollId(pollId);
+      setPollPage(Math.max(1, Math.ceil((targetIndex + 1) / POLLS_PER_PAGE)));
+
+      window.setTimeout(() => {
+        const card = document.getElementById(`poll-card-${pollId}`);
+        card?.focus({ preventScroll: true });
+        card?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 80);
+      window.setTimeout(() => setFocusedPollId((current) => (current === pollId ? null : current)), 1800);
+    },
+    [filteredPolls, orderedPolls, pollSearch]
+  );
 
   // Auth check
   if (authStatus === 'loading' || loading) {
@@ -2093,11 +2147,7 @@ export default function HostPage() {
                       <button
                         key={poll.id}
                         type="button"
-                        onClick={() => {
-                          document
-                            .getElementById(`poll-card-${poll.id}`)
-                            ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        }}
+                        onClick={() => handleFocusPollCard(poll.id)}
                         className="inline-flex min-w-0 max-w-full items-center gap-2 rounded-md border border-[#9dd8b1] bg-white px-2.5 py-1.5 text-xs font-bold text-[#323232] transition-colors hover:bg-white/80"
                         title={order !== null ? `${order}番目: ${poll.question || '（無題）'}` : poll.question || '（無題）'}
                       >
@@ -2253,10 +2303,7 @@ export default function HostPage() {
                                     ...q,
                                     options: Array.from({ length: count }, (_, optionIndex) => q.options[optionIndex] || ''),
                                     optionImages: Array.from({ length: count }, (_, optionIndex) => q.optionImages[optionIndex] || ''),
-                                    correctOptionOffset:
-                                      q.correctOptionOffset !== null && q.correctOptionOffset < count
-                                        ? q.correctOptionOffset
-                                        : null,
+                                    correctOptionOffsets: q.correctOptionOffsets.filter((offset) => offset < count),
                                   }));
                                 }}
                                 className="h-9 rounded-lg bg-white px-2 text-xs font-semibold ring-1 ring-slate-200"
@@ -2381,21 +2428,22 @@ export default function HostPage() {
                             </p>
                           </div>
                           <p className="mt-1 text-[11px] text-slate-400">
-                            任意: ✓で正解を設定（未設定でもクイズにできます）
+                            任意: ✓で正解を設定（複数選択可・未設定でもクイズにできます）
                           </p>
                           <div className="mt-1.5 space-y-2">
                             {activeQuizQuestion.options.map((opt, optionIndex) => {
-                              const isCorrect = activeQuizQuestion.correctOptionOffset === optionIndex;
+                              const isCorrect = activeQuizQuestion.correctOptionOffsets.includes(optionIndex);
                               return (
                               <div key={optionIndex} className="flex gap-2">
                                 <button
                                   type="button"
                                   onClick={() =>
-                                    updateQuizQuestion(activeQuizQuestionIndex, (q) => ({
-                                      ...q,
-                                      correctOptionOffset:
-                                        q.correctOptionOffset === optionIndex ? null : optionIndex,
-                                    }))
+                                    updateQuizQuestion(activeQuizQuestionIndex, (q) => {
+                                      const correctOptionOffsets = q.correctOptionOffsets.includes(optionIndex)
+                                        ? q.correctOptionOffsets.filter((offset) => offset !== optionIndex)
+                                        : [...q.correctOptionOffsets, optionIndex].sort((a, b) => a - b);
+                                      return { ...q, correctOptionOffsets };
+                                    })
                                   }
                                   title={isCorrect ? '正解（クリックで解除）' : '正解に設定'}
                                   aria-label={isCorrect ? '正解（クリックで解除）' : '正解に設定'}
@@ -2790,6 +2838,7 @@ export default function HostPage() {
                       {pagedPolls.map((poll) => (
                         <div
                           key={poll.id}
+                          tabIndex={-1}
                           data-poll-card-id={poll.id}
                           onDragOver={(e) => {
                             e.preventDefault();
@@ -2802,9 +2851,14 @@ export default function HostPage() {
                             if (sourceId) movePollCard(sourceId, poll.id);
                             setDraggingPollId(null);
                             setDragOverPollId(null);
+                            setDragOverPollPage(null);
                           }}
-                          className={`rounded-lg transition-all ${
+                          className={`rounded-lg transition-all outline-none ${
                             draggingPollId === poll.id ? 'opacity-50' : 'opacity-100'
+                          } ${
+                            focusedPollId === poll.id
+                              ? 'ring-4 ring-[#2864f0] ring-offset-4 ring-offset-white'
+                              : ''
                           } ${
                             dragOverPollId === poll.id && draggingPollId !== poll.id
                               ? 'ring-2 ring-[#00963c] ring-offset-2'
@@ -2832,8 +2886,12 @@ export default function HostPage() {
                             onDragEnd={() => {
                               setDraggingPollId(null);
                               setDragOverPollId(null);
+                              setDragOverPollPage(null);
                             }}
                             onPointerReorderStart={(e) => handlePollPointerReorderStart(poll.id, e)}
+                            orderPosition={orderedPolls.findIndex((item) => item.id === poll.id) + 1}
+                            totalPollCount={orderedPolls.length}
+                            onMoveToPosition={(position) => movePollCardToPosition(poll.id, position)}
                             selectionIndex={selectedPollIds.indexOf(poll.id)}
                             hideSelection={polls.some((item) => item.status === 'active')}
                             onToggleSelect={() => handleTogglePollSelect(poll.id)}
@@ -2857,9 +2915,28 @@ export default function HostPage() {
                             key={page}
                             type="button"
                             onClick={() => setPollPage(page)}
+                            onDragOver={(e) => {
+                              if (!draggingPollId) return;
+                              e.preventDefault();
+                              e.dataTransfer.dropEffect = 'move';
+                              setDragOverPollPage(page);
+                            }}
+                            onDragLeave={() => setDragOverPollPage((current) => (current === page ? null : current))}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              const sourceId = e.dataTransfer.getData('text/plain') || draggingPollId;
+                              if (sourceId) {
+                                movePollCardToPosition(sourceId, (page - 1) * POLLS_PER_PAGE + 1);
+                              }
+                              setDraggingPollId(null);
+                              setDragOverPollId(null);
+                              setDragOverPollPage(null);
+                            }}
                             aria-current={page === currentPage ? 'page' : undefined}
                             className={`h-9 min-w-9 px-3 rounded-lg text-sm font-semibold transition-colors ${
-                              page === currentPage
+                              dragOverPollPage === page
+                                ? 'bg-emerald-50 text-emerald-700 ring-2 ring-emerald-400 ring-offset-2'
+                                : page === currentPage
                                 ? 'bg-emerald-500 text-white shadow-sm shadow-emerald-200/60'
                                 : 'bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50'
                             }`}
@@ -3987,6 +4064,9 @@ function PollResultCard({
   onDragStart,
   onDragEnd,
   onPointerReorderStart,
+  orderPosition,
+  totalPollCount,
+  onMoveToPosition,
   selectionIndex = -1,
   hideSelection = false,
   onToggleSelect,
@@ -4005,6 +4085,9 @@ function PollResultCard({
   onDragStart?: (e: React.DragEvent<HTMLButtonElement>) => void;
   onDragEnd?: () => void;
   onPointerReorderStart?: (e: React.PointerEvent<HTMLButtonElement>) => void;
+  orderPosition: number;
+  totalPollCount: number;
+  onMoveToPosition: (position: number) => void;
   selectionIndex?: number;
   hideSelection?: boolean;
   onToggleSelect?: () => void;
@@ -4080,12 +4163,27 @@ function PollResultCard({
               )}
             </button>
           )}
-          <span
-            className={`shrink-0 inline-flex h-11 w-11 items-center justify-center rounded-lg ring-1 ${visual.iconBg} ${visual.iconText} ${visual.iconRing}`}
-            aria-hidden
-          >
-            <ModeIcon className="w-5 h-5" />
-          </span>
+          <div className="flex shrink-0 flex-col items-center gap-4">
+            <span
+              className={`inline-flex h-11 w-11 items-center justify-center rounded-lg ring-1 ${visual.iconBg} ${visual.iconText} ${visual.iconRing}`}
+              aria-hidden
+            >
+              <ModeIcon className="w-5 h-5" />
+            </span>
+            <select
+              value={orderPosition}
+              onChange={(e) => onMoveToPosition(Number(e.target.value))}
+              className="h-7 w-11 rounded-md border border-[#e9e7e7] bg-white px-1 text-center text-xs font-extrabold tabular-nums text-[#323232] outline-none focus:border-[#9dd8b1]"
+              title={`表示順を1〜${totalPollCount}から選択`}
+              aria-label="カード番号"
+            >
+              {Array.from({ length: totalPollCount }, (_, i) => i + 1).map((position) => (
+                <option key={position} value={position}>
+                  {position}
+                </option>
+              ))}
+            </select>
+          </div>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
               <span

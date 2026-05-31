@@ -43,12 +43,15 @@ import {
   getPollOptionImageUrl,
   getPollOptionLabel,
   getPollOptionDetail,
+  getQuizAnswerLimit,
+  getQuizCorrectOptionOffsets,
   getQuizQuestions,
   getQuizScore,
   getRankingDisplayMode,
   getRankingOptionLabel,
   optionLetter,
   rankLabel,
+  type PollOption,
 } from '@/lib/pollModes';
 
 const LOGO_URL =
@@ -66,6 +69,12 @@ const AttendanceForm = dynamic(
   ) }
 );
 type Sort = 'popular' | 'newest';
+
+function formatQuizAnswerLabel(option: PollOption, optionOffset: number) {
+  const letter = optionLetter(optionOffset);
+  const label = getPollOptionLabel(option, `解答 ${letter}`).trim();
+  return label === letter ? letter : `${letter}. ${label}`;
+}
 
 interface LinkedCourseSummary {
   code: string;
@@ -928,6 +937,7 @@ function ActivePollCard({
     );
   const answeredQuizCount = quizQuestions.filter(isAnswered).length;
   const activeQuizQuestion = quizQuestions[activeQuizIndex];
+  const activeQuizAnswerLimit = activeQuizQuestion ? getQuizAnswerLimit(activeQuizQuestion) : 1;
 
   // 全問共通の制限時間でカウントダウン（管理者設定）。時間切れで送信不可・解答開示。
   const standardTimeLimit = isStandard ? meta.timeLimitSeconds || 0 : 0;
@@ -1209,21 +1219,29 @@ function ActivePollCard({
                   </div>
                   <div className="mt-2 space-y-1.5">
                     {quizQuestions.map((question) => {
-                      const ownIndex = ownAnswerIndexes.find(
+                      const ownIndexes = ownAnswerIndexes.filter(
                         (idx) => idx >= question.optionStart && idx < question.optionStart + question.optionCount
                       );
-                      const optionOffset = typeof ownIndex === 'number' ? ownIndex - question.optionStart : -1;
-                      const hasKey = typeof question.correctOptionOffset === 'number';
-                      const isCorrect = hasKey && optionOffset === question.correctOptionOffset;
+                      const optionOffsets = ownIndexes.map((idx) => idx - question.optionStart).sort((a, b) => a - b);
+                      const correctOffsets = getQuizCorrectOptionOffsets(question);
+                      const hasKey = correctOffsets.length > 0;
+                      const isCorrect =
+                        hasKey &&
+                        optionOffsets.length === correctOffsets.length &&
+                        correctOffsets.every((offset, index) => optionOffsets[index] === offset);
+                      const answerText = ownIndexes
+                        .map((ownIndex) => {
+                          const optionOffset = ownIndex - question.optionStart;
+                          return formatQuizAnswerLabel(options[ownIndex], optionOffset);
+                        })
+                        .join('、');
                       return (
                         <div key={question.id} className="flex items-start gap-2 text-xs sm:text-sm text-slate-700">
                           <span className="shrink-0 font-bold text-emerald-700">
                             問題 {question.questionNumber}
                           </span>
                           <span className="min-w-0 flex-1 truncate">
-                            {typeof ownIndex === 'number'
-                              ? `${optionLetter(optionOffset)}. ${getPollOptionLabel(options[ownIndex], `解答 ${optionLetter(optionOffset)}`)}`
-                              : '未回答'}
+                            {answerText || '未回答'}
                           </span>
                           {hasKey &&
                             (isCorrect ? (
@@ -1238,9 +1256,8 @@ function ActivePollCard({
                 </div>
               )}
               {quizQuestions.map((question, questionIndex) => {
-                const questionTotal = votes.filter(
-                  (v) => Number(v.value) === questionIndex + 1
-                ).length;
+                const questionVotes = votes.filter((v) => Number(v.value) === questionIndex + 1);
+                const questionTotal = new Set(questionVotes.map((v) => v.participant_id)).size;
                 return (
                   <div key={question.id} className="space-y-2">
                     <p className="text-sm font-bold text-slate-800">
@@ -1272,8 +1289,9 @@ function ActivePollCard({
                         const count = counts[i];
                         const pct = questionTotal > 0 ? Math.round((count / questionTotal) * 100) : 0;
                         const imageUrl = getPollOptionImageUrl(option);
-                        const hasKey = typeof question.correctOptionOffset === 'number';
-                        const isCorrect = hasKey && question.correctOptionOffset === offset;
+                        const correctOffsets = getQuizCorrectOptionOffsets(question);
+                        const hasKey = correctOffsets.length > 0;
+                        const isCorrect = hasKey && correctOffsets.includes(offset);
                         return (
                           <div
                             key={i}
@@ -1535,6 +1553,11 @@ function ActivePollCard({
                         </button>
                       )}
                     </div>
+                    {activeQuizAnswerLimit > 1 && (
+                      <p className="mt-2 text-xs font-semibold text-slate-500">
+                        この問題は最大{activeQuizAnswerLimit}つまで選択できます
+                      </p>
+                    )}
                     {/* 参加者投票画面: 選択肢は1列表示 */}
                     <div className="space-y-2">
                       {options.slice(activeQuizQuestion.optionStart, activeQuizQuestion.optionStart + activeQuizQuestion.optionCount).map((option, offset) => {
@@ -1547,18 +1570,38 @@ function ActivePollCard({
                             role="button"
                             tabIndex={0}
                             onClick={() => {
-                              setSelected((prev) => [
-                                ...prev.filter((idx) => idx < activeQuizQuestion.optionStart || idx >= activeQuizQuestion.optionStart + activeQuizQuestion.optionCount),
-                                globalIndex,
-                              ]);
+                              setSelected((prev) => {
+                                const outsideQuestion = prev.filter(
+                                  (idx) => idx < activeQuizQuestion.optionStart || idx >= activeQuizQuestion.optionStart + activeQuizQuestion.optionCount
+                                );
+                                const currentQuestion = prev.filter(
+                                  (idx) => idx >= activeQuizQuestion.optionStart && idx < activeQuizQuestion.optionStart + activeQuizQuestion.optionCount
+                                );
+                                if (activeQuizAnswerLimit <= 1) return [...outsideQuestion, globalIndex];
+                                if (currentQuestion.includes(globalIndex)) {
+                                  return [...outsideQuestion, ...currentQuestion.filter((idx) => idx !== globalIndex)];
+                                }
+                                if (currentQuestion.length >= activeQuizAnswerLimit) return prev;
+                                return [...outsideQuestion, ...currentQuestion, globalIndex];
+                              });
                             }}
                             onKeyDown={(e) => {
                               if (e.key !== 'Enter' && e.key !== ' ') return;
                               e.preventDefault();
-                              setSelected((prev) => [
-                                ...prev.filter((idx) => idx < activeQuizQuestion.optionStart || idx >= activeQuizQuestion.optionStart + activeQuizQuestion.optionCount),
-                                globalIndex,
-                              ]);
+                              setSelected((prev) => {
+                                const outsideQuestion = prev.filter(
+                                  (idx) => idx < activeQuizQuestion.optionStart || idx >= activeQuizQuestion.optionStart + activeQuizQuestion.optionCount
+                                );
+                                const currentQuestion = prev.filter(
+                                  (idx) => idx >= activeQuizQuestion.optionStart && idx < activeQuizQuestion.optionStart + activeQuizQuestion.optionCount
+                                );
+                                if (activeQuizAnswerLimit <= 1) return [...outsideQuestion, globalIndex];
+                                if (currentQuestion.includes(globalIndex)) {
+                                  return [...outsideQuestion, ...currentQuestion.filter((idx) => idx !== globalIndex)];
+                                }
+                                if (currentQuestion.length >= activeQuizAnswerLimit) return prev;
+                                return [...outsideQuestion, ...currentQuestion, globalIndex];
+                              });
                             }}
                             className={`w-full cursor-pointer text-left px-4 py-3 rounded-xl ring-1 transition-all active:scale-[0.99] ${
                               checked
@@ -1610,19 +1653,22 @@ function ActivePollCard({
               <p className="text-xs font-bold text-emerald-700">回答確認</p>
               <div className="mt-2 space-y-1.5">
                 {quizQuestions.map((question) => {
-                  const answerIndex = selected.find(
+                  const answerIndexes = selected.filter(
                     (idx) => idx >= question.optionStart && idx < question.optionStart + question.optionCount
                   );
-                  const optionOffset = typeof answerIndex === 'number' ? answerIndex - question.optionStart : -1;
+                  const answerText = answerIndexes
+                    .map((answerIndex) => {
+                      const optionOffset = answerIndex - question.optionStart;
+                      return formatQuizAnswerLabel(options[answerIndex], optionOffset);
+                    })
+                    .join('、');
                   return (
                     <div key={question.id} className="flex items-start gap-2 text-xs sm:text-sm text-slate-700">
                       <span className="shrink-0 font-bold text-emerald-700">
                         問題 {question.questionNumber}
                       </span>
                       <span className="min-w-0 flex-1 truncate">
-                        {typeof answerIndex === 'number'
-                          ? `${optionLetter(optionOffset)}. ${getPollOptionLabel(options[answerIndex], `解答 ${optionLetter(optionOffset)}`)}`
-                          : '未回答'}
+                        {answerText || '未回答'}
                       </span>
                     </div>
                   );

@@ -12,6 +12,7 @@ import {
   getPollMode,
   getPollOptionImageUrl,
   getPollOptionLabel,
+  getQuizCorrectOptionOffsets,
   getQuizQuestions,
   getRankingDisplayMode,
   optionLetter,
@@ -550,10 +551,28 @@ export default function PresentPage() {
                               style={{ transform: `translateX(-${activeQuizIndex * 100}%)` }}
                             >
                               {quizQuestions.map((question, questionIndex) => {
-                                const questionTotal = votes.filter((v) => Number(v.value) === questionIndex + 1).length;
-                                const correctOffset = question.correctOptionOffset;
-                                const hasKey = typeof correctOffset === 'number';
-                                const correctCount = hasKey ? counts[question.optionStart + correctOffset] ?? 0 : 0;
+                                const questionVotes = votes.filter((v) => Number(v.value) === questionIndex + 1);
+                                const questionTotal = new Set(questionVotes.map((v) => v.participant_id)).size;
+                                const correctOffsets = getQuizCorrectOptionOffsets(question);
+                                const hasKey = correctOffsets.length > 0;
+                                const votesByParticipant = new Map<string, number[]>();
+                                questionVotes.forEach((vote) => {
+                                  if (typeof vote.option_index !== 'number') return;
+                                  const offset = vote.option_index - question.optionStart;
+                                  if (offset < 0 || offset >= question.optionCount) return;
+                                  const list = votesByParticipant.get(vote.participant_id) || [];
+                                  list.push(offset);
+                                  votesByParticipant.set(vote.participant_id, list);
+                                });
+                                const correctCount = hasKey
+                                  ? Array.from(votesByParticipant.values()).filter((offsets) => {
+                                      const sortedOffsets = offsets.sort((a, b) => a - b);
+                                      return (
+                                        sortedOffsets.length === correctOffsets.length &&
+                                        correctOffsets.every((offset, index) => sortedOffsets[index] === offset)
+                                      );
+                                    }).length
+                                  : 0;
                                 const correctRate =
                                   hasKey && questionTotal > 0 ? Math.round((correctCount / questionTotal) * 100) : 0;
                                 return (
@@ -597,7 +616,7 @@ export default function PresentPage() {
                                       const count = counts[i];
                                       const pct = questionTotal > 0 ? Math.round((count / questionTotal) * 100) : 0;
                                       const imageUrl = getPollOptionImageUrl(option);
-                                      const isCorrect = quizRevealed && hasKey && offset === correctOffset;
+                                      const isCorrect = quizRevealed && hasKey && correctOffsets.includes(offset);
                                       return (
                                         <div
                                           key={i}

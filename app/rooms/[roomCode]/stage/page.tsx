@@ -803,7 +803,11 @@ function StagePollCard({
               const count = counts[optionIndex] || 0;
               const questionTotal =
                 mode === 'quiz'
-                  ? votes.filter((vote) => Number(vote.value) === safeQuizIndex + 1).length
+                  ? new Set(
+                      votes
+                        .filter((vote) => Number(vote.value) === safeQuizIndex + 1)
+                        .map((vote) => vote.participant_id)
+                    ).size
                   : totalCast;
               const pct = questionTotal > 0 ? Math.round((count / questionTotal) * 100) : 0;
               return (

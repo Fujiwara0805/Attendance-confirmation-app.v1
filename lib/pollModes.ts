@@ -16,8 +16,10 @@ export interface QuizQuestionConfig {
   timeLimitSeconds?: number;
   optionStart: number;
   optionCount: number;
-  /** 0-based offset (within this question's options) of the correct answer. undefined = no answer key. */
+  /** @deprecated Use correctOptionOffsets. Kept for existing saved quiz cards. */
   correctOptionOffset?: number;
+  /** 0-based offsets (within this question's options) of correct answers. undefined/empty = no answer key. */
+  correctOptionOffsets?: number[];
 }
 
 export interface PollMeta {
@@ -166,6 +168,26 @@ export function getQuizQuestions(meta: PollMeta, options: PollOption[]) {
   ];
 }
 
+export function getQuizCorrectOptionOffsets(question: QuizQuestionConfig) {
+  const rawOffsets = Array.isArray(question.correctOptionOffsets)
+    ? question.correctOptionOffsets
+    : typeof question.correctOptionOffset === 'number'
+    ? [question.correctOptionOffset]
+    : [];
+  const max = Math.max(0, Number(question.optionCount) || 0);
+  return Array.from(
+    new Set(
+      rawOffsets
+        .map((offset) => Number(offset))
+        .filter((offset) => Number.isInteger(offset) && offset >= 0 && offset < max)
+    )
+  );
+}
+
+export function getQuizAnswerLimit(question: QuizQuestionConfig) {
+  return Math.max(1, getQuizCorrectOptionOffsets(question).length);
+}
+
 export function clampNumber(value: unknown, min: number, max: number, fallback: number) {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
@@ -251,21 +273,29 @@ export function getRankingLeaderboard(
 export function getQuizScore(
   quizQuestions: QuizQuestionConfig[],
   answerIndexes: number[]
-): { correct: number; gradable: number; perQuestion: Array<{ correct: boolean | null; chosenOffset: number | null }> } {
+): {
+  correct: number;
+  gradable: number;
+  perQuestion: Array<{ correct: boolean | null; chosenOffset: number | null; chosenOffsets: number[] }>;
+} {
   let correct = 0;
   let gradable = 0;
   const perQuestion = quizQuestions.map((q) => {
-    const chosen = answerIndexes.find(
+    const chosenIndexes = answerIndexes.filter(
       (idx) => idx >= q.optionStart && idx < q.optionStart + q.optionCount
     );
-    const chosenOffset = typeof chosen === 'number' ? chosen - q.optionStart : null;
-    if (typeof q.correctOptionOffset !== 'number') {
-      return { correct: null as boolean | null, chosenOffset };
+    const chosenOffsets = chosenIndexes.map((idx) => idx - q.optionStart).sort((a, b) => a - b);
+    const chosenOffset = chosenOffsets[0] ?? null;
+    const correctOffsets = getQuizCorrectOptionOffsets(q);
+    if (correctOffsets.length === 0) {
+      return { correct: null as boolean | null, chosenOffset, chosenOffsets };
     }
     gradable += 1;
-    const isCorrect = chosenOffset === q.correctOptionOffset;
+    const isCorrect =
+      chosenOffsets.length === correctOffsets.length &&
+      correctOffsets.every((offset, index) => chosenOffsets[index] === offset);
     if (isCorrect) correct += 1;
-    return { correct: isCorrect, chosenOffset };
+    return { correct: isCorrect, chosenOffset, chosenOffsets };
   });
   return { correct, gradable, perQuestion };
 }
