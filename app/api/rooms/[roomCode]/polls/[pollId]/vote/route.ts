@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
 import {
   extractPollPayload,
+  FREE_TEXT_CARD_COLORS,
   getPollMode,
   getQuizAnswerLimit,
   getQuizQuestions,
@@ -86,11 +87,14 @@ export async function POST(
 ) {
   try {
     const body = await req.json();
-    const { participantId, optionIndex, optionIndexes, value } = body as {
+    const { participantId, optionIndex, optionIndexes, value, authorName, isAnonymous, color } = body as {
       participantId?: string;
       optionIndex?: number;
       optionIndexes?: number[];
       value?: string | null;
+      authorName?: string | null;
+      isAnonymous?: boolean;
+      color?: string | null;
     };
     if (!participantId) {
       return NextResponse.json({ error: 'participantId is required' }, { status: 400 });
@@ -134,8 +138,22 @@ export async function POST(
       ? [optionIndex]
       : [];
 
-    // 自由記述: indexes が空、value のみ
+    // 自由回答: indexes が空、value のみ。何回でも投稿できる。
     if (indexes.length === 0 && value) {
+      if (pollMode !== 'free_text') {
+        return NextResponse.json({ error: '自由回答形式ではありません' }, { status: 400 });
+      }
+
+      const trimmedValue = String(value).trim().slice(0, 160);
+      if (!trimmedValue) {
+        return NextResponse.json({ error: '回答を入力してください' }, { status: 400 });
+      }
+      const normalizedColor = FREE_TEXT_CARD_COLORS.includes(color as typeof FREE_TEXT_CARD_COLORS[number])
+        ? color
+        : 'yellow';
+      const anonymous = isAnonymous !== false;
+      const trimmedAuthor = typeof authorName === 'string' ? authorName.trim().slice(0, 24) : '';
+
       const { data, error } = await supabase
         .from('poll_votes')
         .insert({
@@ -143,7 +161,10 @@ export async function POST(
           room_id: poll.room_id,
           participant_id: participantId,
           option_index: null,
-          value,
+          value: trimmedValue,
+          response_color: normalizedColor,
+          response_author_name: anonymous ? '匿名' : (trimmedAuthor || '匿名'),
+          response_is_anonymous: anonymous,
         })
         .select()
         .single();

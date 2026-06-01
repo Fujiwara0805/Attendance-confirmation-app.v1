@@ -27,6 +27,14 @@ export interface PollVote {
   created_at: string;
   /** リセット時刻。NULL = ライブ（現在の実施回）／非NULL = アーカイブ（過去回）。 */
   cleared_at?: string | null;
+  display_x?: number | null;
+  display_y?: number | null;
+  group_label?: string | null;
+  display_order?: number | null;
+  is_pinned?: boolean | null;
+  response_color?: string | null;
+  response_author_name?: string | null;
+  response_is_anonymous?: boolean | null;
 }
 
 // Realtime 切断中のみ短間隔でフェッチ
@@ -102,7 +110,7 @@ export function useRealtimePolls(roomId: string | null) {
       }
       const { data: votesData } = await supabase
         .from('poll_votes')
-        .select('id, poll_id, participant_id, option_index, value, created_at, cleared_at')
+        .select('*')
         .in('poll_id', pollIds)
         .is('cleared_at', null);
       if (cancelled || !votesData) return;

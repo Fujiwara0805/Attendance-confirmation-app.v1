@@ -5,6 +5,7 @@ import {
   buildPollOptionsPayload,
   clampNumber,
   getPollMode,
+  normalizeFreeTextGroups,
   type PollMeta,
   type PollMode,
   type PollOption,
@@ -139,7 +140,11 @@ export async function POST(
         : Math.max(1, Math.min(rawMax, Math.max(1, optionCount)));
     const isMulti = pollMode === 'ranking' || allowMultiple || clampedMax > 1;
     const payloadOptions = buildPollOptionsPayload(
-      { ...(meta || {}), mode: pollMode },
+      {
+        ...(meta || {}),
+        mode: pollMode,
+        freeTextGroups: pollMode === 'free_text' ? normalizeFreeTextGroups(meta?.freeTextGroups) : meta?.freeTextGroups,
+      },
       normalizedOptions
     );
 

@@ -25,6 +25,8 @@ import {
   X,
   ClipboardCheck,
   ArrowRight,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -39,6 +41,8 @@ import QuizTimerRing from '../components/QuizTimerRing';
 import { staggerContainer } from '@/lib/animations';
 import {
   extractPollPayload,
+  FREE_TEXT_CARD_COLOR_LABELS,
+  FREE_TEXT_CARD_COLORS,
   getPollMode,
   getPollOptionImageUrl,
   getPollOptionLabel,
@@ -51,6 +55,7 @@ import {
   getRankingOptionLabel,
   optionLetter,
   rankLabel,
+  type FreeTextCardColor,
   type PollOption,
 } from '@/lib/pollModes';
 
@@ -93,6 +98,18 @@ interface Room {
 }
 
 const MAX_LEN = 500;
+const FREE_TEXT_COLOR_CLASSES: Record<FreeTextCardColor, string> = {
+  yellow: 'bg-yellow-100 ring-yellow-200 text-yellow-900',
+  green: 'bg-emerald-100 ring-emerald-200 text-emerald-900',
+  blue: 'bg-blue-100 ring-blue-200 text-blue-900',
+  orange: 'bg-orange-100 ring-orange-200 text-orange-900',
+};
+const FREE_TEXT_SELECTED_COLOR_CLASSES: Record<FreeTextCardColor, string> = {
+  yellow: 'ring-yellow-500',
+  green: 'ring-emerald-500',
+  blue: 'ring-blue-500',
+  orange: 'ring-orange-500',
+};
 
 function getPollRunKey(poll: Pick<Poll, 'id' | 'started_at'>) {
   return `${poll.id}:${poll.started_at || 'draft'}`;
@@ -347,22 +364,31 @@ export default function ParticipantPage() {
   );
 
   const handlePollVote = useCallback(
-    async (poll: Poll, optionIndexes: number[]) => {
+    async (
+      poll: Poll,
+      optionIndexes: number[],
+      value?: string,
+      meta?: { authorName?: string; isAnonymous?: boolean; color?: FreeTextCardColor }
+    ) => {
       const runKey = getPollRunKey(poll);
-      if (!participantId || optionIndexes.length === 0) return;
-      const newVoted = new Set(hasVotedPoll);
-      newVoted.add(runKey);
-      setHasVotedPoll(newVoted);
-      localStorage.setItem(`voted_polls_${roomCode}`, JSON.stringify(Array.from(newVoted)));
+      if (!participantId || (optionIndexes.length === 0 && !value?.trim())) return;
+      const isFreeText = getPollMode(extractPollPayload(poll.options).meta.mode) === 'free_text';
+      if (!isFreeText) {
+        const newVoted = new Set(hasVotedPoll);
+        newVoted.add(runKey);
+        setHasVotedPoll(newVoted);
+        localStorage.setItem(`voted_polls_${roomCode}`, JSON.stringify(Array.from(newVoted)));
+      }
 
       try {
         const res = await fetch(`/api/rooms/${roomCode}/polls/${poll.id}/vote`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ participantId, optionIndexes }),
+          body: JSON.stringify({ participantId, optionIndexes, value, ...meta }),
         });
         if (!res.ok) throw new Error('poll vote failed');
       } catch {
+        if (isFreeText) return;
         const reverted = new Set(hasVotedPoll);
         reverted.delete(runKey);
         setHasVotedPoll(reverted);
@@ -370,6 +396,33 @@ export default function ParticipantPage() {
       }
     },
     [participantId, hasVotedPoll, roomCode]
+  );
+
+  // ブレスト形式: 投稿者本人による自分の回答の編集
+  const handleEditResponse = useCallback(
+    async (pollId: string, voteId: string, value: string) => {
+      if (!participantId) return;
+      const res = await fetch(`/api/rooms/${roomCode}/polls/${pollId}/responses/${voteId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ participantId, value }),
+      });
+      if (!res.ok) throw new Error('edit response failed');
+    },
+    [participantId, roomCode]
+  );
+
+  // ブレスト形式: 投稿者本人による自分の回答の削除（ソフト削除）
+  const handleDeleteResponse = useCallback(
+    async (pollId: string, voteId: string) => {
+      if (!participantId) return;
+      const res = await fetch(
+        `/api/rooms/${roomCode}/polls/${pollId}/responses/${voteId}?participantId=${participantId}`,
+        { method: 'DELETE' }
+      );
+      if (!res.ok) throw new Error('delete response failed');
+    },
+    [participantId, roomCode]
   );
 
   if (roomLoading) {
@@ -445,7 +498,7 @@ export default function ParticipantPage() {
               active={tab === 'qa'}
               onClick={() => setTab('qa')}
               icon={<MessageSquare className="w-4 h-4" />}
-              label="質問"
+              label="Q&A"
             />
             <TabButton
               active={tab === 'polls'}
@@ -603,7 +656,11 @@ export default function ParticipantPage() {
                 votes={pollVotes[poll.id] || []}
                 hasVoted={hasVotedPoll.has(getPollRunKey(poll))}
                 participantId={participantId}
-                onSubmit={(indexes) => handlePollVote(poll, indexes)}
+                displayName={displayName}
+                setDisplayName={setDisplayName}
+                onSubmit={(indexes, value, meta) => handlePollVote(poll, indexes, value, meta)}
+                onEditResponse={(voteId, value) => handleEditResponse(poll.id, voteId, value)}
+                onDeleteResponse={(voteId) => handleDeleteResponse(poll.id, voteId)}
               />
             ))}
 
@@ -871,13 +928,25 @@ function ActivePollCard({
   votes,
   hasVoted,
   participantId,
+  displayName,
+  setDisplayName,
   onSubmit,
+  onEditResponse,
+  onDeleteResponse,
 }: {
   poll: Poll;
   votes: PollVote[];
   hasVoted: boolean;
   participantId: string | null;
-  onSubmit: (indexes: number[]) => void | Promise<void>;
+  displayName: string;
+  setDisplayName: (name: string) => void;
+  onSubmit: (
+    indexes: number[],
+    value?: string,
+    meta?: { authorName?: string; isAnonymous?: boolean; color?: FreeTextCardColor }
+  ) => void | Promise<void>;
+  onEditResponse: (voteId: string, value: string) => void | Promise<void>;
+  onDeleteResponse: (voteId: string) => void | Promise<void>;
 }) {
   const { meta, options } = extractPollPayload(poll.options);
   const mode = getPollMode(meta.mode);
@@ -886,11 +955,21 @@ function ActivePollCard({
   const isRanking = mode === 'ranking';
   const isQuiz = mode === 'quiz';
   const isStandard = mode === 'standard';
+  const isFreeText = mode === 'free_text';
   const [selected, setSelected] = useState<number[]>([]);
+  const [freeTextAnswer, setFreeTextAnswer] = useState('');
+  const [freeTextColor, setFreeTextColor] = useState<FreeTextCardColor>('orange');
+  const [freeTextAnonymous, setFreeTextAnonymous] = useState(true);
   const [activeQuizIndex, setActiveQuizIndex] = useState(0);
   const [imagePreview, setImagePreview] = useState<{ src: string; alt: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const submittingRef = useRef(false);
+  // ブレスト形式: 自分の回答の編集・削除を楽観反映するためのローカル上書き
+  const [responseOverrides, setResponseOverrides] = useState<
+    Record<string, { value?: string; removed?: boolean }>
+  >({});
+  const [editingResponseId, setEditingResponseId] = useState<string | null>(null);
+  const [editingResponseText, setEditingResponseText] = useState('');
   const [now, setNow] = useState(() => Date.now());
   // タイマー開始時刻は DB の poll.started_at（サーバー時刻）を全端末で共有してカウントダウン。
   const timerStartMs = poll.started_at ? new Date(poll.started_at).getTime() : null;
@@ -904,12 +983,17 @@ function ActivePollCard({
     });
   };
   const openImagePreview = (src: string, alt: string) => setImagePreview({ src, alt });
-  const submitAnswers = async (indexes: number[]) => {
+  const submitAnswers = async (
+    indexes: number[],
+    value?: string,
+    submitMeta?: { authorName?: string; isAnonymous?: boolean; color?: FreeTextCardColor }
+  ) => {
     if (submittingRef.current) return;
     submittingRef.current = true;
     setSubmitting(true);
     try {
-      await onSubmit(indexes);
+      await onSubmit(indexes, value, submitMeta);
+      if (isFreeText) setFreeTextAnswer('');
     } finally {
       submittingRef.current = false;
       setSubmitting(false);
@@ -920,11 +1004,46 @@ function ActivePollCard({
   const totalCast = counts.reduce((s, c) => s + c, 0);
   const totalRespondents = isRanking
     ? new Set(votes.map((v) => v.participant_id)).size
+    : isFreeText
+    ? votes.filter((v) => !!v.value).length
     : totalCast;
   const rankingValue = isRanking ? selected : [];
   const rankingFilled = rankingValue.filter((v) => Number.isInteger(v) && v >= 0);
   const quizQuestions = isQuiz ? getQuizQuestions(meta, options) : [];
   const ownVotes = participantId ? votes.filter((v) => v.participant_id === participantId) : [];
+  // ブレスト形式: 自分の投稿一覧（編集・削除の楽観上書きを反映、新しい順）
+  const ownTextResponses = ownVotes
+    .filter((v) => !!v.value)
+    .map((v) => ({ ...v, value: responseOverrides[v.id]?.value ?? v.value }))
+    .filter((v) => !responseOverrides[v.id]?.removed)
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+  const saveResponseEdit = async (voteId: string) => {
+    const next = editingResponseText.trim().slice(0, 80);
+    if (!next) return;
+    setResponseOverrides((prev) => ({ ...prev, [voteId]: { ...prev[voteId], value: next } }));
+    setEditingResponseId(null);
+    try {
+      await onEditResponse(voteId, next);
+    } catch {
+      setResponseOverrides((prev) => {
+        const nextState = { ...prev };
+        delete nextState[voteId];
+        return nextState;
+      });
+    }
+  };
+
+  const deleteResponse = async (voteId: string) => {
+    setResponseOverrides((prev) => ({ ...prev, [voteId]: { ...prev[voteId], removed: true } }));
+    if (editingResponseId === voteId) setEditingResponseId(null);
+    try {
+      await onDeleteResponse(voteId);
+    } catch {
+      setResponseOverrides((prev) => ({ ...prev, [voteId]: { ...prev[voteId], removed: false } }));
+    }
+  };
+
   // 「あなたの回答」は送信済みのみを採用（未送信の選択は反映しない）。
   const ownAnswerIndexes = ownVotes.length > 0
     ? ownVotes
@@ -948,14 +1067,20 @@ function ActivePollCard({
 
   // 全問共通の制限時間でカウントダウン（管理者設定）。時間切れで送信不可・解答開示。
   const standardTimeLimit = isStandard ? meta.timeLimitSeconds || 0 : 0;
+  const freeTextTimeLimit = isFreeText ? meta.timeLimitSeconds || 0 : 0;
   const quizTimeLimit = isQuiz ? meta.timeLimitSeconds || 0 : 0;
   const rankingTimeLimit = isRanking ? meta.timeLimitSeconds || 0 : 0;
   const hasStandardTimer = isStandard && standardTimeLimit > 0;
+  const hasFreeTextTimer = isFreeText && freeTextTimeLimit > 0;
   const hasQuizTimer = isQuiz && quizTimeLimit > 0;
   const hasRankingTimer = isRanking && rankingTimeLimit > 0;
   const standardRemaining =
     hasStandardTimer && timerStartMs
       ? Math.max(0, Math.ceil(standardTimeLimit - (now - timerStartMs) / 1000))
+      : null;
+  const freeTextRemaining =
+    hasFreeTextTimer && timerStartMs
+      ? Math.max(0, Math.ceil(freeTextTimeLimit - (now - timerStartMs) / 1000))
       : null;
   const quizRemaining =
     hasQuizTimer && timerStartMs
@@ -966,8 +1091,11 @@ function ActivePollCard({
       ? Math.max(0, Math.ceil(rankingTimeLimit - (now - timerStartMs) / 1000))
       : null;
   const standardNotStarted = isStandard && hasStandardTimer && !timerStartMs;
+  const freeTextNotStarted = isFreeText && hasFreeTextTimer && !timerStartMs;
   const standardExpired =
     hasStandardTimer && standardRemaining !== null && standardRemaining <= 0;
+  const freeTextExpired =
+    hasFreeTextTimer && freeTextRemaining !== null && freeTextRemaining <= 0;
   const quizExpired =
     hasQuizTimer && quizRemaining !== null && quizRemaining <= 0;
   const rankingNotStarted = hasRankingTimer && !timerStartMs;
@@ -975,7 +1103,7 @@ function ActivePollCard({
   // サーバー側のライブ票（cleared_at IS NULL）が 0 ならリセット後とみなし、
   // 楽観 hasVoted は無視して未投票扱いに戻す → スクリーンの状態と同期
   const hasLiveOwnVote = ownVotes.length > 0;
-  const effectiveHasVoted = hasVoted && hasLiveOwnVote;
+  const effectiveHasVoted = isFreeText ? false : hasVoted && hasLiveOwnVote;
   // 開示（結果・正解を表示）= 送信済み(ライブ票あり) or 時間切れ
   const quizRevealed = isQuiz && (effectiveHasVoted || quizExpired);
   const rankingRevealed = isRanking && (hasRankingTimer ? rankingExpired : effectiveHasVoted);
@@ -989,8 +1117,12 @@ function ActivePollCard({
 
   useEffect(() => {
     setSelected([]);
+    setFreeTextAnswer('');
     setActiveQuizIndex(0);
     setImagePreview(null);
+    setResponseOverrides({});
+    setEditingResponseId(null);
+    setEditingResponseText('');
     submittingRef.current = false;
     setSubmitting(false);
   }, [poll.id, poll.started_at]);
@@ -1007,16 +1139,18 @@ function ActivePollCard({
   // タイマー稼働（未送信 && 未締切のときのみ）
   useEffect(() => {
     if (
-      (!hasStandardTimer && !hasQuizTimer && !hasRankingTimer) ||
+      (!hasStandardTimer && !hasFreeTextTimer && !hasQuizTimer && !hasRankingTimer) ||
       (isQuiz && effectiveHasVoted) ||
       quizExpired ||
       rankingExpired ||
-      standardExpired
+      standardExpired ||
+      freeTextExpired
     ) return;
     const id = setInterval(() => setNow(Date.now()), 250);
     return () => clearInterval(id);
   }, [
     hasStandardTimer,
+    hasFreeTextTimer,
     hasQuizTimer,
     hasRankingTimer,
     isQuiz,
@@ -1024,6 +1158,7 @@ function ActivePollCard({
     quizExpired,
     rankingExpired,
     standardExpired,
+    freeTextExpired,
   ]);
 
   return (
@@ -1075,6 +1210,35 @@ function ActivePollCard({
             {timerStartMs ? '残り ' : ''}
             {Math.floor((standardRemaining ?? standardTimeLimit) / 60)}:
             {String(Math.floor((standardRemaining ?? standardTimeLimit) % 60)).padStart(2, '0')}
+          </span>
+        </div>
+      )}
+      {hasFreeTextTimer && !freeTextExpired && (
+        <div
+          className={`mt-2 flex items-center justify-between gap-3 rounded-xl px-3 py-2 ring-1 ${
+            timerStartMs
+              ? 'bg-emerald-50 ring-emerald-200'
+              : 'bg-slate-50 ring-slate-200'
+          }`}
+        >
+          <span
+            className={`inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold ${
+              timerStartMs ? 'text-emerald-700' : 'text-slate-600'
+            }`}
+          >
+            <Clock className="h-3.5 w-3.5" />
+            {timerStartMs
+              ? '時間内に回答してください'
+              : `${freeTextTimeLimit}秒で回答（開始待ち）`}
+          </span>
+          <span
+            className={`tabular-nums text-base sm:text-lg font-extrabold ${
+              timerStartMs ? 'text-emerald-700' : 'text-slate-400'
+            }`}
+          >
+            {timerStartMs ? '残り ' : ''}
+            {Math.floor((freeTextRemaining ?? freeTextTimeLimit) / 60)}:
+            {String(Math.floor((freeTextRemaining ?? freeTextTimeLimit) % 60)).padStart(2, '0')}
           </span>
         </div>
       )}
@@ -1154,6 +1318,12 @@ function ActivePollCard({
           投票時間が終了しました
         </div>
       )}
+      {isFreeText && freeTextExpired && !effectiveHasVoted && (
+        <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-3 py-1 text-xs sm:text-sm font-bold text-rose-600 ring-1 ring-rose-200">
+          <Clock className="h-3.5 w-3.5" />
+          回答時間が終了しました
+        </div>
+      )}
       {isMulti && !isQuiz && (
         <p className="text-xs sm:text-sm text-slate-500 mb-3">
           {isRanking ? (
@@ -1168,7 +1338,165 @@ function ActivePollCard({
         </p>
       )}
 
-      {showResults ? (
+      {isFreeText ? (
+        <div className="mt-4 space-y-3">
+          {freeTextNotStarted ? (
+            <div className="rounded-xl bg-slate-50 px-3 py-4 text-center text-sm font-semibold text-slate-500 ring-1 ring-slate-200">
+              開始待ちです
+            </div>
+          ) : (
+            <>
+              <div className="flex items-start gap-2 rounded-xl bg-emerald-50/80 px-3 py-2.5 text-xs sm:text-sm text-emerald-800 ring-1 ring-emerald-200/70">
+                <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                <p className="leading-relaxed">
+                  何度でも回答を送信できます。思いついたことを自由に投稿してください。
+                </p>
+              </div>
+              <textarea
+                value={freeTextAnswer}
+                onChange={(e) => setFreeTextAnswer(e.target.value.slice(0, 80))}
+                placeholder="短い回答を入力してください"
+                disabled={freeTextExpired || submitting}
+                className="min-h-[112px] w-full resize-y rounded-xl bg-slate-50 px-4 py-3 text-base font-medium leading-relaxed text-slate-800 ring-1 ring-slate-200 outline-none transition-colors focus:bg-white focus:ring-emerald-300 disabled:bg-slate-100 disabled:text-slate-400"
+                style={{ fontSize: '16px' }}
+              />
+              <div className="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
+                <p className="text-xs font-bold text-slate-600">カードの色</p>
+                <div className="mt-2 grid grid-cols-4 gap-2">
+                  {FREE_TEXT_CARD_COLORS.map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => setFreeTextColor(color)}
+                      className={`h-11 rounded-xl text-xs font-bold outline-none ring-2 transition focus-visible:ring-offset-2 ${
+                        FREE_TEXT_COLOR_CLASSES[color]
+                      } ${freeTextColor === color ? FREE_TEXT_SELECTED_COLOR_CLASSES[color] : 'ring-transparent'}`}
+                      aria-pressed={freeTextColor === color}
+                    >
+                      {FREE_TEXT_CARD_COLOR_LABELS[color]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-2.5 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
+                <label className="flex items-center justify-between gap-3 text-sm font-semibold text-slate-700">
+                  <span>匿名で投稿</span>
+                  <input
+                    type="checkbox"
+                    checked={freeTextAnonymous}
+                    onChange={(e) => setFreeTextAnonymous(e.target.checked)}
+                    className="h-5 w-5 rounded border-slate-300 text-emerald-600"
+                  />
+                </label>
+                {!freeTextAnonymous && (
+                  <div className="flex items-center gap-2 border-t border-slate-200 pt-2.5">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-bold text-emerald-700">
+                      {(displayName.trim() || '匿').slice(0, 1)}
+                    </div>
+                    <input
+                      type="text"
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value.slice(0, 24))}
+                      placeholder="表示名（空欄で匿名）"
+                      className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-800 placeholder:font-normal placeholder:text-slate-400 focus:outline-none"
+                      style={{ fontSize: '16px' }}
+                    />
+                  </div>
+                )}
+              </div>
+              {ownTextResponses.length > 0 && (
+                <div className="rounded-xl bg-white p-3 ring-1 ring-slate-200">
+                  <p className="text-xs font-bold text-slate-500">
+                    あなたの投稿（{ownTextResponses.length}件・編集／削除できます）
+                  </p>
+                  <div className="mt-2 space-y-2">
+                    {ownTextResponses.map((vote) =>
+                      editingResponseId === vote.id ? (
+                        <div key={vote.id} className="rounded-lg bg-slate-50 p-2 ring-1 ring-emerald-200">
+                          <textarea
+                            value={editingResponseText}
+                            onChange={(e) => setEditingResponseText(e.target.value.slice(0, 80))}
+                            className="min-h-[60px] w-full resize-y rounded-md bg-white px-2 py-1.5 text-sm text-slate-800 ring-1 ring-slate-200 outline-none focus:ring-emerald-300"
+                            style={{ fontSize: '16px' }}
+                            autoFocus
+                          />
+                          <div className="mt-1.5 flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setEditingResponseId(null)}
+                              className="inline-flex h-8 items-center gap-1 rounded-lg px-2.5 text-xs font-semibold text-slate-500 hover:bg-slate-200"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                              取消
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void saveResponseEdit(vote.id)}
+                              disabled={!editingResponseText.trim()}
+                              className="inline-flex h-8 items-center gap-1 rounded-lg bg-emerald-600 px-3 text-xs font-bold text-white hover:bg-emerald-700 disabled:bg-slate-300"
+                            >
+                              <Check className="h-3.5 w-3.5" />
+                              保存
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div
+                          key={vote.id}
+                          className="flex items-start gap-2 rounded-lg bg-slate-50 px-2.5 py-2"
+                        >
+                          <p className="min-w-0 flex-1 break-words text-sm font-semibold text-slate-700">
+                            {vote.value}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingResponseId(vote.id);
+                              setEditingResponseText(vote.value || '');
+                            }}
+                            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-slate-400 hover:bg-white hover:text-emerald-600"
+                            aria-label="回答を編集"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void deleteResponse(vote.id)}
+                            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                            aria-label="回答を削除"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      )
+                    )}
+                  </div>
+                </div>
+              )}
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs font-semibold text-slate-400 tabular-nums">
+                  {freeTextAnswer.length}/80
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    submitAnswers([], freeTextAnswer, {
+                      authorName: displayName,
+                      isAnonymous: freeTextAnonymous,
+                      color: freeTextColor,
+                    })
+                  }
+                  disabled={!freeTextAnswer.trim() || freeTextExpired || submitting}
+                  className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400"
+                >
+                  {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  回答を送信
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      ) : showResults ? (
         <div className="space-y-4 mt-3">
           {isRanking ? (
             <>

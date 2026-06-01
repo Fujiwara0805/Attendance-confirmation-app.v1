@@ -91,7 +91,7 @@ const MENU_ITEMS: Array<{
   {
     key: 'rooms',
     label: 'ルーム管理',
-    description: 'Q&A / ライブ投票',
+    description: 'Q&A / ワーキング',
     icon: BarChart3,
     iconBg: 'bg-[#ebf3ff]',
     iconColor: 'text-[#2864f0]',

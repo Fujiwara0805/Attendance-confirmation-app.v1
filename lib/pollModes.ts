@@ -1,4 +1,4 @@
-export type PollMode = 'standard' | 'quiz' | 'ranking';
+export type PollMode = 'standard' | 'quiz' | 'ranking' | 'free_text';
 
 export type PollOption = string | {
   text?: string;
@@ -35,6 +35,7 @@ export interface PollMeta {
   candidateCount?: number;
   rankingWeights?: number[];
   rankingDisplayMode?: 'number' | 'number_text';
+  freeTextGroups?: string[];
   /** 一斉開始時にホスト選択順を保持する。値が小さいほど上に表示される（1始まり）。null/未設定は単独実行扱い。 */
   bulkOrder?: number | null;
   startedAtClientAt?: string;
@@ -64,13 +65,34 @@ export const POLL_MODE_LABELS: Record<PollMode, string> = {
   standard: '通常投票',
   quiz: 'クイズ形式',
   ranking: 'ランキング形式',
+  free_text: 'ブレスト形式',
 };
 
 export const QUIZ_OPTION_COUNTS = [2, 4, 6, 8] as const;
 export const RANKING_CANDIDATE_PRESETS = [10, 25, 50, 100] as const;
+export const FREE_TEXT_CARD_COLORS = ['yellow', 'green', 'blue', 'orange'] as const;
+
+export type FreeTextCardColor = (typeof FREE_TEXT_CARD_COLORS)[number];
+
+export const FREE_TEXT_CARD_COLOR_LABELS: Record<FreeTextCardColor, string> = {
+  yellow: '黄色',
+  green: '緑',
+  blue: '青',
+  orange: 'オレンジ',
+};
+
+export const DEPRECATED_FREE_TEXT_GROUPS = ['気持ち・心', '生きもの・自然', 'こと・行動', '想像・未来', 'その他'];
+
+export function normalizeFreeTextGroups(groups?: string[]) {
+  const deprecated = new Set(DEPRECATED_FREE_TEXT_GROUPS);
+  return (groups || [])
+    .map((group) => group.trim())
+    .filter((group, index, list) => !!group && !deprecated.has(group) && list.indexOf(group) === index)
+    .slice(0, 8);
+}
 
 export function getPollMode(mode?: string | null): PollMode {
-  if (mode === 'quiz' || mode === 'ranking') return mode;
+  if (mode === 'quiz' || mode === 'ranking' || mode === 'free_text') return mode;
   return 'standard';
 }
 

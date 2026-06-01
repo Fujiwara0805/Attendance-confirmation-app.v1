@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   BarChart3,
+  LayoutGrid,
   ChevronLeft,
   ChevronRight,
   Clock,
@@ -359,8 +360,8 @@ export default function StagePage() {
                     onClick={openPollScreen}
                     className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-emerald-500 px-3 text-xs font-semibold text-white shadow-sm hover:bg-emerald-400"
                   >
-                    <BarChart3 className="w-4 h-4" />
-                    ライブ投票画面
+                    <LayoutGrid className="w-4 h-4" />
+                    ワーキング画面
                   </button>
                   <button
                     type="button"
@@ -428,8 +429,8 @@ export default function StagePage() {
                 onClick={openPollScreen}
                 className="mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 text-sm font-bold text-white ring-1 ring-emerald-400 hover:bg-emerald-400"
               >
-                <BarChart3 className="w-4 h-4" />
-                ライブ投票画面を開く
+                <LayoutGrid className="w-4 h-4" />
+                ワーキング画面を開く
               </button>
               {captureError && (
                 <p className="mt-4 rounded-lg bg-rose-500/15 px-4 py-3 text-sm text-rose-100 ring-1 ring-rose-300/20">
@@ -495,8 +496,8 @@ export default function StagePage() {
           <section className="shrink-0 border-b border-slate-200 bg-white">
             <div className="flex items-center justify-between px-5 py-3">
               <div className="inline-flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-[#2864f0]" />
-                <h3 className="text-sm font-extrabold tracking-tight text-slate-900">ライブ投票</h3>
+                <LayoutGrid className="w-4 h-4 text-[#2864f0]" />
+                <h3 className="text-sm font-extrabold tracking-tight text-slate-900">ワーキング</h3>
               </div>
               <span className="text-xs font-semibold text-slate-400">{activePolls.length}</span>
             </div>
@@ -614,9 +615,9 @@ function StagePollDeck({
     return (
       <div className="rounded-lg border border-[#e9e7e7] bg-[#f7f5f5] px-4 py-6 text-center">
         <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-lg bg-[#ebf3ff]">
-          <BarChart3 className="h-5 w-5 text-[#aac8ff]" />
+          <LayoutGrid className="h-5 w-5 text-[#aac8ff]" />
         </div>
-        <p className="text-sm font-bold text-[#595959]">アクティブな投票はありません</p>
+        <p className="text-sm font-bold text-[#595959]">アクティブなワーキングはありません</p>
       </div>
     );
   }
@@ -661,7 +662,9 @@ function StagePollCard({
   const counts = options.map((_, i) => votes.filter((v) => v.option_index === i).length);
   const totalCast = counts.reduce((sum, count) => sum + count, 0);
   const totalRespondents =
-    mode === 'ranking' || mode === 'quiz'
+    mode === 'free_text'
+      ? votes.filter((vote) => !!vote.value).length
+      : mode === 'ranking' || mode === 'quiz'
       ? new Set(votes.map((v) => v.participant_id).filter(Boolean)).size || totalCast
       : totalCast;
   const maxSelections = Math.max(1, Number(poll.max_selections ?? 1));
@@ -813,7 +816,22 @@ function StagePollCard({
         </div>
       )}
 
-      {mode === 'ranking' ? (
+      {mode === 'free_text' ? (
+        <div className="grid grid-cols-2 gap-2">
+          {votes.filter((vote) => !!vote.value).slice(0, 12).map((vote) => (
+            <div key={vote.id} className="min-h-[64px] rounded-lg bg-white px-3 py-2 ring-1 ring-[#e9e7e7]">
+              <p className="line-clamp-3 break-words text-xs font-bold leading-snug text-[#323232]">
+                {vote.value}
+              </p>
+            </div>
+          ))}
+          {votes.filter((vote) => !!vote.value).length === 0 && (
+            <p className="col-span-2 rounded-lg bg-[#f7f5f5] px-3 py-4 text-center text-xs font-bold text-[#595959]">
+              回答受付中です。
+            </p>
+          )}
+        </div>
+      ) : mode === 'ranking' ? (
         revealed ? (
           <RankingResults
             options={options}

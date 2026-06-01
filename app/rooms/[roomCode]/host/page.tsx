@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   MessageSquare,
+  Hand,
   BarChart3,
   PieChart,
   Plus,
@@ -46,11 +47,12 @@ import {
   Search,
   GripVertical,
   HelpCircle,
+  Hammer,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRealtimeQuestions } from '@/lib/hooks/useRealtimeQuestions';
-import { useRealtimePolls, type Poll } from '@/lib/hooks/useRealtimePolls';
+import { useRealtimePolls, type Poll, type PollVote } from '@/lib/hooks/useRealtimePolls';
 import { useRoomPresence } from '@/lib/hooks/useRoomPresence';
 import { formatDistanceToNow } from 'date-fns';
 import { ja } from 'date-fns/locale';
@@ -66,6 +68,7 @@ import {
   getQuizQuestions,
   getRankingDisplayMode,
   getRankingWeights,
+  normalizeFreeTextGroups,
   optionLetter,
   rankLabel,
   type PollMode,
@@ -195,6 +198,16 @@ const POLL_MODE_VISUAL: Record<
     iconRing: 'ring-amber-200',
     cardRing: 'hover:ring-amber-200',
   },
+  free_text: {
+    icon: Hand,
+    badgeBg: 'bg-orange-50',
+    badgeText: 'text-orange-700',
+    badgeRing: 'ring-orange-200',
+    iconBg: 'bg-orange-100',
+    iconText: 'text-orange-700',
+    iconRing: 'ring-orange-200',
+    cardRing: 'hover:ring-orange-200',
+  },
 };
 
 const HOST_NAV_ITEMS: Array<{
@@ -203,8 +216,8 @@ const HOST_NAV_ITEMS: Array<{
   description: string;
   icon: ComponentType<{ className?: string }>;
 }> = [
-  { key: 'questions', label: '質問', description: '承認・回答管理', icon: MessageSquare },
-  { key: 'polls', label: 'ライブ投票', description: 'カード作成・集計', icon: BarChart3 },
+  { key: 'questions', label: 'Q&A機能', description: '承認・回答管理', icon: MessageSquare },
+  { key: 'polls', label: 'ワーキング機能', description: 'カード作成・集計', icon: Hammer },
   { key: 'summary', label: 'サマリー', description: '状況の確認', icon: PieChart },
   { key: 'integration', label: '連携', description: '出席フォーム紐付け', icon: Link2 },
   { key: 'export', label: 'エクスポート', description: 'CSV出力', icon: Download },
@@ -320,7 +333,7 @@ const HOST_FAQ_SECTIONS: Array<{
 }> = [
   {
     id: 'questions',
-    title: '質問',
+    title: 'Q&A',
     icon: MessageSquare,
     summary: '参加者から届いた質問を承認、非表示、回答済みに整理できます。',
     body:
@@ -329,12 +342,21 @@ const HOST_FAQ_SECTIONS: Array<{
   },
   {
     id: 'polls',
-    title: 'ライブ投票',
-    icon: BarChart3,
-    summary: '投票カード、クイズ、ランキングを作成し、回答結果を集計できます。',
+    title: 'ワーキング',
+    icon: Hammer,
+    summary: '通常投票・クイズ・ランキング・ブレスト形式のカードを作成し、回答を集計できます。',
     body:
-      '通常投票は選択肢から回答してもらう基本形式で、複数選択にも対応します。クイズ形式では正解を設定でき、ランキング形式では候補を順位で回答してもらい、重み付けされた結果を集計できます。カードはドラッグで並び替えでき、スクリーン画面で結果を共有できます。',
+      '通常投票は選択肢から回答してもらう基本形式で、複数選択にも対応します。クイズ形式では正解を設定でき、ランキング形式では候補を順位で回答してもらい、重み付けされた結果を集計できます。ブレスト形式は参加者の短い自由回答を付箋カードとして集める形式です。カードはドラッグで並び替えでき、スクリーン画面で結果を共有できます。',
     tips: ['新規作成はヘッダー右側のボタンから行います。', '検索欄で投票タイトル、選択肢、形式を絞り込めます。'],
+  },
+  {
+    id: 'brainstorm',
+    title: 'ブレスト形式',
+    icon: Hand,
+    summary: '参加者の短い自由回答を付箋カードとして集め、スクリーン上で分類できます。',
+    body:
+      'ブレスト形式では、参加者はスマートフォンから短い回答を何度でも投稿でき、自分の投稿はその場で編集・削除できます。集まった回答はオレンジの付箋カードとしてスクリーン（ワーキング画面）にリアルタイム表示されます。先生は「分類を追加」でグループを作り、カードをドラッグして仕分けられます。アイデア出しや感想集め、ブレインストーミングに向いた形式です。',
+    tips: ['カードの色は参加者が選べます（既定はオレンジ）。', 'スクリーン画面・編集モードのどちらでも分類できます。'],
   },
   {
     id: 'summary',
@@ -358,9 +380,9 @@ const HOST_FAQ_SECTIONS: Array<{
     id: 'export',
     title: 'エクスポート',
     icon: ClipboardCheck,
-    summary: 'Q&Aとライブ投票結果をCSVで出力できます。',
+    summary: 'Q&Aとワーキング結果をCSVで出力できます。',
     body:
-      '質問一覧、いいね数、回答済み状態、投票結果などをCSV形式でダウンロードできます。ライブ投票は全カードまとめて出力することも、特定のカードだけを選んで出力することもできます。',
+      '質問一覧、いいね数、回答済み状態、投票結果などをCSV形式でダウンロードできます。ワーキングは全カードまとめて出力することも、特定のカードだけを選んで出力することもできます。',
     tips: ['イベント後の分析やレポート作成に使えます。', '投票の出力対象は確認画面で選択します。'],
   },
 ];
@@ -545,6 +567,7 @@ export default function HostPage() {
   const [rankingCandidateTexts, setRankingCandidateTexts] = useState<string[]>(
     Array.from({ length: 50 }, () => '')
   );
+  const [freeTextTimeLimit, setFreeTextTimeLimit] = useState<number | ''>('');
   const [creatingPoll, setCreatingPoll] = useState(false);
   // クイズ形式の編集・更新（null=新規作成 / pollId=編集中）
   const [editingPollId, setEditingPollId] = useState<string | null>(null);
@@ -632,6 +655,7 @@ export default function HostPage() {
     setRankingTimeLimit(60);
     setRankingDisplayMode('number_text');
     setRankingCandidateTexts(Array.from({ length: 50 }, () => ''));
+    setFreeTextTimeLimit('');
     setEditingPollId(null);
   }, []);
 
@@ -976,10 +1000,17 @@ export default function HostPage() {
     const validOptions =
       pollMode === 'ranking'
         ? rankingOptions
-        : pollMode === 'quiz'
+      : pollMode === 'quiz'
         ? quizFlatOptions
+        : pollMode === 'free_text'
+        ? []
         : pollOptions.filter((o) => o.trim());
-    if (!pollQuestion.trim() || validOptions.length < 2 || (pollMode === 'quiz' && validQuizQuestions.length === 0)) return;
+    if (
+      !pollQuestion.trim() ||
+      (pollMode === 'standard' && validOptions.length < 2) ||
+      (pollMode === 'ranking' && validOptions.length < 2) ||
+      (pollMode === 'quiz' && validQuizQuestions.length === 0)
+    ) return;
     setCreatingPoll(true);
     try {
       const finalMaxSelections =
@@ -990,6 +1021,8 @@ export default function HostPage() {
               (sum, q) => sum + Math.max(1, q.correctOffsets.length),
               0
             )
+          : pollMode === 'free_text'
+          ? 1
           : Math.max(1, Math.min(pollMaxSelections, validOptions.length));
       const optionsPayload: PollOption[] =
         pollMode === 'quiz'
@@ -1028,6 +1061,10 @@ export default function HostPage() {
               ? quizTimeLimit
               : pollMode === 'ranking'
               ? rankingTimeLimit
+              : pollMode === 'free_text'
+              ? freeTextTimeLimit === '' || freeTextTimeLimit <= 0
+                ? undefined
+                : freeTextTimeLimit
               : undefined,
           quizQuestions: pollMode === 'quiz' ? quizQuestionMeta : undefined,
           optionCount: pollMode === 'quiz' ? validOptions.length : undefined,
@@ -1038,6 +1075,10 @@ export default function HostPage() {
               ? getRankingWeights(finalMaxSelections, rankingWeights)
               : undefined,
           rankingDisplayMode: pollMode === 'ranking' ? rankingDisplayMode : undefined,
+          freeTextGroups:
+            pollMode === 'free_text'
+              ? []
+              : undefined,
         },
         options: optionsPayload,
         maxSelections: finalMaxSelections,
@@ -1322,6 +1363,16 @@ export default function HostPage() {
       scrollToPollEditor();
       return;
     }
+    if (mode === 'free_text') {
+      setPollMode('free_text');
+      setPollQuestion(poll.question || '');
+      setFreeTextTimeLimit(meta.timeLimitSeconds || '');
+      setEditingPollId(poll.id);
+      setShowCreatePoll(true);
+      setShowPollTypeModal(false);
+      setTimeout(() => pollEditorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+      return;
+    }
     if (mode !== 'quiz') return;
     const qs = getQuizQuestions(meta, options);
     const drafts: QuizQuestionDraft[] = qs.map((q, i) => {
@@ -1347,6 +1398,45 @@ export default function HostPage() {
     setShowCreatePoll(true);
     scrollToPollEditor();
   }, [scrollToPollEditor]);
+
+  const handleUpdateFreeTextGroups = useCallback(
+    async (poll: Poll, groups: string[]) => {
+      const normalized = normalizeFreeTextGroups(groups);
+      const { meta, options } = extractPollPayload(poll.options);
+      const res = await fetch(`/api/rooms/${roomCode}/polls/${poll.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question: poll.question,
+          options,
+          maxSelections: poll.max_selections ?? 1,
+          allowMultiple: poll.allow_multiple,
+          mode: 'free_text',
+          meta: { ...meta, mode: 'free_text', freeTextGroups: normalized },
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to update groups');
+      const updated = (await res.json()) as Poll;
+      optimisticUpsertPoll(updated);
+    },
+    [roomCode, optimisticUpsertPoll]
+  );
+
+  const handleArrangeFreeTextResponse = useCallback(
+    async (
+      pollId: string,
+      voteId: string,
+      patch: { groupLabel?: string | null; displayX?: number | null; displayY?: number | null }
+    ) => {
+      const res = await fetch(`/api/rooms/${roomCode}/polls/${pollId}/responses/${voteId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      });
+      if (!res.ok) throw new Error('Failed to update response');
+    },
+    [roomCode]
+  );
 
   const handleToggleRoomStatus = async () => {
     if (!room || roomStatusLoading) return;
@@ -1771,7 +1861,7 @@ export default function HostPage() {
             icon={activeHostItem.icon}
             theme={activeHostTheme}
           >
-            {tab === 'polls' && room.status === 'active' && (
+            {tab === 'polls' && (
               <button
                 type="button"
                 onClick={() => setShowPollTypeModal(true)}
@@ -1854,7 +1944,7 @@ export default function HostPage() {
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              {tab === 'polls' && room.status === 'active' && (
+              {tab === 'polls' && (
                 <button
                   type="button"
                   onClick={() => setShowPollTypeModal(true)}
@@ -2205,12 +2295,16 @@ export default function HostPage() {
                             ? '通常投票を編集'
                             : pollMode === 'quiz'
                             ? 'クイズ形式を編集'
-                            : 'ランキング形式を編集'
+                            : pollMode === 'ranking'
+                            ? 'ランキング形式を編集'
+                            : 'ブレスト形式を編集'
                           : pollMode === 'standard'
                           ? '通常投票を作成'
                           : pollMode === 'quiz'
                           ? 'クイズ形式を作成'
-                          : 'ランキング形式を作成'}
+                          : pollMode === 'ranking'
+                          ? 'ランキング形式を作成'
+                          : 'ブレスト形式を作成'}
                       </h3>
                       {editingPollId && selectedEditingPoll && (
                         <p className="mt-1 text-xs font-semibold text-emerald-700">
@@ -2233,7 +2327,7 @@ export default function HostPage() {
                       type="text"
                       value={pollQuestion}
                       onChange={(e) => setPollQuestion(e.target.value)}
-                      placeholder={pollMode === 'quiz' ? 'クイズタイトル（例: 確認問題）' : pollMode === 'ranking' ? '投票タイトル（例: ランキングテーマを選んでください）' : '質問文（例: 今日の授業の理解度は？）'}
+                      placeholder={pollMode === 'quiz' ? 'クイズタイトル（例: 確認問題）' : pollMode === 'ranking' ? '投票タイトル（例: ランキングテーマを選んでください）' : pollMode === 'free_text' ? '発問（例: 〇〇は、なにかな？）' : '質問文（例: 今日の授業の理解度は？）'}
                       className={`h-11 rounded-xl bg-slate-50 px-3 ring-1 ring-slate-200 focus:bg-white focus:ring-emerald-300 outline-none transition-colors text-sm ${
                         pollMode === 'quiz' ? 'min-w-[180px] flex-1' : 'w-full'
                       }`}
@@ -2729,6 +2823,35 @@ export default function HostPage() {
                     </div>
                   ) : null}
 
+                  {pollMode === 'free_text' && (
+                    <div className="flex flex-wrap items-center gap-3">
+                      <label className="inline-flex items-center gap-2 text-xs sm:text-sm text-slate-600">
+                        回答時間
+                        <select
+                          value={freeTextTimeLimit === '' ? '' : freeTextTimeLimit}
+                          onChange={(e) =>
+                            setFreeTextTimeLimit(
+                              e.target.value === ''
+                                ? ''
+                                : clampNumber(e.target.value, 1, 3600, 60)
+                            )
+                          }
+                          className="h-9 w-32 rounded-lg bg-slate-50 px-2 text-center font-semibold tabular-nums ring-1 ring-slate-200 outline-none"
+                        >
+                          <option value="">なし</option>
+                          {getPollTimeOptions(freeTextTimeLimit, 1).map((seconds) => (
+                            <option key={seconds} value={seconds}>
+                              {formatSecondsOption(seconds)}
+                            </option>
+                          ))}
+                        </select>
+                        <span className="text-[11px] font-semibold text-slate-400">
+                          空欄で常時受付
+                        </span>
+                      </label>
+                    </div>
+                  )}
+
                   {pollMode === 'standard' && (
                     <div className="flex flex-wrap items-center gap-3">
                       <label className="inline-flex items-center gap-2 text-xs sm:text-sm text-slate-600">
@@ -2789,9 +2912,10 @@ export default function HostPage() {
                       onClick={handleCreatePoll}
                       disabled={
                         creatingPoll ||
-                        !pollQuestion.trim() ||
-                        (pollMode === 'standard' && pollOptions.filter((o) => o.trim()).length < 2) ||
-                        (pollMode === 'quiz' &&
+	                        !pollQuestion.trim() ||
+	                        (pollMode === 'standard' && pollOptions.filter((o) => o.trim()).length < 2) ||
+	                        (pollMode === 'ranking' && rankingCandidateCount < 3) ||
+	                        (pollMode === 'quiz' &&
                           !quizQuestions.some((q) => q.question.trim() && q.options.filter((o) => o.trim()).length >= 2))
                       }
                       className="bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-200 disabled:text-slate-400 text-white font-semibold px-4 h-10 rounded-lg text-sm transition-colors"
@@ -2902,9 +3026,13 @@ export default function HostPage() {
                             totalPollCount={orderedPolls.length}
                             onMoveToPosition={(position) => movePollCardToPosition(poll.id, position)}
                             selectionIndex={selectedPollIds.indexOf(poll.id)}
-                            hideSelection={polls.some((item) => item.status === 'active')}
-                            onToggleSelect={() => handleTogglePollSelect(poll.id)}
-                          />
+	                            hideSelection={polls.some((item) => item.status === 'active')}
+	                            onToggleSelect={() => handleTogglePollSelect(poll.id)}
+	                            onArrangeFreeTextResponse={(voteId, patch) =>
+	                              handleArrangeFreeTextResponse(poll.id, voteId, patch)
+	                            }
+	                            onUpdateFreeTextGroups={(groups) => handleUpdateFreeTextGroups(poll, groups)}
+	                          />
                         </div>
                       ))}
                     </div>
@@ -3578,7 +3706,21 @@ function PollTypeModal({
       desc: '多数の候補を順位と重みで集計します。',
       icon: <ListOrdered className="w-5 h-5" />,
     },
+    {
+      mode: 'free_text',
+      title: 'ブレスト形式',
+      desc: '短文回答を付箋のように集め、スクリーンで分類します。',
+      icon: <Hand className="w-5 h-5" />,
+    },
   ];
+
+  // 種類ごとに振り分けた色でカードを差別化（ブレスト形式＝オレンジ）
+  const cardStyles: Record<PollMode, { card: string; badge: string }> = {
+    standard: { card: 'hover:bg-emerald-50 hover:ring-emerald-200', badge: 'bg-emerald-50 text-emerald-700 ring-emerald-100' },
+    quiz: { card: 'hover:bg-blue-50 hover:ring-blue-200', badge: 'bg-blue-50 text-blue-700 ring-blue-100' },
+    ranking: { card: 'hover:bg-amber-50 hover:ring-amber-200', badge: 'bg-amber-50 text-amber-700 ring-amber-100' },
+    free_text: { card: 'hover:bg-orange-50 hover:ring-orange-200', badge: 'bg-orange-50 text-orange-700 ring-orange-100' },
+  };
 
   return (
     <motion.div
@@ -3610,15 +3752,15 @@ function PollTypeModal({
             <X className="w-5 h-5" />
           </button>
         </div>
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           {items.map((item) => (
             <button
               key={item.mode}
               type="button"
               onClick={() => onSelect(item.mode)}
-              className="min-h-[150px] rounded-2xl bg-white p-4 text-left ring-1 ring-slate-200 transition-colors hover:bg-emerald-50 hover:ring-emerald-200"
+              className={`min-h-[150px] rounded-2xl bg-white p-4 text-left ring-1 ring-slate-200 transition-colors ${cardStyles[item.mode].card}`}
             >
-              <span className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100">
+              <span className={`mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl ring-1 ${cardStyles[item.mode].badge}`}>
                 {item.icon}
               </span>
               <span className="block text-sm font-bold text-slate-900">{item.title}</span>
@@ -4079,9 +4221,11 @@ function PollResultCard({
   selectionIndex = -1,
   hideSelection = false,
   onToggleSelect,
+  onArrangeFreeTextResponse,
+  onUpdateFreeTextGroups,
 }: {
   poll: Poll;
-  votes: Array<{ option_index: number | null; value?: string | null; participant_id?: string }>;
+  votes: PollVote[];
   pendingId: string | null;
   deletingId: string | null;
   editing: boolean;
@@ -4100,6 +4244,11 @@ function PollResultCard({
   selectionIndex?: number;
   hideSelection?: boolean;
   onToggleSelect?: () => void;
+  onArrangeFreeTextResponse?: (
+    voteId: string,
+    patch: { groupLabel?: string | null; displayX?: number | null; displayY?: number | null }
+  ) => void | Promise<void>;
+  onUpdateFreeTextGroups?: (groups: string[]) => void | Promise<void>;
 }) {
   const selected = selectionIndex >= 0;
   const selectionNumber = selected ? `${selectionIndex + 1}` : null;
@@ -4108,7 +4257,9 @@ function PollResultCard({
   const counts = options.map((_, i) => votes.filter((v) => v.option_index === i).length);
   const totalVotes = counts.reduce((sum, c) => sum + c, 0);
   const totalRespondents =
-    mode === 'ranking' || mode === 'quiz'
+    mode === 'free_text'
+      ? votes.filter((v) => !!v.value).length
+      : mode === 'ranking' || mode === 'quiz'
       ? new Set(votes.map((v) => (v as { participant_id?: string }).participant_id).filter(Boolean)).size || totalVotes
       : totalVotes;
   const maxSelections = Math.max(1, Number(poll.max_selections ?? 1));
@@ -4121,16 +4272,57 @@ function PollResultCard({
   const statusLabel =
     poll.status === 'active' ? 'Live' : poll.status === 'draft' ? '下書き' : '終了';
   const isScreenVisible = poll.status === 'active';
+  const freeTextGroups = useMemo(() => normalizeFreeTextGroups(meta.freeTextGroups), [meta.freeTextGroups]);
+  const freeTextVotes = mode === 'free_text' ? votes.filter((vote) => !!vote.value) : [];
+  const [newGroupLabel, setNewGroupLabel] = useState('');
+  const [groupDrafts, setGroupDrafts] = useState<Record<number, string>>({});
+
+  useEffect(() => {
+    const rawGroups = meta.freeTextGroups || [];
+    if (
+      mode !== 'free_text' ||
+      !onUpdateFreeTextGroups ||
+      (rawGroups.length === freeTextGroups.length && rawGroups.every((group, index) => group === freeTextGroups[index]))
+    ) {
+      return;
+    }
+    void onUpdateFreeTextGroups(freeTextGroups);
+  }, [freeTextGroups, meta.freeTextGroups, mode, onUpdateFreeTextGroups]);
+
+  const addFreeTextGroup = async () => {
+    const trimmed = newGroupLabel.trim().slice(0, 40);
+    if (!trimmed || freeTextGroups.includes(trimmed) || !onUpdateFreeTextGroups) return;
+    await onUpdateFreeTextGroups([...freeTextGroups, trimmed]);
+    setNewGroupLabel('');
+  };
+  const renameFreeTextGroup = async (index: number, label: string) => {
+    const current = freeTextGroups[index];
+    const trimmed = label.trim().slice(0, 40);
+    if (!trimmed || trimmed === current || !onUpdateFreeTextGroups) return;
+    const next = freeTextGroups.map((group, i) => (i === index ? trimmed : group));
+    await onUpdateFreeTextGroups(next);
+    await Promise.all(
+      freeTextVotes
+        .filter((vote) => vote.group_label === current)
+        .map((vote) => onArrangeFreeTextResponse?.(vote.id, { groupLabel: trimmed, displayX: null, displayY: null }))
+    );
+  };
 
   return (
     <div
       id={`poll-card-${poll.id}`}
       className={`overflow-hidden rounded-lg border bg-white transition-all ${
         editing
-          ? 'border-[#2864f0] shadow-sm shadow-blue-100'
+          ? mode === 'free_text'
+            ? 'border-orange-500 shadow-sm shadow-orange-100'
+            : 'border-[#2864f0] shadow-sm shadow-blue-100'
           : selected || isScreenVisible
-            ? 'border-[#00963c] shadow-sm shadow-emerald-100'
-            : 'border-[#e9e7e7] hover:border-[#aac8ff] hover:shadow-sm'
+            ? mode === 'free_text'
+              ? 'border-orange-400 shadow-sm shadow-orange-100'
+              : 'border-[#00963c] shadow-sm shadow-emerald-100'
+            : mode === 'free_text'
+              ? 'border-[#e9e7e7] hover:border-orange-200 hover:shadow-sm'
+              : 'border-[#e9e7e7] hover:border-[#aac8ff] hover:shadow-sm'
       }`}
     >
       <div className="border-b border-[#e9e7e7] p-4">
@@ -4265,6 +4457,51 @@ function PollResultCard({
           </div>
         </div>
       </div>
+
+      {mode === 'free_text' && editing && (
+        <div className="space-y-3 border-b border-[#e9e7e7] bg-orange-50/40 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs font-extrabold text-orange-800">ブレスト形式の分類</p>
+            <span className="text-[11px] font-bold text-slate-500">
+              回答 {freeTextVotes.length}件
+            </span>
+          </div>
+          <div className="flex gap-2">
+            <input
+              value={newGroupLabel}
+              onChange={(event) => setNewGroupLabel(event.target.value)}
+              placeholder="分類を追加"
+              className="h-9 min-w-0 flex-1 rounded-lg bg-white px-3 text-xs font-semibold text-slate-700 ring-1 ring-slate-200 outline-none focus:ring-orange-300"
+            />
+            <button
+              type="button"
+              onClick={() => void addFreeTextGroup()}
+              className="h-9 rounded-lg bg-orange-600 px-3 text-xs font-bold text-white hover:bg-orange-700 disabled:bg-slate-200"
+              disabled={!newGroupLabel.trim() || !onUpdateFreeTextGroups}
+            >
+              追加
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {freeTextGroups.map((group, index) => (
+              <input
+                key={`${group}-${index}`}
+                value={groupDrafts[index] ?? group}
+                onChange={(event) => {
+                  setGroupDrafts((prev) => ({ ...prev, [index]: event.target.value }));
+                }}
+                onBlur={(event) => void renameFreeTextGroup(index, event.target.value)}
+                className="h-8 w-28 rounded-lg bg-white px-2 text-[11px] font-bold text-slate-700 ring-1 ring-slate-200 outline-none focus:ring-orange-300"
+              />
+            ))}
+            {freeTextGroups.length === 0 && (
+              <p className="rounded-lg bg-white px-3 py-2 text-[11px] font-bold text-slate-400 ring-1 ring-slate-200">
+                分類は未設定です。
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* アクション行 */}
       <div className="flex flex-wrap items-center gap-1.5 bg-[#f7f5f5] px-4 py-3">
@@ -4408,16 +4645,16 @@ function SummaryTab({
           />
         )}
         <KpiCard
-          label="ライブ投票"
+          label="ワーキング"
           value={totalPolls}
-          icon={<BarChart3 className="w-4 h-4 text-amber-600" />}
+          icon={<Hammer className="w-4 h-4 text-amber-600" />}
           accent="bg-amber-50 ring-amber-100"
         />
       </div>
 
       {/* Status distribution */}
       <div className="rounded-2xl bg-white ring-1 ring-slate-200 p-5">
-        <h3 className="text-sm sm:text-base font-bold text-slate-900 mb-3">質問のステータス分布</h3>
+        <h3 className="text-sm sm:text-base font-bold text-slate-900 mb-3">Q&Aのステータス分布</h3>
         <div className="flex w-full h-3 rounded-full overflow-hidden bg-slate-100">
           {segments.map((s) =>
             s.value > 0 ? (

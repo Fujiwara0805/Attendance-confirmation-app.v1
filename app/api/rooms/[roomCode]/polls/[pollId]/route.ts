@@ -6,6 +6,7 @@ import {
   clampNumber,
   extractPollPayload,
   getPollMode,
+  normalizeFreeTextGroups,
   type PollMeta,
   type PollMode,
   type PollOption,
@@ -188,23 +189,31 @@ export async function PATCH(
       !!body.meta;
 
     if (isContentEdit) {
-      if (!body.question || !Array.isArray(body.options) || body.options.length < 2) {
+      const pollMode = getPollMode(body.mode || body.meta?.mode);
+      const isFreeText = pollMode === 'free_text';
+      if (!body.question || !Array.isArray(body.options) || (!isFreeText && body.options.length < 2)) {
         return NextResponse.json(
-          { error: 'Question and at least 2 options are required' },
+          { error: isFreeText ? 'Question is required' : 'Question and at least 2 options are required' },
           { status: 400 }
         );
       }
 
-      const pollMode = getPollMode(body.mode || body.meta?.mode);
       const optionCount = body.options.length;
       const rawMax = Number.isFinite(body.maxSelections) ? Number(body.maxSelections) : 1;
       const clampedMax =
         pollMode === 'ranking'
           ? clampNumber(body.meta?.rankCount ?? rawMax, 1, Math.max(1, optionCount), 3)
+          : pollMode === 'free_text'
+          ? 1
           : Math.max(1, Math.min(rawMax, Math.max(1, optionCount)));
       const isMulti = pollMode === 'ranking' || body.allowMultiple || clampedMax > 1;
       const payloadOptions = buildPollOptionsPayload(
-        { ...(body.meta || {}), mode: pollMode },
+        {
+          ...(body.meta || {}),
+          mode: pollMode,
+          freeTextGroups:
+            pollMode === 'free_text' ? normalizeFreeTextGroups(body.meta?.freeTextGroups) : body.meta?.freeTextGroups,
+        },
         body.options
       );
 

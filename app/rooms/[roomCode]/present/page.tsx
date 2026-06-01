@@ -1,25 +1,41 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, type DragEvent } from 'react';
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, BarChart3, ThumbsUp, Maximize, Minimize, X, Loader2, WifiOff, MonitorUp, ChevronLeft, ChevronRight, Clock, Play } from 'lucide-react';
+import { MessageSquare, LayoutGrid, ThumbsUp, Maximize, Minimize, X, Loader2, WifiOff, MonitorUp, ChevronLeft, ChevronRight, Clock, Play } from 'lucide-react';
 import { useRealtimeQuestions } from '@/lib/hooks/useRealtimeQuestions';
-import { useRealtimePolls, type Poll } from '@/lib/hooks/useRealtimePolls';
+import { useRealtimePolls, type Poll, type PollVote } from '@/lib/hooks/useRealtimePolls';
 import {
   extractPollPayload,
+  FREE_TEXT_CARD_COLORS,
   getPollMode,
   getPollOptionImageUrl,
   getPollOptionLabel,
   getQuizCorrectOptionOffsets,
   getQuizQuestions,
   getRankingDisplayMode,
+  normalizeFreeTextGroups,
   optionLetter,
+  type FreeTextCardColor,
 } from '@/lib/pollModes';
 import RankingResults from '../../components/RankingResults';
 
 type View = 'qa' | 'poll';
+
+const FREE_TEXT_CARD_CLASSES: Record<FreeTextCardColor, string> = {
+  yellow: 'border-yellow-200 bg-yellow-100 text-yellow-950 shadow-yellow-100/70',
+  green: 'border-emerald-200 bg-emerald-100 text-emerald-950 shadow-emerald-100/70',
+  blue: 'border-blue-200 bg-blue-100 text-blue-950 shadow-blue-100/70',
+  orange: 'border-orange-200 bg-orange-100 text-orange-950 shadow-orange-100/70',
+};
+
+function getFreeTextCardColor(value?: string | null): FreeTextCardColor {
+  if (value === 'purple') return 'blue';
+  if (value === 'pink') return 'orange';
+  return FREE_TEXT_CARD_COLORS.includes(value as FreeTextCardColor) ? (value as FreeTextCardColor) : 'orange';
+}
 
 interface Room {
   id: string;
@@ -153,6 +169,10 @@ export default function PresentPage() {
     });
   }, [rawActivePolls]);
   const activePollIds = activePolls.map((poll) => poll.id).join(',');
+  // ブレスト形式が含まれる場合は付箋ボードを画面右端（資料投影画面ボタンの下）まで広げる。
+  const hasFreeTextPoll = activePolls.some(
+    (poll) => getPollMode(extractPollPayload(poll.options).meta.mode) === 'free_text'
+  );
 
   useEffect(() => {
     setActiveQuizIndex(0);
@@ -186,6 +206,48 @@ export default function PresentPage() {
       setStartingTimer(false);
     }
   }, [roomCode, startingTimer]);
+
+  const updateFreeTextResponse = useCallback(
+    async (
+      pollId: string,
+      voteId: string,
+      patch: {
+        displayX?: number | null;
+        displayY?: number | null;
+        groupLabel?: string | null;
+        pinned?: boolean;
+      }
+    ) => {
+      const res = await fetch(`/api/rooms/${roomCode}/polls/${pollId}/responses/${voteId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      });
+      if (!res.ok) throw new Error('Failed to update free text response');
+    },
+    [roomCode]
+  );
+
+  const updateFreeTextGroups = useCallback(
+    async (poll: Poll, groups: string[]) => {
+      const { meta, options } = extractPollPayload(poll.options);
+      const normalizedGroups = normalizeFreeTextGroups(groups);
+      const res = await fetch(`/api/rooms/${roomCode}/polls/${poll.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question: poll.question,
+          options,
+          maxSelections: poll.max_selections ?? 1,
+          allowMultiple: poll.allow_multiple,
+          mode: 'free_text',
+          meta: { ...meta, mode: 'free_text', freeTextGroups: normalizedGroups },
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to update free text groups');
+    },
+    [roomCode]
+  );
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -295,8 +357,8 @@ export default function PresentPage() {
                 view === 'poll' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200/50' : 'text-gray-500 hover:text-gray-800'
               }`}
             >
-              <BarChart3 className="w-4 h-4" />
-              ライブ投票
+              <LayoutGrid className="w-4 h-4" />
+              ワーキング
             </button>
           </div>
           {realtimeOffline && (
@@ -371,7 +433,7 @@ export default function PresentPage() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className="w-full max-w-5xl"
+              className={hasFreeTextPoll ? 'w-full max-w-none' : 'w-full max-w-5xl'}
             >
               {activePolls.length > 0 ? (
                 <div className="w-full space-y-6">
@@ -393,18 +455,25 @@ export default function PresentPage() {
                   );
                   const totalCast = counts.reduce((s, c) => s + c, 0);
                   const totalRespondents =
-                    mode === 'ranking' ? new Set(votes.map((v) => v.participant_id)).size : totalCast;
+                    mode === 'free_text'
+                      ? votes.filter((v) => !!v.value).length
+                      : mode === 'ranking'
+                      ? new Set(votes.map((v) => v.participant_id)).size
+                      : totalCast;
                   const maxSelections = Math.max(1, Number(activePoll.max_selections ?? 1));
                   const quizQuestions = mode === 'quiz' ? getQuizQuestions(meta, options) : [];
                   // 制限時間をカウントダウン。回答中は集計を伏せ、時間切れで開示。
                   const standardTimeLimit = mode === 'standard' ? meta.timeLimitSeconds || 0 : 0;
                   const quizTimeLimit = mode === 'quiz' ? meta.timeLimitSeconds || 0 : 0;
                   const rankingTimeLimit = mode === 'ranking' ? meta.timeLimitSeconds || 0 : 0;
+                  const freeTextTimeLimit = mode === 'free_text' ? meta.timeLimitSeconds || 0 : 0;
                   const activeTimeLimit =
                     mode === 'standard'
                       ? standardTimeLimit
                       : mode === 'quiz'
                       ? quizTimeLimit
+                      : mode === 'free_text'
+                      ? freeTextTimeLimit
                       : rankingTimeLimit;
                   // poll.started_at（投影画面の開始ボタンを押した端末時刻）を全端末で共有
                   const timerStartMs = activePoll.started_at ? new Date(activePoll.started_at).getTime() : null;
@@ -532,7 +601,16 @@ export default function PresentPage() {
                           </div>
                         )}
                       </div>
-                      {mode === 'quiz' ? (
+                      {mode === 'free_text' ? (
+                        <FreeTextBoard
+                          poll={activePoll}
+                          votes={votes}
+                          groups={meta.freeTextGroups}
+                          timerNotStarted={timerNotStarted}
+                          onUpdate={(voteId, patch) => updateFreeTextResponse(activePoll.id, voteId, patch)}
+                          onUpdateGroups={(groups) => updateFreeTextGroups(activePoll, groups)}
+                        />
+                      ) : mode === 'quiz' ? (
                         <div className="flex flex-col gap-5">
                           {quizAnswering && (
                             <p className="text-sm sm:text-base font-semibold text-slate-500">
@@ -797,9 +875,9 @@ export default function PresentPage() {
               ) : (
                 <div className="text-center py-20">
                   <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-indigo-50 to-blue-50 ring-1 ring-indigo-100 shadow-sm mx-auto mb-5 flex items-center justify-center">
-                    <BarChart3 className="w-11 h-11 text-indigo-300" />
+                    <LayoutGrid className="w-11 h-11 text-indigo-300" />
                   </div>
-                  <p className="text-xl sm:text-2xl font-extrabold tracking-tight text-gray-400">アクティブな投票はありません</p>
+                  <p className="text-xl sm:text-2xl font-extrabold tracking-tight text-gray-400">アクティブなワーキングはありません</p>
                 </div>
               )}
             </motion.div>
@@ -809,7 +887,7 @@ export default function PresentPage() {
 
       {/* Footer */}
       <footer className="px-8 py-3 border-t border-gray-200 flex items-center justify-between text-xs text-gray-400">
-        <span>ざせきくん ライブ投票</span>
+        <span>ざせきくん ワーキング</span>
         <span>参加コード: {room.code}</span>
       </footer>
 
@@ -909,6 +987,318 @@ export default function PresentPage() {
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+function FreeTextBoard({
+  poll,
+  votes,
+  groups,
+  timerNotStarted,
+  onUpdate,
+  onUpdateGroups,
+}: {
+  poll: Poll;
+  votes: PollVote[];
+  groups?: string[];
+  timerNotStarted: boolean;
+  onUpdate: (
+    voteId: string,
+    patch: {
+      displayX?: number | null;
+      displayY?: number | null;
+      groupLabel?: string | null;
+      pinned?: boolean;
+    }
+  ) => void | Promise<void>;
+  onUpdateGroups: (groups: string[]) => void | Promise<void>;
+}) {
+  const boardRef = useRef<HTMLDivElement>(null);
+  const [draggingVoteId, setDraggingVoteId] = useState<string | null>(null);
+  const [groupDrafts, setGroupDrafts] = useState<Record<number, string>>({});
+  const [addingGroup, setAddingGroup] = useState('');
+  const [groupAction, setGroupAction] = useState<'add' | `delete:${number}` | null>(null);
+  const [optimistic, setOptimistic] = useState<
+    Record<
+      string,
+      {
+        display_x?: number | null;
+        display_y?: number | null;
+        group_label?: string | null;
+      }
+    >
+  >({});
+
+  const groupLabels = useMemo(() => normalizeFreeTextGroups(groups), [groups]);
+  useEffect(() => {
+    const rawGroups = groups || [];
+    if (rawGroups.length === groupLabels.length && rawGroups.every((group, index) => group === groupLabels[index])) {
+      return;
+    }
+    void onUpdateGroups(groupLabels);
+  }, [groupLabels, groups, onUpdateGroups]);
+  const responses = votes
+    .filter((vote) => !!vote.value)
+    .map((vote) => ({ ...vote, ...(optimistic[vote.id] || {}) }))
+    .sort((a, b) => {
+      if (!!a.is_pinned !== !!b.is_pinned) return a.is_pinned ? -1 : 1;
+      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    });
+  const grouped = groupLabels.map((label) => ({
+    label,
+    responses: responses.filter((vote) => vote.group_label === label),
+  }));
+  const canvasResponses = responses.filter(
+    (vote) => !vote.group_label || !groupLabels.includes(vote.group_label)
+  );
+
+  const saveGroups = async (nextGroups: string[]) => {
+    const normalized = normalizeFreeTextGroups(nextGroups);
+    try {
+      await onUpdateGroups(normalized);
+    } catch (error) {
+      console.error('free text groups update failed', error);
+    }
+  };
+
+  const renameGroup = async (index: number, nextLabel: string) => {
+    const currentLabel = groupLabels[index];
+    const trimmed = nextLabel.trim().slice(0, 40);
+    if (!trimmed || trimmed === currentLabel) return;
+    const nextGroups = groupLabels.map((group, i) => (i === index ? trimmed : group));
+    await saveGroups(nextGroups);
+    await Promise.all(
+      responses
+        .filter((vote) => vote.group_label === currentLabel)
+        .map((vote) => saveLayout(vote.id, { displayX: null, displayY: null, groupLabel: trimmed }))
+    );
+  };
+
+  const addGroup = async () => {
+    const trimmed = addingGroup.trim().slice(0, 40);
+    if (!trimmed || groupLabels.includes(trimmed)) return;
+    setGroupAction('add');
+    try {
+      await saveGroups([...groupLabels, trimmed]);
+      setAddingGroup('');
+    } finally {
+      setGroupAction(null);
+    }
+  };
+
+  const removeGroup = async (index: number) => {
+    const target = groupLabels[index];
+    if (!target) return;
+    setGroupAction(`delete:${index}`);
+    try {
+      await Promise.all(
+        responses
+          .filter((vote) => vote.group_label === target)
+          .map((vote) => saveLayout(vote.id, { displayX: null, displayY: null, groupLabel: null }))
+      );
+      await saveGroups(groupLabels.filter((_, i) => i !== index));
+    } finally {
+      setGroupAction(null);
+    }
+  };
+
+  const saveLayout = async (
+    voteId: string,
+    patch: {
+      displayX?: number | null;
+      displayY?: number | null;
+      groupLabel?: string | null;
+      pinned?: boolean;
+    }
+  ) => {
+    setOptimistic((prev) => ({
+      ...prev,
+      [voteId]: {
+        ...prev[voteId],
+        ...(patch.displayX !== undefined ? { display_x: patch.displayX } : {}),
+        ...(patch.displayY !== undefined ? { display_y: patch.displayY } : {}),
+        ...(patch.groupLabel !== undefined ? { group_label: patch.groupLabel } : {}),
+      },
+    }));
+    try {
+      await onUpdate(voteId, patch);
+    } catch (error) {
+      console.error('free text layout update failed', error);
+    }
+  };
+
+  const onDropCanvas = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const voteId = event.dataTransfer.getData('text/plain');
+    if (!voteId || !boardRef.current) return;
+    const rect = boardRef.current.getBoundingClientRect();
+    const displayX = ((event.clientX - rect.left) / rect.width) * 100;
+    const displayY = ((event.clientY - rect.top) / rect.height) * 100;
+    void saveLayout(voteId, { displayX, displayY, groupLabel: null });
+    setDraggingVoteId(null);
+  };
+
+  const onDropGroup = (label: string, event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const voteId = event.dataTransfer.getData('text/plain');
+    if (!voteId) return;
+    void saveLayout(voteId, { displayX: null, displayY: null, groupLabel: label });
+    setDraggingVoteId(null);
+  };
+
+  const card = (vote: PollVote, compact = false) => (
+    <div
+      key={vote.id}
+      draggable
+      onDragStart={(event) => {
+        event.dataTransfer.setData('text/plain', vote.id);
+        event.dataTransfer.effectAllowed = 'move';
+        setDraggingVoteId(vote.id);
+      }}
+      onDragEnd={() => setDraggingVoteId(null)}
+      className={`rounded-xl border shadow-sm transition ${
+        compact ? 'p-3 text-sm' : 'min-h-[104px] p-4 text-base sm:text-lg'
+      } cursor-grab active:cursor-grabbing hover:brightness-[0.98] ${
+        FREE_TEXT_CARD_CLASSES[getFreeTextCardColor(vote.response_color)]
+      } ${draggingVoteId === vote.id ? 'opacity-45' : 'opacity-100'}`}
+    >
+      <p className="break-words font-bold leading-snug text-slate-800">{vote.value}</p>
+      <div className="mt-3 flex flex-wrap items-center gap-1.5">
+        {vote.response_author_name && (
+          <span className="rounded-md bg-white/55 px-2 py-1 text-[11px] font-bold text-slate-600">
+            {vote.response_author_name}
+          </span>
+        )}
+        {vote.group_label && (
+          <button
+            type="button"
+            onClick={() => void saveLayout(vote.id, { displayX: null, displayY: null, groupLabel: null })}
+            className="rounded-md bg-white/70 px-2 py-1 text-[11px] font-bold text-orange-700 hover:bg-white"
+          >
+            未分類へ
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm font-semibold text-slate-500">
+          {timerNotStarted
+            ? '開始ボタンを押すとブレストの受付が始まります。'
+            : '回答は付箋カードとしてリアルタイムに表示されます。カードはそのままドラッグできます。'}
+        </p>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div
+          ref={boardRef}
+          onDragOver={(event) => {
+            event.preventDefault();
+          }}
+          onDrop={onDropCanvas}
+          className="relative min-h-[60vh] h-[calc(100vh-220px)] overflow-y-auto rounded-2xl bg-white p-5 ring-1 ring-slate-200"
+        >
+          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(148,163,184,0.12)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.12)_1px,transparent_1px)] bg-[size:48px_48px]" />
+          <div className="relative grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+            {canvasResponses
+              .filter((vote) => typeof vote.display_x !== 'number' || typeof vote.display_y !== 'number')
+              .map((vote) => card(vote, true))}
+          </div>
+          {canvasResponses
+            .filter((vote) => typeof vote.display_x === 'number' && typeof vote.display_y === 'number')
+            .map((vote) => (
+              <div
+                key={vote.id}
+                className="absolute w-44 -translate-x-1/2 -translate-y-1/2 sm:w-52"
+                style={{ left: `${vote.display_x}%`, top: `${vote.display_y}%` }}
+              >
+                {card(vote, true)}
+              </div>
+            ))}
+          {responses.length === 0 && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <p className="rounded-xl bg-slate-50 px-5 py-4 text-base font-bold text-slate-400 ring-1 ring-slate-200">
+                回答を待っています...
+              </p>
+            </div>
+          )}
+        </div>
+
+        <aside className="space-y-3 lg:max-h-[calc(100vh-220px)] lg:overflow-y-auto lg:pr-1">
+          <div className="rounded-xl bg-white p-4 ring-1 ring-slate-200">
+            <p className="text-sm font-extrabold text-slate-800">回答を分類する</p>
+            <p className="mt-1 text-xs leading-relaxed text-slate-500">
+              分類グループを作り、左の回答カードをここへドラッグすると仕分けできます。
+            </p>
+            <div className="mt-3 flex gap-2">
+              <input
+                value={addingGroup}
+                onChange={(event) => setAddingGroup(event.target.value)}
+                placeholder="分類を追加"
+                className="h-9 min-w-0 flex-1 rounded-lg bg-slate-50 px-3 text-sm font-semibold ring-1 ring-slate-200 outline-none focus:ring-orange-300"
+              />
+              <button
+                type="button"
+                onClick={() => void addGroup()}
+                disabled={!addingGroup.trim() || groupAction === 'add'}
+                className="inline-flex h-9 min-w-[84px] items-center justify-center rounded-lg bg-orange-600 px-3 text-xs font-bold text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+              >
+                {groupAction === 'add' ? <Loader2 className="h-4 w-4 animate-spin" /> : '追加'}
+              </button>
+            </div>
+          </div>
+          {grouped.map((group, groupIndex) => (
+            <div
+              key={group.label}
+              onDragOver={(event) => {
+                event.preventDefault();
+              }}
+              onDrop={(event) => onDropGroup(group.label, event)}
+              className="min-h-[112px] rounded-xl bg-white p-3 ring-1 ring-slate-200"
+            >
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <input
+                  value={groupDrafts[groupIndex] ?? group.label}
+                  onChange={(event) =>
+                    setGroupDrafts((prev) => ({ ...prev, [groupIndex]: event.target.value }))
+                  }
+                  onBlur={(event) => void renameGroup(groupIndex, event.target.value)}
+                  className="min-w-0 flex-1 rounded-md bg-slate-50 px-2 py-1 text-sm font-extrabold text-slate-800 ring-1 ring-transparent outline-none focus:ring-orange-300"
+                />
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-bold tabular-nums text-slate-500">
+                  {group.responses.length}件
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void removeGroup(groupIndex)}
+                  disabled={groupAction === `delete:${groupIndex}`}
+                  className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-60"
+                  aria-label={`分類 ${group.label} を削除`}
+                  title="分類を削除"
+                >
+                  {groupAction === `delete:${groupIndex}` ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <X className="h-3.5 w-3.5" />
+                  )}
+                </button>
+              </div>
+              <div className="max-h-72 space-y-2 overflow-y-auto pr-0.5">
+                {group.responses.map((vote) => card(vote, true))}
+                {group.responses.length === 0 && (
+                  <p className="rounded-lg border border-dashed border-slate-200 px-3 py-5 text-center text-xs font-bold text-slate-400">
+                    ここへドロップ
+                  </p>
+                )}
+              </div>
+            </div>
+          ))}
+        </aside>
+      </div>
     </div>
   );
 }
