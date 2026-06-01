@@ -7,7 +7,6 @@ import { motion } from 'framer-motion';
 import {
   BarChart3,
   Hand,
-  LayoutGrid,
   ChevronLeft,
   ChevronRight,
   Clock,
@@ -19,6 +18,7 @@ import {
   Play,
   RefreshCw,
   ThumbsUp,
+  Trees,
   WifiOff,
   X,
 } from 'lucide-react';
@@ -361,7 +361,7 @@ export default function StagePage() {
                     onClick={openPollScreen}
                     className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-emerald-500 px-3 text-xs font-semibold text-white shadow-sm hover:bg-emerald-400"
                   >
-                    <LayoutGrid className="w-4 h-4" />
+                    <Trees className="w-4 h-4" />
                     ワークスペース画面
                   </button>
                   <button
@@ -430,7 +430,7 @@ export default function StagePage() {
                 onClick={openPollScreen}
                 className="mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 text-sm font-bold text-white ring-1 ring-emerald-400 hover:bg-emerald-400"
               >
-                <LayoutGrid className="w-4 h-4" />
+                <Trees className="w-4 h-4" />
                 ワークスペース画面を開く
               </button>
               {captureError && (
@@ -497,8 +497,8 @@ export default function StagePage() {
           <section className="shrink-0 border-b border-slate-200 bg-white">
             <div className="flex items-center justify-between px-5 py-3">
               <div className="inline-flex items-center gap-2">
-                <LayoutGrid className="w-4 h-4 text-[#2864f0]" />
-                <h3 className="text-sm font-extrabold tracking-tight text-slate-900">ワーク機能</h3>
+                <Trees className="w-4 h-4 text-[#2864f0]" />
+                <h3 className="text-sm font-extrabold tracking-tight text-slate-900">ワークスペース</h3>
               </div>
               <span className="text-xs font-semibold text-slate-400">{activePolls.length}</span>
             </div>
@@ -616,7 +616,7 @@ function StagePollDeck({
     return (
       <div className="rounded-lg border border-[#e9e7e7] bg-[#f7f5f5] px-4 py-6 text-center">
         <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-lg bg-[#ebf3ff]">
-          <LayoutGrid className="h-5 w-5 text-[#aac8ff]" />
+          <Trees className="h-5 w-5 text-[#aac8ff]" />
         </div>
         <p className="text-sm font-bold text-[#595959]">アクティブなカードはありません</p>
       </div>
