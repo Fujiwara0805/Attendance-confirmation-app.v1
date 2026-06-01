@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback, useMemo, type DragEvent } fro
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, LayoutGrid, ThumbsUp, Maximize, Minimize, X, Loader2, WifiOff, MonitorUp, ChevronLeft, ChevronRight, Clock, Play } from 'lucide-react';
+import { MessageSquare, Trees, ThumbsUp, Maximize, Minimize, X, Loader2, WifiOff, MonitorUp, ChevronLeft, ChevronRight, Clock, Play } from 'lucide-react';
 import { useRealtimeQuestions } from '@/lib/hooks/useRealtimeQuestions';
 import { useRealtimePolls, type Poll, type PollVote } from '@/lib/hooks/useRealtimePolls';
 import {
@@ -357,7 +357,7 @@ export default function PresentPage() {
                 view === 'poll' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200/50' : 'text-gray-500 hover:text-gray-800'
               }`}
             >
-              <LayoutGrid className="w-4 h-4" />
+              <Trees className="w-4 h-4" />
               ワークスペース
             </button>
           </div>
@@ -875,7 +875,7 @@ export default function PresentPage() {
               ) : (
                 <div className="text-center py-20">
                   <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-indigo-50 to-blue-50 ring-1 ring-indigo-100 shadow-sm mx-auto mb-5 flex items-center justify-center">
-                    <LayoutGrid className="w-11 h-11 text-indigo-300" />
+                    <Trees className="w-11 h-11 text-indigo-300" />
                   </div>
                   <p className="text-xl sm:text-2xl font-extrabold tracking-tight text-gray-400">アクティブなカードはありません</p>
                 </div>
