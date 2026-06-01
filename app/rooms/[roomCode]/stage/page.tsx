@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   BarChart3,
+  Hand,
   LayoutGrid,
   ChevronLeft,
   ChevronRight,
@@ -361,7 +362,7 @@ export default function StagePage() {
                     className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-emerald-500 px-3 text-xs font-semibold text-white shadow-sm hover:bg-emerald-400"
                   >
                     <LayoutGrid className="w-4 h-4" />
-                    ワーキング画面
+                    ワークスペース画面
                   </button>
                   <button
                     type="button"
@@ -430,7 +431,7 @@ export default function StagePage() {
                 className="mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 text-sm font-bold text-white ring-1 ring-emerald-400 hover:bg-emerald-400"
               >
                 <LayoutGrid className="w-4 h-4" />
-                ワーキング画面を開く
+                ワークスペース画面を開く
               </button>
               {captureError && (
                 <p className="mt-4 rounded-lg bg-rose-500/15 px-4 py-3 text-sm text-rose-100 ring-1 ring-rose-300/20">
@@ -497,7 +498,7 @@ export default function StagePage() {
             <div className="flex items-center justify-between px-5 py-3">
               <div className="inline-flex items-center gap-2">
                 <LayoutGrid className="w-4 h-4 text-[#2864f0]" />
-                <h3 className="text-sm font-extrabold tracking-tight text-slate-900">ワーキング</h3>
+                <h3 className="text-sm font-extrabold tracking-tight text-slate-900">ワーク機能</h3>
               </div>
               <span className="text-xs font-semibold text-slate-400">{activePolls.length}</span>
             </div>
@@ -617,7 +618,7 @@ function StagePollDeck({
         <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-lg bg-[#ebf3ff]">
           <LayoutGrid className="h-5 w-5 text-[#aac8ff]" />
         </div>
-        <p className="text-sm font-bold text-[#595959]">アクティブなワーキングはありません</p>
+        <p className="text-sm font-bold text-[#595959]">アクティブなカードはありません</p>
       </div>
     );
   }
@@ -817,19 +818,11 @@ function StagePollCard({
       )}
 
       {mode === 'free_text' ? (
-        <div className="grid grid-cols-2 gap-2">
-          {votes.filter((vote) => !!vote.value).slice(0, 12).map((vote) => (
-            <div key={vote.id} className="min-h-[64px] rounded-lg bg-white px-3 py-2 ring-1 ring-[#e9e7e7]">
-              <p className="line-clamp-3 break-words text-xs font-bold leading-snug text-[#323232]">
-                {vote.value}
-              </p>
-            </div>
-          ))}
-          {votes.filter((vote) => !!vote.value).length === 0 && (
-            <p className="col-span-2 rounded-lg bg-[#f7f5f5] px-3 py-4 text-center text-xs font-bold text-[#595959]">
-              回答受付中です。
-            </p>
-          )}
+        <div className="flex items-start gap-2 rounded-lg bg-orange-50 px-3 py-3 ring-1 ring-orange-200">
+          <Hand className="mt-0.5 h-4 w-4 shrink-0 text-orange-600" />
+          <p className="text-xs font-bold leading-relaxed text-orange-900">
+            ブレスト形式は付箋ボードで表示します。「ワークスペース画面」をご確認ください。
+          </p>
         </div>
       ) : mode === 'ranking' ? (
         revealed ? (

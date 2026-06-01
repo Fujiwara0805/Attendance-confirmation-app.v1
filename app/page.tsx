@@ -609,9 +609,9 @@ export default function LandingPage() {
 
           <motion.div {...stagger} className="space-y-3">
             {[
-              { date: '2026.06.01', tag: 'アップデート', tagColor: 'bg-emerald-100 text-emerald-700', title: 'ライブ投票を「ワーキング機能」に刷新。付箋でアイデアを集める「ブレスト形式」を追加。' },
-              { date: '2026.05.22', tag: 'アップデート', tagColor: 'bg-emerald-100 text-emerald-700', title: 'ワーキング機能に「クイズ形式」「ランキング形式」を追加。' },
-              { date: '2026.05.22', tag: 'アップデート', tagColor: 'bg-emerald-100 text-emerald-700', title: 'スライドツール投影に対応。資料の上にQ&A・ワーキング結果を重ねて表示。' },
+              { date: '2026.06.01', tag: 'アップデート', tagColor: 'bg-emerald-100 text-emerald-700', title: 'ライブ投票を「ワーク機能」に刷新。付箋でアイデアを集める「ブレスト形式」を追加。' },
+              { date: '2026.05.22', tag: 'アップデート', tagColor: 'bg-emerald-100 text-emerald-700', title: 'ワーク機能に「クイズ形式」「ランキング形式」を追加。' },
+              { date: '2026.05.22', tag: 'アップデート', tagColor: 'bg-emerald-100 text-emerald-700', title: 'スライドツール投影に対応。資料の上にQ&A・ワーク機能の結果を重ねて表示。' },
               { date: '2026.03.19', tag: 'リリース', tagColor: 'bg-blue-100 text-blue-700', title: '招待フォーム機能をリリース。事前登録〜当日受付までを一気通貫。' },
               { date: '2026.03.17', tag: 'リリース', tagColor: 'bg-blue-100 text-blue-700', title: 'v2.0 リリース。Q&A・投票・カスタムフォームを搭載。' },
             ].map((news, i) => (

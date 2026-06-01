@@ -358,7 +358,7 @@ export default function PresentPage() {
               }`}
             >
               <LayoutGrid className="w-4 h-4" />
-              ワーキング
+              ワークスペース
             </button>
           </div>
           {realtimeOffline && (
@@ -877,7 +877,7 @@ export default function PresentPage() {
                   <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-indigo-50 to-blue-50 ring-1 ring-indigo-100 shadow-sm mx-auto mb-5 flex items-center justify-center">
                     <LayoutGrid className="w-11 h-11 text-indigo-300" />
                   </div>
-                  <p className="text-xl sm:text-2xl font-extrabold tracking-tight text-gray-400">アクティブなワーキングはありません</p>
+                  <p className="text-xl sm:text-2xl font-extrabold tracking-tight text-gray-400">アクティブなカードはありません</p>
                 </div>
               )}
             </motion.div>
@@ -887,7 +887,7 @@ export default function PresentPage() {
 
       {/* Footer */}
       <footer className="px-8 py-3 border-t border-gray-200 flex items-center justify-between text-xs text-gray-400">
-        <span>ざせきくん ワーキング</span>
+        <span>ざせきくん ワークスペース</span>
         <span>参加コード: {room.code}</span>
       </footer>
 

@@ -217,7 +217,7 @@ const HOST_NAV_ITEMS: Array<{
   icon: ComponentType<{ className?: string }>;
 }> = [
   { key: 'questions', label: 'Q&A機能', description: '承認・回答管理', icon: MessageSquare },
-  { key: 'polls', label: 'ワーキング機能', description: 'カード作成・集計', icon: Hammer },
+  { key: 'polls', label: 'ワーク機能', description: 'カード作成・集計', icon: Hammer },
   { key: 'summary', label: 'サマリー', description: '状況の確認', icon: PieChart },
   { key: 'integration', label: '連携', description: '出席フォーム紐付け', icon: Link2 },
   { key: 'export', label: 'エクスポート', description: 'CSV出力', icon: Download },
@@ -342,7 +342,7 @@ const HOST_FAQ_SECTIONS: Array<{
   },
   {
     id: 'polls',
-    title: 'ワーキング',
+    title: 'ワークツール',
     icon: Hammer,
     summary: '通常投票・クイズ・ランキング・ブレスト形式のカードを作成し、回答を集計できます。',
     body:
@@ -355,7 +355,7 @@ const HOST_FAQ_SECTIONS: Array<{
     icon: Hand,
     summary: '参加者の短い自由回答を付箋カードとして集め、スクリーン上で分類できます。',
     body:
-      'ブレスト形式では、参加者はスマートフォンから短い回答を何度でも投稿でき、自分の投稿はその場で編集・削除できます。集まった回答はオレンジの付箋カードとしてスクリーン（ワーキング画面）にリアルタイム表示されます。先生は「分類を追加」でグループを作り、カードをドラッグして仕分けられます。アイデア出しや感想集め、ブレインストーミングに向いた形式です。',
+      'ブレスト形式では、参加者はスマートフォンから短い回答を何度でも投稿でき、自分の投稿はその場で編集・削除できます。集まった回答はオレンジの付箋カードとしてスクリーン（ワークスペース画面）にリアルタイム表示されます。先生は「分類を追加」でグループを作り、カードをドラッグして仕分けられます。アイデア出しや感想集め、ブレインストーミングに向いた形式です。',
     tips: ['カードの色は参加者が選べます（既定はオレンジ）。', 'スクリーン画面・編集モードのどちらでも分類できます。'],
   },
   {
@@ -380,9 +380,9 @@ const HOST_FAQ_SECTIONS: Array<{
     id: 'export',
     title: 'エクスポート',
     icon: ClipboardCheck,
-    summary: 'Q&Aとワーキング結果をCSVで出力できます。',
+    summary: 'Q&Aとワークツールの結果をCSVで出力できます。',
     body:
-      '質問一覧、いいね数、回答済み状態、投票結果などをCSV形式でダウンロードできます。ワーキングは全カードまとめて出力することも、特定のカードだけを選んで出力することもできます。',
+      '質問一覧、いいね数、回答済み状態、投票結果などをCSV形式でダウンロードできます。ワークツールは全カードまとめて出力することも、特定のカードだけを選んで出力することもできます。',
     tips: ['イベント後の分析やレポート作成に使えます。', '投票の出力対象は確認画面で選択します。'],
   },
 ];
@@ -4645,7 +4645,7 @@ function SummaryTab({
           />
         )}
         <KpiCard
-          label="ワーキング"
+          label="ワーク機能"
           value={totalPolls}
           icon={<Hammer className="w-4 h-4 text-amber-600" />}
           accent="bg-amber-50 ring-amber-100"
