@@ -26,9 +26,12 @@ import { captureStreamStore, useCaptureStream } from '@/lib/captureStreamStore';
 import {
   extractPollPayload,
   getPollMode,
+  getPollOptionImageUrl,
   getPollOptionLabel,
+  getQuizCorrectOptionOffsets,
   getQuizQuestions,
   getRankingDisplayMode,
+  optionLetter,
 } from '@/lib/pollModes';
 import RankingResults from '../../components/RankingResults';
 
@@ -680,6 +683,38 @@ function StagePollCard({
   const fmtTime = (seconds: number) =>
     `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
   const activeQuizQuestion = quizQuestions[safeQuizIndex];
+  const activeQuizStats = activeQuizQuestion
+    ? (() => {
+        const questionVotes = votes.filter((vote) => Number(vote.value) === safeQuizIndex + 1);
+        const questionTotal = new Set(questionVotes.map((vote) => vote.participant_id)).size;
+        const correctOffsets = getQuizCorrectOptionOffsets(activeQuizQuestion);
+        const hasKey = correctOffsets.length > 0;
+        const votesByParticipant = new Map<string, number[]>();
+
+        questionVotes.forEach((vote) => {
+          if (typeof vote.option_index !== 'number') return;
+          const offset = vote.option_index - activeQuizQuestion.optionStart;
+          if (offset < 0 || offset >= activeQuizQuestion.optionCount) return;
+          const list = votesByParticipant.get(vote.participant_id) || [];
+          list.push(offset);
+          votesByParticipant.set(vote.participant_id, list);
+        });
+
+        const correctCount = hasKey
+          ? Array.from(votesByParticipant.values()).filter((offsets) => {
+              const sortedOffsets = offsets.slice().sort((a, b) => a - b);
+              return (
+                sortedOffsets.length === correctOffsets.length &&
+                correctOffsets.every((offset, index) => sortedOffsets[index] === offset)
+              );
+            }).length
+          : 0;
+        const correctRate =
+          hasKey && questionTotal > 0 ? Math.round((correctCount / questionTotal) * 100) : 0;
+
+        return { questionTotal, correctOffsets, hasKey, correctCount, correctRate };
+      })()
+    : null;
   const displayOptions =
     mode === 'quiz' && activeQuizQuestion
       ? options.slice(
@@ -764,7 +799,14 @@ function StagePollCard({
 
       {mode === 'quiz' && activeQuizQuestion && (
         <div className="mb-2 rounded-lg bg-[#f7f5f5] px-3 py-2">
-          <p className="text-[11px] font-bold text-[#2864f0]">問題 {activeQuizQuestion.questionNumber}</p>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <p className="text-[11px] font-bold text-[#2864f0]">問題 {activeQuizQuestion.questionNumber}</p>
+            {revealed && activeQuizStats?.hasKey && (
+              <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700 ring-1 ring-emerald-200 tabular-nums">
+                正答率 {activeQuizStats.correctRate}%（{activeQuizStats.correctCount}/{activeQuizStats.questionTotal}）
+              </span>
+            )}
+          </div>
           <p className="mt-0.5 break-words text-xs font-bold leading-snug text-[#323232]">
             {activeQuizQuestion.question}
           </p>
@@ -802,32 +844,66 @@ function StagePollCard({
               const optionIndex = optionIndexOffset + i;
               const count = counts[optionIndex] || 0;
               const questionTotal =
-                mode === 'quiz'
-                  ? new Set(
-                      votes
-                        .filter((vote) => Number(vote.value) === safeQuizIndex + 1)
-                        .map((vote) => vote.participant_id)
-                    ).size
-                  : totalCast;
+                mode === 'quiz' && activeQuizStats ? activeQuizStats.questionTotal : totalCast;
               const pct = questionTotal > 0 ? Math.round((count / questionTotal) * 100) : 0;
+              const imageUrl = getPollOptionImageUrl(option);
+              const isCorrect =
+                mode === 'quiz' &&
+                revealed &&
+                !!activeQuizStats?.hasKey &&
+                activeQuizStats.correctOffsets.includes(i);
               return (
-                <div key={i} className="relative min-h-[64px] overflow-hidden rounded-lg border border-[#e9e7e7] bg-white">
+                <div
+                  key={i}
+                  className={`relative min-h-[72px] overflow-hidden rounded-lg bg-white ring-1 ${
+                    isCorrect ? 'ring-2 ring-emerald-400' : 'ring-[#e9e7e7]'
+                  }`}
+                >
                   {revealed && (
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${pct}%` }}
                       transition={{ duration: 0.45 }}
-                      className="absolute inset-y-0 left-0 bg-[#dce8ff]"
+                      className={`absolute inset-y-0 left-0 ${
+                        mode === 'quiz' ? 'bg-emerald-100/80' : 'bg-[#dce8ff]'
+                      }`}
                       aria-hidden
                     />
                   )}
                   <div className="relative flex h-full flex-col justify-between gap-2 px-3 py-2.5">
-                    <span className="line-clamp-2 break-words text-xs font-semibold leading-snug text-[#323232]">
-                      {getPollOptionLabel(option, `選択肢 ${i + 1}`)}
+                    <span className="flex min-w-0 items-start gap-1.5 break-words text-xs font-semibold leading-snug text-[#323232]">
+                      {mode === 'quiz' && (
+                        <span className="shrink-0 font-bold text-emerald-700">{optionLetter(i)}</span>
+                      )}
+                      {imageUrl && (
+                        <span
+                          className="shrink-0 rounded-md ring-1 ring-[#e1dcdc]"
+                          aria-hidden
+                        >
+                          <img
+                            src={imageUrl}
+                            alt={`${mode === 'quiz' ? `解答 ${optionLetter(i)}` : `選択肢 ${i + 1}`} の画像`}
+                            className="h-8 w-8 rounded-md object-cover"
+                          />
+                        </span>
+                      )}
+                      <span className="line-clamp-2 min-w-0">
+                        {getPollOptionLabel(
+                          option,
+                          mode === 'quiz' ? `解答 ${optionLetter(i)}` : `選択肢 ${i + 1}`
+                        )}
+                      </span>
                     </span>
                     {revealed && (
-                      <span className="self-end text-xs font-bold tabular-nums text-[#595959]">
-                        {count} ({pct}%)
+                      <span className="flex items-center gap-2">
+                        {isCorrect && (
+                          <span className="inline-flex shrink-0 items-center rounded-full bg-emerald-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                            正解
+                          </span>
+                        )}
+                        <span className="ml-auto self-end text-xs font-bold tabular-nums text-[#595959]">
+                          {count} ({pct}%)
+                        </span>
                       </span>
                     )}
                   </div>
