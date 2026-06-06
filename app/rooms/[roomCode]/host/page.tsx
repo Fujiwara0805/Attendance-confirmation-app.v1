@@ -2959,8 +2959,8 @@ export default function HostPage() {
                 <div className="w-14 h-14 rounded-2xl bg-emerald-50 ring-1 ring-emerald-100 flex items-center justify-center mb-3">
                   <BarChart3 className="w-7 h-7 text-emerald-400" />
                 </div>
-                <p className="text-sm font-semibold text-slate-800">ワークカードを作成しましょう</p>
-                <div className="mt-4 grid w-full max-w-3xl grid-cols-1 gap-3 sm:grid-cols-3">
+                <p className="text-sm font-semibold text-slate-800">ワークスペース内で使用するアクションカードを作成する</p>
+                <div className="mt-4 grid w-full max-w-2xl grid-cols-1 gap-3 sm:grid-cols-2">
                   {[
                     {
                       icon: Hammer,
@@ -2969,13 +2969,8 @@ export default function HostPage() {
                     },
                     {
                       icon: ListOrdered,
-                      title: '形式を選んで作成',
-                      description: '新規作成から形式を選び、タイトルや選択肢を設定します。',
-                    },
-                    {
-                      icon: Monitor,
-                      title: '表示して集計',
-                      description: 'スクリーンに出すと、参加者の回答をリアルタイムに確認できます。',
+                      title: 'ワークスペースで使用するカードを選択',
+                      description: '投票機能、クイズ形式、ランキング形式、プレスト形式から1つを選択して、ユーザーの理解度や声を聞こう。',
                     },
                   ].map(({ icon: Icon, title, description }) => (
                     <div key={title} className="rounded-lg border border-emerald-100 bg-emerald-50/40 px-4 py-3 text-left">
