@@ -2970,7 +2970,7 @@ export default function HostPage() {
                     {
                       icon: ListOrdered,
                       title: 'ワークスペースで使用するカードを選択',
-                      description: '投票機能、クイズ形式、ランキング形式、プレスト形式から1つを選択して、ユーザーの理解度や声を聞こう。',
+                      description: '投票機能、クイズ形式、ランキング形式、プレスト形式から1つを選択して、ユーザーの理解度や声を確認できます。',
                     },
                   ].map(({ icon: Icon, title, description }) => (
                     <div key={title} className="rounded-lg border border-emerald-100 bg-emerald-50/40 px-4 py-3 text-left">
