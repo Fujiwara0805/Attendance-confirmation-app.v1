@@ -9,7 +9,6 @@ import {
   Airplay,
   BarChart3,
   BookOpen,
-  FileText,
   HelpCircle,
   LogOut,
   Menu,
@@ -273,7 +272,7 @@ function SidebarContent({
           <div className="grid grid-cols-2 gap-2">
             <div className="bg-white rounded-lg ring-1 ring-[#dce8ff] p-2.5">
               <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#8c8989]">
-                <FileText className="h-4 w-4 text-[#2864f0]" />
+                <BookOpen className="h-4 w-4 text-[#2864f0]" />
                 フォーム
               </div>
               <div className="mt-1 flex items-baseline gap-1">
@@ -289,7 +288,7 @@ function SidebarContent({
             </div>
             <div className="bg-white rounded-lg ring-1 ring-[#dce8ff] p-2.5">
               <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#8c8989]">
-                <BarChart3 className="h-4 w-4 text-[#2864f0]" />
+                <Airplay className="h-4 w-4 text-[#2864f0]" />
                 ルーム
               </div>
               <div className="mt-1 flex items-baseline gap-1">

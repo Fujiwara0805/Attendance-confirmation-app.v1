@@ -441,7 +441,7 @@ export default function StagePage() {
               )}
             </>
           ) : (
-            <div className="w-full max-w-xl px-8 text-center">
+            <div className="w-full max-w-2xl px-8 text-center">
               <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/15">
                 <MonitorUp className="w-10 h-10 text-indigo-200" />
               </div>
@@ -449,39 +449,49 @@ export default function StagePage() {
                 資料投影画面
               </h1>
               <p className="mt-3 text-sm sm:text-base leading-relaxed text-slate-300">
-                Canva / Google Slides などのブラウザ資料ツールを発表モードにし、その資料画面だけをざせきくんに取り込みます。
+                Canva / Google Slides などのブラウザ資料ツールを発表モードにし、<br />
+                その資料画面だけをざせきくんに取り込みます。
               </p>
               <div className="mt-5 rounded-2xl bg-white/10 p-4 text-left ring-1 ring-white/15">
-                <p className="text-xs font-bold uppercase tracking-wide text-indigo-200">推奨手順</p>
+                <p className="text-xs font-bold uppercase tracking-wide text-indigo-200">かんたん3ステップ</p>
                 <ol className="mt-3 space-y-2 text-sm leading-relaxed text-slate-200">
-                  <li>1. Canva / Google Slides などで発表モードを開く</li>
-                  <li>2. 資料投影画面を、最終的にスクリーンへ出す画面として準備する</li>
-                  <li>3. 「資料を取り込む」を押す</li>
-                  <li>4. 共有対象は発表中の Chrome タブ、または発表画面を表示している画面全体を選ぶ</li>
+                  <li>1. Canva / Google Slides を発表モードで開く</li>
+                  <li>2. 下の「資料を取り込む」を押す</li>
+                  <li>3. 共有対象で発表中のタブ（または画面全体）を選ぶ</li>
                 </ol>
                 <p className="mt-3 text-xs leading-relaxed text-slate-400">
-                  編集画面のタブを選ぶと編集画面が映ります。取り込み後、資料投影画面を全画面にしてスクリーンへ表示します。
+                  取り込んだら全画面にしてスクリーンに表示します。編集画面のタブを選ぶと編集画面が映るのでご注意ください。
                 </p>
                 <div className="mt-3 rounded-lg bg-amber-400/15 px-3 py-2 text-xs font-bold leading-relaxed text-amber-100 ring-1 ring-amber-300/25">
-                  <p>発表用スクリプトがスクリーンに映る場合は、PCの画面設定でミラーリングをOFFにし、拡張表示にしてください。</p>
+                  <p>発表者用メモがスクリーンに映る場合は、画面設定をミラーリングOFF（拡張表示）にしてください。</p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={startScreenShare}
-                className="mt-7 inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-indigo-500 px-5 text-sm font-bold text-white shadow-lg shadow-indigo-950/30 hover:bg-indigo-400"
-              >
-                <Play className="w-4 h-4 fill-current" />
-                資料を取り込む
-              </button>
-              <button
-                type="button"
-                onClick={openPollScreen}
-                className="mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 text-sm font-bold text-white ring-1 ring-emerald-400 hover:bg-emerald-400"
-              >
-                <Trees className="w-4 h-4" />
-                ワークスペース画面を開く
-              </button>
+              <div className="mt-7 flex flex-nowrap items-center justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={startScreenShare}
+                  className="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-amber-400 px-3.5 text-sm font-bold text-slate-900 shadow-lg shadow-amber-900/20 ring-1 ring-amber-300 hover:bg-amber-300"
+                >
+                  <Play className="w-4 h-4 fill-current" />
+                  資料を取り込む
+                </button>
+                <button
+                  type="button"
+                  onClick={openPollScreen}
+                  className="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-emerald-500 px-3.5 text-sm font-bold text-white ring-1 ring-emerald-400 hover:bg-emerald-400"
+                >
+                  <Trees className="w-4 h-4" />
+                  ワークスペース画面
+                </button>
+                <button
+                  type="button"
+                  onClick={openClassicScreen}
+                  className="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-indigo-500 px-3.5 text-sm font-bold text-white ring-1 ring-indigo-400 hover:bg-indigo-400"
+                >
+                  <MonitorUp className="w-4 h-4" />
+                  スクリーン画面
+                </button>
+              </div>
               {captureError && (
                 <p className="mt-4 rounded-lg bg-rose-500/15 px-4 py-3 text-sm text-rose-100 ring-1 ring-rose-300/20">
                   {captureError}
@@ -530,14 +540,6 @@ export default function StagePage() {
                 再接続中
               </div>
             )}
-            <button
-              type="button"
-              onClick={openClassicScreen}
-              className="mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-3 text-sm font-bold text-white shadow-sm hover:bg-indigo-700"
-            >
-              <MonitorUp className="w-4 h-4" />
-              スクリーン画面へ
-            </button>
           </header>
 
           <div ref={vSplitRef} className="flex min-h-0 flex-1 flex-col">
