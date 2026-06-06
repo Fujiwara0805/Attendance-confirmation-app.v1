@@ -346,8 +346,17 @@ const HOST_FAQ_SECTIONS: Array<{
     icon: Hammer,
     summary: '通常投票・クイズ・ランキング・ブレスト形式のカードを作成し、回答を集計できます。',
     body:
-      '通常投票は選択肢から回答してもらう基本形式で、複数選択にも対応します。クイズ形式では正解を設定でき、ランキング形式では候補を順位で回答してもらい、重み付けされた結果を集計できます。ブレスト形式は参加者の短い自由回答を付箋カードとして集める形式です。カードはドラッグで並び替えでき、スクリーン画面で結果を共有できます。',
-    tips: ['新規作成はヘッダー右側のボタンから行います。', '検索欄で投票タイトル、選択肢、形式を絞り込めます。'],
+      '通常投票は選択肢から回答してもらう基本形式で、複数選択にも対応します。クイズ形式では正解を設定でき、1枚のカードに複数問をまとめて入れられます（スクリーンの「次の問題」で順番に出題でき、順番も崩れません）。ランキング形式は候補を順位で回答してもらい、重み付けして集計します。ブレスト形式は参加者の短い自由回答を付箋カードとして集める形式です。各カードの「表示する」でスクリーンに出し、スクリーン側の「回答開始」で受付を始めます。',
+    tips: ['新規作成はヘッダー右側のボタンから行います。', 'カードのドラッグ並び替えは管理画面の整理用です（スクリーンの表示順とは別。表示順の決め方は「スクリーン表示と出題の流れ」を参照）。', 'クイズの設問は「問題番号」で並びます。番号を変えると、その問題が指定位置に移動し、ほかの問題は自動でずれます（番号は常に1から連番）。例：問題1〜10がある状態で新しい問題を「3」にすると、旧3〜10が4〜11に繰り下がって挿入されます。並びはスクリーン画面・資料投影画面・参加者の投票画面すべてに反映されます。'],
+  },
+  {
+    id: 'screen',
+    title: 'スクリーン表示と出題の流れ',
+    icon: Monitor,
+    summary: '「スクリーンに表示」「回答開始」「終了／再開」の違いと、問題を順番に出すコツ。',
+    body:
+      'ボタンの意味は2段階です。ワーク機能タブの「スクリーンに表示」はカードをスクリーンに出す操作、スクリーン画面（資料投影画面の右サブ画面）の「回答開始」は回答受付タイマーを始める操作です。ヘッダー右上の「終了／再開」はセッション全体の開閉で、個々の問題とは別レイヤーです。問題を順番どおり出したい場合、いちばん確実なのは1枚のクイズカードに複数問を入れて「次の問題」で進める方法です。別カードを並べる場合は「一斉開始」で1→2→3の順を指定するとスクリーンにその順で並びます（指定なしで1枚ずつ開始したときは作成順で並びます）。',
+    tips: ['複数カードを順番に出すときは、スクリーン画面・資料投影画面のワークスペースとも先頭の1枚だけが表示されます。各カードの「次に進む」で締切＆次のカードへ進められます（管理画面に戻らずに操作できます）。', '結果をしっかり見せたいときは、タイマー終了で結果が出てから「次に進む」を押してください。', '資料投影画面では、資料とチャットの境界（縦線）をドラッグで横幅を、ワークスペースと質問チャットの境界（横線）をドラッグで高さを、それぞれ調整できます。'],
   },
   {
     id: 'brainstorm',
@@ -731,6 +740,22 @@ export default function HostPage() {
     },
     []
   );
+  // 問題番号を変更＝その設問を指定位置へ移動し、他の設問を自動で繰り下げて 1〜N の連番に保つ。
+  const moveQuizQuestionToNumber = useCallback((fromIndex: number, toNumber: number) => {
+    setQuizQuestions((prev) => {
+      const target = clampNumber(toNumber, 1, prev.length, prev.length);
+      if (fromIndex < 0 || fromIndex >= prev.length) return prev;
+      const arr = [...prev];
+      const [moved] = arr.splice(fromIndex, 1);
+      arr.splice(target - 1, 0, moved);
+      return arr.map((q, i) => ({ ...q, questionNumber: i + 1 }));
+    });
+    setActiveQuizQuestionIndex((prevIndex) => {
+      // 移動後の位置（target-1）にアクティブを合わせる。length は state 更新前後で不変。
+      const target = clampNumber(toNumber, 1, quizQuestions.length, quizQuestions.length);
+      return target - 1;
+    });
+  }, [quizQuestions.length]);
 
   // Fetch room
   useEffect(() => {
@@ -979,6 +1004,10 @@ export default function HostPage() {
         return text || `候補 ${i + 1}`;
       });
     const validQuizQuestions = quizQuestions
+      // 設問番号順で保存する（保存データの並び順＝表示順になり、各画面が番号順に揃う）。
+      .map((q, index) => ({ q, index }))
+      .sort((a, b) => (a.q.questionNumber - b.q.questionNumber) || (a.index - b.index))
+      .map(({ q }) => q)
       .map((q) => {
         const kept = q.options
           .map((o, i) => ({
@@ -1257,7 +1286,7 @@ export default function HostPage() {
         if (a.order !== null && b.order !== null) return a.order - b.order;
         if (a.order !== null) return -1;
         if (b.order !== null) return 1;
-        return new Date(b.poll.created_at).getTime() - new Date(a.poll.created_at).getTime();
+        return new Date(a.poll.created_at).getTime() - new Date(b.poll.created_at).getTime();
       });
   }, [polls]);
 
@@ -1873,15 +1902,17 @@ export default function HostPage() {
                 新規作成
               </button>
             )}
-            <button
-              type="button"
-              onClick={() => setTab('faq')}
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#9dd8b1] bg-white text-[#00963c] transition-colors hover:bg-[#eaf8ef]"
-              aria-label="ホスト管理のFAQを開く"
-              title="ホスト管理のFAQ"
-            >
-              <HelpCircle className="h-4 w-4" />
-            </button>
+            {tab !== 'faq' && (
+              <button
+                type="button"
+                onClick={() => setTab('faq')}
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#9dd8b1] bg-white text-[#00963c] transition-colors hover:bg-[#eaf8ef]"
+                aria-label="ホスト管理のFAQを開く"
+                title="ホスト管理のFAQ"
+              >
+                <HelpCircle className="h-4 w-4" />
+              </button>
+            )}
             <a
               href={`/rooms/${roomCode}/present`}
               target={`zasekikun-present-${roomCode}`}
@@ -1891,30 +1922,6 @@ export default function HostPage() {
             >
               <Monitor className="w-4 h-4" />
             </a>
-            <button
-              type="button"
-              disabled={roomStatusLoading}
-              onClick={handleToggleRoomStatus}
-              className={`inline-flex h-9 min-w-[5rem] shrink-0 items-center justify-center gap-1.5 rounded-md px-3 text-xs font-bold transition-colors disabled:pointer-events-none disabled:opacity-60 ${
-                room.status === 'active'
-                  ? 'bg-[#dc1e32] text-white hover:bg-[#a51428]'
-                  : 'bg-[#2864f0] text-white hover:bg-[#285ac8]'
-              }`}
-            >
-              {roomStatusLoading ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : room.status === 'active' ? (
-                <>
-                  <StopCircle className="w-3.5 h-3.5" />
-                  終了
-                </>
-              ) : (
-                <>
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  再開
-                </>
-              )}
-            </button>
           </HostPageHeader>
         </div>
 
@@ -1956,15 +1963,17 @@ export default function HostPage() {
                   新規作成
                 </button>
               )}
-              <button
-                type="button"
-                onClick={() => setTab('faq')}
-                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#9dd8b1] bg-white text-[#00963c] transition-colors hover:bg-[#eaf8ef]"
-                aria-label="ホスト管理のFAQを開く"
-                title="ホスト管理のFAQ"
-              >
-                <HelpCircle className="h-4 w-4" />
-              </button>
+              {tab !== 'faq' && (
+                <button
+                  type="button"
+                  onClick={() => setTab('faq')}
+                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#9dd8b1] bg-white text-[#00963c] transition-colors hover:bg-[#eaf8ef]"
+                  aria-label="ホスト管理のFAQを開く"
+                  title="ホスト管理のFAQ"
+                >
+                  <HelpCircle className="h-4 w-4" />
+                </button>
+              )}
               <a
                 href={`/rooms/${roomCode}/present`}
                 target={`zasekikun-present-${roomCode}`}
@@ -1974,26 +1983,6 @@ export default function HostPage() {
               >
                 <Monitor className="h-4 w-4" />
               </a>
-              <button
-                type="button"
-                disabled={roomStatusLoading}
-                onClick={handleToggleRoomStatus}
-                className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-xs font-bold transition-colors disabled:pointer-events-none disabled:opacity-60 ${
-                  room.status === 'active'
-                    ? 'bg-[#dc1e32] text-white hover:bg-[#a51428]'
-                    : 'bg-[#2864f0] text-white hover:bg-[#285ac8]'
-                }`}
-                aria-label={room.status === 'active' ? 'セッションを終了' : 'セッションを再開'}
-                title={room.status === 'active' ? 'セッションを終了' : 'セッションを再開'}
-              >
-                {roomStatusLoading ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : room.status === 'active' ? (
-                  <StopCircle className="h-3.5 w-3.5" />
-                ) : (
-                  <RotateCcw className="h-3.5 w-3.5" />
-                )}
-              </button>
             </div>
           </div>
         </div>
@@ -2396,41 +2385,6 @@ export default function HostPage() {
                     <div className="space-y-4">
                       {activeQuizQuestion && (
                         <div className="rounded-2xl bg-slate-50/70 p-4 ring-1 ring-slate-200">
-                          <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
-                            <div className="flex items-center gap-2">
-                              <select
-                                value={activeQuizQuestion.options.length}
-                                onChange={(e) => {
-                                  const count = Number(e.target.value);
-                                  updateQuizQuestion(activeQuizQuestionIndex, (q) => ({
-                                    ...q,
-                                    options: Array.from({ length: count }, (_, optionIndex) => q.options[optionIndex] || ''),
-                                    optionImages: Array.from({ length: count }, (_, optionIndex) => q.optionImages[optionIndex] || ''),
-                                    correctOptionOffsets: q.correctOptionOffsets.filter((offset) => offset < count),
-                                  }));
-                                }}
-                                className="h-9 rounded-lg bg-white px-2 text-xs font-semibold ring-1 ring-slate-200"
-                              >
-                                {QUIZ_OPTION_COUNTS.map((count) => (
-                                  <option key={count} value={count}>{count}択</option>
-                                ))}
-                              </select>
-                              {quizQuestions.length > 1 && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setQuizQuestions((prev) => prev.filter((_, i) => i !== activeQuizQuestionIndex));
-                                    setActiveQuizQuestionIndex((i) => Math.max(0, Math.min(i, quizQuestions.length - 2)));
-                                  }}
-                                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-rose-500 hover:bg-rose-50"
-                                  title="問題を削除"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              )}
-                            </div>
-                          </div>
-
                           <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
                             <textarea
                               value={activeQuizQuestion.question}
@@ -2442,43 +2396,82 @@ export default function HostPage() {
                               className="min-h-[88px] w-full resize-y rounded-xl bg-white px-4 py-3 text-lg leading-relaxed font-medium ring-1 ring-slate-200 outline-none focus:ring-emerald-300 sm:flex-1"
                               style={{ fontSize: '18px' }}
                             />
-                            <label
-                              className={`inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg bg-slate-50 px-3 text-xs font-bold text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100 sm:self-start ${
-                                imageUploading[`${activeQuizQuestion.id}-question`]
-                                  ? 'pointer-events-none opacity-60'
-                                  : ''
-                              }`}
-                              title="問題文に画像をアップロード（推奨: 1600x900px / 10MB以内）"
-                            >
-                              <input
-                                type="file"
-                                accept="image/*"
-                                className="sr-only"
-                                onChange={(e) => {
-                                  const file = e.target.files?.[0];
-                                  const key = `${activeQuizQuestion.id}-question`;
-                                  if (file) {
-                                    void uploadPollImage(
-                                      file,
-                                      (url) => {
-                                        updateQuizQuestion(activeQuizQuestionIndex, (q) => ({
-                                          ...q,
-                                          questionImageUrl: url,
-                                        }));
-                                      },
-                                      key
-                                    );
-                                  }
-                                  e.target.value = '';
-                                }}
-                              />
-                              {imageUploading[`${activeQuizQuestion.id}-question`] ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <ImageIcon className="h-4 w-4" />
-                              )}
-                              アップロード
-                            </label>
+                            <div className="flex shrink-0 flex-col gap-2 sm:items-end">
+                              {/* 1行目: 選択肢の数 + 削除 / 2行目: アップロード */}
+                              <div className="flex items-center justify-end gap-2">
+                                <select
+                                  value={activeQuizQuestion.options.length}
+                                  onChange={(e) => {
+                                    const count = Number(e.target.value);
+                                    updateQuizQuestion(activeQuizQuestionIndex, (q) => ({
+                                      ...q,
+                                      options: Array.from({ length: count }, (_, optionIndex) => q.options[optionIndex] || ''),
+                                      optionImages: Array.from({ length: count }, (_, optionIndex) => q.optionImages[optionIndex] || ''),
+                                      correctOptionOffsets: q.correctOptionOffsets.filter((offset) => offset < count),
+                                    }));
+                                  }}
+                                  className="h-9 rounded-lg bg-white px-2 text-xs font-semibold ring-1 ring-slate-200"
+                                >
+                                  {QUIZ_OPTION_COUNTS.map((count) => (
+                                    <option key={count} value={count}>{count}択</option>
+                                  ))}
+                                </select>
+                                {quizQuestions.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setQuizQuestions((prev) =>
+                                        prev
+                                          .filter((_, i) => i !== activeQuizQuestionIndex)
+                                          .map((q, i) => ({ ...q, questionNumber: i + 1 }))
+                                      );
+                                      setActiveQuizQuestionIndex((i) => Math.max(0, Math.min(i, quizQuestions.length - 2)));
+                                    }}
+                                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-rose-500 hover:bg-rose-50"
+                                    title="問題を削除"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </div>
+                              <label
+                                className={`inline-flex h-9 w-full shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-slate-50 px-3 text-xs font-bold text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100 ${
+                                  imageUploading[`${activeQuizQuestion.id}-question`]
+                                    ? 'pointer-events-none opacity-60'
+                                    : ''
+                                }`}
+                                title="問題文に画像をアップロード（推奨: 1600x900px / 10MB以内）"
+                              >
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="sr-only"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    const key = `${activeQuizQuestion.id}-question`;
+                                    if (file) {
+                                      void uploadPollImage(
+                                        file,
+                                        (url) => {
+                                          updateQuizQuestion(activeQuizQuestionIndex, (q) => ({
+                                            ...q,
+                                            questionImageUrl: url,
+                                          }));
+                                        },
+                                        key
+                                      );
+                                    }
+                                    e.target.value = '';
+                                  }}
+                                />
+                                {imageUploading[`${activeQuizQuestion.id}-question`] ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <ImageIcon className="h-4 w-4" />
+                                )}
+                                アップロード
+                              </label>
+                            </div>
                           </div>
                           {activeQuizQuestion.questionImageUrl && (
                             <div className="relative mt-3 overflow-hidden rounded-xl ring-1 ring-slate-200">
@@ -2505,17 +2498,16 @@ export default function HostPage() {
                           )}
 
                           <div className="mt-3">
-                            <label className="text-xs sm:text-sm text-slate-600">
-                              問題番号
+                            <label className="flex items-center gap-3 text-xs sm:text-sm text-slate-600">
+                              <span className="shrink-0">問題番号</span>
                               <select
-                                value={activeQuizQuestion.questionNumber}
+                                value={activeQuizQuestionIndex + 1}
                                 onChange={(e) => {
-                                  const questionNumber = Number(e.target.value);
-                                  updateQuizQuestion(activeQuizQuestionIndex, (q) => ({ ...q, questionNumber }));
+                                  moveQuizQuestionToNumber(activeQuizQuestionIndex, Number(e.target.value));
                                 }}
-                                className="mt-1 h-10 w-full rounded-xl bg-white px-3 text-sm font-semibold ring-1 ring-slate-200 outline-none focus:ring-emerald-300 sm:w-40"
+                                className="h-10 w-full rounded-xl bg-white px-3 text-sm font-semibold ring-1 ring-slate-200 outline-none focus:ring-emerald-300 sm:w-40"
                               >
-                                {Array.from({ length: 50 }, (_, i) => i + 1).map((number) => (
+                                {Array.from({ length: quizQuestions.length }, (_, i) => i + 1).map((number) => (
                                   <option key={number} value={number}>
                                     問題 {number}
                                   </option>
@@ -2656,18 +2648,35 @@ export default function HostPage() {
                           <Plus className="w-4 h-4" />
                           問題を追加
                         </button>
-                        <div className="ml-auto flex items-center gap-1">
-                          {quizQuestions.map((_, i) => (
-                            <button
-                              key={i}
-                              type="button"
-                              onClick={() => setActiveQuizQuestionIndex(i)}
-                              className={`h-2.5 rounded-full transition-all ${
-                                i === activeQuizQuestionIndex ? 'w-6 bg-emerald-500' : 'w-2.5 bg-slate-300 hover:bg-slate-400'
-                              }`}
-                              aria-label={`問題 ${i + 1} を表示`}
-                            />
-                          ))}
+                        <div className="ml-auto flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={handleCreatePoll}
+                            disabled={
+                              creatingPoll ||
+                              !pollQuestion.trim() ||
+                              !quizQuestions.some((q) => q.question.trim() && q.options.filter((o) => o.trim()).length >= 2)
+                            }
+                            className="bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-200 disabled:text-slate-400 text-white font-semibold px-4 h-10 rounded-lg text-sm transition-colors"
+                          >
+                            {creatingPoll
+                              ? editingPollId
+                                ? '更新中...'
+                                : '作成中...'
+                              : editingPollId
+                              ? '更新する'
+                              : '作成する'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowCreatePoll(false);
+                              setEditingPollId(null);
+                            }}
+                            className="font-semibold px-4 h-10 rounded-lg text-sm text-rose-600 ring-1 ring-rose-200 hover:bg-rose-50 transition-colors"
+                          >
+                            キャンセル
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -2907,6 +2916,8 @@ export default function HostPage() {
                       </label>
                     </div>
                   )}
+                  {/* クイズ形式は「問題を追加」と同じ行に作成/キャンセルを配置するため、共通フッターは非表示 */}
+                  {pollMode !== 'quiz' && (
                   <div className="flex gap-2 pt-1">
                     <button
                       onClick={handleCreatePoll}
@@ -2914,9 +2925,7 @@ export default function HostPage() {
                         creatingPoll ||
 	                        !pollQuestion.trim() ||
 	                        (pollMode === 'standard' && pollOptions.filter((o) => o.trim()).length < 2) ||
-	                        (pollMode === 'ranking' && rankingCandidateCount < 3) ||
-	                        (pollMode === 'quiz' &&
-                          !quizQuestions.some((q) => q.question.trim() && q.options.filter((o) => o.trim()).length >= 2))
+	                        (pollMode === 'ranking' && rankingCandidateCount < 3)
                       }
                       className="bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-200 disabled:text-slate-400 text-white font-semibold px-4 h-10 rounded-lg text-sm transition-colors"
                     >
@@ -2938,6 +2947,7 @@ export default function HostPage() {
                       キャンセル
                     </button>
                   </div>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -3575,12 +3585,12 @@ function HostSideNav({
             href={`/rooms/${roomCode}/present`}
             target={`zasekikun-present-${roomCode}`}
             rel="noopener noreferrer"
-            className="rounded-lg border border-[#9dd8b1] bg-white p-2 transition-colors hover:bg-[#eaf8ef]"
+            className="rounded-lg border border-[#aac8ff] bg-white p-2 transition-colors hover:bg-[#ebf3ff]"
             title="スクリーン画面を開く"
           >
             <p className="font-bold text-[#8c8989]">スクリーン</p>
-            <p className="mt-1 inline-flex items-center gap-1 font-extrabold text-[#323232]">
-              <Monitor className="h-3.5 w-3.5 text-[#00963c]" />
+            <p className="mt-1 inline-flex items-center gap-1 font-extrabold text-[#2864f0]">
+              <Monitor className="h-3.5 w-3.5 text-[#2864f0]" />
               開く
             </p>
           </a>
@@ -3661,7 +3671,7 @@ function HostSideNav({
       <div className="border-t border-[#9dd8b1] p-4">
         <Link
           href="/admin"
-          className={`inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-[#9dd8b1] bg-white text-sm font-bold text-[#595959] transition-colors hover:bg-[#eaf8ef] hover:text-[#00963c] ${
+          className={`inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-[#aac8ff] bg-white text-sm font-bold text-[#2864f0] transition-colors hover:bg-[#ebf3ff] hover:text-[#285ac8] ${
             isCollapsed ? 'px-0' : ''
           }`}
           title="管理画面へ"
@@ -4511,14 +4521,14 @@ function PollResultCard({
             disabled={isPending}
             onClick={onStart}
             className="inline-flex items-center gap-1 text-xs font-bold bg-emerald-500 hover:bg-emerald-600 text-white px-3 h-9 rounded-lg disabled:opacity-60 transition-colors"
-            title="開始"
+            title="表示する"
           >
             {isPending ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
             ) : (
               <>
-                <Play className="w-3.5 h-3.5 fill-current" />
-                開始
+                <Monitor className="w-3.5 h-3.5" />
+                表示する
               </>
             )}
           </button>

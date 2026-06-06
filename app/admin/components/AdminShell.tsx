@@ -6,8 +6,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import {
+  Airplay,
   BarChart3,
-  ClipboardList,
+  BookOpen,
   FileText,
   HelpCircle,
   LogOut,
@@ -82,7 +83,7 @@ const MENU_ITEMS: Array<{
     key: 'courses',
     label: 'フォーム管理',
     description: 'フォーム作成・管理',
-    icon: FileText,
+    icon: BookOpen,
     iconBg: 'bg-[#ebf3ff]',
     iconColor: 'text-[#2864f0]',
     activeBg: 'bg-[#dce8ff] text-[#23418c]',
@@ -92,7 +93,7 @@ const MENU_ITEMS: Array<{
     key: 'rooms',
     label: 'ルーム管理',
     description: 'Q&A / ワーク機能',
-    icon: BarChart3,
+    icon: Airplay,
     iconBg: 'bg-[#ebf3ff]',
     iconColor: 'text-[#2864f0]',
     activeBg: 'bg-[#dce8ff] text-[#23418c]',
@@ -102,7 +103,7 @@ const MENU_ITEMS: Array<{
     key: 'export',
     label: 'データ出力',
     description: 'CSV / JSON エクスポート',
-    icon: ClipboardList,
+    icon: BarChart3,
     iconBg: 'bg-[#ebf3ff]',
     iconColor: 'text-[#2864f0]',
     activeBg: 'bg-[#dce8ff] text-[#23418c]',

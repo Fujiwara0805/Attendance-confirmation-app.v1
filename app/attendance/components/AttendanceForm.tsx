@@ -751,7 +751,7 @@ export default function DynamicAttendanceForm({
                   height={72}
                   className="rounded-2xl shadow-lg shadow-indigo-100/50 mb-4"
                 />
-                <h2 className="text-xl font-bold text-slate-900 tracking-tight text-center">出席管理システム</h2>
+                <h2 className="text-xl font-bold text-slate-900 tracking-tight text-center">出席・Q&A・投票プラットフォーム</h2>
                 <p className="text-slate-500 text-center text-sm mt-1 mb-4 leading-relaxed">
                   必要項目を入力して、出席登録をしましょう
                 </p>

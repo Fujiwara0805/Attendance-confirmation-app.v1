@@ -17,6 +17,7 @@ import {
   PauseCircle,
   Play,
   RefreshCw,
+  StopCircle,
   ThumbsUp,
   Trees,
   WifiOff,
@@ -53,6 +54,7 @@ export default function StagePage() {
   const roomCode = (params.roomCode as string).toUpperCase();
   const stageRef = useRef<HTMLDivElement>(null);
   const splitRef = useRef<HTMLDivElement>(null);
+  const vSplitRef = useRef<HTMLDivElement>(null);
   const videoHostRef = useRef<HTMLDivElement>(null);
 
   const [room, setRoom] = useState<Room | null>(null);
@@ -61,10 +63,13 @@ export default function StagePage() {
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [videoReady, setVideoReady] = useState(false);
   const [sharedPercent, setSharedPercent] = useState(70);
+  const [workspacePercent, setWorkspacePercent] = useState(45);
   const [isDesktop, setIsDesktop] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
+  const [isVResizing, setIsVResizing] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [startingPollId, setStartingPollId] = useState<string | null>(null);
+  const [closingPollId, setClosingPollId] = useState<string | null>(null);
 
   // MediaStream はモジュールスコープのシングルトン (captureStreamStore) で保持。
   // どんな再マウントが起きてもストリーム参照が消えないため、
@@ -101,7 +106,7 @@ export default function StagePage() {
 
   const { questions, connected: qConnected } = useRealtimeQuestions(room?.id || null);
   const { activePolls: rawActivePolls, pollVotes, connected: pConnected } = useRealtimePolls(room?.id || null);
-  // bulkOrder（一斉開始時の選択順）優先で並べ替え。未設定は created_at 降順を維持。
+  // bulkOrder（一斉開始時の選択順）優先で並べ替え。未設定は created_at の作成順（古い順＝1問目が先頭）。
   const activePolls = useMemo<Poll[]>(() => {
     return [...rawActivePolls].sort((a: Poll, b: Poll) => {
       const am = extractPollPayload(a.options).meta.bulkOrder;
@@ -111,7 +116,7 @@ export default function StagePage() {
       if (aHas && bHas) return (am as number) - (bm as number);
       if (aHas) return -1;
       if (bHas) return 1;
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
     });
   }, [rawActivePolls]);
 
@@ -252,6 +257,23 @@ export default function StagePage() {
     }
   }, [roomCode, startingPollId]);
 
+  // 締切（status=closed）にすると activePolls から外れ、次のアクティブカードが先頭になる。
+  const closePoll = useCallback(async (pollId: string) => {
+    if (closingPollId) return;
+    setClosingPollId(pollId);
+    try {
+      await fetch(`/api/rooms/${roomCode}/polls/${pollId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'closed' }),
+      });
+    } catch (error) {
+      console.error('close poll failed', error);
+    } finally {
+      setClosingPollId(null);
+    }
+  }, [roomCode, closingPollId]);
+
   useEffect(() => {
     if (!qrModalOpen) return;
     const onKey = (event: KeyboardEvent) => {
@@ -286,6 +308,33 @@ export default function StagePage() {
       window.removeEventListener('pointerup', onUp);
     };
   }, [isResizing, updateSharedPercent]);
+
+  // ワークスペースと質問チャットの高さ配分を縦ドラッグで調整する。
+  const updateWorkspacePercent = useCallback((clientY: number) => {
+    const rect = vSplitRef.current?.getBoundingClientRect();
+    if (!rect || rect.height === 0) return;
+    const next = Math.round(((clientY - rect.top) / rect.height) * 100);
+    setWorkspacePercent(Math.min(80, Math.max(20, next)));
+  }, []);
+
+  const startWorkspaceResize = (event: ReactPointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setIsVResizing(true);
+    updateWorkspacePercent(event.clientY);
+  };
+
+  useEffect(() => {
+    if (!isVResizing) return;
+    const onMove = (event: PointerEvent) => updateWorkspacePercent(event.clientY);
+    const onUp = () => setIsVResizing(false);
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+  }, [isVResizing, updateWorkspacePercent]);
 
   const layoutStyle = isDesktop
     ? {
@@ -489,32 +538,48 @@ export default function StagePage() {
               <MonitorUp className="w-4 h-4" />
               スクリーン画面へ
             </button>
-            <p className="mt-3 hidden text-xs leading-relaxed text-slate-500 lg:block">
-              資料投影画面とチャットの境界をドラッグして横幅を調整できます。
-            </p>
           </header>
 
-          <section className="shrink-0 border-b border-slate-200 bg-white">
-            <div className="flex items-center justify-between px-5 py-3">
+          <div ref={vSplitRef} className="flex min-h-0 flex-1 flex-col">
+          <section
+            className="flex min-h-0 flex-col border-b border-slate-200 bg-white"
+            style={{ flexGrow: workspacePercent, flexBasis: 0 }}
+          >
+            <div className="flex shrink-0 items-center justify-between px-5 py-3">
               <div className="inline-flex items-center gap-2">
                 <Trees className="w-4 h-4 text-[#2864f0]" />
                 <h3 className="text-sm font-extrabold tracking-tight text-slate-900">ワークスペース</h3>
               </div>
               <span className="text-xs font-semibold text-slate-400">{activePolls.length}</span>
             </div>
-            <div className="max-h-[42vh] overflow-y-auto px-4 pb-4">
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
               <StagePollDeck
                 polls={activePolls}
                 pollVotes={pollVotes}
                 nowMs={nowMs}
                 startingPollId={startingPollId}
                 onStartPoll={startPollTimer}
+                closingPollId={closingPollId}
+                onClosePoll={closePoll}
               />
             </div>
           </section>
 
-          <section className="flex min-h-0 flex-1 flex-col">
-            <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-5 py-3">
+          <div
+            role="separator"
+            aria-label="ワークスペースと質問チャットの境界"
+            aria-orientation="horizontal"
+            onPointerDown={startWorkspaceResize}
+            className={`flex shrink-0 cursor-row-resize items-center justify-center border-y border-slate-200 py-1 transition-colors ${
+              isVResizing ? 'bg-indigo-100' : 'bg-slate-50 hover:bg-indigo-50'
+            }`}
+            title="ドラッグで高さを調整"
+          >
+            <div className="h-1 w-10 rounded-full bg-slate-300" />
+          </div>
+
+          <section className="flex min-h-0 flex-col" style={{ flexGrow: 100 - workspacePercent, flexBasis: 0 }}>
+            <div className="flex shrink-0 items-center justify-between border-b border-slate-200 bg-slate-50 px-5 py-3">
               <div className="inline-flex items-center gap-2">
                 <MessageSquare className="w-4 h-4 text-indigo-500" />
                 <h3 className="text-sm font-extrabold tracking-tight text-slate-900">質問チャット</h3>
@@ -566,6 +631,7 @@ export default function StagePage() {
               )}
             </div>
           </section>
+          </div>
         </aside>
       </div>
       {qrModalOpen && qrUrl && (
@@ -605,12 +671,16 @@ function StagePollDeck({
   nowMs,
   startingPollId,
   onStartPoll,
+  closingPollId,
+  onClosePoll,
 }: {
   polls: Poll[];
   pollVotes: Record<string, PollVote[]>;
   nowMs: number;
   startingPollId: string | null;
   onStartPoll: (pollId: string) => void;
+  closingPollId: string | null;
+  onClosePoll: (pollId: string) => void;
 }) {
   if (polls.length === 0) {
     return (
@@ -623,19 +693,23 @@ function StagePollDeck({
     );
   }
 
+  // 複数アクティブでも先頭（1番目）のカードだけ表示。締切で次のカードが先頭になる。
+  const poll = polls[0];
+  const hasNext = polls.length > 1;
   return (
     <div className="space-y-3">
-      {polls.map((poll, index) => (
-        <StagePollCard
-          key={poll.id}
-          poll={poll}
-          votes={pollVotes[poll.id] || []}
-          nowMs={nowMs}
-          label={`カード ${index + 1}`}
-          starting={startingPollId === poll.id}
-          onStart={() => onStartPoll(poll.id)}
-        />
-      ))}
+      <StagePollCard
+        key={poll.id}
+        poll={poll}
+        votes={pollVotes[poll.id] || []}
+        nowMs={nowMs}
+        label={hasNext ? `カード 1 / ${polls.length}` : 'カード 1'}
+        starting={startingPollId === poll.id}
+        onStart={() => onStartPoll(poll.id)}
+        hasNext={hasNext}
+        closing={closingPollId === poll.id}
+        onClose={() => onClosePoll(poll.id)}
+      />
     </div>
   );
 }
@@ -647,6 +721,9 @@ function StagePollCard({
   label,
   starting,
   onStart,
+  hasNext,
+  closing,
+  onClose,
 }: {
   poll: Poll;
   votes: PollVote[];
@@ -654,6 +731,9 @@ function StagePollCard({
   label: string;
   starting: boolean;
   onStart: () => void;
+  hasNext: boolean;
+  closing: boolean;
+  onClose: () => void;
 }) {
   const { meta, options } = extractPollPayload(poll.options);
   const mode = getPollMode(meta.mode);
@@ -785,7 +865,7 @@ function StagePollCard({
             className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#2864f0] px-3 text-xs font-bold text-white transition-colors hover:bg-[#285ac8] disabled:opacity-60"
           >
             {starting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5 fill-current" />}
-            {timeLimit > 0 ? `開始（${fmtTime(timeLimit)}）` : '開始'}
+            {timeLimit > 0 ? `回答開始（${fmtTime(timeLimit)}）` : '回答開始'}
           </button>
         ) : timeLimit > 0 ? (
           <div className={`inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-bold ${
@@ -796,9 +876,30 @@ function StagePollCard({
           </div>
         ) : requiresManualStart ? (
           <div className="inline-flex items-center gap-1.5 rounded-lg bg-[#e8f7ee] px-2 py-1 text-xs font-bold text-[#00963c]">
-            開始済み
+            受付中
           </div>
         ) : null}
+        {timerNotStarted ? (
+          <span className="text-[11px] font-bold leading-snug text-[#595959]">
+            「回答開始」ボタンを押すと回答受付が始まります。
+          </span>
+        ) : answering && timeLimit > 0 ? (
+          <span className="text-[11px] font-bold leading-snug text-[#595959]">
+            回答受付中です。結果は投票時間後に表示します。
+          </span>
+        ) : null}
+        {hasNext && revealed && (
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={closing}
+            className="ml-auto inline-flex h-8 items-center gap-1.5 rounded-lg bg-rose-600 px-3 text-xs font-bold text-white transition-colors hover:bg-rose-700 disabled:opacity-60"
+            title="このカードを締め切って次のカードへ進みます"
+          >
+            {closing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <StopCircle className="h-3.5 w-3.5" />}
+            次に進む
+          </button>
+        )}
       </div>
 
       {mode === 'quiz' && activeQuizQuestion && (
@@ -811,9 +912,18 @@ function StagePollCard({
               </span>
             )}
           </div>
-          <p className="mt-0.5 break-words text-xs font-bold leading-snug text-[#323232]">
-            {activeQuizQuestion.question}
-          </p>
+          <div className="mt-0.5 flex items-start gap-2">
+            <p className="min-w-0 flex-1 break-words text-xs font-bold leading-snug text-[#323232]">
+              {activeQuizQuestion.question}
+            </p>
+            {activeQuizQuestion.questionImageUrl && (
+              <img
+                src={activeQuizQuestion.questionImageUrl}
+                alt={`問題 ${activeQuizQuestion.questionNumber} の画像`}
+                className="h-16 w-24 shrink-0 rounded-md bg-white object-contain ring-1 ring-[#e1dcdc]"
+              />
+            )}
+          </div>
         </div>
       )}
 
@@ -841,13 +951,9 @@ function StagePollCard({
         )
       ) : (
         <div className="space-y-2">
-          {!revealed && (
+          {!revealed && !timerNotStarted && timeLimit === 0 && (
             <p className="rounded-lg bg-[#f7f5f5] px-3 py-3 text-center text-xs font-bold text-[#595959]">
-              {timerNotStarted
-                ? '開始ボタンを押すと回答受付が始まります。'
-                : timeLimit > 0
-                ? '回答受付中です。結果は投票時間後に表示します。'
-                : '回答受付中です。選択肢は参加者画面にも表示されています。'}
+              回答受付中です。選択肢は参加者画面にも表示されています。
             </p>
           )}
           <div className={`grid gap-2 ${optionGridClass}`}>

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback, useMemo, type DragEvent } fro
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, Trees, ThumbsUp, Maximize, Minimize, X, Loader2, WifiOff, MonitorUp, ChevronLeft, ChevronRight, Clock, Play } from 'lucide-react';
+import { MessageSquare, Trees, ThumbsUp, Maximize, Minimize, X, Loader2, WifiOff, MonitorUp, ChevronLeft, ChevronRight, Clock, Play, StopCircle } from 'lucide-react';
 import { useRealtimeQuestions } from '@/lib/hooks/useRealtimeQuestions';
 import { useRealtimePolls, type Poll, type PollVote } from '@/lib/hooks/useRealtimePolls';
 import {
@@ -155,7 +155,7 @@ export default function PresentPage() {
 
   const { questions, connected: qConnected } = useRealtimeQuestions(room?.id || null);
   const { activePolls: rawActivePolls, pollVotes, connected: pConnected } = useRealtimePolls(room?.id || null);
-  // bulkOrder（一斉開始時の選択順）優先で並べ替え。未設定は created_at の新しい順を維持。
+  // bulkOrder（一斉開始時の選択順）優先で並べ替え。未設定は created_at の作成順（古い順＝1問目が先頭）。
   const activePolls = useMemo<Poll[]>(() => {
     return [...rawActivePolls].sort((a: Poll, b: Poll) => {
       const am = extractPollPayload(a.options).meta.bulkOrder;
@@ -165,7 +165,7 @@ export default function PresentPage() {
       if (aHas && bHas) return (am as number) - (bm as number);
       if (aHas) return -1;
       if (bHas) return 1;
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
     });
   }, [rawActivePolls]);
   const activePollIds = activePolls.map((poll) => poll.id).join(',');
@@ -206,6 +206,25 @@ export default function PresentPage() {
       setStartingTimer(false);
     }
   }, [roomCode, startingTimer]);
+
+  // 複数カードがアクティブなとき、スクリーンから締切→次のカードへ進める。
+  // status を closed にすると useRealtimePolls の activePolls から外れ、次のアクティブカードが先頭になる。
+  const [closingPollId, setClosingPollId] = useState<string | null>(null);
+  const closePoll = useCallback(async (pollId: string) => {
+    if (!pollId || closingPollId) return;
+    setClosingPollId(pollId);
+    try {
+      await fetch(`/api/rooms/${roomCode}/polls/${pollId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'closed' }),
+      });
+    } catch (e) {
+      console.error('close poll failed', e);
+    } finally {
+      setClosingPollId(null);
+    }
+  }, [roomCode, closingPollId]);
 
   const updateFreeTextResponse = useCallback(
     async (
@@ -349,7 +368,7 @@ export default function PresentPage() {
               }`}
             >
               <MessageSquare className="w-4 h-4" />
-              Q&A
+              質問チャット
             </button>
             <button
               onClick={() => setView('poll')}
@@ -380,7 +399,7 @@ export default function PresentPage() {
       </header>
 
       {/* Content */}
-      <div className="flex-1 flex items-start justify-center px-8 pt-4 pb-8">
+      <div className="flex-1 flex items-start justify-center px-3 pt-3 pb-4 sm:px-5">
         <AnimatePresence mode="wait">
           {view === 'qa' && (
             <motion.div
@@ -433,18 +452,15 @@ export default function PresentPage() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className={hasFreeTextPoll ? 'w-full max-w-none' : 'w-full max-w-5xl'}
+              className={hasFreeTextPoll ? 'w-full max-w-none' : 'w-full max-w-[75rem]'}
             >
               {activePolls.length > 0 ? (
                 <div className="w-full space-y-6">
-                  {activePolls.map((activePoll: Poll) => (
+                  {/* 複数アクティブでも先頭（1番目）のカードだけ表示。「次に進む」で締切→次のカードが先頭になる。 */}
+                  {[activePolls[0]].map((activePoll: Poll) => (
                     <section
                       key={activePoll.id}
-                      className={`${
-                        activePolls.length > 1
-                          ? 'rounded-xl bg-white/85 p-5 shadow-sm ring-1 ring-[#e9e7e7]'
-                          : ''
-                      }`}
+                      className=""
                     >
                       {(() => {
                   const { meta, options } = extractPollPayload(activePoll.options);
@@ -511,9 +527,27 @@ export default function PresentPage() {
                           <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
                           <span className="text-xs sm:text-sm font-semibold text-emerald-600 uppercase tracking-wide">Live</span>
                         </div>
-                        <span className="text-sm sm:text-base text-slate-500 tabular-nums">
-                          回答数: <span className="font-semibold text-slate-700">{totalRespondents}</span>
-                        </span>
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm sm:text-base text-slate-500 tabular-nums">
+                            回答数: <span className="font-semibold text-slate-700">{totalRespondents}</span>
+                          </span>
+                          {activePolls.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => closePoll(activePoll.id)}
+                              disabled={closingPollId === activePoll.id}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-1.5 text-xs sm:text-sm font-bold text-white shadow-sm transition-colors hover:bg-rose-700 disabled:opacity-60"
+                              title="このカードを締め切って次のカードへ進みます"
+                            >
+                              {closingPollId === activePoll.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <StopCircle className="h-4 w-4" />
+                              )}
+                              次に進む
+                            </button>
+                          )}
+                        </div>
                       </div>
                       <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
                         <h2 className="min-w-0 flex-1 text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-gray-800 leading-tight">{activePoll.question}</h2>
@@ -578,7 +612,7 @@ export default function PresentPage() {
                                 ) : (
                                   <Play className="h-4 w-4" />
                                 )}
-                                {activeTimeLimit > 0 ? `開始（${fmtTime(activeTimeLimit)}）` : '開始'}
+                                {activeTimeLimit > 0 ? `回答開始（${fmtTime(activeTimeLimit)}）` : '回答開始'}
                               </button>
                             ) : (
                               activeTimeLimit > 0 ? (
@@ -594,7 +628,7 @@ export default function PresentPage() {
                                 </span>
                               ) : (
                                 <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-1.5 text-sm font-bold text-emerald-700 ring-1 ring-emerald-200">
-                                  開始済み
+                                  受付中
                                 </span>
                               )
                             )}
@@ -619,7 +653,7 @@ export default function PresentPage() {
                           )}
                           {timerNotStarted && (
                             <p className="text-sm sm:text-base font-semibold text-slate-500">
-                              全{quizQuestions.length}問を{quizTimeLimit}秒で回答する形式です。準備ができたら右上の「開始」を押してください。
+                              全{quizQuestions.length}問を{quizTimeLimit}秒で回答する形式です。準備ができたら右上の「回答開始」を押してください。
                             </p>
                           )}
                           {/* 縦は visible に（カード高さが伸びても切れない）／横だけクリップしてスワイプ */}
@@ -654,9 +688,9 @@ export default function PresentPage() {
                                 const correctRate =
                                   hasKey && questionTotal > 0 ? Math.round((correctCount / questionTotal) * 100) : 0;
                                 return (
-                                <div key={question.id} className="flex w-full shrink-0 flex-col gap-8 px-2 pb-2">
+                                <div key={question.id} className="flex w-full shrink-0 flex-col gap-8 px-2 pt-1.5 pb-2">
                                   <div>
-                                    <div className="flex flex-wrap items-center gap-2">
+                                    <div className="flex flex-wrap items-center gap-2 py-0.5">
                                       <p className="text-base font-bold text-emerald-700">
                                         問題 {question.questionNumber}
                                       </p>
@@ -666,7 +700,7 @@ export default function PresentPage() {
                                         </span>
                                       )}
                                     </div>
-                                    <h3 className="mt-2 text-lg sm:text-xl lg:text-2xl font-extrabold text-slate-900 leading-snug">{question.question}</h3>
+                                    <h3 className="mt-4 text-lg sm:text-xl lg:text-2xl font-extrabold text-slate-900 leading-snug">{question.question}</h3>
                                     {question.questionImageUrl && (
                                       <button
                                         type="button"
@@ -687,8 +721,8 @@ export default function PresentPage() {
                                       </button>
                                     )}
                                   </div>
-                                  {/* 選択肢グリッド: 上下左右に間隔をとって見切れ防止＋中央寄せ */}
-                                  <div className="mx-auto grid w-[94%] grid-cols-2 gap-4 p-2 sm:w-[92%]">
+                                  {/* 選択肢グリッド: 横幅をいっぱいに使い、間隔をとって見切れ防止 */}
+                                  <div className="grid w-full grid-cols-2 gap-4 p-1">
                                     {options.slice(question.optionStart, question.optionStart + question.optionCount).map((option, offset) => {
                                       const i = question.optionStart + offset;
                                       const count = counts[i];
@@ -770,7 +804,7 @@ export default function PresentPage() {
                         ) : (
                           <p className="rounded-2xl bg-slate-50 px-5 py-8 text-center text-base font-semibold text-slate-500 ring-1 ring-slate-200">
                             {timerNotStarted
-                              ? `投票時間は${rankingTimeLimit}秒です。準備ができたら右上の「開始」を押してください。`
+                              ? `投票時間は${rankingTimeLimit}秒です。準備ができたら右上の「回答開始」を押してください。`
                               : '回答受付中です。ランキングは投票時間後に表示します。'}
                           </p>
                         )
@@ -1188,7 +1222,7 @@ function FreeTextBoard({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm font-semibold text-slate-500">
           {timerNotStarted
-            ? '開始ボタンを押すとブレストの受付が始まります。'
+            ? '「回答開始」ボタンを押すとブレストの受付が始まります。'
             : '回答は付箋カードとしてリアルタイムに表示されます。カードはそのままドラッグできます。'}
         </p>
       </div>

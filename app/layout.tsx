@@ -25,7 +25,7 @@ export const metadata: Metadata = {
         url: 'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_1200/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png',
         width: 1200,
         height: 630,
-        alt: 'ざせきくん - 出席管理システム',
+        alt: 'ざせきくん - 出席・Q&A・投票プラットフォーム',
       },
     ],
   },

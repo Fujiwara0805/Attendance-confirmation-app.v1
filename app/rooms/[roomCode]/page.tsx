@@ -162,7 +162,7 @@ export default function ParticipantPage() {
   });
   const { activePoll, activePolls: rawActivePolls, polls, pollVotes, loading: pLoading, connected: pConnected } =
     useRealtimePolls(room?.id || null);
-  // bulkOrder（一斉開始時の選択順）優先で並べ替え。未設定は created_at 降順を維持。
+  // スクリーン画面・資料投影画面と同じ並び順。bulkOrder（一斉開始時の選択順）優先、未設定は作成順（古い順＝1問目が先頭）。
   const activePolls = useMemo<Poll[]>(() => {
     return [...rawActivePolls].sort((a: Poll, b: Poll) => {
       const am = extractPollPayload(a.options).meta.bulkOrder;
@@ -172,7 +172,7 @@ export default function ParticipantPage() {
       if (aHas && bHas) return (am as number) - (bm as number);
       if (aHas) return -1;
       if (bHas) return 1;
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
     });
   }, [rawActivePolls]);
 
@@ -498,7 +498,7 @@ export default function ParticipantPage() {
               active={tab === 'qa'}
               onClick={() => setTab('qa')}
               icon={<MessageSquare className="w-4 h-4" />}
-              label="Q&A"
+              label="質問"
             />
             <TabButton
               active={tab === 'polls'}
@@ -649,7 +649,8 @@ export default function ParticipantPage() {
         {/* Polls Tab */}
         {tab === 'polls' && (
           <div className="space-y-4">
-            {activePolls.map((poll) => (
+            {/* スクリーン画面・資料投影画面と同期し、先頭（現在表示中）の1枚だけを表示する。 */}
+            {activePolls.slice(0, 1).map((poll) => (
               <ActivePollCard
                 key={poll.id}
                 poll={poll}
