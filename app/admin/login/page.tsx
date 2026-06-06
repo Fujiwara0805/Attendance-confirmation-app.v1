@@ -340,16 +340,16 @@ export default function AdminLoginPage() {
                 Event Engagement Platform
               </span>
               <h2 className="mt-6 text-4xl xl:text-5xl font-extrabold text-white leading-[1.15] tracking-tight">
-                全ての学習機会を
+                全ての学びとイベントを
                 <br />
                 インタラクティブに
               </h2>
               <p className="mt-5 text-base text-indigo-100/90 leading-relaxed max-w-md">
-                出席管理・招待フォーム・
+                出席管理・招待フォーム・Q&A・
                 <br />
-                リアルタイムQ&A・ライブ投票を
+                投票・クイズを、
                 <br />
-                1つのプラットフォームで。
+                ひとつのプラットフォームで。
               </p>
             </motion.div>
 

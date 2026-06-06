@@ -154,8 +154,8 @@ export default function AdminRegisterPage() {
     },
     {
       icon: MessageSquare,
-      title: '双方向コミュニケーション',
-      desc: 'リアルタイムQ&Aとライブ投票で会場を巻き込む。',
+      title: '参加者とのやりとり',
+      desc: 'Q&A・投票・クイズで、その場の反応を集められる。',
     },
     {
       icon: BarChart3,

@@ -647,7 +647,7 @@ function AdminPageInner() {
         }));
         setCourses(mappedCourses);
         if (mappedCourses.length > 0) {
-          showToast("データ更新", `${mappedCourses.length}件の出席フォームを読み込みました。`);
+          showToast("データ更新", `${mappedCourses.length}件のフォームを読み込みました。`);
         }
       } else {
         const errorData = await response.json();
@@ -1121,7 +1121,7 @@ function AdminPageInner() {
               description={
                 courses.length > 0
                   ? `${courses.length} 件のフォームを管理中`
-                  : '出席フォームを作成して始めましょう'
+                  : 'フォーム（出席管理、招待状）を作成して始めましょう'
               }
               icon={BookOpen}
               theme={ADMIN_COLOR_THEMES.courses}
@@ -1853,7 +1853,7 @@ function AdminPageInner() {
               <div className="flex items-center justify-center py-20">
                 <div className="flex flex-col items-center gap-3">
                   <Loader2 className="h-6 w-6 animate-spin text-indigo-500" />
-                  <p className="text-sm text-slate-500">出席フォーム情報を読み込み中...</p>
+                  <p className="text-sm text-slate-500">フォーム情報を読み込み中...</p>
                 </div>
               </div>
             ) : courses.length === 0 ? (
@@ -1867,16 +1867,16 @@ function AdminPageInner() {
                 <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-indigo-50 to-blue-50 ring-1 ring-indigo-100 flex items-center justify-center mb-5 shadow-sm">
                   <Inbox className="h-9 w-9 text-indigo-400" />
                 </div>
-                <h3 className="text-lg font-semibold text-slate-900 mb-1">出席フォームがまだありません</h3>
-                <p className="text-sm text-slate-500 text-center max-w-sm mb-6">
-                  出席フォームを作成すると、専用のURLが自動生成されます。共有してすぐに出席管理を始められます。
+                <h3 className="text-lg font-semibold text-slate-900 mb-1">最初のフォームを作成しましょう</h3>
+                <p className="text-sm text-slate-500 text-center max-w-md mb-6 leading-relaxed">
+                  「出席管理フォーム」と「招待フォーム」を作成できます。出席管理はQRコードと位置情報で出席を正確に記録し、招待フォームは事前登録から当日受付までを一気通貫で管理できます。作成すると専用URLとQRコードが自動で発行され、回答はCSVで出力できます。
                 </p>
                 <Button
                   onClick={() => setIsCreateTypeDialogOpen(true)}
                   className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm h-10 px-5"
                 >
                   <Plus className="h-4 w-4 mr-2" />
-                  最初の出席フォームを作成する
+                  最初のフォームを作成する
                 </Button>
               </motion.div>
             ) : filteredCourses.length === 0 ? (
@@ -2312,9 +2312,9 @@ function AdminPageInner() {
                 <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-purple-50 to-fuchsia-50 ring-1 ring-purple-100 flex items-center justify-center mb-5 shadow-sm">
                   <Airplay className="h-9 w-9 text-purple-400" />
                 </div>
-                <h3 className="text-lg font-semibold text-slate-900 mb-1">ルームがまだありません</h3>
-                <p className="text-sm text-slate-500 text-center max-w-sm mb-6">
-                  ルームを作成すると、参加者とリアルタイムでQ&Aや投票ができます。共有コードで誰でも簡単に参加可能。
+                <h3 className="text-lg font-semibold text-slate-900 mb-1">最初のルームを作成しましょう</h3>
+                <p className="text-sm text-slate-500 text-center max-w-md mb-6 leading-relaxed">
+                  ルームは、参加者とリアルタイムにやりとりする場です。Q&A（質問）とワーク機能（投票・クイズ・ランキング・ブレスト）をその場で実施でき、集まった反応はスクリーンにリアルタイム表示できます。参加者はQRコードからアプリ登録なしで参加できます。
                 </p>
                 <Button
                   onClick={() => setIsCreateRoomDialogOpen(true)}

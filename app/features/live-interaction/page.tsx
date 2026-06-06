@@ -22,36 +22,36 @@ const fadeIn = {
 
 const features = [
   {
-    title: 'Q&Aで対話を生み出す',
+    title: 'Q&Aで参加者の疑問を集める',
     description:
-      '参加者からの質問をリアルタイムで受け付け、いいね機能により注目度の高いトピックを自動的に上位表示します。匿名投稿にも対応しているため、普段は発言しにくい参加者からも本音の質問が集まり、講演やセミナーの質を大幅に向上させます。',
+      '参加者はスマートフォンから質問を投稿でき、「いいね」の多い質問が自動的に上位へ表示されます。匿名投稿にも対応しているため、発言しにくい参加者からも率直な質問が集まり、講演やセミナーの内容を深められます。',
     image:
 'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774358294/felicia-buitenwerf-Qs_Zkak27Jk-unsplash_ljjxwq.jpg',
     icon: MessageCircleQuestion,
     reverse: false,
   },
   {
-    title: '投票で全員の声を集める',
+    title: '投票・クイズで意見を集約',
     description:
-      'ライブ投票機能で、参加者の意見やフィードバックを瞬時に集計・可視化します。選択肢型からスケール評価まで多様な形式に対応し、会議やワークショップでの意思決定をその場で加速。データに基づいた議論が即座に始められます。',
+      '用途に応じて4つの形式から選べます。意見を集める「通常投票」、正解を設定できる「クイズ」（制限時間・正答率表示・画像添付・複数問の連続出題に対応）、候補を順位付けして集計する「ランキング」、短い回答を付箋で集めて分類する「ブレスト」。回答はその場でグラフとして可視化されます。',
     image:
 'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774358337/flipsnack-LUqSTRx3_Ig-unsplash_b4hkct.jpg',
     icon: BarChart3,
     reverse: true,
   },
   {
-    title: 'スクリーンにリアルタイム投影',
+    title: 'スライドに重ねてスクリーン投影',
     description:
-      'プレゼンテーションモードを使えば、Q&Aの質問一覧や投票結果をプロジェクターやモニターにライブ表示できます。会場全体で情報を共有することで、参加者のエンゲージメントが高まり、一体感のあるインタラクティブな空間を演出します。',
+      '資料投影画面では、Canva・Googleスライドなどを投影しながら、Q&Aや投票・クイズの結果を同じ画面に重ねて表示できます。スライドを切り替えることなく、参加者の反応を会場全体でリアルタイムに共有できます。',
     image:
 'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774358479/product-school-lVTtqIY6pL0-unsplash_pfrzxn.jpg',
     icon: Monitor,
     reverse: false,
   },
   {
-    title: '匿名で安心して参加',
+    title: '登録不要・匿名で参加',
     description:
-      '参加者はアカウント登録やログインが一切不要。QRコードを読み取るだけで匿名のまま質問や投票に参加できます。心理的なハードルを取り除くことで、より多くの参加者から率直なフィードバックや質問を引き出すことが可能です。',
+      '参加者はアプリのインストールも会員登録も不要です。QRコードを読み取るだけで、匿名のまま質問や投票に参加できます。参加のハードルを下げることで、より多くの率直な声が集まります。',
     image:
 'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774403129/redd-francisco-5U_28ojjgms-unsplash_blguut.jpg',
     icon: UserRoundX,
@@ -60,7 +60,7 @@ const features = [
   {
     title: '複数端末での同時運用',
     description:
-      '受付端末、スクリーン投影端末、管理端末を同一アカウントで同時に運用できます。それぞれの端末が役割に最適化された画面を表示するため、セミナーやカンファレンスの運営チーム全体がリアルタイムに連携し、スムーズなイベント進行を実現します。',
+      '受付用・スクリーン投影用・管理用を、同一アカウントで同時に運用できます。端末ごとに役割へ最適化された画面を表示できるため、運営チームで分担しながらスムーズに進行できます。',
     image:
 'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774403542/adam-nowakowski-D4LDw5eXhgg-unsplash_v7clmg.jpg',
     icon: Laptop,
@@ -79,15 +79,15 @@ export default function LiveInteractionPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <motion.div {...fadeIn}>
               <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 ring-1 ring-indigo-100 px-3.5 py-1.5 text-xs sm:text-sm font-semibold tracking-wide uppercase text-indigo-600 mb-6">
-                リアルタイムQ&A・ライブ投票
+                Q&A・投票・クイズ
               </span>
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-900 leading-[1.1]">
-                リアルタイムQ&A・
+                Q&A・投票・
                 <br className="hidden sm:block" />
-                ライブ投票
+                クイズで全員参加
               </h1>
               <p className="mt-5 text-base sm:text-lg text-slate-600 leading-relaxed max-w-lg">
-                参加者全員が声を届けられる、双方向コミュニケーションを実現
+                質問・投票・クイズ・ランキング・ブレストをその場で実施。集まった反応はスクリーンにリアルタイムで表示できます。
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link
@@ -112,7 +112,7 @@ export default function LiveInteractionPage() {
             >
               <img
 src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774403349/israel-palacio-Y20JJ_ddy9M-unsplash_hkanai.jpg"
-                alt="リアルタイムQ&A・ライブ投票のイメージ"
+                alt="Q&A・投票・クイズのイメージ"
                 className="rounded-2xl shadow-xl ring-1 ring-black/5 w-full h-auto object-cover aspect-[4/3]"
                 loading="lazy"
                 decoding="async"

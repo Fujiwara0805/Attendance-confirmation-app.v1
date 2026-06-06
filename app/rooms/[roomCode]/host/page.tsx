@@ -2959,8 +2959,10 @@ export default function HostPage() {
                 <div className="w-14 h-14 rounded-2xl bg-emerald-50 ring-1 ring-emerald-100 flex items-center justify-center mb-3">
                   <BarChart3 className="w-7 h-7 text-emerald-300" />
                 </div>
-                <p className="text-sm font-semibold text-slate-700">まだライブ投票はありません</p>
-                <p className="text-xs text-slate-400 mt-1">右上の「新規作成」から作成できます</p>
+                <p className="text-sm font-semibold text-slate-700">ワークカードを作成しましょう</p>
+                <p className="text-xs text-slate-500 mt-1.5 max-w-sm leading-relaxed">
+                  通常投票・クイズ・ランキング・ブレストの4形式から選んで作成できます。スクリーンに表示して、参加者の回答をその場でリアルタイムに集計できます。右上の「新規作成」から始められます。
+                </p>
               </div>
             ) : polls.length > 0 ? (
               (() => {
@@ -2973,7 +2975,7 @@ export default function HostPage() {
                     {filteredPolls.length === 0 ? (
                       <div className="flex flex-col items-center justify-center rounded-lg border border-[#e9e7e7] bg-white px-4 py-14 text-center">
                         <Search className="mb-3 h-8 w-8 text-[#aac8ff]" />
-                        <p className="text-sm font-bold text-[#323232]">一致するライブ投票はありません</p>
+                        <p className="text-sm font-bold text-[#323232]">一致するワークカードはありません</p>
                         <p className="mt-1 text-xs text-[#595959]">検索条件を変更してください。</p>
                       </div>
                     ) : (
