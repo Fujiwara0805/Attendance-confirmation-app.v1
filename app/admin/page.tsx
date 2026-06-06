@@ -1867,10 +1867,34 @@ function AdminPageInner() {
                 <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-indigo-50 to-blue-50 ring-1 ring-indigo-100 flex items-center justify-center mb-5 shadow-sm">
                   <Inbox className="h-9 w-9 text-indigo-400" />
                 </div>
-                <h3 className="text-lg font-semibold text-slate-900 mb-1">最初のフォームを作成しましょう</h3>
-                <p className="text-sm text-slate-500 text-center max-w-md mb-6 leading-relaxed">
-                  「出席管理フォーム」と「招待フォーム」を作成できます。出席管理はQRコードと位置情報で出席を正確に記録し、招待フォームは事前登録から当日受付までを一気通貫で管理できます。作成すると専用URLとQRコードが自動で発行され、回答はCSVで出力できます。
-                </p>
+                <h3 className="text-lg font-semibold text-slate-900 mb-2">最初のフォームを作成しましょう</h3>
+                <div className="grid w-full max-w-3xl grid-cols-1 gap-3 mb-6 sm:grid-cols-3">
+                  {[
+                    {
+                      icon: ClipboardEdit,
+                      title: '受付をフォーム化',
+                      description: '出席管理や招待受付を、参加者がスマホから回答できる形にします。',
+                    },
+                    {
+                      icon: QrCode,
+                      title: '作成してすぐ共有',
+                      description: '種類を選び、名前と項目を設定すると専用URLとQRコードを発行します。',
+                    },
+                    {
+                      icon: Download,
+                      title: '回答をあとで活用',
+                      description: '集まった出席・申込データは管理画面で確認し、CSV出力できます。',
+                    },
+                  ].map(({ icon: Icon, title, description }) => (
+                    <div key={title} className="rounded-lg border border-indigo-100 bg-white px-4 py-3 text-left shadow-sm">
+                      <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-md bg-indigo-50 text-indigo-600">
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <p className="text-sm font-bold text-slate-900">{title}</p>
+                      <p className="mt-1 text-xs leading-relaxed text-slate-500">{description}</p>
+                    </div>
+                  ))}
+                </div>
                 <Button
                   onClick={() => setIsCreateTypeDialogOpen(true)}
                   className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm h-10 px-5"
@@ -2312,10 +2336,34 @@ function AdminPageInner() {
                 <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-purple-50 to-fuchsia-50 ring-1 ring-purple-100 flex items-center justify-center mb-5 shadow-sm">
                   <Airplay className="h-9 w-9 text-purple-400" />
                 </div>
-                <h3 className="text-lg font-semibold text-slate-900 mb-1">最初のルームを作成しましょう</h3>
-                <p className="text-sm text-slate-500 text-center max-w-md mb-6 leading-relaxed">
-                  ルームは、参加者とリアルタイムにやりとりする場です。Q&A（質問）とワーク機能（投票・クイズ・ランキング・ブレスト）をその場で実施でき、集まった反応はスクリーンにリアルタイム表示できます。参加者はQRコードからアプリ登録なしで参加できます。
-                </p>
+                <h3 className="text-lg font-semibold text-slate-900 mb-2">最初のルームを作成しましょう</h3>
+                <div className="grid w-full max-w-3xl grid-cols-1 gap-3 mb-6 sm:grid-cols-3">
+                  {[
+                    {
+                      icon: Users,
+                      title: '参加の場を用意',
+                      description: 'ルームは、参加者とQ&Aやワークをリアルタイムに行うスペースです。',
+                    },
+                    {
+                      icon: QrCode,
+                      title: 'コードでかんたん参加',
+                      description: 'ルーム名を入力して作成すると、参加用コードとQRを発行します。',
+                    },
+                    {
+                      icon: Airplay,
+                      title: '反応を画面に表示',
+                      description: '質問や回答はホスト画面で管理し、スクリーンにすぐ共有できます。',
+                    },
+                  ].map(({ icon: Icon, title, description }) => (
+                    <div key={title} className="rounded-lg border border-purple-100 bg-white px-4 py-3 text-left shadow-sm">
+                      <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-md bg-purple-50 text-purple-600">
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <p className="text-sm font-bold text-slate-900">{title}</p>
+                      <p className="mt-1 text-xs leading-relaxed text-slate-500">{description}</p>
+                    </div>
+                  ))}
+                </div>
                 <Button
                   onClick={() => setIsCreateRoomDialogOpen(true)}
                   className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm h-10 px-5"

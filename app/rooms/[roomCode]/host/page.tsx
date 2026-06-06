@@ -2955,14 +2955,47 @@ export default function HostPage() {
             {pLoading ? (
               <p className="text-center text-sm text-slate-400 py-8">読み込み中...</p>
             ) : polls.length === 0 ? (
-              <div className="rounded-2xl bg-white ring-1 ring-slate-200 py-14 flex flex-col items-center text-center">
+              <div className="rounded-2xl bg-white ring-1 ring-slate-200 px-4 py-12 flex flex-col items-center text-center">
                 <div className="w-14 h-14 rounded-2xl bg-emerald-50 ring-1 ring-emerald-100 flex items-center justify-center mb-3">
-                  <BarChart3 className="w-7 h-7 text-emerald-300" />
+                  <BarChart3 className="w-7 h-7 text-emerald-400" />
                 </div>
-                <p className="text-sm font-semibold text-slate-700">ワークカードを作成しましょう</p>
-                <p className="text-xs text-slate-500 mt-1.5 max-w-sm leading-relaxed">
-                  通常投票・クイズ・ランキング・ブレストの4形式から選んで作成できます。スクリーンに表示して、参加者の回答をその場でリアルタイムに集計できます。右上の「新規作成」から始められます。
-                </p>
+                <p className="text-sm font-semibold text-slate-800">ワークカードを作成しましょう</p>
+                <div className="mt-4 grid w-full max-w-3xl grid-cols-1 gap-3 sm:grid-cols-3">
+                  {[
+                    {
+                      icon: Hammer,
+                      title: '活動をカード化',
+                      description: '投票・クイズ・ランキング・ブレストを、1枚ずつ作成できます。',
+                    },
+                    {
+                      icon: ListOrdered,
+                      title: '形式を選んで作成',
+                      description: '新規作成から形式を選び、タイトルや選択肢を設定します。',
+                    },
+                    {
+                      icon: Monitor,
+                      title: '表示して集計',
+                      description: 'スクリーンに出すと、参加者の回答をリアルタイムに確認できます。',
+                    },
+                  ].map(({ icon: Icon, title, description }) => (
+                    <div key={title} className="rounded-lg border border-emerald-100 bg-emerald-50/40 px-4 py-3 text-left">
+                      <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-md bg-white text-emerald-600 ring-1 ring-emerald-100">
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <p className="text-sm font-bold text-slate-900">{title}</p>
+                      <p className="mt-1 text-xs leading-relaxed text-slate-500">{description}</p>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowPollTypeModal(true)}
+                  disabled={atPollLimit}
+                  className="mt-5 inline-flex h-9 items-center gap-1.5 rounded-md bg-[#2864f0] px-4 text-xs font-bold text-white shadow-sm transition-colors hover:bg-[#285ac8] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:hover:bg-slate-300"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  最初のカードを作成する
+                </button>
               </div>
             ) : polls.length > 0 ? (
               (() => {
