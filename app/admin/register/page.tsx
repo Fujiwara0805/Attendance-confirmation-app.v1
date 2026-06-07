@@ -175,15 +175,6 @@ export default function AdminRegisterPage() {
             transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
             className="w-full max-w-md"
           >
-            {/* Back link */}
-            <Link
-              href="/admin/login"
-              className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 transition-colors mb-6"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              ログイン画面に戻る
-            </Link>
-
             {/* Logo */}
             <Link href="/" className="inline-flex items-center gap-2.5 mb-8">
               <Image
@@ -322,6 +313,17 @@ export default function AdminRegisterPage() {
                   </>
                 )}
               </Button>
+
+              <Link href="/admin/login" className="block">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full h-12 rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold transition-all active:scale-[0.98]"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  ログイン画面に戻る
+                </Button>
+              </Link>
 
               <p className="text-center text-sm text-slate-500 pt-2">
                 すでにアカウントをお持ちですか？{' '}
