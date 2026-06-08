@@ -64,7 +64,15 @@ const FALLBACK_POLL_INTERVAL_MS = 5000;
 // かつ重い polls.options ではなく poll_votes のみ取り直す（poll 変更は realtime で来る）。
 const SAFETY_POLL_INTERVAL_MS = 60000;
 
-export function useRealtimePolls(roomId: string | null) {
+export function useRealtimePolls(
+  roomId: string | null,
+  options: { subscribeVotes?: boolean } = {}
+) {
+  // subscribeVotes=false: 個別票（poll_votes）の購読・取得を一切行わない。
+  // 1,000人規模の参加者画面では、全票のファンアウト（人数×票数のイベント）を避けるため
+  // 票を購読せず、集計値は別途 useActivePollAggregate で取得する。
+  // host/present/stage は既定（true）のままで挙動は変わらない。
+  const subscribeVotes = options.subscribeVotes !== false;
   const [polls, setPolls] = useState<Poll[]>([]);
   const [pollVotes, setPollVotes] = useState<Record<string, PollVote[]>>({});
   const [loading, setLoading] = useState(true);
@@ -155,7 +163,11 @@ export function useRealtimePolls(roomId: string | null) {
 
       if (pollsData) {
         setPolls(pollsData as Poll[]);
-        await refetchVotes(pollsData.map((p) => p.id));
+        if (subscribeVotes) {
+          await refetchVotes(pollsData.map((p) => p.id));
+        } else {
+          setPollVotes({});
+        }
       }
       setLoading(false);
     };
@@ -183,10 +195,13 @@ export function useRealtimePolls(roomId: string | null) {
       }
     };
 
-    // realtime 接続中の保険ポーリング（票だけ追いつき同期、60s 間隔で Disk IO を削減）
-    safetyTimer = setInterval(safetyRefetch, SAFETY_POLL_INTERVAL_MS);
+    // realtime 接続中の保険ポーリング（票だけ追いつき同期、60s 間隔で Disk IO を削減）。
+    // 票を購読しないモードでは不要。
+    if (subscribeVotes) {
+      safetyTimer = setInterval(safetyRefetch, SAFETY_POLL_INTERVAL_MS);
+    }
 
-    const channel = supabase
+    let channelBuilder = supabase
       .channel(`room-polls-${roomId}`)
       .on(
         'postgres_changes',
@@ -215,28 +230,34 @@ export function useRealtimePolls(roomId: string | null) {
             }
           });
         }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'poll_votes',
-          filter: `room_id=eq.${roomId}`,
-        },
-        (payload) => upsertVote(payload.new as PollVote)
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'poll_votes',
-          filter: `room_id=eq.${roomId}`,
-        },
-        (payload) => upsertVote(payload.new as PollVote)
-      )
-      .subscribe((status) => {
+      );
+
+    // 個別票の購読は subscribeVotes=true のときのみ。参加者画面（false）では張らない。
+    if (subscribeVotes) {
+      channelBuilder = channelBuilder
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'poll_votes',
+            filter: `room_id=eq.${roomId}`,
+          },
+          (payload) => upsertVote(payload.new as PollVote)
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'poll_votes',
+            filter: `room_id=eq.${roomId}`,
+          },
+          (payload) => upsertVote(payload.new as PollVote)
+        );
+    }
+
+    const channel = channelBuilder.subscribe((status) => {
         if (status === 'SUBSCRIBED') {
           setConnected(true);
           stopFallbackPolling();
@@ -259,7 +280,7 @@ export function useRealtimePolls(roomId: string | null) {
       }
       supabase.removeChannel(channel);
     };
-  }, [roomId, upsertVote]);
+  }, [roomId, upsertVote, subscribeVotes]);
 
   const activePolls = polls.filter((p) => p.status === 'active');
   const activePoll = activePolls[0] || null;

@@ -256,6 +256,16 @@ export async function POST(
       };
     });
 
+    // 高速化: 全選択肢を 1 回のバルク INSERT で登録する（50問規模でも DELETE+INSERT の 2 往復で済み、
+    // 問題数に比例した直列ラウンドトリップを排除）。ライブ票は上で削除済みのため通常は衝突しない。
+    // 単一 INSERT 文は原子的なので、アーカイブ票（cleared_at != null）との unique 衝突（23505）が
+    // 起きた場合は 0 件挿入で失敗する → そのときだけ従来の 1 行ずつ復活処理にフォールバックする。
+    const bulk = await supabase.from('poll_votes').insert(rows).select();
+    if (!bulk.error) {
+      return NextResponse.json({ votes: bulk.data ?? [], count: rows.length }, { status: 201 });
+    }
+    if (!isDuplicateKeyError(bulk.error)) throw bulk.error;
+
     const data = [];
     for (const row of rows) {
       const { data: vote, error } = await insertOrReactivateVote(supabase, row);

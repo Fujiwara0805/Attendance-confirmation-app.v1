@@ -33,6 +33,7 @@ import Link from 'next/link';
 import { useParticipantSession } from '@/lib/hooks/useParticipantSession';
 import { useRealtimeQuestions, type Question } from '@/lib/hooks/useRealtimeQuestions';
 import { useRealtimePolls, type Poll, type PollVote } from '@/lib/hooks/useRealtimePolls';
+import { useActivePollVotes } from '@/lib/hooks/useActivePollVotes';
 import { useRoomPresence } from '@/lib/hooks/useRoomPresence';
 import QuestionCard from '../components/QuestionCard';
 import RankingResults from '../components/RankingResults';
@@ -160,8 +161,11 @@ export default function ParticipantPage() {
     participantOnly: true,
     ownIds: ownQuestionIds,
   });
-  const { activePoll, activePolls: rawActivePolls, polls, pollVotes, loading: pLoading, connected: pConnected } =
-    useRealtimePolls(room?.id || null);
+  // 参加者画面はルーム内の全 poll_votes を購読しない（subscribeVotes:false）。
+  // 1,000人 × 50問規模のファンアウトを避けるため、表示中の1枚の票だけを
+  // useActivePollVotes（standard/quiz は集計ポーリング、ranking/free_text は単一poll購読）で取得する。
+  const { activePoll, activePolls: rawActivePolls, polls, loading: pLoading, connected: pConnected } =
+    useRealtimePolls(room?.id || null, { subscribeVotes: false });
   // スクリーン画面・資料投影画面と同じ並び順。bulkOrder（一斉開始時の選択順）優先、未設定は作成順（古い順＝1問目が先頭）。
   const activePolls = useMemo<Poll[]>(() => {
     return [...rawActivePolls].sort((a: Poll, b: Poll) => {
@@ -175,6 +179,9 @@ export default function ParticipantPage() {
       return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
     });
   }, [rawActivePolls]);
+
+  // 表示中（先頭）のアクティブ投票1枚ぶんの票だけを取得する。
+  const activePollVotes = useActivePollVotes(activePolls[0] || null, participantId || null);
 
   const presenceCount = useRoomPresence(room?.id || null, participantId || null);
 
@@ -655,7 +662,7 @@ export default function ParticipantPage() {
               <ActivePollCard
                 key={poll.id}
                 poll={poll}
-                votes={pollVotes[poll.id] || []}
+                votes={activePollVotes}
                 hasVoted={hasVotedPoll.has(getPollRunKey(poll))}
                 participantId={participantId}
                 displayName={displayName}
@@ -1110,6 +1117,8 @@ function ActivePollCard({
       : null;
   const standardNotStarted = isStandard && hasStandardTimer && !timerStartMs;
   const freeTextNotStarted = isFreeText && hasFreeTextTimer && !timerStartMs;
+  // クイズ: 投票時間ありで未開始（スクリーン/資料投影の「回答開始」未押下）なら回答・送信不可。
+  const quizNotStarted = isQuiz && hasQuizTimer && !timerStartMs;
   const standardExpired =
     hasStandardTimer && standardRemaining !== null && standardRemaining <= 0;
   const freeTextExpired =
@@ -1131,7 +1140,7 @@ function ActivePollCard({
   const showResults = isQuiz ? quizRevealed : isRanking ? rankingRevealed : standardRevealed;
   // 送信可能: 未送信 && 時間切れでない && 1問以上回答
   const quizSubmittable =
-    isQuiz && !effectiveHasVoted && !quizExpired && answeredQuizCount > 0;
+    isQuiz && !effectiveHasVoted && !quizExpired && !quizNotStarted && answeredQuizCount > 0;
   const quizScore =
     isQuiz && effectiveHasVoted ? getQuizScore(quizQuestions, ownAnswerIndexes) : null;
 
@@ -1835,7 +1844,11 @@ function ActivePollCard({
         </>
         )
       ) : isQuiz ? (
-        effectiveHasVoted && hasQuizTimer ? (
+        quizNotStarted ? (
+          <div className="mt-3 rounded-xl bg-slate-50 px-3 py-4 text-center text-sm font-semibold text-slate-500 ring-1 ring-slate-200">
+            開始待ちです
+          </div>
+        ) : effectiveHasVoted && hasQuizTimer ? (
           <div className="mt-3 rounded-xl bg-emerald-50 px-3 py-4 text-center text-sm font-semibold text-emerald-700 ring-1 ring-emerald-200">
             回答を送信しました。結果は投票時間後に表示されます。
           </div>

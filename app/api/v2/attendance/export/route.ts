@@ -44,33 +44,35 @@ export async function GET(req: NextRequest) {
       }, { status: 403 });
     }
 
-    // 出席データ取得
-    let attendanceQuery = supabase
-      .from('attendance')
-      .select('*')
-      .eq('course_id', course.id)
-      .order('created_at', { ascending: true });
+    // 出席データ取得。PostgREST は既定の行数上限（多くの環境で1000行）で暗黙に打ち切るため、
+    // range で1000行ずつ全件ページネーションし、大規模講義でも CSV/Excel が欠落しないようにする。
+    const PAGE_SIZE = 1000;
+    const records: Record<string, any>[] = [];
+    for (let from = 0; ; from += PAGE_SIZE) {
+      let pageQuery = supabase
+        .from('attendance')
+        .select('*')
+        .eq('course_id', course.id)
+        .order('created_at', { ascending: true })
+        .range(from, from + PAGE_SIZE - 1);
 
-    // 日付フィルタ
-    if (date) {
-      attendanceQuery = attendanceQuery.eq('attended_at', date);
-    } else {
-      if (dateFrom) {
-        attendanceQuery = attendanceQuery.gte('attended_at', dateFrom);
+      // 日付フィルタ
+      if (date) {
+        pageQuery = pageQuery.eq('attended_at', date);
+      } else {
+        if (dateFrom) pageQuery = pageQuery.gte('attended_at', dateFrom);
+        if (dateTo) pageQuery = pageQuery.lte('attended_at', dateTo);
       }
-      if (dateTo) {
-        attendanceQuery = attendanceQuery.lte('attended_at', dateTo);
+
+      const { data: page, error: pageError } = await pageQuery;
+      if (pageError) {
+        console.error('Error fetching attendance:', pageError);
+        return NextResponse.json({ message: 'Failed to fetch attendance data' }, { status: 500 });
       }
+      if (!page || page.length === 0) break;
+      records.push(...(page as Record<string, any>[]));
+      if (page.length < PAGE_SIZE) break;
     }
-
-    const { data: attendanceData, error: attendanceError } = await attendanceQuery;
-
-    if (attendanceError) {
-      console.error('Error fetching attendance:', attendanceError);
-      return NextResponse.json({ message: 'Failed to fetch attendance data' }, { status: 500 });
-    }
-
-    const records = attendanceData || [];
 
     // JSON形式
     if (format === 'json') {

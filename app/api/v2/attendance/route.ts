@@ -4,8 +4,15 @@ import { createServerClient } from '@/lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
 
-// デバイスフィンガープリント生成（IP + User-Agent ベース）
-function generateDeviceFingerprint(req: NextRequest): string {
+// デバイスフィンガープリント生成。
+// クライアントが永続デバイストークンを送ってきた場合はそれを使う（端末ごとに一意）。
+// これにより、同一グローバルIP＋同一UAの参加者が大量にいても衝突せず、クールダウンの誤判定を防ぐ。
+// トークンが無い古いクライアントのみ従来どおり IP + User-Agent にフォールバックする。
+function generateDeviceFingerprint(req: NextRequest, deviceToken?: string | null): string {
+  const token = typeof deviceToken === 'string' ? deviceToken.trim() : '';
+  if (token) {
+    return crypto.createHash('sha256').update(`token:${token}`).digest('hex').substring(0, 32);
+  }
   const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
   const ua = req.headers.get('user-agent') || 'unknown';
   return crypto.createHash('sha256').update(`${ip}:${ua}`).digest('hex').substring(0, 32);
@@ -24,6 +31,7 @@ export async function POST(req: NextRequest) {
       feedback,
       latitude,
       longitude,
+      deviceToken,   // 端末ごとに永続化したトークン（クールダウン判定用）
       customFields = {},  // カスタムフィールドのデータ {fieldName: value}
     } = body;
 
@@ -69,7 +77,7 @@ export async function POST(req: NextRequest) {
     const cooldownMinutes = Number.isFinite(course.cooldown_minutes)
       ? Math.max(0, Math.min(1440, Number(course.cooldown_minutes)))
       : 15;
-    const deviceFingerprint = generateDeviceFingerprint(req);
+    const deviceFingerprint = generateDeviceFingerprint(req, deviceToken);
     if (cooldownMinutes > 0) {
       const { data: cooldownOk } = await supabase.rpc('check_cooldown', {
         p_course_id: course.id,

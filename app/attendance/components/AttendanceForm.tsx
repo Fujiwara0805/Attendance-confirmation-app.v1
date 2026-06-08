@@ -558,11 +558,24 @@ export default function DynamicAttendanceForm({
 
     // Supabase v2 API用のリクエストボディ（有効なフィールドのみ送信）
     const enabledKeys = new Set(normalizeDefaultFields(enabledDefaultFields).map(d => d.key));
+    // 端末ごとに永続化するデバイストークン。クールダウン判定を IP+UA ではなくこのトークンで行うことで、
+    // 同一キャンパスWi-Fi（同一グローバルIP）＋同一機種ブラウザの参加者同士が衝突して誤ブロックされるのを防ぐ。
+    let deviceToken = '';
+    try {
+      deviceToken = localStorage.getItem('attendance_device_token') || '';
+      if (!deviceToken) {
+        deviceToken = crypto.randomUUID();
+        localStorage.setItem('attendance_device_token', deviceToken);
+      }
+    } catch {
+      // localStorage 不可（プライベートブラウズ等）の場合はトークン無しで送信し、サーバ側で IP+UA にフォールバック
+    }
     const requestBody: Record<string, any> = {
       courseCode: courseId, // QRコードのコード
       courseId: targetCourse?.id, // Supabase内部ID
       latitude,
       longitude,
+      deviceToken,
     };
     // 有効なデフォルトフィールドのみリクエストに含める
     if (enabledKeys.has('student_id')) requestBody.student_id = values.student_id || '';
