@@ -55,6 +55,7 @@ import {
   getRankingDisplayMode,
   getRankingOptionLabel,
   optionLetter,
+  POLL_AGGREGATION_MAX_SETTLE_MS,
   POLL_AGGREGATION_SETTLE_MS,
   rankLabel,
   type FreeTextCardColor,
@@ -1148,10 +1149,17 @@ function ActivePollCard({
       ? timerStartMs + rankingTimeLimit * 1000
       : null;
   const anyTimedExpired = quizExpired || standardExpired || rankingExpired;
+  // 自分が送信した全回答がサーバーから取得済みか。送信直後は自票の取得が間に合わず件数が不足するため、
+  // 取得が揃う（serverOwnAnswerIndexes が送信件数に追いつく）まで「集計中」を延長して、
+  // 回答数が不足したまま結果を開示してしまうのを防ぐ。
+  const ownVotesFullyLoaded =
+    !hasLocalSubmittedAnswer || serverOwnAnswerIndexes.length >= submittedAnswerIndexes.length;
   const aggregating =
     anyTimedExpired &&
     activeTimedDeadlineMs !== null &&
-    now < activeTimedDeadlineMs + POLL_AGGREGATION_SETTLE_MS;
+    (now < activeTimedDeadlineMs + POLL_AGGREGATION_SETTLE_MS ||
+      // 自票が未取得なら、上限（MAX）まで集計中を継続して全回答が揃うのを待つ。
+      (!ownVotesFullyLoaded && now < activeTimedDeadlineMs + POLL_AGGREGATION_MAX_SETTLE_MS));
   // 開示（結果・正解を表示）。タイマーありの場合は時間切れ＋集計中の待機が明けるまで開示しない
   // （ランキング・通常投票と同様、スクリーン／資料投影と同じタイミングで一括開示する）。
   // タイマーなしの場合のみ送信直後に開示する。

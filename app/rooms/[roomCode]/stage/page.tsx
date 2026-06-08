@@ -760,7 +760,9 @@ function StagePollCard({
       : null;
   const requiresManualStart = timeLimit > 0;
   const timerNotStarted = requiresManualStart && !timerStartMs;
-  // 締切直後は「集計中」を挟み、在時間内に届いた票と realtime 伝播が揃うのを待ってから開示する。
+  // 投票時間ありの場合のみ「集計中」を挟む。締切後は新たな回答は増えないため、
+  // 在時間内に届いた票の収集（realtime 伝播）が終わるまでの一定時間だけ集計中を表示してから開示する。
+  // 投票時間なし（deadlineMs===null）は従来どおり即時反映（集計中を出さない）。
   const deadlineMs = timeLimit > 0 && timerStartMs ? timerStartMs + timeLimit * 1000 : null;
   const aggregating =
     deadlineMs !== null && nowMs >= deadlineMs && nowMs < deadlineMs + POLL_AGGREGATION_SETTLE_MS;

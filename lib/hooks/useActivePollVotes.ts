@@ -11,6 +11,10 @@ const AGGREGATE_INTERVAL_MS = 4000;
 const OWN_REFETCH_INTERVAL_MS = 16000;
 // ranking/free_text の取りこぼし保険ポーリング。
 const SAFETY_REFETCH_MS = 60000;
+// 締切直後の取りこぼし対策。締切〜締切+ウィンドウ の間だけ自票＋集計を高頻度で取得し、
+// 締切間際に届いた票（在時間内に押下された全回答）を素早く反映する。定常負荷は変えない（締切付近のみ）。
+const SETTLE_CATCHUP_INTERVAL_MS = 1200;
+const SETTLE_CATCHUP_WINDOW_MS = 16000;
 
 type AggregateRow = { option_index: number; value: string | null; cnt: number };
 
@@ -80,8 +84,13 @@ export function useActivePollVotes(
 
   const pollId = activePoll?.id ?? null;
   const startedAt = activePoll?.started_at ?? null;
-  const mode = activePoll ? getPollMode(extractPollPayload(activePoll.options).meta.mode) : null;
+  const payloadMeta = activePoll ? extractPollPayload(activePoll.options).meta : null;
+  const mode = payloadMeta ? getPollMode(payloadMeta.mode) : null;
   const aggregate = usesAggregate(mode);
+  // 締切時刻（started_at + 制限時間）。締切直後の高頻度キャッチアップに使う。
+  const timeLimitSeconds = Number(payloadMeta?.timeLimitSeconds || 0);
+  const deadlineMs =
+    startedAt && timeLimitSeconds > 0 ? new Date(startedAt).getTime() + timeLimitSeconds * 1000 : null;
 
   useEffect(() => {
     if (!pollId) {
@@ -118,22 +127,57 @@ export function useActivePollVotes(
         setVotes(synthesizeVotes(pollId, startedAt, ownVotesRef.current, rows));
       };
 
+      const refreshOwnAndAggregate = () => {
+        void (async () => {
+          await fetchOwn();
+          await tick();
+        })();
+      };
+
       void (async () => {
         await fetchOwn();
         await tick();
       })();
       const aggTimer = setInterval(tick, AGGREGATE_INTERVAL_MS);
-      const ownTimer = setInterval(() => {
-        void (async () => {
-          await fetchOwn();
-          await tick();
-        })();
-      }, OWN_REFETCH_INTERVAL_MS);
+      const ownTimer = setInterval(refreshOwnAndAggregate, OWN_REFETCH_INTERVAL_MS);
+
+      // 締切直後のキャッチアップ: 締切〜締切+ウィンドウ の間だけ自票＋集計を高頻度で取得する。
+      // 締切間際に送信された自分の全回答（在時間内に受理されたぶん）を素早く反映し、
+      // 件数不足のまま結果を開示してしまうのを防ぐ。締切付近の限定的なバーストなので定常負荷は不変。
+      let catchupTimer: ReturnType<typeof setInterval> | null = null;
+      let catchupStartTimer: ReturnType<typeof setTimeout> | null = null;
+      const startCatchup = () => {
+        if (cancelled || catchupTimer || deadlineMs === null) return;
+        refreshOwnAndAggregate();
+        catchupTimer = setInterval(() => {
+          if (cancelled || deadlineMs === null) return;
+          if (Date.now() > deadlineMs + SETTLE_CATCHUP_WINDOW_MS) {
+            if (catchupTimer) {
+              clearInterval(catchupTimer);
+              catchupTimer = null;
+            }
+            return;
+          }
+          refreshOwnAndAggregate();
+        }, SETTLE_CATCHUP_INTERVAL_MS);
+      };
+      if (deadlineMs !== null) {
+        const msUntilDeadline = deadlineMs - Date.now();
+        if (msUntilDeadline > 0) {
+          // 締切前: 締切ちょうどにキャッチアップを開始するよう予約
+          catchupStartTimer = setTimeout(startCatchup, msUntilDeadline);
+        } else if (Date.now() <= deadlineMs + SETTLE_CATCHUP_WINDOW_MS) {
+          // 既に締切後だがウィンドウ内（途中参加・再描画）なら即開始
+          startCatchup();
+        }
+      }
 
       return () => {
         cancelled = true;
         clearInterval(aggTimer);
         clearInterval(ownTimer);
+        if (catchupTimer) clearInterval(catchupTimer);
+        if (catchupStartTimer) clearTimeout(catchupStartTimer);
       };
     }
 
@@ -183,7 +227,7 @@ export function useActivePollVotes(
       clearInterval(safetyTimer);
       supabase.removeChannel(channel);
     };
-  }, [pollId, startedAt, aggregate, participantId]);
+  }, [pollId, startedAt, aggregate, participantId, deadlineMs]);
 
   return votes;
 }

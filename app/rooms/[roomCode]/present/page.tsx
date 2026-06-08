@@ -505,8 +505,13 @@ export default function PresentPage() {
                   const requiresManualStart = timedMode;
                   const timerNotStarted = requiresManualStart && !timerStartMs;
                   const deadlineMs = timedMode && timerStartMs ? timerStartMs + activeTimeLimit * 1000 : null;
+                  // 投票時間ありの場合のみ「集計中」を挟む。締切後は新たな回答は増えないため、
+                  // 在時間内に届いた票の収集（realtime 伝播）が終わるまでの一定時間だけ集計中を表示してから開示する。
+                  // 投票時間なし（deadlineMs===null）は従来どおり即時反映（集計中を出さない）。
                   const aggregating =
-                    deadlineMs !== null && nowMs >= deadlineMs && nowMs < deadlineMs + POLL_AGGREGATION_SETTLE_MS;
+                    deadlineMs !== null &&
+                    nowMs >= deadlineMs &&
+                    nowMs < deadlineMs + POLL_AGGREGATION_SETTLE_MS;
                   const standardRevealed =
                     mode === 'standard' &&
                     (standardTimeLimit === 0 ||
