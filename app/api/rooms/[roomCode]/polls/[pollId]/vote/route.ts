@@ -247,9 +247,6 @@ export async function POST(
       }
     }
 
-    const tStart = Date.now();
-    const logCtx = { pollId: params.pollId, participantId, mode: pollMode, rowCount: indexes.length };
-
     const rows: PollVoteRow[] = indexes.map((idx, rank) => {
       const quizQuestionIndex = pollMode === 'quiz'
         ? quizQuestions.findIndex(
@@ -277,7 +274,6 @@ export async function POST(
     // 旧実装はそのとき 1 行ずつ復活させていたが、20問規模では最大 ~80 往復に達し Vercel の 10s で
     // タイムアウト → 票が一部しか保存されない原因だった。ここでは衝突しうるアーカイブ票も一括で消し、
     // INSERT は常に 1 回で済むようにする（問題数に依存しない 3 往復固定）。
-    const tDel = Date.now();
     const [delLive, delArchived] = await Promise.all([
       // 今回の参加者のライブ票を全削除（再投票で旧選択を置き換える）
       supabase
@@ -297,26 +293,12 @@ export async function POST(
     ]);
     if (delLive.error) throw delLive.error;
     if (delArchived.error) throw delArchived.error;
-    console.log('[vote] deletes done', { ...logCtx, ms: Date.now() - tDel });
 
     // バルク INSERT（衝突源は上で除去済みのため通常は 1 回で成立）。
-    const tIns = Date.now();
     const bulk = await supabase.from('poll_votes').insert(rows).select();
     if (!bulk.error) {
-      console.log('[vote] bulk insert ok', {
-        ...logCtx,
-        inserted: bulk.data?.length ?? 0,
-        insertMs: Date.now() - tIns,
-        totalMs: Date.now() - tStart,
-      });
       return NextResponse.json({ votes: bulk.data ?? [], count: rows.length }, { status: 201 });
     }
-    console.error('[vote] bulk insert error → per-row fallback', {
-      ...logCtx,
-      code: (bulk.error as SupabaseErrorLike).code,
-      message: bulk.error.message,
-      insertMs: Date.now() - tIns,
-    });
     if (!isDuplicateKeyError(bulk.error)) throw bulk.error;
 
     // 最終手段: 1 行ずつ（衝突除去後もなお失敗するケースはごく稀。万一に備えて残す）。
@@ -326,11 +308,6 @@ export async function POST(
       if (error) throw error;
       if (vote) data.push(vote);
     }
-    console.log('[vote] per-row fallback done', {
-      ...logCtx,
-      inserted: data.length,
-      totalMs: Date.now() - tStart,
-    });
 
     return NextResponse.json({ votes: data ?? [], count: rows.length }, { status: 201 });
   } catch (err) {

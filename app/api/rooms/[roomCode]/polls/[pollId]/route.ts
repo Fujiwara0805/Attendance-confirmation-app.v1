@@ -69,6 +69,7 @@ export async function PATCH(
         .eq('poll_id', params.pollId)
         .is('cleared_at', null);
       let nextOptions: unknown | undefined;
+      let voteSnapshotSaved = false;
       if (currentPoll?.options && currentPoll.started_at) {
         const { meta, options } = extractPollPayload(currentPoll.options);
         const voteSnapshot =
@@ -85,6 +86,7 @@ export async function PATCH(
                 })),
               }
             : undefined;
+        voteSnapshotSaved = !!voteSnapshot;
         nextOptions = buildPollOptionsPayload(
           {
             ...meta,
@@ -116,11 +118,24 @@ export async function PATCH(
           options
         );
       }
-      await supabase
-        .from('poll_votes')
-        .update({ cleared_at: clearedAt })
-        .eq('poll_id', params.pollId)
-        .is('cleared_at', null);
+      // 票データは options メタ（runVoteSnapshotsByClearedAt）にスナップショット保存済みのため、
+      // 実テーブルからは削除してアーカイブ票の蓄積を防ぐ。アーカイブ票が溜まると再投票時に
+      // unique 制約 (poll_id, participant_id, option_index) と衝突し、復活処理が重くなる（過去の不具合の根）。
+      // CSV 出力はスナップショットを優先採用するため、削除しても過去回データは欠落しない。
+      // スナップショット未保存（started_at 無し等のレア系）のときだけ従来どおりアーカイブして保全する。
+      if (voteSnapshotSaved) {
+        await supabase
+          .from('poll_votes')
+          .delete()
+          .eq('poll_id', params.pollId)
+          .is('cleared_at', null);
+      } else {
+        await supabase
+          .from('poll_votes')
+          .update({ cleared_at: clearedAt })
+          .eq('poll_id', params.pollId)
+          .is('cleared_at', null);
+      }
       const resetUpdate: { started_at: null; status: 'draft'; options?: unknown } = {
         started_at: null,
         status: 'draft',
@@ -282,11 +297,21 @@ export async function PATCH(
                 })),
               }
             : undefined;
-        await supabase
-          .from('poll_votes')
-          .update({ cleared_at: clearedAt })
-          .eq('poll_id', params.pollId)
-          .is('cleared_at', null);
+        // スナップショット保存済みなら実テーブルからは削除（アーカイブ票の蓄積＝再投票時の unique 衝突を防ぐ）。
+        // 未保存のレア系のみ従来どおりアーカイブして保全。CSV はスナップショットを優先採用するため欠落しない。
+        if (voteSnapshot) {
+          await supabase
+            .from('poll_votes')
+            .delete()
+            .eq('poll_id', params.pollId)
+            .is('cleared_at', null);
+        } else {
+          await supabase
+            .from('poll_votes')
+            .update({ cleared_at: clearedAt })
+            .eq('poll_id', params.pollId)
+            .is('cleared_at', null);
+        }
         if (currentPoll.started_at) {
           nextOptionsForStart = buildPollOptionsPayload(
             {
