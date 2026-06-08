@@ -1105,8 +1105,10 @@ function ActivePollCard({
   // 楽観 hasVoted は無視して未投票扱いに戻す → スクリーンの状態と同期
   const hasLiveOwnVote = ownVotes.length > 0;
   const effectiveHasVoted = isFreeText ? false : hasVoted && hasLiveOwnVote;
-  // 開示（結果・正解を表示）= 送信済み(ライブ票あり) or 時間切れ
-  const quizRevealed = isQuiz && (effectiveHasVoted || quizExpired);
+  // 開示（結果・正解を表示）。タイマーありの場合は時間切れまで開示しない
+  // （ランキング・通常投票と同様、スクリーン／資料投影と同じタイミングで一括開示する）。
+  // タイマーなしの場合のみ送信直後に開示する。
+  const quizRevealed = isQuiz && (hasQuizTimer ? quizExpired : effectiveHasVoted);
   const rankingRevealed = isRanking && (hasRankingTimer ? rankingExpired : effectiveHasVoted);
   const standardRevealed = isStandard && (hasStandardTimer ? standardExpired : effectiveHasVoted);
   const showResults = isQuiz ? quizRevealed : isRanking ? rankingRevealed : standardRevealed;
@@ -1137,11 +1139,11 @@ function ActivePollCard({
     return () => window.removeEventListener('keydown', onKey);
   }, [imagePreview]);
 
-  // タイマー稼働（未送信 && 未締切のときのみ）
+  // タイマー稼働（未締切のときのみ）。クイズは送信後も時間切れまで動かし続ける必要がある
+  // （時間切れで初めて結果を開示するため。送信時に止めると開示されない）。
   useEffect(() => {
     if (
       (!hasStandardTimer && !hasFreeTextTimer && !hasQuizTimer && !hasRankingTimer) ||
-      (isQuiz && effectiveHasVoted) ||
       quizExpired ||
       rankingExpired ||
       standardExpired ||
@@ -1814,6 +1816,11 @@ function ActivePollCard({
         </>
         )
       ) : isQuiz ? (
+        effectiveHasVoted && hasQuizTimer ? (
+          <div className="mt-3 rounded-xl bg-emerald-50 px-3 py-4 text-center text-sm font-semibold text-emerald-700 ring-1 ring-emerald-200">
+            回答を送信しました。結果は投票時間後に表示されます。
+          </div>
+        ) : (
         <>
           <div className="mt-3 rounded-2xl bg-slate-50/70 p-3 ring-1 ring-slate-200">
             <div className="mb-3 flex items-center justify-between gap-2">
@@ -2039,6 +2046,7 @@ function ActivePollCard({
             )}
           </button>
         </>
+        )
       ) : (
         standardNotStarted ? (
           <div className="mt-3 rounded-xl bg-slate-50 px-3 py-4 text-center text-sm font-semibold text-slate-500 ring-1 ring-slate-200">
