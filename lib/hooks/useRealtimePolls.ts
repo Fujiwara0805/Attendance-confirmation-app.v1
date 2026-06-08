@@ -37,6 +37,27 @@ export interface PollVote {
   response_is_anonymous?: boolean | null;
 }
 
+// polls の TOAST 対象（extended storage）カラム。Postgres の論理レプリケーションは、
+// これらの大きいカラムが UPDATE で変更されていない場合「unchanged toast」プレースホルダを送り、
+// Supabase Realtime ではそれが null として届く。例えば status だけを更新する「表示する／締切」操作では、
+// 変更していない options（クイズなどカードが大きいほど TOAST 化されやすい）が null で来てしまい、
+// カードを丸ごと置換すると extractPollPayload(null) が mode:'standard' を返し、
+// クイズが通常投票として描画されてしまう。
+// これらの列はアプリ上いずれも実質 NOT NULL（DB 制約 or 常に配列）で、意図的に null になることはないため、
+// realtime で null が来たら「未変更」とみなして既存値を保持する。容量・カード種別に依存しない恒久対策。
+// 一方 started_at 等の小さい列は plain storage で常に正しく届くため対象外（activation 時の意図的な null を壊さない）。
+const POLL_TOASTABLE_KEYS: ReadonlyArray<keyof Poll> = ['question', 'type', 'options', 'status'];
+
+function mergePollUpdate(prev: Poll, incoming: Poll): Poll {
+  const merged = { ...prev, ...incoming };
+  for (const key of POLL_TOASTABLE_KEYS) {
+    if (incoming[key] == null && prev[key] != null) {
+      (merged as Record<keyof Poll, unknown>)[key] = prev[key];
+    }
+  }
+  return merged;
+}
+
 // Realtime 切断中のみ短間隔でフェッチ
 const FALLBACK_POLL_INTERVAL_MS = 5000;
 // Realtime 接続中の保険ポーリング。Disk IO 削減のため大幅に長くし、
@@ -181,10 +202,12 @@ export function useRealtimePolls(roomId: string | null) {
               case 'INSERT':
                 if (prev.some((p) => p.id === (payload.new as Poll).id)) return prev;
                 return [payload.new as Poll, ...prev];
-              case 'UPDATE':
+              case 'UPDATE': {
+                const newRow = payload.new as Poll;
                 return prev.map((p) =>
-                  p.id === (payload.new as Poll).id ? (payload.new as Poll) : p
+                  p.id === newRow.id ? mergePollUpdate(p, newRow) : p
                 );
+              }
               case 'DELETE':
                 return prev.filter((p) => p.id !== (payload.old as { id: string }).id);
               default:
