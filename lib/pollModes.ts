@@ -70,6 +70,12 @@ export const POLL_MODE_LABELS: Record<PollMode, string> = {
   free_text: 'ブレスト形式',
 };
 
+// 締切（時間切れ）直後、結果を開示するまでの「集計中」待機時間。
+// 締切間際に届いた在時間内の票（ネットワーク遅延ぶん）と realtime 伝播、
+// および参加者画面の集計ポーリング（4秒間隔）が揃うのを待ってから開示することで、
+// 「未回答」表示のちらつきや件数の後追い増加を防ぐ。各画面で共有する。
+export const POLL_AGGREGATION_SETTLE_MS = 5000;
+
 export const QUIZ_OPTION_COUNTS = [2, 4, 6, 8] as const;
 export const RANKING_CANDIDATE_PRESETS = [10, 25, 50, 100] as const;
 export const FREE_TEXT_CARD_COLORS = ['yellow', 'green', 'blue', 'orange'] as const;

@@ -8,6 +8,10 @@ import {
   getQuizQuestions,
 } from '@/lib/pollModes';
 
+// 旧クライアント（押下時刻 clientElapsedMs を送らない版）向けに、サーバー到達時刻ベースの
+// 締切判定へ持たせる遅延吸収の猶予。締切直前送信のネットワーク遅延・処理待ちを吸収する。
+const VOTE_DEADLINE_GRACE_MS = 5000;
+
 type PollVoteRow = {
   poll_id: string;
   room_id: string;
@@ -87,7 +91,7 @@ export async function POST(
 ) {
   try {
     const body = await req.json();
-    const { participantId, optionIndex, optionIndexes, value, authorName, isAnonymous, color } = body as {
+    const { participantId, optionIndex, optionIndexes, value, authorName, isAnonymous, color, clientElapsedMs } = body as {
       participantId?: string;
       optionIndex?: number;
       optionIndexes?: number[];
@@ -95,6 +99,7 @@ export async function POST(
       authorName?: string | null;
       isAnonymous?: boolean;
       color?: string | null;
+      clientElapsedMs?: number;
     };
     if (!participantId) {
       return NextResponse.json({ error: 'participantId is required' }, { status: 400 });
@@ -126,7 +131,20 @@ export async function POST(
         return NextResponse.json({ error: '投票はまだ開始されていません' }, { status: 400 });
       }
       const startedAtMs = new Date(poll.started_at).getTime();
-      if (Number.isFinite(startedAtMs) && Date.now() - startedAtMs >= timeLimitSeconds * 1000) {
+      const limitMs = timeLimitSeconds * 1000;
+      // 締切判定はサーバー到達時刻ではなく「ボタン押下が時間内だったか」で行う。
+      // 参加者の送信ボタンはクライアントのカウントダウン（now - started_at）で時間内のみ有効。
+      // 締切直前の同時送信ではネットワーク遅延でサーバー到達が締切を跨ぎ、本来時間内の回答が
+      // 全拒否されて「未回答」になっていた。クライアントが押下時点の経過時間（カウントダウンと同一計算）
+      // を送ってきた場合はそれを信頼し、遅れて届いても押下が時間内なら受理する。
+      const clientWithinTime =
+        typeof clientElapsedMs === 'number' &&
+        Number.isFinite(clientElapsedMs) &&
+        clientElapsedMs < limitMs;
+      // 旧クライアント（clientElapsedMs 未送信）向けの保険として、サーバー時刻にも遅延吸収の猶予を持たせる。
+      const serverWithinGrace =
+        Number.isFinite(startedAtMs) && Date.now() - startedAtMs < limitMs + VOTE_DEADLINE_GRACE_MS;
+      if (!clientWithinTime && !serverWithinGrace) {
         return NextResponse.json({ error: '投票時間が終了しました' }, { status: 400 });
       }
     }

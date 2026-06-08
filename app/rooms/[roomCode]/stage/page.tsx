@@ -35,6 +35,7 @@ import {
   getQuizQuestions,
   getRankingDisplayMode,
   optionLetter,
+  POLL_AGGREGATION_SETTLE_MS,
 } from '@/lib/pollModes';
 import RankingResults from '../../components/RankingResults';
 
@@ -759,13 +760,17 @@ function StagePollCard({
       : null;
   const requiresManualStart = timeLimit > 0;
   const timerNotStarted = requiresManualStart && !timerStartMs;
+  // 締切直後は「集計中」を挟み、在時間内に届いた票と realtime 伝播が揃うのを待ってから開示する。
+  const deadlineMs = timeLimit > 0 && timerStartMs ? timerStartMs + timeLimit * 1000 : null;
+  const aggregating =
+    deadlineMs !== null && nowMs >= deadlineMs && nowMs < deadlineMs + POLL_AGGREGATION_SETTLE_MS;
   const revealed =
     mode === 'standard'
-      ? timeLimit === 0 || (!!timerStartMs && timerRemaining !== null && timerRemaining <= 0)
+      ? timeLimit === 0 || (!!timerStartMs && timerRemaining !== null && timerRemaining <= 0 && !aggregating)
       : mode === 'quiz'
-      ? !timerNotStarted && (timeLimit === 0 || (timerRemaining !== null && timerRemaining <= 0))
-      : timeLimit === 0 || (!!timerStartMs && timerRemaining !== null && timerRemaining <= 0);
-  const answering = timeLimit > 0 && !!timerStartMs && !revealed;
+      ? !timerNotStarted && (timeLimit === 0 || (timerRemaining !== null && timerRemaining <= 0 && !aggregating))
+      : timeLimit === 0 || (!!timerStartMs && timerRemaining !== null && timerRemaining <= 0 && !aggregating);
+  const answering = timeLimit > 0 && !!timerStartMs && !revealed && !aggregating;
   const fmtTime = (seconds: number) =>
     `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
   const activeQuizQuestion = quizQuestions[safeQuizIndex];
@@ -929,6 +934,12 @@ function StagePollCard({
         </div>
       )}
 
+      {aggregating && (
+        <div className="mb-2 flex items-center justify-center gap-2 rounded-lg bg-[#f7f5f5] px-3 py-3 ring-1 ring-[#e1dcdc]">
+          <Loader2 className="h-4 w-4 animate-spin text-[#00963c]" />
+          <span className="text-xs font-bold text-[#323232]">回答を集計中です… まもなく結果を表示します</span>
+        </div>
+      )}
       {mode === 'free_text' ? (
         <div className="flex items-start gap-2 rounded-lg bg-orange-50 px-3 py-3 ring-1 ring-orange-200">
           <Hand className="mt-0.5 h-4 w-4 shrink-0 text-orange-600" />

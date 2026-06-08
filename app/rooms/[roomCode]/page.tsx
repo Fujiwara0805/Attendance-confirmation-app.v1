@@ -55,6 +55,7 @@ import {
   getRankingDisplayMode,
   getRankingOptionLabel,
   optionLetter,
+  POLL_AGGREGATION_SETTLE_MS,
   rankLabel,
   type FreeTextCardColor,
   type PollOption,
@@ -388,10 +389,15 @@ export default function ParticipantPage() {
       }
 
       try {
+        // 押下時点の経過時間（画面カウントダウンと同一計算）をサーバーへ送る。
+        // ネットワーク遅延でサーバー到達が締切を跨いでも、押下が時間内なら全回答を受理させる。
+        const clientElapsedMs = poll.started_at
+          ? Date.now() - new Date(poll.started_at).getTime()
+          : undefined;
         const res = await fetch(`/api/rooms/${roomCode}/polls/${poll.id}/vote`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ participantId, optionIndexes, value, ...meta }),
+          body: JSON.stringify({ participantId, optionIndexes, value, clientElapsedMs, ...meta }),
         });
         if (!res.ok) throw new Error('poll vote failed');
       } catch (error) {
@@ -1131,12 +1137,27 @@ function ActivePollCard({
   // 楽観 hasVoted は無視して未投票扱いに戻す → スクリーンの状態と同期
   const hasLiveOwnVote = ownVotes.length > 0;
   const effectiveHasVoted = isFreeText ? false : hasLocalSubmittedAnswer || hasVoted || hasLiveOwnVote;
-  // 開示（結果・正解を表示）。タイマーありの場合は時間切れまで開示しない
+  // 締切直後の「集計中」待機。締切間際に届いた在時間内の票と集計ポーリングが揃うのを待ってから開示し、
+  // 未確定の件数（未回答ちらつき）を見せない。アクティブな時間制限モードの締切時刻 + 待機時間で判定。
+  const activeTimedDeadlineMs =
+    hasQuizTimer && timerStartMs
+      ? timerStartMs + quizTimeLimit * 1000
+      : hasStandardTimer && timerStartMs
+      ? timerStartMs + standardTimeLimit * 1000
+      : hasRankingTimer && timerStartMs
+      ? timerStartMs + rankingTimeLimit * 1000
+      : null;
+  const anyTimedExpired = quizExpired || standardExpired || rankingExpired;
+  const aggregating =
+    anyTimedExpired &&
+    activeTimedDeadlineMs !== null &&
+    now < activeTimedDeadlineMs + POLL_AGGREGATION_SETTLE_MS;
+  // 開示（結果・正解を表示）。タイマーありの場合は時間切れ＋集計中の待機が明けるまで開示しない
   // （ランキング・通常投票と同様、スクリーン／資料投影と同じタイミングで一括開示する）。
   // タイマーなしの場合のみ送信直後に開示する。
-  const quizRevealed = isQuiz && (hasQuizTimer ? quizExpired : effectiveHasVoted);
-  const rankingRevealed = isRanking && (hasRankingTimer ? rankingExpired : effectiveHasVoted);
-  const standardRevealed = isStandard && (hasStandardTimer ? standardExpired : effectiveHasVoted);
+  const quizRevealed = isQuiz && (hasQuizTimer ? quizExpired && !aggregating : effectiveHasVoted);
+  const rankingRevealed = isRanking && (hasRankingTimer ? rankingExpired && !aggregating : effectiveHasVoted);
+  const standardRevealed = isStandard && (hasStandardTimer ? standardExpired && !aggregating : effectiveHasVoted);
   const showResults = isQuiz ? quizRevealed : isRanking ? rankingRevealed : standardRevealed;
   // 送信可能: 未送信 && 時間切れでない && 1問以上回答
   const quizSubmittable =
@@ -1170,13 +1191,9 @@ function ActivePollCard({
   // タイマー稼働（未締切のときのみ）。クイズは送信後も時間切れまで動かし続ける必要がある
   // （時間切れで初めて結果を開示するため。送信時に止めると開示されない）。
   useEffect(() => {
-    if (
-      (!hasStandardTimer && !hasFreeTextTimer && !hasQuizTimer && !hasRankingTimer) ||
-      quizExpired ||
-      rankingExpired ||
-      standardExpired ||
-      freeTextExpired
-    ) return;
+    if (!hasStandardTimer && !hasFreeTextTimer && !hasQuizTimer && !hasRankingTimer) return;
+    // 締切後も「集計中」の待機が明けるまではカウンタを動かし続ける（aggregating→開示の遷移に必要）。
+    if ((quizExpired || rankingExpired || standardExpired || freeTextExpired) && !aggregating) return;
     const id = setInterval(() => setNow(Date.now()), 250);
     return () => clearInterval(id);
   }, [
@@ -1190,6 +1207,7 @@ function ActivePollCard({
     rankingExpired,
     standardExpired,
     freeTextExpired,
+    aggregating,
   ]);
 
   return (
@@ -1331,19 +1349,19 @@ function ActivePollCard({
           </span>
         </div>
       )}
-      {isQuiz && quizExpired && !effectiveHasVoted && (
+      {isQuiz && quizExpired && !aggregating && !effectiveHasVoted && (
         <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-3 py-1 text-xs sm:text-sm font-bold text-rose-600 ring-1 ring-rose-200">
           <Clock className="h-3.5 w-3.5" />
           時間切れ — 解答を表示しています
         </div>
       )}
-      {isRanking && rankingExpired && !effectiveHasVoted && (
+      {isRanking && rankingExpired && !aggregating && !effectiveHasVoted && (
         <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-3 py-1 text-xs sm:text-sm font-bold text-rose-600 ring-1 ring-rose-200">
           <Clock className="h-3.5 w-3.5" />
           投票時間が終了しました
         </div>
       )}
-      {isStandard && standardExpired && !effectiveHasVoted && (
+      {isStandard && standardExpired && !aggregating && !effectiveHasVoted && (
         <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-3 py-1 text-xs sm:text-sm font-bold text-rose-600 ring-1 ring-rose-200">
           <Clock className="h-3.5 w-3.5" />
           投票時間が終了しました
@@ -1526,6 +1544,12 @@ function ActivePollCard({
               </div>
             </>
           )}
+        </div>
+      ) : aggregating ? (
+        <div className="mt-4 flex flex-col items-center justify-center gap-3 rounded-2xl bg-slate-50 px-4 py-10 text-center ring-1 ring-slate-200">
+          <Loader2 className="h-7 w-7 animate-spin text-emerald-600" />
+          <p className="text-sm sm:text-base font-bold text-slate-700">回答を集計中です…</p>
+          <p className="text-xs sm:text-sm text-slate-500">まもなく結果を表示します</p>
         </div>
       ) : showResults ? (
         <div className="space-y-4 mt-3">

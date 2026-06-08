@@ -18,6 +18,7 @@ import {
   getRankingDisplayMode,
   normalizeFreeTextGroups,
   optionLetter,
+  POLL_AGGREGATION_SETTLE_MS,
   type FreeTextCardColor,
 } from '@/lib/pollModes';
 import RankingResults from '../../components/RankingResults';
@@ -497,27 +498,33 @@ export default function PresentPage() {
                     activeTimeLimit > 0 && timerStartMs
                       ? Math.max(0, Math.ceil(activeTimeLimit - (nowMs - timerStartMs) / 1000))
                       : null;
-                  // 未開始（started_at 未セット） / 回答中 / 開示 の 3 状態
+                  // 未開始（started_at 未セット） / 回答中 / 集計中 / 開示 の 4 状態。
+                  // 締切直後は「集計中」を挟み、在時間内に届いた票と realtime 伝播が揃うのを待ってから開示する
+                  // （未確定の件数・未回答ちらつきを見せない）。
                   const timedMode = activeTimeLimit > 0;
                   const requiresManualStart = timedMode;
                   const timerNotStarted = requiresManualStart && !timerStartMs;
+                  const deadlineMs = timedMode && timerStartMs ? timerStartMs + activeTimeLimit * 1000 : null;
+                  const aggregating =
+                    deadlineMs !== null && nowMs >= deadlineMs && nowMs < deadlineMs + POLL_AGGREGATION_SETTLE_MS;
                   const standardRevealed =
                     mode === 'standard' &&
                     (standardTimeLimit === 0 ||
-                      (!!timerStartMs && timerRemaining !== null && timerRemaining <= 0));
+                      (!!timerStartMs && timerRemaining !== null && timerRemaining <= 0 && !aggregating));
                   const standardAnswering =
-                    mode === 'standard' && standardTimeLimit > 0 && !!timerStartMs && !standardRevealed;
+                    mode === 'standard' && standardTimeLimit > 0 && !!timerStartMs && !standardRevealed && !aggregating;
                   const quizRevealed =
                     mode === 'quiz' &&
                     !timerNotStarted &&
-                    (quizTimeLimit === 0 || (timerRemaining !== null && timerRemaining <= 0));
+                    (quizTimeLimit === 0 || (timerRemaining !== null && timerRemaining <= 0 && !aggregating));
                   const quizAnswering =
-                    mode === 'quiz' && quizTimeLimit > 0 && !!timerStartMs && !quizRevealed;
+                    mode === 'quiz' && quizTimeLimit > 0 && !!timerStartMs && !quizRevealed && !aggregating;
                   const rankingRevealed =
                     mode === 'ranking' &&
-                    (rankingTimeLimit === 0 || (!!timerStartMs && timerRemaining !== null && timerRemaining <= 0));
+                    (rankingTimeLimit === 0 ||
+                      (!!timerStartMs && timerRemaining !== null && timerRemaining <= 0 && !aggregating));
                   const rankingAnswering =
-                    mode === 'ranking' && rankingTimeLimit > 0 && !!timerStartMs && !rankingRevealed;
+                    mode === 'ranking' && rankingTimeLimit > 0 && !!timerStartMs && !rankingRevealed && !aggregating;
                   const fmtTime = (s: number) =>
                     `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
                   return (
@@ -635,6 +642,14 @@ export default function PresentPage() {
                           </div>
                         )}
                       </div>
+                      {aggregating && (
+                        <div className="mb-4 flex items-center justify-center gap-3 rounded-2xl bg-slate-50 px-5 py-4 ring-1 ring-slate-200">
+                          <Loader2 className="h-5 w-5 animate-spin text-emerald-600" />
+                          <span className="text-base sm:text-lg font-bold text-slate-700">
+                            回答を集計中です… まもなく結果を表示します
+                          </span>
+                        </div>
+                      )}
                       {mode === 'free_text' ? (
                         <FreeTextBoard
                           poll={activePoll}
