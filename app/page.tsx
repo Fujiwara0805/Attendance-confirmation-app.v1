@@ -786,7 +786,7 @@ export default function LandingPage() {
               お客様の声
             </h2>
             <p className="mt-4 text-base lg:text-lg text-slate-500 max-w-xl mx-auto">
-              大学・企業研修・カンファレンスなど、
+              大学・企業研修・カンファレンス等、
               <br className="sm:hidden" />
               さまざまな現場で選ばれています。
             </p>
