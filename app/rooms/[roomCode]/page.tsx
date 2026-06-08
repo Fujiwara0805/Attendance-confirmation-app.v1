@@ -387,12 +387,13 @@ export default function ParticipantPage() {
           body: JSON.stringify({ participantId, optionIndexes, value, ...meta }),
         });
         if (!res.ok) throw new Error('poll vote failed');
-      } catch {
+      } catch (error) {
         if (isFreeText) return;
         const reverted = new Set(hasVotedPoll);
         reverted.delete(runKey);
         setHasVotedPoll(reverted);
         localStorage.setItem(`voted_polls_${roomCode}`, JSON.stringify(Array.from(reverted)));
+        throw error;
       }
     },
     [participantId, hasVotedPoll, roomCode]
@@ -965,6 +966,9 @@ function ActivePollCard({
   const [imagePreview, setImagePreview] = useState<{ src: string; alt: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const submittingRef = useRef(false);
+  const currentRunKey = getPollRunKey(poll);
+  const [submittedRunKey, setSubmittedRunKey] = useState<string | null>(null);
+  const [submittedAnswerIndexes, setSubmittedAnswerIndexes] = useState<number[]>([]);
   // ブレスト形式: 自分の回答の編集・削除を楽観反映するためのローカル上書き
   const [responseOverrides, setResponseOverrides] = useState<
     Record<string, { value?: string; removed?: boolean }>
@@ -994,7 +998,16 @@ function ActivePollCard({
     setSubmitting(true);
     try {
       await onSubmit(indexes, value, submitMeta);
-      if (isFreeText) setFreeTextAnswer('');
+      if (isFreeText) {
+        setFreeTextAnswer('');
+      } else {
+        setSubmittedRunKey(currentRunKey);
+        setSubmittedAnswerIndexes(
+          indexes.filter((index) => Number.isInteger(index)).sort((a, b) => a - b)
+        );
+      }
+    } catch (error) {
+      console.error('Failed to submit poll answer:', error);
     } finally {
       submittingRef.current = false;
       setSubmitting(false);
@@ -1046,11 +1059,15 @@ function ActivePollCard({
   };
 
   // 「あなたの回答」は送信済みのみを採用（未送信の選択は反映しない）。
-  const ownAnswerIndexes = ownVotes.length > 0
-    ? ownVotes
-        .map((v) => v.option_index)
-        .filter((idx): idx is number => typeof idx === 'number')
-    : [];
+  const serverOwnAnswerIndexes = ownVotes
+    .map((v) => v.option_index)
+    .filter((idx): idx is number => typeof idx === 'number')
+    .sort((a, b) => a - b);
+  const hasLocalSubmittedAnswer = submittedRunKey === currentRunKey && submittedAnswerIndexes.length > 0;
+  const ownAnswerIndexes =
+    hasLocalSubmittedAnswer && submittedAnswerIndexes.length >= serverOwnAnswerIndexes.length
+      ? submittedAnswerIndexes
+      : serverOwnAnswerIndexes;
   const isAnswered = (question: { optionStart: number; optionCount: number }) =>
     selected.some(
       (idx) => idx >= question.optionStart && idx < question.optionStart + question.optionCount
@@ -1104,7 +1121,7 @@ function ActivePollCard({
   // サーバー側のライブ票（cleared_at IS NULL）が 0 ならリセット後とみなし、
   // 楽観 hasVoted は無視して未投票扱いに戻す → スクリーンの状態と同期
   const hasLiveOwnVote = ownVotes.length > 0;
-  const effectiveHasVoted = isFreeText ? false : hasVoted && hasLiveOwnVote;
+  const effectiveHasVoted = isFreeText ? false : hasLocalSubmittedAnswer || hasVoted || hasLiveOwnVote;
   // 開示（結果・正解を表示）。タイマーありの場合は時間切れまで開示しない
   // （ランキング・通常投票と同様、スクリーン／資料投影と同じタイミングで一括開示する）。
   // タイマーなしの場合のみ送信直後に開示する。
@@ -1123,6 +1140,8 @@ function ActivePollCard({
     setFreeTextAnswer('');
     setActiveQuizIndex(0);
     setImagePreview(null);
+    setSubmittedRunKey(null);
+    setSubmittedAnswerIndexes([]);
     setResponseOverrides({});
     setEditingResponseId(null);
     setEditingResponseText('');
