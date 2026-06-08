@@ -1260,10 +1260,7 @@ export default function HostPage() {
       if (prev.includes(pollId)) {
         return prev.filter((id) => id !== pollId);
       }
-      if (prev.length >= 3) {
-        window.alert('一度に開始できるのは最大3件までです。');
-        return prev;
-      }
+      // 選択枚数の上限なし（選択順に bulkOrder を付与して一括表示する）。
       return [...prev, pollId];
     });
   }, []);
@@ -2286,7 +2283,7 @@ export default function HostPage() {
                 <div className="text-sm font-bold text-[#00963c]">
                   <span className="tabular-nums">{selectedPollsInfo.count}</span> 件選択中
                   <span className="ml-2 text-xs font-semibold text-[#1e7a35]">
-                    （最大3件・選択順 1→2→3 で表示）
+                    （選択順に表示します）
                   </span>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -4483,7 +4480,7 @@ function PollResultCard({
                   ? 'スクリーン画面に表示中のカードは選択できません'
                   : selected
                   ? `選択 ${selectionNumber}（クリックで解除）`
-                  : 'カードを選択（最大3件）'
+                  : 'カードを選択'
               }
               aria-label={
                 isScreenVisible
