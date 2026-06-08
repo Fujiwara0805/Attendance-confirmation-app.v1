@@ -185,6 +185,23 @@ export default function ParticipantPage() {
   // 表示中（先頭）のアクティブ投票1枚ぶんの票だけを取得する。
   const activePollVotes = useActivePollVotes(activePolls[0] || null, participantId || null);
 
+  // 診断: 参加者画面のアクティブカード構成（複数カードで先頭が切り替わる/不安定になる挙動の確認）。
+  useEffect(() => {
+    console.log('[participant activePolls]', {
+      count: activePolls.length,
+      head: activePolls[0]
+        ? {
+            id: activePolls[0].id,
+            startedAt: activePolls[0].started_at,
+            status: activePolls[0].status,
+            mode: extractPollPayload(activePolls[0].options).meta.mode,
+          }
+        : null,
+      ids: activePolls.map((p) => p.id),
+      activePollVotesLen: activePollVotes.length,
+    });
+  }, [activePolls, activePollVotes.length]);
+
   const presenceCount = useRoomPresence(room?.id || null, participantId || null);
 
   // Load voted state from localStorage
@@ -995,10 +1012,16 @@ function ActivePollCard({
 
   const toggle = (i: number) => {
     setSelected((prev) => {
-      if (prev.includes(i)) return prev.filter((x) => x !== i);
-      if (!isMulti) return [i];
-      if (prev.length >= maxSelections) return prev;
-      return [...prev, i];
+      const next = prev.includes(i)
+        ? prev.filter((x) => x !== i)
+        : !isMulti
+        ? [i]
+        : prev.length >= maxSelections
+        ? prev
+        : [...prev, i];
+      // 診断: 選択肢タップで selected が更新されるか記録（複数カードで選択できない原因切り分け）。
+      console.log('[ActivePollCard toggle]', { pollId: poll.id, i, prev, next });
+      return next;
     });
   };
   const openImagePreview = (src: string, alt: string) => setImagePreview({ src, alt });
@@ -1007,11 +1030,17 @@ function ActivePollCard({
     value?: string,
     submitMeta?: { authorName?: string; isAnonymous?: boolean; color?: FreeTextCardColor }
   ) => {
+    console.log('[ActivePollCard submitAnswers] start', {
+      pollId: poll.id,
+      indexes,
+      alreadySubmitting: submittingRef.current,
+    });
     if (submittingRef.current) return;
     submittingRef.current = true;
     setSubmitting(true);
     try {
       await onSubmit(indexes, value, submitMeta);
+      console.log('[ActivePollCard submitAnswers] success', { pollId: poll.id, indexes });
       if (isFreeText) {
         setFreeTextAnswer('');
       } else {
@@ -1021,7 +1050,7 @@ function ActivePollCard({
         );
       }
     } catch (error) {
-      console.error('Failed to submit poll answer:', error);
+      console.error('[ActivePollCard submitAnswers] failed', { pollId: poll.id, indexes, error });
     } finally {
       submittingRef.current = false;
       setSubmitting(false);
@@ -1174,6 +1203,12 @@ function ActivePollCard({
     isQuiz && effectiveHasVoted ? getQuizScore(quizQuestions, ownAnswerIndexes) : null;
 
   useEffect(() => {
+    // 診断: カード切替/再実行で選択状態がクリアされるタイミングを記録（複数カードで選択できない原因切り分け）。
+    console.log('[ActivePollCard reset] selection cleared', {
+      pollId: poll.id,
+      startedAt: poll.started_at,
+      mode,
+    });
     setSelected([]);
     setFreeTextAnswer('');
     setActiveQuizIndex(0);
@@ -1185,7 +1220,30 @@ function ActivePollCard({
     setEditingResponseText('');
     submittingRef.current = false;
     setSubmitting(false);
-  }, [poll.id, poll.started_at]);
+  }, [poll.id, poll.started_at, mode]);
+
+  // 診断: 通常投票カードの表示判定と選択状態を毎レンダリングで記録（入力UIが出ない/選択が消える原因切り分け）。
+  useEffect(() => {
+    if (!isStandard) return;
+    console.log('[ActivePollCard standard state]', {
+      pollId: poll.id,
+      startedAt: poll.started_at,
+      optionsLen: options.length,
+      isStandard,
+      hasStandardTimer,
+      standardNotStarted,
+      standardExpired,
+      aggregating,
+      showResults,
+      effectiveHasVoted,
+      hasVoted,
+      hasLiveOwnVote,
+      hasLocalSubmittedAnswer,
+      selected,
+      votesLen: votes.length,
+      ownVotesLen: ownVotes.length,
+    });
+  });
 
   useEffect(() => {
     if (!imagePreview) return;
