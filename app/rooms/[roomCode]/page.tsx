@@ -1168,7 +1168,12 @@ function ActivePollCard({
   const standardRevealed = isStandard && (hasStandardTimer ? standardExpired && !aggregating : effectiveHasVoted);
   const showResults = isQuiz ? quizRevealed : isRanking ? rankingRevealed : standardRevealed;
   // 送信可能: 未送信 && 時間切れでない && 1問以上回答
+  // 全問回答済みのときのみ送信可能（全ての設問を埋めないと「完了して送信」を押せない）。
+  const allQuizAnswered = quizQuestions.length > 0 && answeredQuizCount === quizQuestions.length;
   const quizSubmittable =
+    isQuiz && !effectiveHasVoted && !quizExpired && !quizNotStarted && allQuizAnswered;
+  // 回答確認プレビューは 1 問でも回答したら表示（未回答の設問を把握できるように進捗表示する）。
+  const showQuizReview =
     isQuiz && !effectiveHasVoted && !quizExpired && !quizNotStarted && answeredQuizCount > 0;
   const quizScore =
     isQuiz && effectiveHasVoted ? getQuizScore(quizQuestions, ownAnswerIndexes) : null;
@@ -2058,7 +2063,7 @@ function ActivePollCard({
             </AnimatePresence>
 
           </div>
-          {quizSubmittable && (
+          {showQuizReview && (
             <div className="mt-3 rounded-xl bg-emerald-50 px-3 py-3 ring-1 ring-emerald-200">
               <p className="text-xs font-bold text-emerald-700">回答確認</p>
               <div className="mt-2 space-y-1.5">
@@ -2102,7 +2107,11 @@ function ActivePollCard({
               </>
             ) : (
               <>
-                {quizExpired ? '時間切れ — 送信不可' : '完了して送信'}
+                {quizExpired
+                  ? '時間切れ — 送信不可'
+                  : allQuizAnswered
+                  ? '完了して送信'
+                  : '全問回答で送信できます'}
                 <span className="text-xs font-bold tabular-nums">
                   ({answeredQuizCount}/{quizQuestions.length})
                 </span>
