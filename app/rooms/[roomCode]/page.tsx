@@ -185,23 +185,6 @@ export default function ParticipantPage() {
   // 表示中（先頭）のアクティブ投票1枚ぶんの票だけを取得する。
   const activePollVotes = useActivePollVotes(activePolls[0] || null, participantId || null);
 
-  // 診断: 参加者画面のアクティブカード構成（複数カードで先頭が切り替わる/不安定になる挙動の確認）。
-  useEffect(() => {
-    console.log('[participant activePolls]', {
-      count: activePolls.length,
-      head: activePolls[0]
-        ? {
-            id: activePolls[0].id,
-            startedAt: activePolls[0].started_at,
-            status: activePolls[0].status,
-            mode: extractPollPayload(activePolls[0].options).meta.mode,
-          }
-        : null,
-      ids: activePolls.map((p) => p.id),
-      activePollVotesLen: activePollVotes.length,
-    });
-  }, [activePolls, activePollVotes.length]);
-
   const presenceCount = useRoomPresence(room?.id || null, participantId || null);
 
   // Load voted state from localStorage
@@ -687,7 +670,6 @@ export default function ParticipantPage() {
                 key={poll.id}
                 poll={poll}
                 votes={activePollVotes}
-                hasVoted={hasVotedPoll.has(getPollRunKey(poll))}
                 participantId={participantId}
                 displayName={displayName}
                 setDisplayName={setDisplayName}
@@ -959,7 +941,6 @@ function ParticipantQuestionRow({
 function ActivePollCard({
   poll,
   votes,
-  hasVoted,
   participantId,
   displayName,
   setDisplayName,
@@ -969,7 +950,6 @@ function ActivePollCard({
 }: {
   poll: Poll;
   votes: PollVote[];
-  hasVoted: boolean;
   participantId: string | null;
   displayName: string;
   setDisplayName: (name: string) => void;
@@ -1012,16 +992,10 @@ function ActivePollCard({
 
   const toggle = (i: number) => {
     setSelected((prev) => {
-      const next = prev.includes(i)
-        ? prev.filter((x) => x !== i)
-        : !isMulti
-        ? [i]
-        : prev.length >= maxSelections
-        ? prev
-        : [...prev, i];
-      // 診断: 選択肢タップで selected が更新されるか記録（複数カードで選択できない原因切り分け）。
-      console.log('[ActivePollCard toggle]', { pollId: poll.id, i, prev, next });
-      return next;
+      if (prev.includes(i)) return prev.filter((x) => x !== i);
+      if (!isMulti) return [i];
+      if (prev.length >= maxSelections) return prev;
+      return [...prev, i];
     });
   };
   const openImagePreview = (src: string, alt: string) => setImagePreview({ src, alt });
@@ -1030,17 +1004,11 @@ function ActivePollCard({
     value?: string,
     submitMeta?: { authorName?: string; isAnonymous?: boolean; color?: FreeTextCardColor }
   ) => {
-    console.log('[ActivePollCard submitAnswers] start', {
-      pollId: poll.id,
-      indexes,
-      alreadySubmitting: submittingRef.current,
-    });
     if (submittingRef.current) return;
     submittingRef.current = true;
     setSubmitting(true);
     try {
       await onSubmit(indexes, value, submitMeta);
-      console.log('[ActivePollCard submitAnswers] success', { pollId: poll.id, indexes });
       if (isFreeText) {
         setFreeTextAnswer('');
       } else {
@@ -1050,7 +1018,7 @@ function ActivePollCard({
         );
       }
     } catch (error) {
-      console.error('[ActivePollCard submitAnswers] failed', { pollId: poll.id, indexes, error });
+      console.error('Failed to submit poll answer:', error);
     } finally {
       submittingRef.current = false;
       setSubmitting(false);
@@ -1163,10 +1131,13 @@ function ActivePollCard({
     hasQuizTimer && quizRemaining !== null && quizRemaining <= 0;
   const rankingNotStarted = hasRankingTimer && !timerStartMs;
   const rankingExpired = hasRankingTimer && rankingRemaining !== null && rankingRemaining <= 0;
-  // サーバー側のライブ票（cleared_at IS NULL）が 0 ならリセット後とみなし、
-  // 楽観 hasVoted は無視して未投票扱いに戻す → スクリーンの状態と同期
+  // 投票済み判定はサーバーの自票（cleared_at IS NULL）と「今この場で送信した」ローカル状態のみで行う。
+  // localStorage の hasVoted は使わない: 投票時間なしの通常投票は started_at=null のため runKey が
+  // `${id}:draft` で実施回が変わっても不変 → 過去回の投票フラグが残り続け、票がサーバーで消えていても
+  // 「投票済み（＝結果表示）」のまま入力UIが出ず再投票できなくなる不具合の原因だった。
+  // サーバーの自票が 0 なら未投票として入力UIを表示（リセット後・別実施回でも正しく投票可能）。
   const hasLiveOwnVote = ownVotes.length > 0;
-  const effectiveHasVoted = isFreeText ? false : hasLocalSubmittedAnswer || hasVoted || hasLiveOwnVote;
+  const effectiveHasVoted = isFreeText ? false : hasLocalSubmittedAnswer || hasLiveOwnVote;
   // 締切直後の「集計中」待機。締切間際に届いた在時間内の票と集計ポーリングが揃うのを待ってから開示し、
   // 未確定の件数（未回答ちらつき）を見せない。アクティブな時間制限モードの締切時刻 + 待機時間で判定。
   const activeTimedDeadlineMs =
@@ -1203,12 +1174,6 @@ function ActivePollCard({
     isQuiz && effectiveHasVoted ? getQuizScore(quizQuestions, ownAnswerIndexes) : null;
 
   useEffect(() => {
-    // 診断: カード切替/再実行で選択状態がクリアされるタイミングを記録（複数カードで選択できない原因切り分け）。
-    console.log('[ActivePollCard reset] selection cleared', {
-      pollId: poll.id,
-      startedAt: poll.started_at,
-      mode,
-    });
     setSelected([]);
     setFreeTextAnswer('');
     setActiveQuizIndex(0);
@@ -1220,30 +1185,7 @@ function ActivePollCard({
     setEditingResponseText('');
     submittingRef.current = false;
     setSubmitting(false);
-  }, [poll.id, poll.started_at, mode]);
-
-  // 診断: 通常投票カードの表示判定と選択状態を毎レンダリングで記録（入力UIが出ない/選択が消える原因切り分け）。
-  useEffect(() => {
-    if (!isStandard) return;
-    console.log('[ActivePollCard standard state]', {
-      pollId: poll.id,
-      startedAt: poll.started_at,
-      optionsLen: options.length,
-      isStandard,
-      hasStandardTimer,
-      standardNotStarted,
-      standardExpired,
-      aggregating,
-      showResults,
-      effectiveHasVoted,
-      hasVoted,
-      hasLiveOwnVote,
-      hasLocalSubmittedAnswer,
-      selected,
-      votesLen: votes.length,
-      ownVotesLen: ownVotes.length,
-    });
-  });
+  }, [poll.id, poll.started_at]);
 
   useEffect(() => {
     if (!imagePreview) return;
