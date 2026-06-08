@@ -38,6 +38,8 @@ export interface PollMeta {
   freeTextGroups?: string[];
   /** 一斉開始時にホスト選択順を保持する。値が小さいほど上に表示される（1始まり）。null/未設定は単独実行扱い。 */
   bulkOrder?: number | null;
+  /** ホスト管理画面のワークカード並び順。画面遷移・リロード後も管理用の並びを復元する。 */
+  hostOrder?: number | null;
   startedAtClientAt?: string;
   startedAtTimeZone?: string;
   runStartedAtByClearedAt?: Record<string, string>;
@@ -122,11 +124,13 @@ export function buildPollOptionsPayload(meta: PollMeta, options: PollOption[]) {
     mode !== 'standard' ||
     !!meta.timeLimitSeconds ||
     meta.bulkOrder !== undefined ||
+    meta.hostOrder !== undefined ||
     !!meta.startedAtClientAt ||
     !!meta.startedAtTimeZone ||
     !!meta.runStartedAtByClearedAt ||
     !!meta.runStartedAtClientAtByClearedAt ||
-    !!meta.runStartedAtTimeZoneByClearedAt;
+    !!meta.runStartedAtTimeZoneByClearedAt ||
+    !!meta.runVoteSnapshotsByClearedAt;
   if (!shouldStoreMeta) return options;
   return [{ __pollMeta: true, ...meta }, ...options];
 }

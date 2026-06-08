@@ -105,6 +105,24 @@ function getPollTimeOptions(current: number | '' | null | undefined, minSeconds 
   return Array.from(new Set(options)).sort((a, b) => a - b);
 }
 
+function getPollHostOrder(poll: Poll) {
+  const order = extractPollPayload(poll.options).meta.hostOrder;
+  return typeof order === 'number' && Number.isFinite(order) && order > 0 ? order : null;
+}
+
+function buildPollOrderFromPersistedMeta(polls: Poll[]) {
+  return [...polls]
+    .sort((a, b) => {
+      const aOrder = getPollHostOrder(a);
+      const bOrder = getPollHostOrder(b);
+      if (aOrder !== null && bOrder !== null) return aOrder - bOrder;
+      if (aOrder !== null) return -1;
+      if (bOrder !== null) return 1;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    })
+    .map((poll) => poll.id);
+}
+
 interface LinkedCourseSummary {
   code: string;
   name: string;
@@ -551,6 +569,7 @@ export default function HostPage() {
   const [showCreatePoll, setShowCreatePoll] = useState(false);
   const [showPollTypeModal, setShowPollTypeModal] = useState(false);
   const [pollOrder, setPollOrder] = useState<string[]>([]);
+  const pollOrderInitializedRef = useRef(false);
   const [draggingPollId, setDraggingPollId] = useState<string | null>(null);
   const [dragOverPollId, setDragOverPollId] = useState<string | null>(null);
   const [dragOverPollPage, setDragOverPollPage] = useState<number | null>(null);
@@ -808,22 +827,42 @@ export default function HostPage() {
   const pollOrderStorageKey = `host-poll-order:${roomCode}`;
 
   useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(pollOrderStorageKey);
-      const parsed = saved ? JSON.parse(saved) : [];
-      setPollOrder(Array.isArray(parsed) ? parsed.filter((id) => typeof id === 'string') : []);
-    } catch {
-      setPollOrder([]);
-    }
+    pollOrderInitializedRef.current = false;
+    setPollOrder([]);
   }, [pollOrderStorageKey]);
 
   useEffect(() => {
+    if (polls.length === 0) {
+      pollOrderInitializedRef.current = false;
+      setPollOrder([]);
+      return;
+    }
+
     setPollOrder((prev) => {
       const currentIds = polls.map((poll) => poll.id);
       const currentIdSet = new Set(currentIds);
+      let base = prev;
+
+      if (!pollOrderInitializedRef.current) {
+        const persistedOrder = buildPollOrderFromPersistedMeta(polls);
+        const hasPersistedOrder = polls.some((poll) => getPollHostOrder(poll) !== null);
+        let legacyOrder: string[] = [];
+        if (!hasPersistedOrder) {
+          try {
+            const saved = window.localStorage.getItem(pollOrderStorageKey);
+            const parsed = saved ? JSON.parse(saved) : [];
+            legacyOrder = Array.isArray(parsed) ? parsed.filter((id) => typeof id === 'string') : [];
+          } catch {
+            legacyOrder = [];
+          }
+        }
+        base = hasPersistedOrder ? persistedOrder : legacyOrder;
+        pollOrderInitializedRef.current = true;
+      }
+
       const next = [
-        ...prev.filter((id) => currentIdSet.has(id)),
-        ...currentIds.filter((id) => !prev.includes(id)),
+        ...base.filter((id) => currentIdSet.has(id)),
+        ...currentIds.filter((id) => !base.includes(id)),
       ];
       if (next.length === prev.length && next.every((id, index) => id === prev[index])) {
         return prev;
@@ -1057,6 +1096,13 @@ export default function HostPage() {
         pollMode === 'quiz'
           ? quizFlatOptions
           : validOptions;
+      const editingPoll = editingPollId ? polls.find((poll) => poll.id === editingPollId) : null;
+      const editingPollMeta = editingPoll ? extractPollPayload(editingPoll.options).meta : null;
+      const editingPollPosition = editingPollId ? pollOrder.indexOf(editingPollId) + 1 : 0;
+      const editingHostOrder = editingPoll ? getPollHostOrder(editingPoll) : null;
+      const nextHostOrder = editingPollId
+        ? editingHostOrder ?? (editingPollPosition > 0 ? editingPollPosition : undefined)
+        : 1;
       let optionStart = 0;
       const quizQuestionMeta = validQuizQuestions.map((q) => {
         const optionCount = q.kept.length;
@@ -1108,6 +1154,8 @@ export default function HostPage() {
             pollMode === 'free_text'
               ? []
               : undefined,
+          bulkOrder: editingPollMeta?.bulkOrder,
+          hostOrder: nextHostOrder,
         },
         options: optionsPayload,
         maxSelections: finalMaxSelections,
@@ -1145,6 +1193,15 @@ export default function HostPage() {
         }
         const createdPoll = (await res.json()) as Poll;
         optimisticUpsertPoll(createdPoll);
+        const currentPollIds = polls.map((poll) => poll.id);
+        const currentPollIdSet = new Set(currentPollIds);
+        const nextOrder = [
+          createdPoll.id,
+          ...pollOrder.filter((id) => currentPollIdSet.has(id)),
+          ...currentPollIds.filter((id) => !pollOrder.includes(id)),
+        ];
+        setPollOrder(nextOrder);
+        await persistPollOrder(nextOrder);
       }
       setExportData(null);
       resetPollForm(pollMode);
@@ -1597,6 +1654,46 @@ export default function HostPage() {
     });
   }, [questions, statusFilter, sortMode]);
 
+  const persistPollOrder = useCallback(
+    async (nextOrder: string[]) => {
+      try {
+        window.localStorage.setItem(pollOrderStorageKey, JSON.stringify(nextOrder));
+      } catch {}
+
+      const nextOrderIndex = new Map(nextOrder.map((id, index) => [id, index + 1]));
+      const changedPolls = polls.filter((poll) => {
+        const nextPosition = nextOrderIndex.get(poll.id);
+        return nextPosition !== undefined && getPollHostOrder(poll) !== nextPosition;
+      });
+
+      if (changedPolls.length === 0) return;
+
+      await Promise.all(
+        changedPolls.map(async (poll) => {
+          const nextPosition = nextOrderIndex.get(poll.id);
+          if (nextPosition === undefined) return;
+          const { meta, options } = extractPollPayload(poll.options);
+          const res = await fetch(`/api/rooms/${roomCode}/polls/${poll.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              question: poll.question,
+              options,
+              maxSelections: poll.max_selections ?? 1,
+              allowMultiple: poll.allow_multiple,
+              mode: meta.mode,
+              meta: { ...meta, hostOrder: nextPosition },
+            }),
+          });
+          if (!res.ok) throw new Error('Failed to persist poll order');
+          const updatedPoll = (await res.json()) as Poll;
+          optimisticUpsertPoll(updatedPoll);
+        })
+      );
+    },
+    [optimisticUpsertPoll, pollOrderStorageKey, polls, roomCode]
+  );
+
   const orderedPolls = useMemo(() => {
     const orderIndex = new Map(pollOrder.map((id, index) => [id, index]));
     return [...polls].sort((a, b) => {
@@ -1625,13 +1722,14 @@ export default function HostPage() {
         const next = [...base];
         const [moved] = next.splice(from, 1);
         next.splice(to, 0, moved);
-        try {
-          window.localStorage.setItem(pollOrderStorageKey, JSON.stringify(next));
-        } catch {}
+        void persistPollOrder(next).catch((error) => {
+          console.error('Failed to persist poll order:', error);
+          window.alert('カードの並び順を保存できませんでした。時間をおいてもう一度お試しください。');
+        });
         return next;
       });
     },
-    [pollOrderStorageKey, polls]
+    [persistPollOrder, polls]
   );
 
   const movePollCardToPosition = useCallback(
@@ -1649,14 +1747,15 @@ export default function HostPage() {
         const next = [...base];
         const [moved] = next.splice(from, 1);
         next.splice(targetPosition - 1, 0, moved);
-        try {
-          window.localStorage.setItem(pollOrderStorageKey, JSON.stringify(next));
-        } catch {}
+        void persistPollOrder(next).catch((error) => {
+          console.error('Failed to persist poll order:', error);
+          window.alert('カードの並び順を保存できませんでした。時間をおいてもう一度お試しください。');
+        });
         return next;
       });
       setPollPage(Math.max(1, Math.ceil(targetPosition / POLLS_PER_PAGE)));
     },
-    [pollOrderStorageKey, polls]
+    [persistPollOrder, polls]
   );
 
   const findPollCardFromPoint = useCallback((clientX: number, clientY: number) => {
