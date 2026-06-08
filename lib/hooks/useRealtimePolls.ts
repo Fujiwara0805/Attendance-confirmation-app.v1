@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { createBrowserClient } from '@/lib/supabase';
-import type { PollOption } from '@/lib/pollModes';
+import { extractPollPayload, type PollOption } from '@/lib/pollModes';
 
 export interface Poll {
   id: string;
@@ -57,6 +57,11 @@ function mergePollUpdate(prev: Poll, incoming: Poll): Poll {
   }
   return merged;
 }
+
+// 締切直後の権威的同期オフセット（締切起点）。投票時間ありの poll は、締切間際に届いた票が
+// realtime のトリックル配信だけでは全て揃わないことがある（バースト時の遅延）。締切と締切後の数点で
+// DB から該当 poll の票を取り直し、画面の reveal（締切+SETTLE）までに件数を確定させる。
+const DEADLINE_SYNC_OFFSETS_MS = [0, 2000, 4000];
 
 // Realtime 切断中のみ短間隔でフェッチ
 const FALLBACK_POLL_INTERVAL_MS = 5000;
@@ -281,6 +286,57 @@ export function useRealtimePolls(
       supabase.removeChannel(channel);
     };
   }, [roomId, upsertVote, subscribeVotes]);
+
+  // 投票時間ありの active poll について、締切前後で DB から票を権威的に取り直す。
+  // realtime は個別 INSERT を順次配信するため、締切間際の一括送信（バースト）では reveal までに
+  // 全票が届かず件数が不足することがある。締切起点の数点で取り直し、reveal 時に件数を確定させる。
+  // 依存は「active な timed poll の id:started_at 署名」に限定し、票の到着では再実行しない。
+  // フィールド区切りは '|'（started_at の ISO 文字列にコロンが含まれるため ':' は使わない）。
+  const timedPollSignature = polls
+    .filter((p) => p.status === 'active' && p.started_at)
+    .map((p) => {
+      const timeLimit = Number(extractPollPayload(p.options).meta.timeLimitSeconds || 0);
+      return timeLimit > 0 ? `${p.id}|${p.started_at}|${timeLimit}` : '';
+    })
+    .filter(Boolean)
+    .join(',');
+
+  useEffect(() => {
+    if (!subscribeVotes || !timedPollSignature) return;
+    const supabase = createBrowserClient();
+    let cancelled = false;
+
+    const syncOne = async (pollId: string) => {
+      const { data } = await supabase
+        .from('poll_votes')
+        .select('*')
+        .eq('poll_id', pollId)
+        .is('cleared_at', null);
+      if (cancelled || !data) return;
+      // 該当 poll の票を権威的に置換（realtime のトリックル遅延に依存せず確定値にする）。
+      setPollVotes((prev) => ({ ...prev, [pollId]: data as PollVote[] }));
+    };
+
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    for (const entry of timedPollSignature.split(',')) {
+      const [pollId, startedAt, timeLimitStr] = entry.split('|');
+      const startedAtMs = new Date(startedAt).getTime();
+      const timeLimitMs = Number(timeLimitStr) * 1000;
+      if (!Number.isFinite(startedAtMs) || !Number.isFinite(timeLimitMs)) continue;
+      const deadlineMs = startedAtMs + timeLimitMs;
+      for (const offset of DEADLINE_SYNC_OFFSETS_MS) {
+        const delay = deadlineMs + offset - Date.now();
+        // 締切が遠すぎる未来は予約のみ。締切から大きく過ぎた点はスキップ（無駄打ち防止）。
+        if (delay < -60000) continue;
+        timers.push(setTimeout(() => void syncOne(pollId), Math.max(0, delay)));
+      }
+    }
+
+    return () => {
+      cancelled = true;
+      timers.forEach(clearTimeout);
+    };
+  }, [timedPollSignature, subscribeVotes]);
 
   const activePolls = polls.filter((p) => p.status === 'active');
   const activePoll = activePolls[0] || null;
