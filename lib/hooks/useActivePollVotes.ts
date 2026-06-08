@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createBrowserClient } from '@/lib/supabase';
 import { extractPollPayload, getPollMode } from '@/lib/pollModes';
 import type { Poll, PollVote } from './useRealtimePolls';
@@ -93,11 +93,12 @@ export function useActivePollVotes(
     startedAt && timeLimitSeconds > 0 ? new Date(startedAt).getTime() + timeLimitSeconds * 1000 : null;
 
   useEffect(() => {
-    if (!pollId) {
-      setVotes([]);
-      ownVotesRef.current = [];
-      return;
-    }
+    // 表示中の poll が切り替わったら、前の poll のデータ（特に自分の票）を必ず破棄する。
+    // 残っていると、次のカード（例: 投票時間なしの通常投票）で「自票あり＝投票済み」と誤判定され、
+    // 入力UIではなく結果が表示されて投票できなくなる。
+    ownVotesRef.current = [];
+    setVotes([]);
+    if (!pollId) return;
 
     const supabase = createBrowserClient();
     let cancelled = false;
@@ -229,5 +230,10 @@ export function useActivePollVotes(
     };
   }, [pollId, startedAt, aggregate, participantId, deadlineMs]);
 
-  return votes;
+  // 念のため、現在表示中の poll に属する票だけを返す（poll 切替直後に前カードの票が一瞬でも
+  // 漏れて「投票済み」と誤判定されるのを防ぐ二重防御）。合成票・実票とも poll_id は表示中の poll。
+  return useMemo(
+    () => (pollId ? votes.filter((v) => v.poll_id === pollId) : []),
+    [votes, pollId]
+  );
 }
