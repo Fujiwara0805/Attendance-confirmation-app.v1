@@ -395,13 +395,35 @@ export default function ParticipantPage() {
         const clientElapsedMs = poll.started_at
           ? Date.now() - new Date(poll.started_at).getTime()
           : undefined;
+        const tSend = Date.now();
         const res = await fetch(`/api/rooms/${roomCode}/polls/${poll.id}/vote`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ participantId, optionIndexes, value, clientElapsedMs, ...meta }),
         });
+        // 診断: 送信した回答数とサーバーが保存した件数を突き合わせる（取りこぼし原因の切り分け用）。
+        let body: unknown = null;
+        try {
+          body = await res.clone().json();
+        } catch {
+          /* noop */
+        }
+        const storedCount =
+          body && typeof body === 'object' && 'count' in body
+            ? (body as { count?: number }).count
+            : undefined;
+        console.log('[poll vote] response', {
+          pollId: poll.id,
+          ok: res.ok,
+          status: res.status,
+          sent: optionIndexes.length,
+          stored: storedCount,
+          clientElapsedMs,
+          roundTripMs: Date.now() - tSend,
+        });
         if (!res.ok) throw new Error('poll vote failed');
       } catch (error) {
+        console.error('[poll vote] failed', { pollId: poll.id, sent: optionIndexes.length, error });
         if (isFreeText) return;
         const reverted = new Set(hasVotedPoll);
         reverted.delete(runKey);

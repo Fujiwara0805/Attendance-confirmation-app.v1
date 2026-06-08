@@ -306,13 +306,21 @@ export function useRealtimePolls(
     const supabase = createBrowserClient();
     let cancelled = false;
 
-    const syncOne = async (pollId: string) => {
-      const { data } = await supabase
+    const syncOne = async (pollId: string, offset: number) => {
+      const { data, error } = await supabase
         .from('poll_votes')
         .select('*')
         .eq('poll_id', pollId)
         .is('cleared_at', null);
-      if (cancelled || !data) return;
+      if (cancelled) return;
+      // 診断: 締切同期で DB から取得した確定票数を記録（reveal 時に件数が揃うか確認用）。
+      console.log('[polls sync] authoritative refetch', {
+        pollId,
+        offsetMs: offset,
+        dbCount: data?.length ?? 0,
+        error: error?.message,
+      });
+      if (!data) return;
       // 該当 poll の票を権威的に置換（realtime のトリックル遅延に依存せず確定値にする）。
       setPollVotes((prev) => ({ ...prev, [pollId]: data as PollVote[] }));
     };
@@ -328,7 +336,7 @@ export function useRealtimePolls(
         const delay = deadlineMs + offset - Date.now();
         // 締切が遠すぎる未来は予約のみ。締切から大きく過ぎた点はスキップ（無駄打ち防止）。
         if (delay < -60000) continue;
-        timers.push(setTimeout(() => void syncOne(pollId), Math.max(0, delay)));
+        timers.push(setTimeout(() => void syncOne(pollId, offset), Math.max(0, delay)));
       }
     }
 

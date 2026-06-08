@@ -8,6 +8,10 @@ import {
   getQuizQuestions,
 } from '@/lib/pollModes';
 
+// 投票送信は DB 往復を伴うため、既定の 10s では稀にタイムアウトし票が一部しか保存されないことがあった。
+// 本来の挿入は問題数に依存しない数往復で完了するが、安全側の余裕として上限を引き上げる。
+export const maxDuration = 30;
+
 // 旧クライアント（押下時刻 clientElapsedMs を送らない版）向けに、サーバー到達時刻ベースの
 // 締切判定へ持たせる遅延吸収の猶予。締切直前送信のネットワーク遅延・処理待ちを吸収する。
 const VOTE_DEADLINE_GRACE_MS = 5000;
@@ -243,15 +247,8 @@ export async function POST(
       }
     }
 
-    // 既存のライブ票を一旦削除 → 新しい選択肢で置換（投票やり直しもサポート）。
-    // 本番DBの unique 制約定義に差分があるため ON CONFLICT は使わず、
-    // INSERT 重複時だけ既存行をライブ票へ戻して回答を成立させる。
-    await supabase
-      .from('poll_votes')
-      .delete()
-      .eq('poll_id', params.pollId)
-      .eq('participant_id', participantId)
-      .is('cleared_at', null);
+    const tStart = Date.now();
+    const logCtx = { pollId: params.pollId, participantId, mode: pollMode, rowCount: indexes.length };
 
     const rows: PollVoteRow[] = indexes.map((idx, rank) => {
       const quizQuestionIndex = pollMode === 'quiz'
@@ -274,22 +271,66 @@ export async function POST(
       };
     });
 
-    // 高速化: 全選択肢を 1 回のバルク INSERT で登録する（50問規模でも DELETE+INSERT の 2 往復で済み、
-    // 問題数に比例した直列ラウンドトリップを排除）。ライブ票は上で削除済みのため通常は衝突しない。
-    // 単一 INSERT 文は原子的なので、アーカイブ票（cleared_at != null）との unique 衝突（23505）が
-    // 起きた場合は 0 件挿入で失敗する → そのときだけ従来の 1 行ずつ復活処理にフォールバックする。
+    // 既存票を一括削除してから新しい選択肢を一括 INSERT する（投票やり直しもサポート）。
+    // 本番DBの unique 制約 (poll_id, participant_id, option_index) はアーカイブ票（過去回 cleared_at!=null）
+    // も含むため、ライブ票だけ消すと今回挿入する option_index がアーカイブ票と衝突（23505）する。
+    // 旧実装はそのとき 1 行ずつ復活させていたが、20問規模では最大 ~80 往復に達し Vercel の 10s で
+    // タイムアウト → 票が一部しか保存されない原因だった。ここでは衝突しうるアーカイブ票も一括で消し、
+    // INSERT は常に 1 回で済むようにする（問題数に依存しない 3 往復固定）。
+    const tDel = Date.now();
+    const [delLive, delArchived] = await Promise.all([
+      // 今回の参加者のライブ票を全削除（再投票で旧選択を置き換える）
+      supabase
+        .from('poll_votes')
+        .delete()
+        .eq('poll_id', params.pollId)
+        .eq('participant_id', participantId)
+        .is('cleared_at', null),
+      // 今回挿入する option_index と衝突する過去回のアーカイブ票を削除（unique 制約回避）
+      supabase
+        .from('poll_votes')
+        .delete()
+        .eq('poll_id', params.pollId)
+        .eq('participant_id', participantId)
+        .in('option_index', indexes)
+        .not('cleared_at', 'is', null),
+    ]);
+    if (delLive.error) throw delLive.error;
+    if (delArchived.error) throw delArchived.error;
+    console.log('[vote] deletes done', { ...logCtx, ms: Date.now() - tDel });
+
+    // バルク INSERT（衝突源は上で除去済みのため通常は 1 回で成立）。
+    const tIns = Date.now();
     const bulk = await supabase.from('poll_votes').insert(rows).select();
     if (!bulk.error) {
+      console.log('[vote] bulk insert ok', {
+        ...logCtx,
+        inserted: bulk.data?.length ?? 0,
+        insertMs: Date.now() - tIns,
+        totalMs: Date.now() - tStart,
+      });
       return NextResponse.json({ votes: bulk.data ?? [], count: rows.length }, { status: 201 });
     }
+    console.error('[vote] bulk insert error → per-row fallback', {
+      ...logCtx,
+      code: (bulk.error as SupabaseErrorLike).code,
+      message: bulk.error.message,
+      insertMs: Date.now() - tIns,
+    });
     if (!isDuplicateKeyError(bulk.error)) throw bulk.error;
 
+    // 最終手段: 1 行ずつ（衝突除去後もなお失敗するケースはごく稀。万一に備えて残す）。
     const data = [];
     for (const row of rows) {
       const { data: vote, error } = await insertOrReactivateVote(supabase, row);
       if (error) throw error;
       if (vote) data.push(vote);
     }
+    console.log('[vote] per-row fallback done', {
+      ...logCtx,
+      inserted: data.length,
+      totalMs: Date.now() - tStart,
+    });
 
     return NextResponse.json({ votes: data ?? [], count: rows.length }, { status: 201 });
   } catch (err) {
