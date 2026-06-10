@@ -52,6 +52,7 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { CustomModal } from '@/components/ui/custom-modal';
+import { SearchModal, SearchTriggerButton, ActiveSearchChip } from '@/components/ui/search-modal';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import CustomFormManager from './components/CustomFormManager';
@@ -293,6 +294,22 @@ function AdminPageInner() {
   const [roomPage, setRoomPage] = useState(1);
   const [courseSearch, setCourseSearch] = useState('');
   const [roomSearch, setRoomSearch] = useState('');
+  // 検索はヘッダーの検索ボタン（⌘K）から開くモーダルに集約（常時表示バーは廃止）
+  const [searchModalFor, setSearchModalFor] = useState<'courses' | 'rooms' | null>(null);
+
+  // ⌘K / Ctrl+K で現在のタブの検索モーダルを開く
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        if (activeTab === 'courses' || activeTab === 'rooms') {
+          e.preventDefault();
+          setSearchModalFor(activeTab);
+        }
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [activeTab]);
 
   const renderPagination = useCallback(
     (currentPage: number, totalPages: number, onChange: (page: number) => void) => {
@@ -1212,6 +1229,11 @@ function AdminPageInner() {
                     </span>
                   </div>
                 )}
+                <SearchTriggerButton
+                  onClick={() => setSearchModalFor('courses')}
+                  active={!!courseSearch.trim()}
+                  label="フォームを検索"
+                />
                 <Button
                   onClick={() => setIsCreateTypeDialogOpen(true)}
                   className="h-9 rounded-md bg-[#2864f0] px-4 text-white shadow-sm hover:bg-[#285ac8]"
@@ -1232,26 +1254,25 @@ function AdminPageInner() {
             </AdminPageHeader>
 
             <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
-            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div className="relative w-full max-w-2xl">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8c8989]" />
-                <Input
-                  value={courseSearch}
-                  onChange={(e) => setCourseSearch(e.target.value)}
-                  placeholder="フォーム名・担当者・コードで検索"
-                  className="h-9 rounded-md border-[#cccccc] bg-white pl-9 text-sm"
-                />
-              </div>
-              {courseSearch.trim() && (
-                <button
-                  type="button"
-                  onClick={() => setCourseSearch('')}
-                  className="self-start text-xs font-bold text-[#2864f0] hover:text-[#285ac8] sm:self-auto"
-                >
-                  クリア
-                </button>
-              )}
-            </div>
+            {/* 検索はヘッダーの検索ボタン/⌘Kから。適用中のみチップを表示 */}
+            {courseSearch.trim() && (
+              <ActiveSearchChip
+                query={courseSearch.trim()}
+                resultCount={filteredCourses.length}
+                onClear={() => setCourseSearch('')}
+                onEdit={() => setSearchModalFor('courses')}
+              />
+            )}
+            <SearchModal
+              isOpen={searchModalFor === 'courses'}
+              onClose={() => setSearchModalFor(null)}
+              value={courseSearch}
+              onChange={setCourseSearch}
+              placeholder="フォーム名・担当者・コードで検索"
+              resultCount={filteredCourses.length}
+              totalCount={courses.length}
+              unitLabel="フォーム"
+            />
 
             {/* Add Course Modal */}
             <CustomModal
@@ -2304,6 +2325,11 @@ function AdminPageInner() {
                     {currentPeriodEndLabel}で解約予定
                   </div>
                 )}
+                <SearchTriggerButton
+                  onClick={() => setSearchModalFor('rooms')}
+                  active={!!roomSearch.trim()}
+                  label="ルームを検索"
+                />
                 <Button
                   onClick={() => {
                     if (planInfo && !planInfo.canCreateRoom) {
@@ -2330,26 +2356,25 @@ function AdminPageInner() {
             </AdminPageHeader>
 
             <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
-            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div className="relative w-full max-w-2xl">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8c8989]" />
-                <Input
-                  value={roomSearch}
-                  onChange={(e) => setRoomSearch(e.target.value)}
-                  placeholder="ルーム名・コード・ステータスで検索"
-                  className="h-9 rounded-md border-[#cccccc] bg-white pl-9 text-sm"
-                />
-              </div>
-              {roomSearch.trim() && (
-                <button
-                  type="button"
-                  onClick={() => setRoomSearch('')}
-                  className="self-start text-xs font-bold text-[#2864f0] hover:text-[#285ac8] sm:self-auto"
-                >
-                  クリア
-                </button>
-              )}
-            </div>
+            {/* 検索はヘッダーの検索ボタン/⌘Kから。適用中のみチップを表示 */}
+            {roomSearch.trim() && (
+              <ActiveSearchChip
+                query={roomSearch.trim()}
+                resultCount={filteredRooms.length}
+                onClear={() => setRoomSearch('')}
+                onEdit={() => setSearchModalFor('rooms')}
+              />
+            )}
+            <SearchModal
+              isOpen={searchModalFor === 'rooms'}
+              onClose={() => setSearchModalFor(null)}
+              value={roomSearch}
+              onChange={setRoomSearch}
+              placeholder="ルーム名・コード・ステータスで検索"
+              resultCount={filteredRooms.length}
+              totalCount={rooms.length}
+              unitLabel="ルーム"
+            />
 
             {/* Room Creation Modal */}
             <CustomModal

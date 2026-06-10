@@ -59,6 +59,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+import { SearchModal, SearchTriggerButton, ActiveSearchChip } from '@/components/ui/search-modal';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRealtimeQuestions } from '@/lib/hooks/useRealtimeQuestions';
@@ -571,6 +572,20 @@ export default function HostPage() {
   const [userPlan, setUserPlan] = useState<'free' | 'paid' | 'enterprise'>('free');
   const [pollPage, setPollPage] = useState(1);
   const [pollSearch, setPollSearch] = useState('');
+  // 検索はヘッダーの検索ボタン（⌘K）から開くモーダルに集約（常時表示バーは廃止）
+  const [pollSearchOpen, setPollSearchOpen] = useState(false);
+
+  // ⌘K / Ctrl+K でワーク機能タブの検索モーダルを開く
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k' && tab === 'polls') {
+        e.preventDefault();
+        setPollSearchOpen(true);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [tab]);
   const POLLS_PER_PAGE = 9;
   const [roomStatusLoading, setRoomStatusLoading] = useState(false);
   const [pollStatusPendingId, setPollStatusPendingId] = useState<string | null>(null);
@@ -1931,16 +1946,23 @@ export default function HostPage() {
             theme={activeHostTheme}
           >
             {tab === 'polls' && (
-              <button
-                type="button"
-                onClick={() => setShowPollTypeModal(true)}
-                disabled={atPollLimit}
-                title={atPollLimit ? `Freeプランではライブ投票カードを${pollLimit}個まで作成できます` : 'ライブ投票を新規作成'}
-                className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md bg-[#2864f0] px-3 text-xs font-bold text-white shadow-sm transition-colors hover:bg-[#285ac8] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:hover:bg-slate-300"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                新規作成
-              </button>
+              <>
+                <SearchTriggerButton
+                  onClick={() => setPollSearchOpen(true)}
+                  active={!!pollSearch.trim()}
+                  label="カードを検索"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPollTypeModal(true)}
+                  disabled={atPollLimit}
+                  title={atPollLimit ? `Freeプランではライブ投票カードを${pollLimit}個まで作成できます` : 'ライブ投票を新規作成'}
+                  className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md bg-[#2864f0] px-3 text-xs font-bold text-white shadow-sm transition-colors hover:bg-[#285ac8] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:hover:bg-slate-300"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  新規作成
+                </button>
+              </>
             )}
             {tab !== 'faq' && (
               <button
@@ -1992,16 +2014,23 @@ export default function HostPage() {
             </div>
             <div className="flex shrink-0 items-center gap-2">
               {tab === 'polls' && (
-                <button
-                  type="button"
-                  onClick={() => setShowPollTypeModal(true)}
-                  disabled={atPollLimit}
-                  title={atPollLimit ? `Freeプランではライブ投票カードを${pollLimit}個まで作成できます` : 'ライブ投票を新規作成'}
-                  className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md bg-[#2864f0] px-3 text-xs font-bold text-white shadow-sm transition-colors hover:bg-[#285ac8] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:hover:bg-slate-300"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  新規作成
-                </button>
+                <>
+                  <SearchTriggerButton
+                    onClick={() => setPollSearchOpen(true)}
+                    active={!!pollSearch.trim()}
+                    label="カードを検索"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPollTypeModal(true)}
+                    disabled={atPollLimit}
+                    title={atPollLimit ? `Freeプランではライブ投票カードを${pollLimit}個まで作成できます` : 'ライブ投票を新規作成'}
+                    className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md bg-[#2864f0] px-3 text-xs font-bold text-white shadow-sm transition-colors hover:bg-[#285ac8] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:hover:bg-slate-300"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    新規作成
+                  </button>
+                </>
               )}
               {/* モバイルでは ? アイコンを非表示（FAQはハンバーガーメニューから開ける） */}
               <a
@@ -2189,28 +2218,25 @@ export default function HostPage() {
         {/* === Polls Tab === */}
         {tab === 'polls' && (
           <div className="space-y-5">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="relative w-full max-w-2xl">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8c8989]" />
-                <input
-                  value={pollSearch}
-                  onChange={(e) => setPollSearch(e.target.value)}
-                  placeholder="投票タイトル・選択肢・形式で検索"
-                  className="h-9 w-full rounded-md border border-[#cccccc] bg-white pl-9 pr-3 text-sm text-[#323232] outline-none focus:border-[#2864f0] focus:ring-2 focus:ring-[#dce8ff]"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                {pollSearch.trim() && (
-                  <button
-                    type="button"
-                    onClick={() => setPollSearch('')}
-                    className="text-xs font-bold text-[#2864f0] hover:text-[#285ac8]"
-                  >
-                    クリア
-                  </button>
-                )}
-              </div>
-            </div>
+            {/* 検索はヘッダーの検索ボタン/⌘Kから。適用中のみチップを表示 */}
+            {pollSearch.trim() && (
+              <ActiveSearchChip
+                query={pollSearch.trim()}
+                resultCount={filteredPolls.length}
+                onClear={() => setPollSearch('')}
+                onEdit={() => setPollSearchOpen(true)}
+              />
+            )}
+            <SearchModal
+              isOpen={pollSearchOpen}
+              onClose={() => setPollSearchOpen(false)}
+              value={pollSearch}
+              onChange={setPollSearch}
+              placeholder="投票タイトル・選択肢・形式で検索"
+              resultCount={filteredPolls.length}
+              totalCount={polls.length}
+              unitLabel="カード"
+            />
 
             {atPollLimit && (
               <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">

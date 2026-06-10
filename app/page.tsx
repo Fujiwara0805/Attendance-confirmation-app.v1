@@ -30,6 +30,10 @@ import {
   Mic2,
   Quote,
   Star,
+  GraduationCap,
+  Briefcase,
+  Presentation,
+  BookOpen,
 } from 'lucide-react';
 
 const LOGO_URL =
@@ -194,6 +198,50 @@ image:'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v17
   },
 ];
 
+/* ─── Use cases（戦略のポジショニングA〜D。SEO: 用途×機能の検索語を自然に含める） ─── */
+const useCases = [
+  {
+    icon: GraduationCap,
+    badge: '大学・授業',
+    title: '大学・専門学校の授業に',
+    description:
+      'QRコードと位置情報で、大学の出席管理を確実に。授業中は匿名Q&A・クイズ・リアルタイム投票で学生の参加をうながし、出席と反応をひとつのセッションレポートに残せます。LMSより軽く、Googleフォームより確かな授業運営を。',
+    points: ['講義・ゼミ・公開講座', '代理出席を抑止', '毎週の授業は複製で再利用'],
+    href: '/features/attendance',
+    refTag: 'lp-usecase-university',
+  },
+  {
+    icon: Briefcase,
+    badge: '企業研修・社内イベント',
+    title: '研修の受付から報告資料まで',
+    description:
+      '招待フォームで事前登録、QRコードで当日受付、クイズとアンケートで理解度チェック。研修の結果はそのままレポートとして残り、報告資料に使えます。法人向けの請求書払い・見積書発行にも対応。',
+    points: ['内定者研修・社内勉強会', '理解度クイズ', '請求書払い対応'],
+    href: '/features/invitation',
+    refTag: 'lp-usecase-training',
+  },
+  {
+    icon: Presentation,
+    badge: 'カンファレンス・勉強会',
+    title: '会場の声を拾うライブ運営に',
+    description:
+      '匿名Q&Aとライブ投票で、参加者全員の声を登壇者へ。参加者はアプリ不要・ログイン不要、QRコードを読むだけです。事前登録から当日受付、振り返りまでをひとつのツールで完結できます。',
+    points: ['匿名Q&A・いいね', 'ライブ投票・ランキング', 'スクリーン投影'],
+    href: '/features/live-interaction',
+    refTag: 'lp-usecase-conference',
+  },
+  {
+    icon: BookOpen,
+    badge: 'ゼミ・コミュニティ',
+    title: 'ゼミ・読書会・研究会の記録に',
+    description:
+      '出欠表より豊かに、LMSより手軽に。毎回の参加と発言しにくい質問・感想を軽やかに集めて、継続的な参加記録として蓄積できます。無料プランから始められ、開催のたびにフォーム複製ですぐ準備完了。',
+    points: ['無料から始められる', '匿名で本音を回収', '参加履歴の蓄積'],
+    href: '/admin/register',
+    refTag: 'lp-usecase-community',
+  },
+];
+
 /* ─── Testimonials ─── */
 const testimonials = [
   {
@@ -292,8 +340,52 @@ export default function LandingPage() {
     }
   };
 
+  // 構造化データ（SEO/AEO: 検索エンジンとAIアシスタントがサービス内容を正確に理解できるようにする）
+  const structuredData = [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'SoftwareApplication',
+      name: 'ざせきくん',
+      alternateName: 'zaseki-kun',
+      applicationCategory: 'BusinessApplication',
+      operatingSystem: 'Web',
+      url: 'https://zaseki-kun.com',
+      description:
+        'ざせきくんは、リアルタイムQ&A・ライブ投票・クイズ・出席管理・招待フォームをひとつにまとめた参加管理プラットフォーム。大学の授業、企業研修、カンファレンス、ゼミ・勉強会で、QRコードひとつで受付から当日の反応、実施後のセッションレポートまで完結します。参加者はアプリ・ログイン不要。',
+      offers: {
+        '@type': 'Offer',
+        price: '0',
+        priceCurrency: 'JPY',
+        description: '無料プランあり（フォーム2個・ルーム1個まで）。Proプランは月額550円。',
+      },
+      featureList: [
+        'リアルタイムQ&A（匿名投稿・いいね・承認制）',
+        'ライブ投票・クイズ・ランキング・ブレスト',
+        'QRコード×位置情報の出席管理',
+        '招待フォーム・事前登録・当日チェックイン',
+        'セッションレポート（印刷・PDF・CSV出力）',
+        'スクリーン投影・資料投影',
+      ],
+      publisher: { '@type': 'Organization', name: '株式会社Nobody' },
+      inLanguage: 'ja',
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: faqItems.map((item) => ({
+        '@type': 'Question',
+        name: item.q,
+        acceptedAnswer: { '@type': 'Answer', text: item.a },
+      })),
+    },
+  ];
+
   return (
     <div className="min-h-screen overflow-x-hidden">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
       {/* ─── Navigation ─── */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-xl border-b border-slate-200/60">
         <div className="mx-auto max-w-6xl flex items-center justify-between px-5 py-3">
@@ -686,6 +778,73 @@ export default function LandingPage() {
                     </div>
                   </div>
                 </Link>
+              </motion.div>
+            ))}
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ─── Use cases（用途で選ぶ） ─── */}
+      <section id="use-cases" className="py-20 sm:py-28 px-5">
+        <div className="mx-auto max-w-6xl">
+          <motion.div {...fadeIn} className="text-center mb-14">
+            <span className="text-xs font-semibold tracking-wide uppercase text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-full px-3.5 py-1.5">
+              Use Cases
+            </span>
+            <h2 className="mt-5 text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">
+              大学の授業から研修・イベントまで、
+              <br className="sm:hidden" />
+              あなたの現場で。
+            </h2>
+            <p className="mt-4 text-base lg:text-lg text-slate-500 max-w-2xl mx-auto">
+              ざせきくんは、出席・受付・その場の反応・実施後の記録を、QRコードひとつでつなぐ参加管理プラットフォームです。
+            </p>
+          </motion.div>
+
+          <motion.div {...stagger} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {useCases.map((u) => (
+              <motion.div key={u.badge} {...child}>
+                <article className="h-full bg-white rounded-2xl shadow-lg ring-1 ring-black/5 p-6 sm:p-8 hover:shadow-xl transition-shadow">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0">
+                      <u.icon className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold tracking-wide text-indigo-600">{u.badge}</p>
+                      <h3 className="text-lg sm:text-xl font-bold text-slate-900">{u.title}</h3>
+                    </div>
+                  </div>
+                  <p className="mt-4 text-sm lg:text-base text-slate-600 leading-relaxed">{u.description}</p>
+                  <ul className="mt-4 flex flex-wrap gap-2">
+                    {u.points.map((point) => (
+                      <li
+                        key={point}
+                        className="inline-flex items-center gap-1 rounded-full bg-slate-50 ring-1 ring-slate-200 px-2.5 py-1 text-xs text-slate-600"
+                      >
+                        <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                        {point}
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="mt-5 flex items-center gap-4">
+                    <Link
+                      href={`/admin/register?ref=${u.refTag}`}
+                      className="inline-flex items-center gap-1.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 px-4 h-10 rounded-xl transition-colors"
+                    >
+                      無料で始める
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </Link>
+                    {u.href !== '/admin/register' && (
+                      <Link
+                        href={u.href}
+                        className="inline-flex items-center gap-1 text-sm font-semibold text-indigo-600 hover:gap-2 transition-all"
+                      >
+                        詳しく見る
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </Link>
+                    )}
+                  </div>
+                </article>
               </motion.div>
             ))}
           </motion.div>
