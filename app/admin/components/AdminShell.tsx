@@ -483,15 +483,22 @@ const SIDEBAR_COLLAPSED_KEY = 'admin-sidebar-collapsed';
 
 export default function AdminShell(props: AdminShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
-
-  useEffect(() => {
+  // 折りたたみ状態は localStorage から同期的に初期化する。
+  // useEffect で後から反映すると、ページ遷移のたびに w-72 → w-16 の width アニメーションが
+  // 走って「ピクッ」と見えてしまうため（タブ切替では再マウントされないので起きない）。
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
     try {
-      const saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
-      if (saved === '1') setCollapsed(true);
+      return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1';
     } catch {
-      // ignore
+      return false;
     }
+  });
+  // 初回描画では width トランジションを無効化し、初期状態の確定による揺れを防ぐ。
+  // マウント後に有効化することで、ユーザー操作による開閉はアニメーションさせる。
+  const [enableWidthTransition, setEnableWidthTransition] = useState(false);
+  useEffect(() => {
+    setEnableWidthTransition(true);
   }, []);
 
   const toggleCollapsed = () => {
@@ -510,9 +517,9 @@ export default function AdminShell(props: AdminShellProps) {
     <div className="min-h-screen bg-slate-50 lg:flex">
       {/* Desktop sidebar */}
       <aside
-        className={`hidden lg:flex shrink-0 border-r border-[#dce8ff] bg-[#f3f7ff] sticky top-0 h-screen transition-[width] duration-200 ease-out ${
-          collapsed ? 'w-16' : 'w-72'
-        }`}
+        className={`hidden lg:flex shrink-0 border-r border-[#dce8ff] bg-[#f3f7ff] sticky top-0 h-screen ${
+          enableWidthTransition ? 'transition-[width] duration-200 ease-out' : ''
+        } ${collapsed ? 'w-16' : 'w-72'}`}
       >
         <div className="w-full">
           <SidebarContent

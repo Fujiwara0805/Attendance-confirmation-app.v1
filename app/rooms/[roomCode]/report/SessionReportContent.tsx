@@ -256,8 +256,10 @@ export default function SessionReportContent({
   const [report, setReport] = useState<SessionReportData | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
-  // ワークカードごとに実施履歴（複数回のrun）が蓄積されるため、
-  // 「どのカードの・いつの実施分か」を絞り込んで表示できるようにする
+  // ワークカードごとに実施履歴（複数回のrun）が蓄積される。
+  // デフォルトは各カードの「直近の実施分のみ」を表示し、トグルで全履歴に展開できる。
+  // 全履歴モードでは「どのカードの・いつの実施分か」を絞り込める。
+  const [historyMode, setHistoryMode] = useState<'latest' | 'all'>('latest');
   const [workFilter, setWorkFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
 
@@ -322,6 +324,16 @@ export default function SessionReportContent({
 
   const visibleWorks = useMemo(() => {
     if (!report) return [] as SessionReportWork[];
+    // 直近のみモード: 各カードの最新実施分（runsは昇順なので末尾）だけを表示する
+    if (historyMode === 'latest') {
+      return report.works
+        .filter((w) => workFilter === 'all' || w.id === workFilter)
+        .map((w) => ({
+          ...w,
+          runs: w.runs.length > 0 ? [w.runs[w.runs.length - 1]] : [],
+        }));
+    }
+    // 全履歴モード: カード・実施日で絞り込む
     return report.works
       .filter((w) => workFilter === 'all' || w.id === workFilter)
       .map((w) => ({
@@ -333,7 +345,13 @@ export default function SessionReportContent({
       }))
       // 絞り込み中は該当する実施回があるカードのみ表示（カード指定時は空でも表示する）
       .filter((w) => w.runs.length > 0 || workFilter === w.id);
-  }, [report, workFilter, dateFilter, runDateLabel]);
+  }, [report, historyMode, workFilter, dateFilter, runDateLabel]);
+
+  // 複数回実施されたワークが1つでもあるか（直近のみ表示の案内・トグル表示判定に使う）
+  const hasMultiRunHistory = useMemo(
+    () => !!report && report.works.some((w) => w.runs.length > 1),
+    [report]
+  );
 
   if (loading) {
     return (
@@ -447,6 +465,33 @@ export default function SessionReportContent({
           </h2>
           {works.length > 0 && (
             <div className="flex flex-wrap items-center gap-2 print:hidden">
+              {/* 直近のみ / すべての履歴 の切替（複数回実施がある場合のみ意味を持つ） */}
+              {hasMultiRunHistory && (
+                <div className="inline-flex rounded-md border border-slate-200 bg-white p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setHistoryMode('latest')}
+                    className={`h-9 rounded px-3 text-xs font-semibold transition-colors ${
+                      historyMode === 'latest'
+                        ? 'bg-emerald-600 text-white'
+                        : 'text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    直近のみ
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setHistoryMode('all')}
+                    className={`h-9 rounded px-3 text-xs font-semibold transition-colors ${
+                      historyMode === 'all'
+                        ? 'bg-emerald-600 text-white'
+                        : 'text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    すべての履歴
+                  </button>
+                </div>
+              )}
               <select
                 value={workFilter}
                 onChange={(e) => {
@@ -463,22 +508,31 @@ export default function SessionReportContent({
                   </option>
                 ))}
               </select>
-              <select
-                value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
-                aria-label="表示する実施日を選択"
-                className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:border-emerald-400 focus:outline-none"
-              >
-                <option value="all">すべての実施日</option>
-                {dateOptions.map((label) => (
-                  <option key={label} value={label}>
-                    {label}
-                  </option>
-                ))}
-              </select>
+              {/* 実施日の絞り込みは全履歴モードのときのみ */}
+              {historyMode === 'all' && (
+                <select
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value)}
+                  aria-label="表示する実施日を選択"
+                  className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:border-emerald-400 focus:outline-none"
+                >
+                  <option value="all">すべての実施日</option>
+                  {dateOptions.map((label) => (
+                    <option key={label} value={label}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           )}
         </div>
+        {/* 直近のみ表示中の案内 */}
+        {works.length > 0 && historyMode === 'latest' && hasMultiRunHistory && (
+          <p className="text-xs sm:text-sm text-slate-500 print:hidden">
+            各カードの直近の実施結果のみを表示しています。過去の実施も見るには「すべての履歴」を選択してください。
+          </p>
+        )}
         {works.length === 0 ? (
           <p className="rounded-2xl bg-white p-4 text-sm text-slate-500 ring-1 ring-slate-200">
             このルームにはまだワークがありません。

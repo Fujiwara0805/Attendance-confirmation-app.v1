@@ -136,8 +136,10 @@
       min-height: 44px; /* タッチターゲットの最小サイズ */
     }
 
-    /* ラジオボタンは円形を維持 */
-    button[role="radio"] {
+    /* ラジオボタン・トグルスイッチは固有の寸法（横長pill等）を維持する。
+       min-height:44px を効かせると、スイッチが縦に伸びて楕円に見えてしまうため除外。 */
+    button[role="radio"],
+    button[role="switch"] {
       min-height: auto;
       min-width: auto;
     }

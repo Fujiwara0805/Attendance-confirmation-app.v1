@@ -11,7 +11,6 @@ import {
   Copy,
   CopyPlus,
   ExternalLink,
-  RefreshCw,
   Plus,
   Trash2,
   Edit,
@@ -42,8 +41,16 @@ import {
   Clock,
   ClipboardEdit,
   HelpCircle,
+  MoreVertical,
 } from 'lucide-react';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 import { CustomModal } from '@/components/ui/custom-modal';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
@@ -205,7 +212,7 @@ function AdminPageHeader({
             {helpHref && (
               <Link
                 href={helpHref}
-                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#aac8ff] bg-white text-[#2864f0] transition-colors hover:bg-[#ebf3ff]"
+                className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#aac8ff] bg-white text-[#2864f0] transition-colors hover:bg-[#ebf3ff] sm:inline-flex"
                 aria-label={`${title}のヘルプを開く`}
                 title={`${title}のヘルプ`}
               >
@@ -1071,6 +1078,27 @@ function AdminPageInner() {
     setDeleteConfirm({ type: 'room', code: room.code, name: room.title, room });
   };
 
+  // ルームの公開/終了の切替（PCの横並びボタンとモバイルのドロップダウンで共用）
+  const handleToggleRoomStatus = async (room: Room) => {
+    const newStatus = room.status === 'active' ? 'closed' : 'active';
+    setRoomStatusPendingCode(room.code);
+    try {
+      const res = await fetch(`/api/rooms/${room.code}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (res.ok) {
+        showToast('更新完了', newStatus === 'active' ? 'ルームを再開しました。' : 'ルームを終了しました。');
+        await fetchRooms();
+      }
+    } catch {
+      showToast('更新失敗', 'ステータスの変更に失敗しました。', 'destructive');
+    } finally {
+      setRoomStatusPendingCode(null);
+    }
+  };
+
   // ルーム複製（ワーク構成を引き継ぎ、票・質問・実施履歴は引き継がない）
   const handleDuplicateRoom = async (room: Room) => {
     setDuplicatePendingCode(room.code);
@@ -1184,16 +1212,6 @@ function AdminPageInner() {
                     </span>
                   </div>
                 )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={fetchCourses}
-                  disabled={loadingCourses}
-                  className="h-9 rounded-md border-[#e1dcdc] bg-white px-3 text-[#595959]"
-                >
-                  <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loadingCourses ? 'animate-spin' : ''}`} />
-                  更新
-                </Button>
                 <Button
                   onClick={() => setIsCreateTypeDialogOpen(true)}
                   className="h-9 rounded-md bg-[#2864f0] px-4 text-white shadow-sm hover:bg-[#285ac8]"
@@ -2027,8 +2045,8 @@ function AdminPageInner() {
                               </p>
                             </div>
                           </div>
-                          {/* Action buttons */}
-                          <div className="flex items-center gap-1 flex-shrink-0">
+                          {/* Action buttons (PC: 横並びアイコン / モバイル: ドロップダウンに集約) */}
+                          <div className="hidden sm:flex items-center gap-1 flex-shrink-0">
                             {course.formType !== 'invitation' && (
                               <button
                                 type="button"
@@ -2109,6 +2127,65 @@ function AdminPageInner() {
                             >
                               <Trash2 className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
                             </button>
+                          </div>
+
+                          {/* Action menu (モバイル) */}
+                          <div className="sm:hidden flex-shrink-0">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button
+                                  type="button"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="h-9 w-9 flex items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 active:bg-slate-200 transition-colors"
+                                  aria-label="操作メニュー"
+                                >
+                                  <MoreVertical className="h-5 w-5" />
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-44">
+                                {course.formType !== 'invitation' && (
+                                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setManualEntryCourse(course); }}>
+                                    <ClipboardEdit className="h-4 w-4 mr-2 text-slate-500" />
+                                    手動入力
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuItem
+                                  disabled={courseStatusPendingCode === course.code}
+                                  onClick={(e) => { e.stopPropagation(); void handleToggleCourseStatus(course); }}
+                                >
+                                  {course.status === 'active' ? (
+                                    <>
+                                      <StopCircle className="h-4 w-4 mr-2 text-red-500" />
+                                      受付を終了
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Play className="h-4 w-4 mr-2 fill-current text-emerald-600" />
+                                      受付を開始
+                                    </>
+                                  )}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleEditCourse(course); }}>
+                                  <Edit className="h-4 w-4 mr-2 text-slate-500" />
+                                  編集
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  disabled={duplicatePendingCode === course.code}
+                                  onClick={(e) => { e.stopPropagation(); handleDuplicateCourse(course); }}
+                                >
+                                  <CopyPlus className="h-4 w-4 mr-2 text-slate-500" />
+                                  複製
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="text-red-600 focus:text-red-600"
+                                  onClick={(e) => { e.stopPropagation(); handleDeleteCourse(course.code, course.courseName); }}
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  削除
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </div>
                         </div>
 
@@ -2228,16 +2305,6 @@ function AdminPageInner() {
                   </div>
                 )}
                 <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={fetchRooms}
-                  disabled={loadingRooms}
-                  className="h-9 rounded-md border-[#e1dcdc] bg-white px-3 text-[#595959]"
-                >
-                  <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loadingRooms ? 'animate-spin' : ''}`} />
-                  更新
-                </Button>
-                <Button
                   onClick={() => {
                     if (planInfo && !planInfo.canCreateRoom) {
                       showToast('上限に達しています', `無料プランではルーム${planInfo.limits.maxRooms}個まで作成できます。Proプランにアップグレードしてください。`, 'destructive');
@@ -2299,7 +2366,7 @@ function AdminPageInner() {
                   </Label>
                   <Input
                     id="room-title"
-                    placeholder="例: 経済学入門 Q&Aセッション"
+                    placeholder="例: 〇〇セミナー、第1回ミーティング など"
                     value={newRoomTitle}
                     onChange={(e) => setNewRoomTitle(e.target.value)}
                     className="h-10"
@@ -2529,33 +2596,15 @@ function AdminPageInner() {
                           </Button>
                         </div>
 
-                        {/* Actions row 2: status toggle / edit / delete */}
+                        {/* Actions row 2: status toggle / edit / duplicate / delete */}
                         <div className="mt-2.5 flex items-center justify-between">
-                          <div className="flex items-center gap-1.5 sm:gap-1">
+                          {/* PC: 横並びボタン */}
+                          <div className="hidden sm:flex items-center gap-1">
                             <button
                               type="button"
                               disabled={roomStatusPendingCode === room.code}
-                              onClick={async (e) => {
-                                e.stopPropagation();
-                                const newStatus = room.status === 'active' ? 'closed' : 'active';
-                                setRoomStatusPendingCode(room.code);
-                                try {
-                                  const res = await fetch(`/api/rooms/${room.code}`, {
-                                    method: 'PATCH',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ status: newStatus }),
-                                  });
-                                  if (res.ok) {
-                                    showToast("更新完了", newStatus === 'active' ? 'ルームを再開しました。' : 'ルームを終了しました。');
-                                    await fetchRooms();
-                                  }
-                                } catch {
-                                  showToast("更新失敗", "ステータスの変更に失敗しました。", "destructive");
-                                } finally {
-                                  setRoomStatusPendingCode(null);
-                                }
-                              }}
-                              className={`h-9 px-3 sm:h-7 sm:px-2 text-xs rounded-md inline-flex items-center justify-center gap-1 transition-colors disabled:opacity-60 disabled:pointer-events-none ${
+                              onClick={(e) => { e.stopPropagation(); void handleToggleRoomStatus(room); }}
+                              className={`h-7 px-2 text-xs rounded-md inline-flex items-center justify-center gap-1 transition-colors disabled:opacity-60 disabled:pointer-events-none ${
                                 room.status === 'active'
                                   ? 'text-red-500 hover:text-red-600 hover:bg-red-50 active:bg-red-100'
                                   : 'text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 active:bg-emerald-100'
@@ -2563,17 +2612,17 @@ function AdminPageInner() {
                             >
                               {roomStatusPendingCode === room.code ? (
                                 <>
-                                  <Loader2 className="h-3.5 w-3.5 sm:h-3 sm:w-3 animate-spin shrink-0" />
+                                  <Loader2 className="h-3 w-3 animate-spin shrink-0" />
                                   <span>{room.status === 'active' ? '終了中…' : '開始中…'}</span>
                                 </>
                               ) : room.status === 'active' ? (
                                 <>
-                                  <StopCircle className="h-3.5 w-3.5 sm:h-3 sm:w-3 shrink-0" />
+                                  <StopCircle className="h-3 w-3 shrink-0" />
                                   終了
                                 </>
                               ) : (
                                 <>
-                                  <Play className="h-3.5 w-3.5 sm:h-3 sm:w-3 shrink-0" />
+                                  <Play className="h-3 w-3 shrink-0" />
                                   開始
                                 </>
                               )}
@@ -2581,9 +2630,9 @@ function AdminPageInner() {
                             <button
                               type="button"
                               onClick={(e) => { e.stopPropagation(); handleEditRoom(room); }}
-                              className="h-9 px-3 sm:h-7 sm:px-2 text-xs rounded-md inline-flex items-center text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 active:bg-indigo-100 transition-colors"
+                              className="h-7 px-2 text-xs rounded-md inline-flex items-center text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 active:bg-indigo-100 transition-colors"
                             >
-                              <Edit className="h-3.5 w-3.5 sm:h-3 sm:w-3 mr-1" />
+                              <Edit className="h-3 w-3 mr-1" />
                               編集
                             </button>
                             <button
@@ -2591,24 +2640,83 @@ function AdminPageInner() {
                               disabled={duplicatePendingCode === room.code}
                               onClick={(e) => { e.stopPropagation(); handleDuplicateRoom(room); }}
                               title="ワーク構成を引き継いで複製（票・質問・履歴は引き継ぎません）"
-                              className="h-9 px-3 sm:h-7 sm:px-2 text-xs rounded-md inline-flex items-center text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 active:bg-indigo-100 transition-colors disabled:opacity-60 disabled:pointer-events-none"
+                              className="h-7 px-2 text-xs rounded-md inline-flex items-center text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 active:bg-indigo-100 transition-colors disabled:opacity-60 disabled:pointer-events-none"
                             >
                               {duplicatePendingCode === room.code ? (
-                                <Loader2 className="h-3.5 w-3.5 sm:h-3 sm:w-3 mr-1 animate-spin" />
+                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                               ) : (
-                                <CopyPlus className="h-3.5 w-3.5 sm:h-3 sm:w-3 mr-1" />
+                                <CopyPlus className="h-3 w-3 mr-1" />
                               )}
                               複製
                             </button>
                             <button
                               type="button"
                               onClick={(e) => { e.stopPropagation(); handleDeleteRoom(room); }}
-                              className="h-9 px-3 sm:h-7 sm:px-2 text-xs rounded-md inline-flex items-center text-red-400 hover:text-red-600 hover:bg-red-50 active:bg-red-100 transition-colors"
+                              className="h-7 px-2 text-xs rounded-md inline-flex items-center text-red-400 hover:text-red-600 hover:bg-red-50 active:bg-red-100 transition-colors"
                             >
-                              <Trash2 className="h-3.5 w-3.5 sm:h-3 sm:w-3 mr-1" />
+                              <Trash2 className="h-3 w-3 mr-1" />
                               削除
                             </button>
                           </div>
+
+                          {/* モバイル: ドロップダウンに集約 */}
+                          <div className="sm:hidden">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button
+                                  type="button"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="h-9 px-3 inline-flex items-center gap-1.5 rounded-md text-xs font-semibold text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50 active:bg-slate-100 transition-colors"
+                                  aria-label="操作メニュー"
+                                >
+                                  {roomStatusPendingCode === room.code || duplicatePendingCode === room.code ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <MoreVertical className="h-4 w-4" />
+                                  )}
+                                  操作
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="start" className="w-44">
+                                <DropdownMenuItem
+                                  disabled={roomStatusPendingCode === room.code}
+                                  onClick={(e) => { e.stopPropagation(); void handleToggleRoomStatus(room); }}
+                                >
+                                  {room.status === 'active' ? (
+                                    <>
+                                      <StopCircle className="h-4 w-4 mr-2 text-red-500" />
+                                      ルームを終了
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Play className="h-4 w-4 mr-2 text-emerald-600" />
+                                      ルームを開始
+                                    </>
+                                  )}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleEditRoom(room); }}>
+                                  <Edit className="h-4 w-4 mr-2 text-slate-500" />
+                                  編集
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  disabled={duplicatePendingCode === room.code}
+                                  onClick={(e) => { e.stopPropagation(); handleDuplicateRoom(room); }}
+                                >
+                                  <CopyPlus className="h-4 w-4 mr-2 text-slate-500" />
+                                  複製
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="text-red-600 focus:text-red-600"
+                                  onClick={(e) => { e.stopPropagation(); handleDeleteRoom(room); }}
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  削除
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+
                           <span className="text-xs text-slate-400">
                             作成: {new Date(room.created_at).toLocaleDateString('ja-JP')}
                           </span>

@@ -50,7 +50,15 @@ import {
   HelpCircle,
   Hammer,
   FileText,
+  MoreVertical,
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRealtimeQuestions } from '@/lib/hooks/useRealtimeQuestions';
@@ -1995,17 +2003,7 @@ export default function HostPage() {
                   新規作成
                 </button>
               )}
-              {tab !== 'faq' && (
-                <button
-                  type="button"
-                  onClick={() => setTab('faq')}
-                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#9dd8b1] bg-white text-[#00963c] transition-colors hover:bg-[#eaf8ef]"
-                  aria-label="ホスト管理のFAQを開く"
-                  title="ホスト管理のFAQ"
-                >
-                  <HelpCircle className="h-4 w-4" />
-                </button>
-              )}
+              {/* モバイルでは ? アイコンを非表示（FAQはハンバーガーメニューから開ける） */}
               <a
                 href={`/rooms/${roomCode}/present`}
                 target={`zasekikun-present-${roomCode}`}
@@ -2091,39 +2089,55 @@ export default function HostPage() {
                 新着順
               </SortPill>
               <span className="w-px h-5 bg-slate-200 mx-1" />
-              <FilterPill
-                active={statusFilter === 'unanswered'}
-                onClick={() => setStatusFilter('unanswered')}
+              {/* PC: 状態フィルタはピル。モバイル: ドロップダウンに集約 */}
+              <div className="hidden sm:flex flex-wrap items-center gap-2">
+                <FilterPill
+                  active={statusFilter === 'unanswered'}
+                  onClick={() => setStatusFilter('unanswered')}
+                >
+                  未回答
+                </FilterPill>
+                <FilterPill active={statusFilter === 'all'} onClick={() => setStatusFilter('all')}>
+                  全て ({counts.all})
+                </FilterPill>
+                <FilterPill
+                  active={statusFilter === 'pending'}
+                  onClick={() => setStatusFilter('pending')}
+                >
+                  承認待ち ({counts.pending})
+                </FilterPill>
+                <FilterPill
+                  active={statusFilter === 'approved'}
+                  onClick={() => setStatusFilter('approved')}
+                >
+                  公開中 ({counts.approved})
+                </FilterPill>
+                <FilterPill
+                  active={statusFilter === 'answered'}
+                  onClick={() => setStatusFilter('answered')}
+                >
+                  回答済 ({counts.answered})
+                </FilterPill>
+                <FilterPill
+                  active={statusFilter === 'rejected'}
+                  onClick={() => setStatusFilter('rejected')}
+                >
+                  非表示 ({counts.rejected})
+                </FilterPill>
+              </div>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+                aria-label="状態で絞り込み"
+                className="sm:hidden h-9 rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:border-emerald-400 focus:outline-none"
               >
-                未回答
-              </FilterPill>
-              <FilterPill active={statusFilter === 'all'} onClick={() => setStatusFilter('all')}>
-                全て ({counts.all})
-              </FilterPill>
-              <FilterPill
-                active={statusFilter === 'pending'}
-                onClick={() => setStatusFilter('pending')}
-              >
-                承認待ち ({counts.pending})
-              </FilterPill>
-              <FilterPill
-                active={statusFilter === 'approved'}
-                onClick={() => setStatusFilter('approved')}
-              >
-                公開中 ({counts.approved})
-              </FilterPill>
-              <FilterPill
-                active={statusFilter === 'answered'}
-                onClick={() => setStatusFilter('answered')}
-              >
-                回答済 ({counts.answered})
-              </FilterPill>
-              <FilterPill
-                active={statusFilter === 'rejected'}
-                onClick={() => setStatusFilter('rejected')}
-              >
-                非表示 ({counts.rejected})
-              </FilterPill>
+                <option value="unanswered">未回答</option>
+                <option value="all">全て ({counts.all})</option>
+                <option value="pending">承認待ち ({counts.pending})</option>
+                <option value="approved">公開中 ({counts.approved})</option>
+                <option value="answered">回答済 ({counts.answered})</option>
+                <option value="rejected">非表示 ({counts.rejected})</option>
+              </select>
               <button
                 type="button"
                 disabled={questionResetting || resettableQuestionCount === 0}
@@ -4054,8 +4068,8 @@ function HostQuestionRow({
             {q.text}
           </p>
 
-          {/* Action row */}
-          <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          {/* Action row (PC: 横並びボタン / モバイル: ドロップダウンに集約) */}
+          <div className="mt-3 hidden flex-wrap items-center gap-1.5 sm:flex">
             {isPending ? (
               <>
                 <ActionButton
@@ -4127,6 +4141,62 @@ function HostQuestionRow({
             >
               削除
             </ActionButton>
+          </div>
+
+          {/* モバイル: 操作ドロップダウン */}
+          <div className="mt-3 sm:hidden">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-white px-3 text-xs font-semibold text-slate-600 ring-1 ring-slate-200 transition-colors hover:bg-slate-50 disabled:opacity-60 disabled:pointer-events-none"
+                  disabled={anyPending}
+                  aria-label="質問の操作メニュー"
+                >
+                  {anyPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
+                  操作
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-44">
+                {isPending ? (
+                  <>
+                    <DropdownMenuItem onClick={onApprove}>
+                      <Check className="h-4 w-4 mr-2 text-emerald-600" />
+                      承認
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={onReject}>
+                      <EyeOff className="h-4 w-4 mr-2 text-slate-500" />
+                      非表示
+                    </DropdownMenuItem>
+                  </>
+                ) : isRejected ? (
+                  <DropdownMenuItem onClick={onUnreject}>
+                    <Eye className="h-4 w-4 mr-2 text-slate-500" />
+                    公開に戻す
+                  </DropdownMenuItem>
+                ) : (
+                  <>
+                    <DropdownMenuItem onClick={onToggleAnswered}>
+                      <Check className="h-4 w-4 mr-2 text-slate-500" />
+                      {q.is_answered ? '未回答に戻す' : '回答済みにする'}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={onTogglePinned}>
+                      <Reply className="h-4 w-4 mr-2 text-slate-500" />
+                      {q.is_pinned ? 'ピン解除' : 'ピン留め'}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={onReject}>
+                      <EyeOff className="h-4 w-4 mr-2 text-slate-500" />
+                      非表示
+                    </DropdownMenuItem>
+                  </>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="text-rose-600 focus:text-rose-600" onClick={onDelete}>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  削除
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </div>

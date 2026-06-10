@@ -120,18 +120,6 @@ export default function PresentPage() {
     };
   }, [qrModalOpen, qrModalMode, roomCode]);
 
-  const openQrModalFromUpload = useCallback((file: File) => {
-    if (!file.type.startsWith('image/')) return;
-    setModalQrUrl((prev) => {
-      if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
-      return null;
-    });
-    const blobUrl = URL.createObjectURL(file);
-    setModalQrUrl(blobUrl);
-    setQrModalMode('upload');
-    setQrModalOpen(true);
-  }, []);
-
   const openImagePreview = useCallback((src: string, alt: string) => {
     setImagePreview({ src, alt });
   }, []);
@@ -315,30 +303,24 @@ export default function PresentPage() {
         <div className="flex items-center gap-4">
           {/* QR Code for room participation */}
           {qrUrl && (
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex flex-col items-center gap-1 shrink-0">
               <motion.button
                 type="button"
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
                 onClick={openJoinQrModal}
                 className="bg-gray-100 rounded-lg p-1.5 cursor-pointer ring-offset-2 hover:ring-2 hover:ring-indigo-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-                title="タップでQRを拡大表示"
+                title="タップで拡大表示"
               >
                 <img src={qrUrl} alt="参加QRコード" className="w-12 h-12 pointer-events-none" />
               </motion.button>
-              <label className="cursor-pointer text-xs font-medium text-indigo-600 hover:text-indigo-800 whitespace-nowrap">
-                画像をアップ
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="sr-only"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) openQrModalFromUpload(f);
-                    e.target.value = '';
-                  }}
-                />
-              </label>
+              <button
+                type="button"
+                onClick={openJoinQrModal}
+                className="text-[11px] font-medium text-indigo-600 hover:text-indigo-800 whitespace-nowrap"
+              >
+                タップして拡大表示
+              </button>
             </div>
           )}
 
