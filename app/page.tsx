@@ -63,8 +63,8 @@ const child = {
 const features = [
   {
     icon: MapPin,
-    title: '位置情報で不正を防止',
-    description: 'GPS連携で対象エリア内の参加者だけが登録可能。代理出席の心配はもう不要。',
+    title: '位置情報で不正を抑止',
+    description: 'GPS連携で対象エリア内の参加者だけが登録可能。代理出席をしにくくします。',
     color: 'text-blue-600',
     bg: 'bg-blue-50',
   },
@@ -78,14 +78,14 @@ const features = [
   {
     icon: BarChart3,
     title: 'データをリアルタイム集計',
-    description: 'すべての回答を自動で集計・可視化。CSVエクスポートでデータ分析も簡単に。',
+    description: 'すべての回答を自動で集計・可視化。終了後はセッションレポートとCSVで記録が残る。',
     color: 'text-emerald-600',
     bg: 'bg-emerald-50',
   },
   {
     icon: ShieldCheck,
     title: '1,000人規模でも安定稼働',
-    description: '大規模イベントでも遅延ゼロ。堅牢なクラウドインフラが安定したパフォーマンスを実現。',
+    description: '大規模イベントでも安定して動作。堅牢なクラウドインフラが快適なパフォーマンスを支える。',
     color: 'text-violet-600',
     bg: 'bg-violet-50',
   },
@@ -169,9 +169,17 @@ const stats = [
 /* ─── Products ─── */
 const products = [
   {
+    icon: Mic2,
+    title: 'リアルタイムQ&A・ライブ投票',
+    description: '質問・投票・クイズで、参加者全員の声が場に届く。結果はその場でスクリーンへ。',
+    href: '/features/live-interaction',
+image:'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774403349/israel-palacio-Y20JJ_ddy9M-unsplash_hkanai.jpg',
+    color: 'from-orange-600 to-pink-600',
+  },
+  {
     icon: ClipboardList,
     title: '出席管理フォーム',
-    description: '位置情報×QRコードで、不正のない正確な出席管理を実現。',
+    description: '位置情報×QRコードで、確かな出席記録を手間なく残せる。',
     href: '/features/attendance',
     image: 'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774357674/dom-fou-YRMWVcdyhmI-unsplash_sq9hvg.jpg',
     color: 'from-blue-600 to-indigo-600',
@@ -183,14 +191,6 @@ const products = [
     href: '/features/invitation',
     image: 'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774402879/jakob-dalbjorn-cuKJre3nyYc-unsplash_usnazo.jpg',
     color: 'from-teal-600 to-emerald-600',
-  },
-  {
-    icon: Mic2,
-    title: 'リアルタイムQ&A・ライブ投票',
-    description: '参加者全員が声を届けられる、双方向コミュニケーションを実現。',
-    href: '/features/live-interaction',
-image:'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774403349/israel-palacio-Y20JJ_ddy9M-unsplash_hkanai.jpg',
-    color: 'from-orange-600 to-pink-600',
   },
 ];
 
@@ -232,7 +232,7 @@ const testimonials = [
 const faqItems = [
   {
     q: 'ざせきくんとは何ですか？',
-    a: 'ざせきくんは、出席管理・招待フォーム・リアルタイムQ&A・ライブ投票をひとつにまとめたイベント運営プラットフォームです。授業、セミナー、カンファレンス、ワークショップなど、あらゆる学習・イベントシーンで活用いただけます。',
+    a: 'ざせきくんは、リアルタイムQ&A・ライブ投票・出席管理・招待フォームをひとつにまとめたイベント運営プラットフォームです。授業、セミナー、カンファレンス、ワークショップなど、あらゆる学習・イベントシーンで活用いただけます。',
   },
   {
     q: '無料プランではどこまで使えますか？',
@@ -430,9 +430,9 @@ export default function LandingPage() {
               >
                 <span className="inline-flex items-center gap-1.5 text-xs lg:text-sm font-semibold tracking-wide uppercase text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-full px-3.5 py-1.5 mb-6">
                   <Sparkles className="w-3.5 h-3.5" />
-                  出席管理 × 招待フォーム
+                  リアルタイムQ&A × ライブ投票
                   <br className="sm:hidden" />
-                  {' '}× リアルタイムQ&A × ライブ投票
+                  {' '}× 出席管理 × 招待フォーム
                 </span>
               </motion.div>
 
@@ -453,11 +453,11 @@ export default function LandingPage() {
                 transition={{ duration: 0.5, delay: 0.2 }}
                 className="mt-6 text-lg sm:text-xl lg:text-2xl text-slate-500 leading-relaxed max-w-xl mx-auto lg:mx-0"
               >
-                出席管理・招待フォーム・
+                リアルタイムQ&A・ライブ投票で
                 <br className="sm:hidden" />
-                リアルタイムQ&A・ライブ投票を1つの
+                場が動く。出席・受付の記録も、
                 <br className="sm:hidden" />
-                プラットフォームで。
+                1つのプラットフォームに残る。
               </motion.p>
 
               <motion.div
@@ -857,9 +857,9 @@ export default function LandingPage() {
             <p className="mt-4 text-base lg:text-lg text-indigo-100 max-w-lg mx-auto">
               初期費用ゼロ、セットアップは1分。
               <br />
-              まずは無料プランで、
+              その場の反応も、出席の記録も、
               <br className="sm:hidden" />
-              ざせきくんの力を体験してください。
+              QRひとつで残せます。
             </p>
             <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
               <Link
@@ -1123,7 +1123,7 @@ export default function LandingPage() {
                 <span className="text-sm font-bold text-slate-900">ざせきくん</span>
               </div>
               <p className="text-xs text-slate-500 leading-relaxed">
-                出席管理・招待フォーム・リアルタイムQ&A・ライブ投票をワンストップで。
+                リアルタイムQ&A・ライブ投票・出席管理・招待フォームをワンストップで。
               </p>
               <p className="text-xs text-slate-400 mt-2">by 株式会社Nobody</p>
             </div>
@@ -1153,6 +1153,7 @@ export default function LandingPage() {
               <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-4">法務</h4>
               <ul className="space-y-2.5">
                 <li><Link href="/legal/privacy" className="text-sm text-slate-500 hover:text-slate-900 transition-colors">プライバシーポリシー</Link></li>
+                <li><Link href="/legal/security" className="text-sm text-slate-500 hover:text-slate-900 transition-colors">セキュリティとデータの取り扱い</Link></li>
                 <li><Link href="/legal/terms" className="text-sm text-slate-500 hover:text-slate-900 transition-colors">利用規約</Link></li>
                 <li><Link href="/legal/tokusho" className="text-sm text-slate-500 hover:text-slate-900 transition-colors">特定商取引法に基づく表記</Link></li>
                 <li><a href="mailto:sobota@nobody-info.com" className="text-sm text-slate-500 hover:text-slate-900 transition-colors">お問い合わせ</a></li>

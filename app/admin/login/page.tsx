@@ -105,7 +105,7 @@ export default function AdminLoginPage() {
   const highlights = [
     {
       icon: ShieldCheck,
-      title: '位置情報で不正を防止',
+      title: '位置情報で不正を抑止',
       desc: 'GPS連携で対象エリア内の参加者だけが登録可能。',
     },
     {
@@ -116,7 +116,7 @@ export default function AdminLoginPage() {
     {
       icon: Sparkles,
       title: '1,000人規模でも安定稼働',
-      desc: '大規模イベントでも遅延ゼロの堅牢なインフラ。',
+      desc: '大規模イベントでも安定して動く堅牢なインフラ。',
     },
   ]
 
@@ -150,7 +150,7 @@ export default function AdminLoginPage() {
                 管理者ログイン
               </h1>
               <p className="mt-2 text-sm text-slate-500 leading-relaxed">
-                出席管理・Q&A・投票など、
+                Q&A・投票・出席管理など、
                 <br className="sm:hidden" />
                 すべての機能を管理できます。
               </p>
@@ -345,9 +345,9 @@ export default function AdminLoginPage() {
                 インタラクティブに
               </h2>
               <p className="mt-5 text-base text-indigo-100/90 leading-relaxed max-w-md">
-                出席管理・招待フォーム・Q&A・
+                Q&A・投票・クイズ・
                 <br />
-                投票・クイズを、
+                出席管理・招待フォームを、
                 <br />
                 ひとつのプラットフォームで。
               </p>

@@ -737,6 +737,16 @@ export default function ParticipantPage() {
           </div>
         )}
       </div>
+
+      {/* 主催者導線（増殖ループ）: 結果や集計表示と干渉しない最下部に置く控えめな1行 */}
+      <footer className="mx-auto w-full max-w-2xl px-4 sm:px-5 pb-6 pt-2 text-center">
+        <Link
+          href="/admin/register?ref=participant-room"
+          className="text-xs sm:text-sm text-slate-400 transition-colors hover:text-emerald-700"
+        >
+          自分の授業・イベントでも「ざせきくん」を使ってみる →
+        </Link>
+      </footer>
     </div>
   );
 }

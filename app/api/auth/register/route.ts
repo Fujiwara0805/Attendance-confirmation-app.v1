@@ -4,7 +4,7 @@ import { createServerClient } from '@/lib/supabase'
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, password, name } = await req.json()
+    const { email, password, name, ref } = await req.json()
 
     if (!email || !password || !name) {
       return NextResponse.json(
@@ -41,6 +41,10 @@ export async function POST(req: NextRequest) {
     // パスワードハッシュ化
     const passwordHash = await bcrypt.hash(password, 12)
 
+    // 流入元（増殖ループ計測用）。自由入力なので長さと文字種を制限する
+    const signupRef =
+      typeof ref === 'string' && /^[a-zA-Z0-9_-]{1,64}$/.test(ref) ? ref : null
+
     // ユーザー作成
     const { data: user, error } = await supabase
       .from('admin_users')
@@ -48,6 +52,7 @@ export async function POST(req: NextRequest) {
         email: emailNormalized,
         password_hash: passwordHash,
         name: name.trim(),
+        signup_ref: signupRef,
       })
       .select('id, email, name')
       .single()

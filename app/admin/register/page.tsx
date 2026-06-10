@@ -1,8 +1,8 @@
 'use client'
 
 import { signIn, getSession } from 'next-auth/react'
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -25,7 +25,7 @@ import Link from 'next/link'
 const LOGO_URL =
   'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_200/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png'
 
-export default function AdminRegisterPage() {
+function AdminRegisterForm() {
   const [loading, setLoading] = useState(false)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -35,6 +35,8 @@ export default function AdminRegisterPage() {
   const [error, setError] = useState('')
   const [step, setStep] = useState<'form' | 'complete'>('form')
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const signupRef = searchParams?.get('ref') || ''
 
   useEffect(() => {
     getSession().then((session) => {
@@ -79,6 +81,7 @@ export default function AdminRegisterPage() {
           email: email.trim(),
           password,
           name: name.trim(),
+          ref: signupRef || undefined,
         }),
       })
       const data = await res.json()
@@ -148,19 +151,19 @@ export default function AdminRegisterPage() {
 
   const benefits = [
     {
-      icon: Users,
-      title: '参加者管理がワンストップ',
-      desc: '招待フォーム、事前登録、QRコード発行まで一気通貫。',
+      icon: MessageSquare,
+      title: 'その場の反応を集める',
+      desc: 'Q&A・投票・クイズで、参加者全員の声が場に届く。',
     },
     {
-      icon: MessageSquare,
-      title: '参加者とのやりとり',
-      desc: 'Q&A・投票・クイズで、その場の反応を集められる。',
+      icon: Users,
+      title: '受付・出席もワンストップ',
+      desc: '招待フォーム、事前登録、QRコード受付、出席管理まで一気通貫。',
     },
     {
       icon: BarChart3,
-      title: 'データをすぐに可視化',
-      desc: 'CSV / Excelエクスポートで分析もスムーズ。',
+      title: '終わったあとに記録が残る',
+      desc: 'セッションレポートとCSVで、振り返りや報告にそのまま使える。',
     },
   ]
 
@@ -449,5 +452,13 @@ export default function AdminRegisterPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function AdminRegisterPage() {
+  return (
+    <Suspense fallback={null}>
+      <AdminRegisterForm />
+    </Suspense>
   )
 }

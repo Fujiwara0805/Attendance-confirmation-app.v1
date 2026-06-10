@@ -361,6 +361,10 @@ export default function StagePage() {
 
   return (
     <div ref={stageRef} className="h-screen overflow-hidden bg-slate-950 text-slate-100">
+      {/* サービスクレジット（増殖ループの露出面）: 最小サイズで常時表示 */}
+      <span className="pointer-events-none fixed bottom-2 left-3 z-50 text-[10px] font-semibold tracking-wide text-white/35">
+        ざせきくん
+      </span>
       <div ref={splitRef} className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-[minmax(0,7fr)_10px_minmax(340px,3fr)]" style={layoutStyle}>
         <main className="relative h-[55vh] min-h-0 lg:h-full bg-black flex items-center justify-center overflow-hidden">
           {captureStream ? (

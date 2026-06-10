@@ -9,6 +9,7 @@ import {
   UserRoundX,
   Laptop,
   ArrowRight,
+  FileText,
 } from 'lucide-react';
 import LPHeader from '@/app/components/LPHeader';
 import LPFooter from '@/app/components/LPFooter';
@@ -66,6 +67,15 @@ const features = [
     icon: Laptop,
     reverse: false,
   },
+  {
+    title: '終わったあとは、セッションレポートに残る',
+    description:
+      '実施した投票・クイズの結果やQ&Aのハイライトは、終了後に1枚のセッションレポートにまとまります。印刷・PDF保存・CSV出力に対応し、授業の振り返りや研修の報告資料にそのまま使えます。出席フォームと連携すれば、出席の記録も同じレポートに並びます。',
+    image:
+'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774357507/stephen-dawson-qwtCeJ5cLYs-unsplash_mobp9w.jpg',
+    icon: FileText,
+    reverse: true,
+  },
 ];
 
 export default function LiveInteractionPage() {
@@ -87,7 +97,7 @@ export default function LiveInteractionPage() {
                 クイズで全員参加
               </h1>
               <p className="mt-5 text-base sm:text-lg text-slate-600 leading-relaxed max-w-lg">
-                質問・投票・クイズ・ランキング・ブレストをその場で実施。集まった反応はスクリーンにリアルタイムで表示できます。
+                質問・投票・クイズ・ランキング・ブレストをその場で実施。集まった反応はスクリーンにリアルタイムで表示され、終了後はセッションレポートとして残ります。
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link

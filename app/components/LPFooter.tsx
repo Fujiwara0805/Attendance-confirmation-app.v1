@@ -18,7 +18,7 @@ export default function LPFooter() {
               <span className="text-sm font-bold text-slate-900">ざせきくん</span>
             </div>
             <p className="text-xs text-slate-500 leading-relaxed">
-              出席管理・招待フォーム・リアルタイムQ&A・ライブ投票をワンストップで。
+              リアルタイムQ&A・ライブ投票・出席管理・招待フォームをワンストップで。
             </p>
             <p className="text-xs text-slate-400 mt-2">by 株式会社Nobody</p>
           </div>
@@ -48,6 +48,7 @@ export default function LPFooter() {
             <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-4">法務</h4>
             <ul className="space-y-2.5">
               <li><Link href="/legal/privacy" className="text-sm text-slate-500 hover:text-slate-900 transition-colors">プライバシーポリシー</Link></li>
+              <li><Link href="/legal/security" className="text-sm text-slate-500 hover:text-slate-900 transition-colors">セキュリティとデータの取り扱い</Link></li>
               <li><Link href="/legal/terms" className="text-sm text-slate-500 hover:text-slate-900 transition-colors">利用規約</Link></li>
               <li><Link href="/legal/tokusho" className="text-sm text-slate-500 hover:text-slate-900 transition-colors">特定商取引法に基づく表記</Link></li>
               <li><a href="mailto:sobota@nobody-info.com" className="text-sm text-slate-500 hover:text-slate-900 transition-colors">お問い合わせ</a></li>

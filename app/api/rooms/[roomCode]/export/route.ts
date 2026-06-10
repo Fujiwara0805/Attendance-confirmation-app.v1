@@ -12,6 +12,7 @@ import {
   POLL_MODE_LABELS,
   type PollOption,
 } from '@/lib/pollModes';
+import { buildSessionReport } from '@/lib/sessionReport';
 
 // GET: Export room data (host only)
 export async function GET(
@@ -28,7 +29,7 @@ export async function GET(
 
     const { data: room } = await supabase
       .from('rooms')
-      .select('id, host_id, title, created_at, linked_course_code')
+      .select('id, host_id, title, status, created_at, linked_course_code, report_view_count')
       .eq('code', params.roomCode.toUpperCase())
       .single();
 
@@ -37,6 +38,71 @@ export async function GET(
     }
 
     const type = req.nextUrl.searchParams.get('type') || 'summary';
+
+    if (type === 'report') {
+      const [questionsRes, pollsRes, votesRes] = await Promise.all([
+        supabase
+          .from('questions')
+          .select('text, author_name, is_anonymous, upvote_count, is_answered, participant_id, created_at')
+          .eq('room_id', room.id)
+          .is('deleted_at', null)
+          .eq('status', 'approved'),
+        supabase
+          .from('polls')
+          .select('id, question, status, options, max_selections, created_at, started_at')
+          .eq('room_id', room.id)
+          .order('created_at', { ascending: true }),
+        supabase
+          .from('poll_votes')
+          .select('poll_id, option_index, value, participant_id, created_at, cleared_at, group_label')
+          .eq('room_id', room.id),
+      ]);
+
+      // 出席フォーム連携時はルーム作成時刻以降の出席数を同送する
+      let course: { code: string; name: string } | null = null;
+      let attendanceCount: number | null = null;
+      if (room.linked_course_code) {
+        const { data: linkedCourse } = await supabase
+          .from('courses')
+          .select('id, code, name')
+          .eq('code', room.linked_course_code)
+          .single();
+        if (linkedCourse?.id) {
+          course = { code: linkedCourse.code, name: linkedCourse.name };
+          const { count } = await supabase
+            .from('attendance')
+            .select('id', { count: 'exact', head: true })
+            .eq('course_id', linkedCourse.id)
+            .gte('created_at', room.created_at);
+          attendanceCount = count ?? 0;
+        }
+      }
+
+      const report = buildSessionReport({
+        room: {
+          code: params.roomCode.toUpperCase(),
+          title: room.title,
+          status: room.status,
+          created_at: room.created_at,
+        },
+        course,
+        attendanceCount,
+        questions: questionsRes.data || [],
+        polls: pollsRes.data || [],
+        votes: votesRes.data || [],
+      });
+
+      // 閲覧計測（戦略9章「レポート閲覧・出力率」）。失敗してもレポートは返す
+      await supabase
+        .from('rooms')
+        .update({
+          report_view_count: ((room as { report_view_count?: number }).report_view_count ?? 0) + 1,
+          report_last_viewed_at: new Date().toISOString(),
+        })
+        .eq('id', room.id);
+
+      return NextResponse.json(report);
+    }
     const format = req.nextUrl.searchParams.get('format') || 'json';
     const exportTimeZone = getValidExportTimeZone(req.nextUrl.searchParams.get('timeZone'));
 

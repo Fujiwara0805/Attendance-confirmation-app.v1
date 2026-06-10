@@ -15,12 +15,12 @@ const fadeIn = {
 
 const features = [
   {
-    title: '位置情報で不正を防止',
+    title: '位置情報で不正を抑止',
     description:
-      'GPS連携により、対象エリア内にいる参加者だけが出席登録を行えます。代理出席やなりすましを技術的に防止し、正確な出席データを確保します。ジオフェンス機能で対象エリアを柔軟に設定でき、教室・会場・オフィスなどあらゆるシーンに対応可能です。',
+      'GPS連携により、対象エリア内にいる参加者だけが出席登録を行えます。代理出席やなりすましをしにくくし、信頼できる出席データを残します。ジオフェンス機能で対象エリアを柔軟に設定でき、教室・会場・オフィスなどあらゆるシーンに対応可能です。',
     image:
       'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774357308/charlesdeluvio-Lks7vei-eAg-unsplash_offkod.jpg',
-    alt: '位置情報による不正防止のイメージ',
+    alt: '位置情報による不正抑止のイメージ',
   },
   {
     title: 'QRコードで即完了',
@@ -33,7 +33,7 @@ const features = [
   {
     title: 'データをリアルタイム集計',
     description:
-      'すべての出席データを自動で集計し、ダッシュボード上でリアルタイムに可視化します。出席率の推移や参加者の傾向を一目で把握でき、CSVエクスポート機能で外部ツールでの詳細な分析にもスムーズに連携できます。',
+      'すべての出席データを自動で集計し、ダッシュボード上でリアルタイムに可視化します。出席率の推移や参加者の傾向を一目で把握でき、CSVエクスポートで後処理もスムーズ。ルーム機能と連携すれば、出席とその場の反応（Q&A・投票）をひとつのセッションレポートとして残せます。',
     image:
       'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774357507/stephen-dawson-qwtCeJ5cLYs-unsplash_mobp9w.jpg',
     alt: 'リアルタイムデータ集計のイメージ',
@@ -41,7 +41,7 @@ const features = [
   {
     title: '1,000人規模でも安定稼働',
     description:
-      '数百人から1,000人を超える大規模イベントでも、遅延やダウンタイムなく安定して動作します。堅牢なクラウドインフラによるオートスケーリングで、参加者が急増しても快適なレスポンスを維持。大学の講義からカンファレンスまで、あらゆる規模に対応します。',
+      '数百人から1,000人を超える大規模イベントでも、安定して快適に動作します。堅牢なクラウドインフラによるオートスケーリングで、参加者が急増しても快適なレスポンスを維持。大学の講義からカンファレンスまで、あらゆる規模に対応します。',
     image:
       'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774357569/alexandre-pellaes-6vAjp0pscX0-unsplash_dfsotz.jpg',
     alt: '大規模イベントのイメージ',
@@ -66,7 +66,7 @@ export default function AttendanceFeaturePage() {
                   出席管理フォーム
                 </h1>
                 <p className="mt-5 text-base sm:text-lg text-slate-600 leading-relaxed max-w-lg">
-                  位置情報×QRコードで、不正のない正確な出席管理を実現
+                  位置情報×QRコードで、確かな出席記録を手間なく残せる
                 </p>
                 <div className="mt-8 flex flex-wrap gap-3">
                   <Link

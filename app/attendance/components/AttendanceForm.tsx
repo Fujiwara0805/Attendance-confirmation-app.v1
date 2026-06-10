@@ -857,6 +857,13 @@ export default function DynamicAttendanceForm({
                     位置情報を取得中...
                   </motion.div>
                 )}
+                {/* 取得目的の明示（押し付けではなく納得に変える） */}
+                {campusCenter && (
+                  <motion.p variants={fadeInUp} className="mt-2 text-xs sm:text-sm text-slate-400 leading-relaxed text-center">
+                    位置情報は、{campusCenter.locationName || '対象エリア'}
+                    内からの登録かどうかの確認のみに使用します。移動の追跡は行わず、記録は主催者だけが確認できます。
+                  </motion.p>
+                )}
               </motion.div>
             </motion.div>
 
@@ -875,6 +882,7 @@ export default function DynamicAttendanceForm({
                     </div>
                     <span className="text-xs text-amber-700 leading-relaxed">
                       次回登録可能まであと約<span className="font-semibold">{timeUntilNextSubmission}分</span>です
+                      <span className="block text-amber-600/80">短時間の連続登録を防ぐための待機時間です</span>
                     </span>
                   </div>
                 </motion.div>

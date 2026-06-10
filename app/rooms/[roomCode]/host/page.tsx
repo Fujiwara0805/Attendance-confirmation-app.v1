@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef, type ComponentType, type ReactNode } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import SessionReportContent from '../report/SessionReportContent';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   MessageSquare,
@@ -48,6 +49,7 @@ import {
   GripVertical,
   HelpCircle,
   Hammer,
+  FileText,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -147,7 +149,7 @@ interface CourseOption {
   form_type?: string;
 }
 
-type HostTab = 'questions' | 'polls' | 'summary' | 'export' | 'integration' | 'faq';
+type HostTab = 'questions' | 'polls' | 'summary' | 'integration' | 'report' | 'faq';
 type SortMode = 'popular' | 'newest';
 type StatusFilter = 'all' | 'unanswered' | 'pending' | 'approved' | 'answered' | 'rejected';
 
@@ -238,7 +240,7 @@ const HOST_NAV_ITEMS: Array<{
   { key: 'polls', label: 'ワーク機能', description: 'カード作成・集計', icon: Hammer },
   { key: 'summary', label: 'サマリー', description: '状況の確認', icon: PieChart },
   { key: 'integration', label: '連携', description: '出席フォーム紐付け', icon: Link2 },
-  { key: 'export', label: 'エクスポート', description: 'CSV出力', icon: Download },
+  { key: 'report', label: 'レポート機能', description: '記録・データ出力', icon: FileText },
   { key: 'faq', label: 'FAQ', description: '操作ガイド', icon: HelpCircle },
 ];
 
@@ -313,7 +315,7 @@ const HOST_COLOR_THEMES: Record<HostTab, HostColorTheme> = {
     infoBorder: '#00963c',
     infoText: '#323232',
   },
-  export: {
+  report: {
     headerBg: '#eaf8ef',
     headerBorder: '#9dd8b1',
     iconBg: '#ffffff',
@@ -404,13 +406,13 @@ const HOST_FAQ_SECTIONS: Array<{
     tips: ['紐づけ可能なフォームがない場合は、先にフォーム管理で作成してください。', '紐づけはいつでも解除できます。'],
   },
   {
-    id: 'export',
-    title: 'エクスポート',
-    icon: ClipboardCheck,
-    summary: 'Q&Aとワークツールの結果をCSVで出力できます。',
+    id: 'report',
+    title: 'レポート機能',
+    icon: FileText,
+    summary: 'セッションの記録を1画面にまとめ、印刷・PDF・CSVで残せます。',
     body:
-      '質問一覧、いいね数、回答済み状態、投票結果などをCSV形式でダウンロードできます。ワークツールは全カードまとめて出力することも、特定のカードだけを選んで出力することもできます。',
-    tips: ['イベント後の分析やレポート作成に使えます。', '投票の出力対象は確認画面で選択します。'],
+      'レポート機能では、出席・質問・投票/クイズ/ランキング/ブレストの結果を1枚にまとめて確認できます。ワークカードごと・実施日ごとに絞り込んで表示でき、画面右上から印刷・PDF保存、CSVダウンロードが行えます。質問一覧やワーク結果のCSVもこの画面から出力できます。',
+    tips: ['イベント後の振り返りや報告資料の作成に使えます。', 'ワークカード単位のCSV出力は、ワーク機能タブの各カードからも行えます。'],
   },
 ];
 
@@ -463,60 +465,6 @@ function HostPageHeader({
             {children}
           </div>
         )}
-      </div>
-    </div>
-  );
-}
-
-function HostMobileRoomBar({
-  room,
-  roomCode,
-  presenceCount,
-  qrUrl,
-  copied,
-  onCopyCode,
-}: {
-  room: Room;
-  roomCode: string;
-  presenceCount: number;
-  qrUrl: string;
-  copied: boolean;
-  onCopyCode: () => void;
-}) {
-  return (
-    <div className="border-b border-[#dce8ff] bg-white px-4 py-2.5 lg:hidden">
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate text-[11px] font-bold uppercase tracking-wide text-[#8c8989]">
-            参加コード
-          </p>
-          <button
-            type="button"
-            onClick={onCopyCode}
-            className="mt-0.5 inline-flex items-center gap-1 font-mono text-sm font-bold tracking-wider text-[#323232] hover:text-[#00963c]"
-            title="コードをコピー"
-          >
-            #{room.code}
-            {copied ? <Check className="h-3 w-3 text-[#00963c]" /> : <Copy className="h-3 w-3" />}
-          </button>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <span className="inline-flex h-9 items-center gap-1 rounded-md border border-[#9dd8b1] bg-[#eaf8ef] px-2.5 text-xs font-bold text-[#323232]">
-            <Users className="h-3.5 w-3.5 text-[#00963c]" />
-            {presenceCount}人
-          </span>
-          <a
-            href={qrUrl || '#'}
-            download={`qr-${roomCode}.png`}
-            className={`inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#9dd8b1] bg-white text-[#00963c] transition-colors hover:bg-[#eaf8ef] ${
-              qrUrl ? '' : 'pointer-events-none opacity-50'
-            }`}
-            aria-label="参加QRを保存"
-            title="参加QRを保存"
-          >
-            <QrCode className="h-4 w-4" />
-          </a>
-        </div>
       </div>
     </div>
   );
@@ -612,7 +560,6 @@ export default function HostPage() {
     };
     topQuestions?: Array<{ text: string; upvote_count: number }>;
   } | null>(null);
-  const [showAllQuestions, setShowAllQuestions] = useState(false);
   const [userPlan, setUserPlan] = useState<'free' | 'paid' | 'enterprise'>('free');
   const [pollPage, setPollPage] = useState(1);
   const [pollSearch, setPollSearch] = useState('');
@@ -769,7 +716,7 @@ export default function HostPage() {
       arr.splice(target - 1, 0, moved);
       return arr.map((q, i) => ({ ...q, questionNumber: i + 1 }));
     });
-    setActiveQuizQuestionIndex((prevIndex) => {
+    setActiveQuizQuestionIndex(() => {
       // 移動後の位置（target-1）にアクティブを合わせる。length は state 更新前後で不変。
       const target = clampNumber(toNumber, 1, quizQuestions.length, quizQuestions.length);
       return target - 1;
@@ -1568,21 +1515,10 @@ export default function HostPage() {
   );
 
   // 質問CSV は対象選択なしで即ダウンロード、投票CSV は対象カードを必ず選んでもらう
-  const handleExportCSV = useCallback(
-    (type: 'questions' | 'polls') => {
-      if (exportLoadingType) return;
-      if (type === 'polls') {
-        setShowPollExportPicker(true);
-        return;
-      }
-      void downloadExportCSV(type);
-    },
-    [downloadExportCSV, exportLoadingType]
-  );
 
   // Fetch summary for export tab
   useEffect(() => {
-    if ((tab === 'export' || tab === 'summary') && !exportData) {
+    if (tab === 'summary' && !exportData) {
       fetch(`/api/rooms/${roomCode}/export?type=summary`)
         .then((r) => r.json())
         .then(setExportData)
@@ -2082,14 +2018,7 @@ export default function HostPage() {
             </div>
           </div>
         </div>
-        <HostMobileRoomBar
-          room={room}
-          roomCode={roomCode}
-          presenceCount={Math.max(presenceCount, 1)}
-          qrUrl={qrUrl}
-          copied={copied}
-          onCopyCode={handleCopyCode}
-        />
+        {/* モバイルの参加コード行は削除済み（ハンバーガーメニュー内で確認できるため） */}
       </header>
 
       {/* Content */}
@@ -3335,138 +3264,41 @@ export default function HostPage() {
           </div>
         )}
 
-        {/* === Export Tab === */}
-        {tab === 'export' && (
-          <div className="space-y-5">
-            {exportData?.stats && (
-              <div className="rounded-2xl bg-white ring-1 ring-slate-200 p-4 sm:p-6">
-                <h3 className="text-lg sm:text-xl font-extrabold tracking-tight text-slate-900 mb-4">
-                  ルームサマリー
-                </h3>
-                <div className={`grid grid-cols-2 gap-4 ${exportData.stats.attendanceLinked ? 'sm:grid-cols-5' : 'sm:grid-cols-4'}`}>
-                  {[
-                    { label: '質問数', value: exportData.stats.totalQuestions },
-                    { label: '投票数', value: exportData.stats.totalPolls },
-                    { label: '総いいね', value: exportData.stats.totalUpvotes },
-                    { label: '参加者数', value: exportData.stats.uniqueParticipants },
-                    ...(exportData.stats.attendanceLinked
-                      ? [{ label: '出席数', value: exportData.stats.totalAttendance ?? 0 }]
-                      : []),
-                  ].map((s) => (
-                    <div key={s.label} className="text-center p-3 bg-slate-50 rounded-xl">
-                      <p className="text-2xl sm:text-3xl font-extrabold tracking-tight tabular-nums text-emerald-600">
-                        {s.value ?? 0}
-                      </p>
-                      <p className="text-xs sm:text-sm text-slate-500 mt-1 font-medium">
-                        {s.label}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {exportData?.topQuestions && exportData.topQuestions.length > 0 && (
-              <div className="rounded-2xl bg-white ring-1 ring-slate-200 p-4 sm:p-6">
-                <h3 className="text-base sm:text-lg font-bold text-slate-900 mb-3">
-                  質問一覧（いいね順）
-                </h3>
-                <div className="space-y-2">
-                  {(showAllQuestions
-                    ? exportData.topQuestions
-                    : exportData.topQuestions.slice(0, 5)
-                  ).map((q, i) => (
-                    <div key={i} className="flex items-center gap-3 text-sm sm:text-base">
-                      <span className="text-emerald-600 font-bold w-6 tabular-nums">
-                        {q.upvote_count}
-                      </span>
-                      <span className="text-slate-700">{q.text}</span>
-                    </div>
-                  ))}
-                </div>
-                {exportData.topQuestions.length > 5 && (
-                  <button
-                    onClick={() => setShowAllQuestions(!showAllQuestions)}
-                    className="mt-3 text-sm font-semibold text-emerald-700 hover:text-emerald-800"
-                  >
-                    {showAllQuestions
-                      ? '閉じる'
-                      : `他の質問をみる（残り${exportData.topQuestions.length - 5}件）`}
-                  </button>
-                )}
-              </div>
-            )}
-
-              <div className="rounded-2xl bg-white ring-1 ring-slate-200 p-4 sm:p-6">
-              <h3 className="text-base sm:text-lg font-bold text-slate-900 mb-4">
-                データダウンロード
-              </h3>
-              <div className="flex flex-col sm:flex-row gap-3">
-                <button
-                  type="button"
-                  disabled={exportLoadingType !== null}
-                  onClick={() => handleExportCSV('questions')}
-                  className="bg-white ring-1 ring-slate-200 hover:bg-slate-50 text-slate-700 font-semibold px-4 h-11 rounded-xl flex items-center justify-center gap-2 text-sm transition-colors disabled:opacity-60 disabled:pointer-events-none"
-                >
-                  {exportLoadingType === 'questions' ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Download className="w-4 h-4" />
-                  )}
-                  Q&Aデータ (CSV)
-                </button>
-                <button
-                  type="button"
-                  disabled={exportLoadingType !== null}
-                  onClick={() => handleExportCSV('polls')}
-                  className="bg-white ring-1 ring-slate-200 hover:bg-slate-50 text-slate-700 font-semibold px-4 h-11 rounded-xl flex items-center justify-center gap-2 text-sm transition-colors disabled:opacity-60 disabled:pointer-events-none"
-                >
-                  {exportLoadingType === 'polls' ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Download className="w-4 h-4" />
-                  )}
-                  ライブ投票結果(CSV)
-                </button>
-              </div>
-            </div>
-
-            {/* Moderation toggle (placed under Export for housekeeping) */}
-            <div className="flex flex-col gap-3 rounded-2xl bg-white p-4 ring-1 ring-slate-200 sm:flex-row sm:items-center sm:justify-between sm:p-6">
-              <div>
-                <h4 className="text-sm sm:text-base font-bold text-slate-900">承認制（モデレーション）</h4>
-                <p className="text-xs sm:text-sm text-slate-500 mt-1">
-                  {room.moderation_enabled
-                    ? 'ON: 新規質問は承認後に公開されます'
-                    : 'OFF: 新規質問は即時公開されます'}
-                </p>
-              </div>
-              <button
-                type="button"
-                disabled={moderationLoading}
-                onClick={handleToggleModeration}
-                className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 h-9 rounded-full transition-colors disabled:opacity-60 disabled:pointer-events-none ${
-                  room.moderation_enabled
-                    ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 ring-1 ring-emerald-200'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                {moderationLoading ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : room.moderation_enabled ? (
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                ) : (
-                  <ShieldOff className="w-3.5 h-3.5" />
-                )}
-                {room.moderation_enabled ? '承認制 ON' : '承認制 OFF'}
-              </button>
-            </div>
-          </div>
-        )}
+        {/* === Report Tab === */}
+        {tab === 'report' && <SessionReportContent roomCode={roomCode} embedded />}
 
         {/* === FAQ Tab === */}
         {tab === 'faq' && (
           <div className="space-y-5">
+            {/* 当日チェックリスト（本番前の事前確認で当日事故を減らす） */}
+            <section className="rounded-lg border border-[#aac8ff] bg-[#ebf3ff] p-4 sm:p-5">
+              <div className="flex items-start gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-white text-[#2864f0]">
+                  <ClipboardCheck className="h-5 w-5" />
+                </span>
+                <div>
+                  <h2 className="text-base font-bold text-[#323232]">当日チェックリスト</h2>
+                  <p className="mt-1 text-xs sm:text-sm text-[#595959]">
+                    本番開始前に、次の5つを確認しておくと当日のトラブルを大きく減らせます。
+                  </p>
+                </div>
+              </div>
+              <ul className="mt-4 space-y-2">
+                {[
+                  'QRコードを投影またはプリントし、自分のスマホで読み取って参加者画面が開くか確認した',
+                  '会場の電波状況を確認した（Wi-Fiが不安定な場合は参加者にモバイル回線の利用を案内）',
+                  'スクリーン画面（投影）を開き、プロジェクターでの見え方を確認した',
+                  '出席フォームを使う場合: 位置情報の対象エリア設定と、自分の端末での出席登録テストを済ませた',
+                  'ワーク（投票・クイズ）のカードを事前に作成し、開始・締切の操作を一度試した',
+                ].map((item, i) => (
+                  <li key={i} className="flex items-start gap-2.5 rounded-lg bg-white px-3.5 py-2.5 text-sm leading-relaxed text-[#323232]">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#2864f0]" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </section>
+
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {HOST_FAQ_SECTIONS.map((section) => {
                 const Icon = section.icon;

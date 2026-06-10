@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import {
   Copy,
+  CopyPlus,
   ExternalLink,
   RefreshCw,
   Plus,
@@ -523,6 +524,7 @@ function AdminPageInner() {
   const [copyPendingCode, setCopyPendingCode] = useState<string | null>(null);
   const [viewPendingCode, setViewPendingCode] = useState<string | null>(null);
   const [hostPendingCode, setHostPendingCode] = useState<string | null>(null);
+  const [duplicatePendingCode, setDuplicatePendingCode] = useState<string | null>(null);
 
   // 削除確認モーダル用の状態
   const [deleteConfirm, setDeleteConfirm] = useState<{
@@ -1067,6 +1069,46 @@ function AdminPageInner() {
   // ルーム削除
   const handleDeleteRoom = (room: Room) => {
     setDeleteConfirm({ type: 'room', code: room.code, name: room.title, room });
+  };
+
+  // ルーム複製（ワーク構成を引き継ぎ、票・質問・実施履歴は引き継がない）
+  const handleDuplicateRoom = async (room: Room) => {
+    setDuplicatePendingCode(room.code);
+    try {
+      const res = await fetch(`/api/rooms/${room.code}/duplicate`, { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        showToast('複製完了', `「${data.room?.title || room.title}」を作成しました。`);
+        await fetchRooms();
+        fetchPlanInfo();
+      } else {
+        showToast('複製失敗', data.error || 'ルームの複製に失敗しました。', 'destructive');
+      }
+    } catch {
+      showToast('通信エラー', 'サーバーとの通信中にエラーが発生しました。', 'destructive');
+    } finally {
+      setDuplicatePendingCode(null);
+    }
+  };
+
+  // フォーム複製（カスタム項目・位置情報・クールダウン設定を引き継ぐ）
+  const handleDuplicateCourse = async (course: Course) => {
+    setDuplicatePendingCode(course.code);
+    try {
+      const res = await fetch(`/api/v2/courses/${course.code}/duplicate`, { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        showToast('複製完了', `「${data.course?.name || course.courseName}」を作成しました。`);
+        await fetchCourses();
+        fetchPlanInfo();
+      } else {
+        showToast('複製失敗', data.message || 'フォームの複製に失敗しました。', 'destructive');
+      }
+    } catch {
+      showToast('通信エラー', 'サーバーとの通信中にエラーが発生しました。', 'destructive');
+    } finally {
+      setDuplicatePendingCode(null);
+    }
   };
 
   // Copy URL helper
@@ -2036,11 +2078,27 @@ function AdminPageInner() {
                             <button
                               type="button"
                               onClick={(e) => { e.stopPropagation(); handleEditCourse(course); }}
-                              className="h-9 w-9 sm:h-7 sm:w-7 flex items-center justify-center rounded-md text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 active:bg-indigo-100 transition-colors"
+                              className="h-11 w-11 sm:h-10 sm:w-10 flex flex-col items-center justify-center gap-0.5 rounded-md text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 active:bg-indigo-100 transition-colors"
                               title="フォームを編集"
                               aria-label="フォームを編集"
                             >
                               <Edit className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                              <span className="text-[10px] leading-none">編集</span>
+                            </button>
+                            <button
+                              type="button"
+                              disabled={duplicatePendingCode === course.code}
+                              onClick={(e) => { e.stopPropagation(); handleDuplicateCourse(course); }}
+                              className="h-11 w-11 sm:h-10 sm:w-10 flex flex-col items-center justify-center gap-0.5 rounded-md text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 active:bg-indigo-100 transition-colors disabled:opacity-60 disabled:pointer-events-none"
+                              title="フォームを複製（設定を引き継いで新規作成。URLのコピーではありません）"
+                              aria-label="フォームを複製"
+                            >
+                              {duplicatePendingCode === course.code ? (
+                                <Loader2 className="h-4 w-4 sm:h-3.5 sm:w-3.5 animate-spin" />
+                              ) : (
+                                <CopyPlus className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                              )}
+                              <span className="text-[10px] leading-none">複製</span>
                             </button>
                             <button
                               type="button"
@@ -2342,17 +2400,17 @@ function AdminPageInner() {
                     {
                       icon: Users,
                       title: '参加の場を用意',
-                      description: 'ルームは、参加者とQ&Aやワークをリアルタイムに行うスペースです。',
+                      description: '匿名Q&A・投票・クイズ・ランキング・ブレストを、参加者のスマホとリアルタイムに行えます。',
                     },
                     {
                       icon: QrCode,
                       title: 'コードでかんたん参加',
-                      description: 'ルーム名を入力して作成すると、参加用コードとQRを発行します。',
+                      description: 'ルーム名を入力して作成すると、参加用コードとQRを発行。参加者の登録は不要です。',
                     },
                     {
                       icon: Airplay,
-                      title: '反応を画面に表示',
-                      description: '質問や回答はホスト画面で管理し、スクリーンにすぐ共有できます。',
+                      title: '反応は画面へ、終われば記録に',
+                      description: '反応はスクリーンに共有でき、終了後はセッションレポートとして残せます。',
                     },
                   ].map(({ icon: Icon, title, description }) => (
                     <div key={title} className="rounded-lg border border-purple-100 bg-white px-4 py-3 text-left shadow-sm">
@@ -2527,6 +2585,20 @@ function AdminPageInner() {
                             >
                               <Edit className="h-3.5 w-3.5 sm:h-3 sm:w-3 mr-1" />
                               編集
+                            </button>
+                            <button
+                              type="button"
+                              disabled={duplicatePendingCode === room.code}
+                              onClick={(e) => { e.stopPropagation(); handleDuplicateRoom(room); }}
+                              title="ワーク構成を引き継いで複製（票・質問・履歴は引き継ぎません）"
+                              className="h-9 px-3 sm:h-7 sm:px-2 text-xs rounded-md inline-flex items-center text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 active:bg-indigo-100 transition-colors disabled:opacity-60 disabled:pointer-events-none"
+                            >
+                              {duplicatePendingCode === room.code ? (
+                                <Loader2 className="h-3.5 w-3.5 sm:h-3 sm:w-3 mr-1 animate-spin" />
+                              ) : (
+                                <CopyPlus className="h-3.5 w-3.5 sm:h-3 sm:w-3 mr-1" />
+                              )}
+                              複製
                             </button>
                             <button
                               type="button"

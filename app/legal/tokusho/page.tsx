@@ -229,7 +229,7 @@ export default function TokushoPage() {
                 <div className="bg-slate-50 p-5 sm:p-6 rounded-2xl ring-1 ring-black/5">
                   <h4 className="text-base sm:text-lg font-bold text-slate-800 mb-3">ざせきくん — イベント運営プラットフォーム</h4>
                   <p className="text-sm sm:text-base text-slate-700 mb-4 leading-relaxed">
-                    出席管理・リアルタイムQ&A・ライブ投票・カスタムフォームを
+                    リアルタイムQ&A・ライブ投票・出席管理・カスタムフォームを
                     <br className="sm:hidden" />
                     ワンストップで提供するクラウドサービスです。
                   </p>

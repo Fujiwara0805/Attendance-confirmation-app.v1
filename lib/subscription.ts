@@ -47,11 +47,20 @@ function getSubscriptionTimestamps(subscription: Stripe.Subscription) {
 }
 
 function getPlanFromStripeSubscription(subscription: Stripe.Subscription): PlanType {
+  // 正: metadata.productType で判定する（Checkout作成時に必ず付与される）
   const productType = subscription.metadata?.productType;
   if (productType === 'enterprise_subscription') {
     return 'enterprise';
   }
+  if (productType === 'pro_subscription') {
+    return 'paid';
+  }
 
+  // 旧: metadata を持たないレガシーサブスクのみ金額で判定する。
+  // 価格改定時に壊れるため、Stripe Dashboard で metadata 補正が済み次第このフォールバックは削除する。
+  console.warn(
+    `[subscription] metadata.productType がないサブスクを金額で判定しました: ${subscription.id}`
+  );
   const unitAmount = subscription.items.data[0]?.price?.unit_amount;
   return unitAmount === 2000 ? 'enterprise' : 'paid';
 }
