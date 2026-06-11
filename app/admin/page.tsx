@@ -2550,7 +2550,7 @@ function AdminPageInner() {
                             </div>
                             <h3 className="text-sm sm:text-base font-semibold text-slate-900 truncate">{room.title}</h3>
                           </div>
-                          <div className="flex shrink-0 flex-col items-end gap-2">
+                          <div className="flex shrink-0 items-center gap-1.5">
                             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${
                               room.status === 'active'
                                 ? 'bg-emerald-100 text-emerald-700'
@@ -2561,7 +2561,7 @@ function AdminPageInner() {
                               {room.status === 'active' ? '公開中' : room.status === 'closed' ? '終了' : room.status}
                             </span>
 
-                            {/* モバイル: ステータス直下の操作アイコン */}
+                            {/* モバイル: ステータス右隣の操作アイコン */}
                             <div className="sm:hidden">
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>

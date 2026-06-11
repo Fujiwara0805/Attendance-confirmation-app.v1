@@ -2127,7 +2127,7 @@ export default function HostPage() {
                   未回答
                 </FilterPill>
                 <FilterPill active={statusFilter === 'all'} onClick={() => setStatusFilter('all')}>
-                  全て ({counts.all})
+                  すべて ({counts.all})
                 </FilterPill>
                 <FilterPill
                   active={statusFilter === 'pending'}
@@ -2154,33 +2154,35 @@ export default function HostPage() {
                   非表示 ({counts.rejected})
                 </FilterPill>
               </div>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-                aria-label="状態で絞り込み"
-                className="sm:hidden h-9 rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 focus:border-emerald-400 focus:outline-none"
-              >
-                <option value="unanswered">未回答</option>
-                <option value="all">全て ({counts.all})</option>
-                <option value="pending">承認待ち ({counts.pending})</option>
-                <option value="approved">公開中 ({counts.approved})</option>
-                <option value="answered">回答済 ({counts.answered})</option>
-                <option value="rejected">非表示 ({counts.rejected})</option>
-              </select>
-              <button
-                type="button"
-                disabled={questionResetting || resettableQuestionCount === 0}
-                onClick={handleResetQuestions}
-                title="画面上の質問をリセット"
-                className="inline-flex h-8 items-center gap-1.5 rounded-full bg-white px-3 text-xs sm:text-sm font-semibold text-red-600 ring-1 ring-red-200 transition-colors hover:bg-red-50 disabled:pointer-events-none disabled:opacity-40"
-              >
-                {questionResetting ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <RotateCcw className="w-3.5 h-3.5" />
-                )}
-                リセット
-              </button>
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+                  aria-label="状態で絞り込み"
+                  className="h-8 w-[112px] rounded-full border border-slate-200 bg-white px-2 text-[11px] font-semibold text-slate-700 focus:border-emerald-400 focus:outline-none sm:hidden"
+                >
+                  <option value="unanswered">未回答</option>
+                  <option value="all">すべて ({counts.all})</option>
+                  <option value="pending">承認待ち ({counts.pending})</option>
+                  <option value="approved">公開中 ({counts.approved})</option>
+                  <option value="answered">回答済 ({counts.answered})</option>
+                  <option value="rejected">非表示 ({counts.rejected})</option>
+                </select>
+                <button
+                  type="button"
+                  disabled={questionResetting || resettableQuestionCount === 0}
+                  onClick={handleResetQuestions}
+                  title="画面上の質問をリセット"
+                  className="inline-flex h-8 items-center gap-1 rounded-full bg-white px-2 text-[11px] font-semibold text-red-600 ring-1 ring-red-200 transition-colors hover:bg-red-50 disabled:pointer-events-none disabled:opacity-40 sm:gap-1.5 sm:px-3 sm:text-sm"
+                >
+                  {questionResetting ? (
+                    <Loader2 className="h-3 w-3 animate-spin sm:h-3.5 sm:w-3.5" />
+                  ) : (
+                    <RotateCcw className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                  )}
+                  <span>リセット</span>
+                </button>
+              </div>
             </div>
 
             {qLoading ? (
@@ -4043,7 +4045,7 @@ function HostQuestionRow({
         {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2 mb-1.5">
-            <div className="flex items-center gap-2 min-w-0">
+            <div className="flex min-w-0 flex-1 items-center gap-2">
               <span
                 className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold ${tone}`}
                 aria-hidden
@@ -4073,6 +4075,57 @@ function HostQuestionRow({
                 </span>
               )}
               <span className="text-[11px] text-slate-400 hidden sm:inline">{timeAgo}</span>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white text-slate-600 ring-1 ring-slate-200 transition-colors hover:bg-slate-50 disabled:opacity-60 disabled:pointer-events-none sm:hidden"
+                    disabled={anyPending}
+                    aria-label="質問の操作メニュー"
+                  >
+                    {anyPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-44">
+                  {isPending ? (
+                    <>
+                      <DropdownMenuItem onClick={onApprove}>
+                        <Check className="h-4 w-4 mr-2 text-emerald-600" />
+                        承認
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={onReject}>
+                        <EyeOff className="h-4 w-4 mr-2 text-slate-500" />
+                        非表示
+                      </DropdownMenuItem>
+                    </>
+                  ) : isRejected ? (
+                    <DropdownMenuItem onClick={onUnreject}>
+                      <Eye className="h-4 w-4 mr-2 text-slate-500" />
+                      公開に戻す
+                    </DropdownMenuItem>
+                  ) : (
+                    <>
+                      <DropdownMenuItem onClick={onToggleAnswered}>
+                        <Check className="h-4 w-4 mr-2 text-slate-500" />
+                        {q.is_answered ? '未回答に戻す' : '回答済みにする'}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={onTogglePinned}>
+                        <Reply className="h-4 w-4 mr-2 text-slate-500" />
+                        {q.is_pinned ? 'ピン解除' : 'ピン留め'}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={onReject}>
+                        <EyeOff className="h-4 w-4 mr-2 text-slate-500" />
+                        非表示
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="text-rose-600 focus:text-rose-600" onClick={onDelete}>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    削除
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
 
@@ -4159,61 +4212,6 @@ function HostQuestionRow({
             </ActionButton>
           </div>
 
-          {/* モバイル: 操作ドロップダウン */}
-          <div className="mt-3 sm:hidden">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-white px-3 text-xs font-semibold text-slate-600 ring-1 ring-slate-200 transition-colors hover:bg-slate-50 disabled:opacity-60 disabled:pointer-events-none"
-                  disabled={anyPending}
-                  aria-label="質問の操作メニュー"
-                >
-                  {anyPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
-                  操作
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-44">
-                {isPending ? (
-                  <>
-                    <DropdownMenuItem onClick={onApprove}>
-                      <Check className="h-4 w-4 mr-2 text-emerald-600" />
-                      承認
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={onReject}>
-                      <EyeOff className="h-4 w-4 mr-2 text-slate-500" />
-                      非表示
-                    </DropdownMenuItem>
-                  </>
-                ) : isRejected ? (
-                  <DropdownMenuItem onClick={onUnreject}>
-                    <Eye className="h-4 w-4 mr-2 text-slate-500" />
-                    公開に戻す
-                  </DropdownMenuItem>
-                ) : (
-                  <>
-                    <DropdownMenuItem onClick={onToggleAnswered}>
-                      <Check className="h-4 w-4 mr-2 text-slate-500" />
-                      {q.is_answered ? '未回答に戻す' : '回答済みにする'}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={onTogglePinned}>
-                      <Reply className="h-4 w-4 mr-2 text-slate-500" />
-                      {q.is_pinned ? 'ピン解除' : 'ピン留め'}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={onReject}>
-                      <EyeOff className="h-4 w-4 mr-2 text-slate-500" />
-                      非表示
-                    </DropdownMenuItem>
-                  </>
-                )}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-rose-600 focus:text-rose-600" onClick={onDelete}>
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  削除
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
         </div>
       </div>
     </motion.div>
