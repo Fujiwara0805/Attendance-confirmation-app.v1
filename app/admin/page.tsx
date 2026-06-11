@@ -1248,7 +1248,7 @@ function AdminPageInner() {
               helpHref="/admin/faq#forms"
             >
                 {/* プランバッジ */}
-                {planInfo && (
+                {planInfo && planInfo.subscription.plan !== 'paid' && (
                   <div className={`inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-bold ${
                     planInfo.subscription.plan === 'enterprise'
                       ? 'bg-slate-800 text-white'
@@ -2339,7 +2339,7 @@ function AdminPageInner() {
               helpHref="/admin/faq#rooms"
             >
                 {/* ルーム数バッジ */}
-                {planInfo && (
+                {planInfo && planInfo.subscription.plan !== 'paid' && (
                   <div className={`inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-bold ${
                     planInfo.subscription.plan === 'enterprise'
                       ? 'bg-slate-800 text-white'

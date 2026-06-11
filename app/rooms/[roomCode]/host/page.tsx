@@ -2010,7 +2010,7 @@ export default function HostPage() {
               title="スクリーン画面を開く"
             >
               <Monitor className="w-4 h-4" />
-              <span className="text-[10px] font-bold leading-none">スクリーン画面を開く</span>
+              <span className="text-[10px] font-bold leading-none">開く</span>
             </a>
           </HostPageHeader>
         </div>
