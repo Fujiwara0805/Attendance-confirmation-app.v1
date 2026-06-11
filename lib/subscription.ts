@@ -19,8 +19,12 @@ export interface SubscriptionInfo {
 }
 
 export interface UsageInfo {
+  // プラン上限判定用（status = 'active' のみ）
   formCount: number;
   roomCount: number;
+  // 表示用の総数（管理画面の一覧と同じ全ステータス）
+  totalFormCount: number;
+  totalRoomCount: number;
 }
 
 export interface PlanInfo {
@@ -108,15 +112,17 @@ export async function getUserSubscription(email: string): Promise<SubscriptionIn
 export async function getUserUsage(email: string): Promise<UsageInfo> {
   const supabase = createServerClient();
 
-  const { data } = await supabase.rpc('get_user_usage', { p_email: email });
-
-  if (!data) {
-    return { formCount: 0, roomCount: 0 };
-  }
+  const [{ data }, formsRes, roomsRes] = await Promise.all([
+    supabase.rpc('get_user_usage', { p_email: email }),
+    supabase.from('courses').select('id', { count: 'exact', head: true }).eq('teacher_email', email),
+    supabase.from('rooms').select('id', { count: 'exact', head: true }).eq('host_id', email),
+  ]);
 
   return {
-    formCount: data.form_count || 0,
-    roomCount: data.room_count || 0,
+    formCount: data?.form_count || 0,
+    roomCount: data?.room_count || 0,
+    totalFormCount: formsRes.count ?? 0,
+    totalRoomCount: roomsRes.count ?? 0,
   };
 }
 

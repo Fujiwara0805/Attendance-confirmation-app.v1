@@ -2006,7 +2006,7 @@ export default function HostPage() {
               href={`/rooms/${roomCode}/present`}
               target={`zasekikun-present-${roomCode}`}
               rel="noopener noreferrer"
-              className="inline-flex h-12 min-w-[92px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-md border border-[#e1dcdc] bg-white px-2 text-[#2864f0] transition-colors hover:border-[#aac8ff] hover:bg-[#ebf3ff]"
+              className="inline-flex h-12 min-w-[52px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-md border border-[#e1dcdc] bg-white px-2 text-[#2864f0] transition-colors hover:border-[#aac8ff] hover:bg-[#ebf3ff]"
               title="スクリーン画面を開く"
             >
               <Monitor className="w-4 h-4" />

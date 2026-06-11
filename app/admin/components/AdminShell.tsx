@@ -29,7 +29,13 @@ export interface AdminShellPlanInfo {
     status: 'active' | 'cancelled' | 'past_due' | 'incomplete';
     currentPeriodEnd?: string;
   };
-  usage: { formCount: number; roomCount: number };
+  usage: {
+    formCount: number;
+    roomCount: number;
+    // 管理画面の一覧と同じ全ステータスの総数（表示用）
+    totalFormCount?: number;
+    totalRoomCount?: number;
+  };
   limits: { maxForms: number; maxRooms: number };
 }
 
@@ -208,6 +214,10 @@ function SidebarContent({
   const showFormLimit = !isUnlimited(limits?.maxForms);
   const showRoomLimit = !isUnlimited(limits?.maxRooms);
 
+  // 管理画面の一覧件数（全ステータス）に揃える。明示 prop > usage の総数 > 上限判定用カウント
+  const displayFormCount = formCount ?? usage?.totalFormCount ?? usage?.formCount ?? 0;
+  const displayRoomCount = roomCount ?? usage?.totalRoomCount ?? usage?.roomCount ?? 0;
+
   return (
     <div className="flex h-full flex-col bg-[#f3f7ff]">
       {/* Brand + collapse toggle */}
@@ -277,7 +287,7 @@ function SidebarContent({
               </div>
               <div className="mt-1 flex items-baseline gap-1">
                 <span className="text-base font-extrabold text-[#323232] tabular-nums">
-                  {formCount ?? usage?.formCount ?? 0}
+                  {displayFormCount}
                 </span>
                 {showFormLimit && (
                   <span className="text-[10px] text-slate-400 tabular-nums">
@@ -293,7 +303,7 @@ function SidebarContent({
               </div>
               <div className="mt-1 flex items-baseline gap-1">
                 <span className="text-base font-extrabold text-[#323232] tabular-nums">
-                  {roomCount ?? usage?.roomCount ?? 0}
+                  {displayRoomCount}
                 </span>
                 {showRoomLimit && (
                   <span className="text-[10px] text-slate-400 tabular-nums">
@@ -331,26 +341,26 @@ function SidebarContent({
             className="w-10 h-10 rounded-lg bg-indigo-50 text-indigo-600 flex flex-col items-center justify-center"
             title={
               showFormLimit
-                ? `フォーム: ${formCount ?? usage?.formCount ?? 0} / ${formatLimit(limits?.maxForms)}`
-                : `フォーム: ${formCount ?? usage?.formCount ?? 0}`
+                ? `フォーム: ${displayFormCount} / ${formatLimit(limits?.maxForms)}`
+                : `フォーム: ${displayFormCount}`
             }
           >
             <span className="text-[9px] font-semibold leading-none">フォーム</span>
             <span className="text-xs font-extrabold leading-none mt-0.5 tabular-nums">
-              {formCount ?? usage?.formCount ?? 0}
+              {displayFormCount}
             </span>
           </div>
           <div
             className="w-10 h-10 rounded-lg bg-[#e8f7ee] text-[#00963c] flex flex-col items-center justify-center"
             title={
               showRoomLimit
-                ? `ルーム: ${roomCount ?? usage?.roomCount ?? 0} / ${formatLimit(limits?.maxRooms)}`
-                : `ルーム: ${roomCount ?? usage?.roomCount ?? 0}`
+                ? `ルーム: ${displayRoomCount} / ${formatLimit(limits?.maxRooms)}`
+                : `ルーム: ${displayRoomCount}`
             }
           >
             <span className="text-[9px] font-semibold leading-none">ルーム</span>
             <span className="text-xs font-extrabold leading-none mt-0.5 tabular-nums">
-              {roomCount ?? usage?.roomCount ?? 0}
+              {displayRoomCount}
             </span>
           </div>
           <div
