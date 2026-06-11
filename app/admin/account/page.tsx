@@ -33,7 +33,7 @@ type PlanInfo = AdminShellPlanInfo & {
 const PLAN_DISPLAY: Record<'free' | 'paid' | 'enterprise', { label: string; description: string }> = {
   free: { label: 'Free', description: '無料プラン（基本機能）' },
   paid: { label: 'Pro', description: '月額550円 / フォーム・ルーム拡張' },
-  enterprise: { label: 'Enterprise', description: '月額2,000円 / 無制限' },
+  enterprise: { label: 'Enterprise', description: '法人向けプラン（個別契約） / 無制限' },
 };
 
 type AccountColorTheme = {

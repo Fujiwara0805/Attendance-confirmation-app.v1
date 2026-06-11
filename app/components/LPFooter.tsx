@@ -18,7 +18,7 @@ export default function LPFooter() {
               <span className="text-sm font-bold text-slate-900">ざせきくん</span>
             </div>
             <p className="text-xs text-slate-500 leading-relaxed">
-              リアルタイムQ&A・ライブ投票・出席管理・招待フォームをワンストップで。
+              リアルタイムQ&A・ライブ投票・出席管理・招待フォームをワンストップで。参加の前・その場・あとが、ひとつのセッション記録に。
             </p>
             <p className="text-xs text-slate-400 mt-2">by 株式会社Nobody</p>
           </div>
