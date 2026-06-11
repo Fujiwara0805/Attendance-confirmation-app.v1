@@ -1252,11 +1252,9 @@ function AdminPageInner() {
                   <div className={`inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-bold ${
                     planInfo.subscription.plan === 'enterprise'
                       ? 'bg-slate-800 text-white'
-                      : planInfo.subscription.plan === 'paid'
-                        ? 'bg-[#dce8ff] text-[#23418c]'
-                        : 'bg-slate-100 text-slate-600'
+                      : 'bg-slate-100 text-slate-600'
                   }`}>
-                    {planInfo.subscription.plan === 'enterprise' ? '✦ Enterprise' : planInfo.subscription.plan === 'paid' ? '✦ Pro' : 'Free'}
+                    {planInfo.subscription.plan === 'enterprise' ? '✦ Enterprise' : 'Free'}
                     <span className="text-[10px] opacity-70">
                       {planInfo.usage.formCount}/{planInfo.limits.maxForms === Infinity ? '∞' : planInfo.limits.maxForms}
                     </span>
@@ -2343,11 +2341,9 @@ function AdminPageInner() {
                   <div className={`inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-bold ${
                     planInfo.subscription.plan === 'enterprise'
                       ? 'bg-slate-800 text-white'
-                      : planInfo.subscription.plan === 'paid'
-                        ? 'bg-[#dce8ff] text-[#23418c]'
-                        : 'bg-slate-100 text-slate-600'
+                      : 'bg-slate-100 text-slate-600'
                   }`}>
-                    {planInfo.subscription.plan === 'enterprise' ? '✦ Enterprise' : planInfo.subscription.plan === 'paid' ? '✦ Pro' : 'Free'}
+                    {planInfo.subscription.plan === 'enterprise' ? '✦ Enterprise' : 'Free'}
                     <span className="text-[10px] opacity-70">
                       {planInfo.usage.roomCount}/{planInfo.limits.maxRooms === Infinity ? '∞' : planInfo.limits.maxRooms}
                     </span>
