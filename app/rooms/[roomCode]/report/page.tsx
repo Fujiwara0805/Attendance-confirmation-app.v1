@@ -35,7 +35,7 @@ export default function SessionReportPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-4xl px-5 py-6 print:py-2">
+      <main className="mx-auto max-w-4xl px-5 py-6 print:max-w-none print:p-0">
         <SessionReportContent roomCode={roomCode} />
       </main>
     </div>

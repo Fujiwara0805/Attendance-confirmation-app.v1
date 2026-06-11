@@ -470,3 +470,16 @@
 .loading-pulse {
   animation: pulse-soft 1.5s ease-in-out infinite;
 }
+
+/* セッションレポートの印刷設定 */
+@page {
+  size: A4;
+  margin: 14mm 12mm;
+}
+
+@media print {
+  .session-report {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

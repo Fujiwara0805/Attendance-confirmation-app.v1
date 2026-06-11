@@ -1899,7 +1899,7 @@ export default function HostPage() {
   const ActiveHostIcon = activeHostItem.icon;
 
   return (
-    <div className="min-h-screen bg-[#f7f5f5] lg:flex">
+    <div className="min-h-screen bg-[#f7f5f5] lg:flex print:bg-white">
       <HostSideNav
         room={room}
         roomCode={roomCode}
@@ -1942,7 +1942,7 @@ export default function HostPage() {
       </Sheet>
       <div className="flex min-w-0 flex-1 flex-col">
       {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-[#e9e7e7] bg-white">
+      <header className="sticky top-0 z-40 border-b border-[#e9e7e7] bg-white print:hidden">
         <div className="border-b border-slate-200/60 bg-white/90 backdrop-blur-md lg:hidden">
           <div className="flex h-14 items-center justify-between gap-3 px-4">
             <Link href="/" className="flex min-w-0 items-center gap-2.5 transition-opacity hover:opacity-80">
@@ -2077,7 +2077,7 @@ export default function HostPage() {
       </header>
 
       {/* Content */}
-      <div className="flex-1 mx-auto w-full max-w-6xl px-3 py-3 sm:px-5 sm:py-5">
+      <div className="flex-1 mx-auto w-full max-w-6xl px-3 py-3 sm:px-5 sm:py-5 print:max-w-none print:p-0">
         {/* === Questions Tab === */}
         {tab === 'questions' && (
           <div className="space-y-4">
@@ -3514,7 +3514,7 @@ function HostSideNav({
 
   return (
     <aside
-      className={`shrink-0 border-r border-[#9dd8b1] bg-[#eaf8ef] transition-[width] duration-200 ease-out ${
+      className={`shrink-0 border-r border-[#9dd8b1] bg-[#eaf8ef] transition-[width] duration-200 ease-out print:hidden ${
         mobile
           ? 'flex h-full w-full flex-col'
           : `hidden h-screen lg:sticky lg:top-0 lg:flex lg:flex-col ${isCollapsed ? 'w-16' : 'w-72'}`
