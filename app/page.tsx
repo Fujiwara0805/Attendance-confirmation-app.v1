@@ -829,7 +829,7 @@ export default function LandingPage() {
                   <div className="mt-5 flex items-center gap-4">
                     <Link
                       href={`/admin/register?ref=${u.refTag}`}
-                      className="inline-flex items-center gap-1.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 px-4 h-10 rounded-xl transition-colors"
+                      className="inline-flex items-center gap-1.5 text-sm font-semibold text-white hover:text-white bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 active:scale-[0.97] transition-all px-4 h-10 rounded-xl shadow-lg shadow-indigo-200/50"
                     >
                       無料で始める
                       <ArrowRight className="w-3.5 h-3.5" />

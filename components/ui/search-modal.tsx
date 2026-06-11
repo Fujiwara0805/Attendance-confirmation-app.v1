@@ -61,7 +61,7 @@ export function SearchModal({
               if (e.key === 'Enter') onClose();
             }}
             placeholder={placeholder}
-            className="h-11 w-full rounded-md border border-[#cccccc] bg-white pl-9 pr-3 text-[#323232] outline-none focus:border-[#2864f0] focus:ring-2 focus:ring-[#dce8ff]"
+            className="h-11 w-full rounded-md border border-[#cccccc] bg-white pl-9 pr-3 text-base text-[#323232] outline-none focus:border-[#2864f0] focus:ring-2 focus:ring-[#dce8ff]"
             style={{ fontSize: '16px' }}
             aria-label={placeholder}
           />

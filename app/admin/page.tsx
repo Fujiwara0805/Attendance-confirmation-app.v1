@@ -2550,15 +2550,74 @@ function AdminPageInner() {
                             </div>
                             <h3 className="text-sm sm:text-base font-semibold text-slate-900 truncate">{room.title}</h3>
                           </div>
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium shrink-0 ${
-                            room.status === 'active'
-                              ? 'bg-emerald-100 text-emerald-700'
-                              : room.status === 'closed'
-                              ? 'bg-slate-100 text-slate-500'
-                              : 'bg-amber-100 text-amber-700'
-                          }`}>
-                            {room.status === 'active' ? '公開中' : room.status === 'closed' ? '終了' : room.status}
-                          </span>
+                          <div className="flex shrink-0 flex-col items-end gap-2">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                              room.status === 'active'
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : room.status === 'closed'
+                                ? 'bg-slate-100 text-slate-500'
+                                : 'bg-amber-100 text-amber-700'
+                            }`}>
+                              {room.status === 'active' ? '公開中' : room.status === 'closed' ? '終了' : room.status}
+                            </span>
+
+                            {/* モバイル: ステータス直下の操作アイコン */}
+                            <div className="sm:hidden">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50 active:bg-slate-100 transition-colors"
+                                    aria-label="操作メニュー"
+                                  >
+                                    {roomStatusPendingCode === room.code || duplicatePendingCode === room.code ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <MoreVertical className="h-4 w-4" />
+                                    )}
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-44">
+                                  <DropdownMenuItem
+                                    disabled={roomStatusPendingCode === room.code}
+                                    onClick={(e) => { e.stopPropagation(); void handleToggleRoomStatus(room); }}
+                                  >
+                                    {room.status === 'active' ? (
+                                      <>
+                                        <StopCircle className="h-4 w-4 mr-2 text-red-500" />
+                                        ルームを終了
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Play className="h-4 w-4 mr-2 text-emerald-600" />
+                                        ルームを開始
+                                      </>
+                                    )}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleEditRoom(room); }}>
+                                    <Edit className="h-4 w-4 mr-2 text-slate-500" />
+                                    編集
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    disabled={duplicatePendingCode === room.code}
+                                    onClick={(e) => { e.stopPropagation(); handleDuplicateRoom(room); }}
+                                  >
+                                    <CopyPlus className="h-4 w-4 mr-2 text-slate-500" />
+                                    複製
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    className="text-red-600 focus:text-red-600"
+                                    onClick={(e) => { e.stopPropagation(); handleDeleteRoom(room); }}
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    削除
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          </div>
                         </div>
 
                         {/* Room code */}
@@ -2682,64 +2741,6 @@ function AdminPageInner() {
                               <Trash2 className="h-3 w-3 mr-1" />
                               削除
                             </button>
-                          </div>
-
-                          {/* モバイル: ドロップダウンに集約 */}
-                          <div className="sm:hidden">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <button
-                                  type="button"
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="h-9 px-3 inline-flex items-center gap-1.5 rounded-md text-xs font-semibold text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50 active:bg-slate-100 transition-colors"
-                                  aria-label="操作メニュー"
-                                >
-                                  {roomStatusPendingCode === room.code || duplicatePendingCode === room.code ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                  ) : (
-                                    <MoreVertical className="h-4 w-4" />
-                                  )}
-                                  操作
-                                </button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="start" className="w-44">
-                                <DropdownMenuItem
-                                  disabled={roomStatusPendingCode === room.code}
-                                  onClick={(e) => { e.stopPropagation(); void handleToggleRoomStatus(room); }}
-                                >
-                                  {room.status === 'active' ? (
-                                    <>
-                                      <StopCircle className="h-4 w-4 mr-2 text-red-500" />
-                                      ルームを終了
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Play className="h-4 w-4 mr-2 text-emerald-600" />
-                                      ルームを開始
-                                    </>
-                                  )}
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleEditRoom(room); }}>
-                                  <Edit className="h-4 w-4 mr-2 text-slate-500" />
-                                  編集
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  disabled={duplicatePendingCode === room.code}
-                                  onClick={(e) => { e.stopPropagation(); handleDuplicateRoom(room); }}
-                                >
-                                  <CopyPlus className="h-4 w-4 mr-2 text-slate-500" />
-                                  複製
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  className="text-red-600 focus:text-red-600"
-                                  onClick={(e) => { e.stopPropagation(); handleDeleteRoom(room); }}
-                                >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  削除
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
                           </div>
 
                           <span className="text-xs text-slate-400">
