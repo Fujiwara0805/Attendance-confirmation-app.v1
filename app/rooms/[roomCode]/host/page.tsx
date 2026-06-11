@@ -87,11 +87,25 @@ import {
 } from '@/lib/pollModes';
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
 import { CustomModal } from '@/components/ui/custom-modal';
+import { filterBySearchScore } from '@/lib/search';
 
 const LOGO_URL =
   'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_200/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png';
 const HOST_SIDEBAR_COLLAPSED_KEY = 'host-sidebar-collapsed';
 const POLL_TIME_SECONDS_OPTIONS = [5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 300, 600, 900, 1800, 3600];
+
+const POLL_STATUS_SEARCH_LABELS: Record<string, string> = {
+  draft: '下書き 未表示 draft',
+  active: '表示中 公開中 回答受付中 live active open',
+  closed: '終了 締切 closed close stop',
+};
+
+const POLL_MODE_SEARCH_ALIASES: Record<PollMode, string> = {
+  standard: '通常投票 投票 アンケート multiple choice standard',
+  quiz: 'クイズ 確認問題 quiz',
+  ranking: 'ランキング 順位付け ranking',
+  free_text: 'ブレスト 付箋 自由回答 free text brainstorm',
+};
 
 function formatSecondsOption(seconds: number) {
   if (seconds <= 0) return 'なし';
@@ -1793,28 +1807,40 @@ export default function HostPage() {
   );
 
   const filteredPolls = useMemo(() => {
-    const query = pollSearch.trim().toLowerCase();
     const visible = orderedPolls.filter((poll) => poll.id !== editingPollId);
-    if (!query) return visible;
-    return visible.filter((poll) => {
+    return filterBySearchScore(visible, pollSearch, (poll) => {
       const { meta, options } = extractPollPayload(poll.options);
       const mode = getPollMode(meta.mode || poll.type);
       const optionText = options.map((option, index) =>
         getPollOptionLabel(option, `選択肢 ${index + 1}`)
       );
-      const quizText = getQuizQuestions(meta, options).map((question) => question.question);
-      return [
-        poll.question,
-        poll.status,
-        poll.type,
-        POLL_MODE_LABELS[mode],
-        ...optionText,
-        ...quizText,
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase()
-        .includes(query);
+      const optionDetailText = options.map((option) =>
+        typeof option === 'string' ? '' : option?.detail || ''
+      );
+      const quizText = getQuizQuestions(meta, options).flatMap((question) => [
+        question.question,
+        question.chapterTitle,
+        question.questionNumber ? `問題${question.questionNumber}` : '',
+      ]);
+      const statusLabel = POLL_STATUS_SEARCH_LABELS[poll.status] || poll.status;
+
+      return {
+        primaryFields: [poll.question, POLL_MODE_LABELS[mode]],
+        fields: [
+          poll.question,
+          poll.status,
+          poll.type,
+          statusLabel,
+          POLL_MODE_LABELS[mode],
+          POLL_MODE_SEARCH_ALIASES[mode],
+          meta.chapterTitle,
+          meta.questionNumber ? `問題${meta.questionNumber}` : '',
+          ...(meta.freeTextGroups || []),
+          ...optionText,
+          ...optionDetailText,
+          ...quizText,
+        ],
+      };
     });
   }, [editingPollId, orderedPolls, pollSearch]);
 
@@ -1947,11 +1973,6 @@ export default function HostPage() {
           >
             {tab === 'polls' && (
               <>
-                <SearchTriggerButton
-                  onClick={() => setPollSearchOpen(true)}
-                  active={!!pollSearch.trim()}
-                  label="カードを検索"
-                />
                 <button
                   type="button"
                   onClick={() => setShowPollTypeModal(true)}
@@ -1962,27 +1983,34 @@ export default function HostPage() {
                   <Plus className="h-3.5 w-3.5" />
                   新規作成
                 </button>
+                <SearchTriggerButton
+                  onClick={() => setPollSearchOpen(true)}
+                  active={!!pollSearch.trim()}
+                  label="カードを検索"
+                />
               </>
             )}
             {tab !== 'faq' && (
               <button
                 type="button"
                 onClick={() => setTab('faq')}
-                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#9dd8b1] bg-white text-[#00963c] transition-colors hover:bg-[#eaf8ef]"
+                className="inline-flex h-12 min-w-[52px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-md border border-[#9dd8b1] bg-white px-2 text-[#00963c] transition-colors hover:bg-[#eaf8ef]"
                 aria-label="ホスト管理のFAQを開く"
                 title="ホスト管理のFAQ"
               >
                 <HelpCircle className="h-4 w-4" />
+                <span className="text-[10px] font-bold leading-none">FAQ</span>
               </button>
             )}
             <a
               href={`/rooms/${roomCode}/present`}
               target={`zasekikun-present-${roomCode}`}
               rel="noopener noreferrer"
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#e1dcdc] bg-white text-[#2864f0] transition-colors hover:border-[#aac8ff] hover:bg-[#ebf3ff]"
+              className="inline-flex h-12 min-w-[92px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-md border border-[#e1dcdc] bg-white px-2 text-[#2864f0] transition-colors hover:border-[#aac8ff] hover:bg-[#ebf3ff]"
               title="スクリーン画面を開く"
             >
               <Monitor className="w-4 h-4" />
+              <span className="text-[10px] font-bold leading-none">スクリーン画面を開く</span>
             </a>
           </HostPageHeader>
         </div>
@@ -2234,7 +2262,7 @@ export default function HostPage() {
               onClose={() => setPollSearchOpen(false)}
               value={pollSearch}
               onChange={setPollSearch}
-              placeholder="投票タイトル・選択肢・形式で検索"
+              placeholder="カードを検索"
               resultCount={filteredPolls.length}
               totalCount={polls.length}
               unitLabel="カード"

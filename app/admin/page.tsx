@@ -61,6 +61,7 @@ import InvitationResponseList from './components/InvitationResponseList';
 import AttendanceExport from './components/AttendanceExport';
 import AdminShell, { type AdminSection } from './components/AdminShell';
 import ManualAttendanceModal from './components/ManualAttendanceModal';
+import { filterBySearchScore } from '@/lib/search';
 
 interface Course {
   id: string;
@@ -86,6 +87,18 @@ interface Course {
 }
 
 const COOLDOWN_MINUTE_OPTIONS = [0, 1, 3, 5, 10, 15, 30, 45, 60, 90, 120, 180, 360, 720, 1440];
+
+const COURSE_STATUS_SEARCH_LABELS: Record<string, string> = {
+  active: '受付中 公開中 開始中 active open',
+  archived: '停止中 終了 closed archived stop',
+  closed: '停止中 終了 closed archived stop',
+};
+
+const ROOM_STATUS_SEARCH_LABELS: Record<string, string> = {
+  active: '公開中 表示中 live active open',
+  closed: '終了 停止中 closed close archived stop',
+  draft: '下書き draft',
+};
 
 function formatCooldownOption(minutes: number) {
   if (minutes <= 0) return 'なし';
@@ -213,11 +226,12 @@ function AdminPageHeader({
             {helpHref && (
               <Link
                 href={helpHref}
-                className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#aac8ff] bg-white text-[#2864f0] transition-colors hover:bg-[#ebf3ff] sm:inline-flex"
+                className="hidden h-12 min-w-[52px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-md border border-[#aac8ff] bg-white px-2 text-[#2864f0] transition-colors hover:bg-[#ebf3ff] sm:inline-flex"
                 aria-label={`${title}のヘルプを開く`}
                 title={`${title}のヘルプ`}
               >
                 <HelpCircle className="h-4 w-4" />
+                <span className="text-[10px] font-bold leading-none">FAQ</span>
               </Link>
             )}
           </div>
@@ -706,38 +720,57 @@ function AdminPageInner() {
   }, [status, fetchCourses, fetchRooms, fetchPlanInfo]);
 
   const filteredCourses = useMemo(() => {
-    const query = courseSearch.trim().toLowerCase();
-    if (!query) return courses;
-    return courses.filter((course) => {
+    return filterBySearchScore(courses, courseSearch, (course) => {
       const typeLabel =
         course.formType === 'invitation'
-          ? '招待フォーム 招待状 invitation'
+          ? '招待フォーム 招待状 受付フォーム invitation invite'
           : course.isCustomForm
-          ? 'カスタムフォーム custom'
-          : '出席フォーム attendance';
-      return [
-        course.courseName,
-        course.teacherName,
-        course.code,
-        typeLabel,
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase()
-        .includes(query);
+          ? 'カスタムフォーム custom 自由項目'
+          : '出席フォーム 出席 attendance checkin';
+      const statusLabel = COURSE_STATUS_SEARCH_LABELS[course.status || ''] || course.status || '';
+      const customFieldText = (course.customFields || [])
+        .map((field) =>
+          typeof field === 'string'
+            ? field
+            : [field?.label, field?.name, field?.type, field?.placeholder]
+                .filter(Boolean)
+                .join(' ')
+        )
+        .join(' ');
+      const locationText = course.locationSettings?.locationName
+        ? `位置情報 GPS ${course.locationSettings.locationName}`
+        : '';
+
+      return {
+        primaryFields: [course.courseName, course.code, course.teacherName],
+        fields: [
+          course.courseName,
+          course.teacherName,
+          course.code,
+          typeLabel,
+          statusLabel,
+          customFieldText,
+          locationText,
+          course.createdAt ? new Date(course.createdAt).toLocaleDateString('ja-JP') : '',
+        ],
+      };
     });
   }, [courseSearch, courses]);
 
   const filteredRooms = useMemo(() => {
-    const query = roomSearch.trim().toLowerCase();
-    if (!query) return rooms;
-    return rooms.filter((room) =>
-      [room.title, room.code, room.status]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase()
-        .includes(query)
-    );
+    return filterBySearchScore(rooms, roomSearch, (room) => {
+      const statusLabel = ROOM_STATUS_SEARCH_LABELS[room.status || ''] || room.status || '';
+      return {
+        primaryFields: [room.title, room.code],
+        fields: [
+          room.title,
+          room.code,
+          room.status,
+          statusLabel,
+          room.created_at ? new Date(room.created_at).toLocaleDateString('ja-JP') : '',
+        ],
+      };
+    });
   }, [roomSearch, rooms]);
 
   // ページネーション：データ件数変化時に範囲外なら調整
@@ -1229,11 +1262,6 @@ function AdminPageInner() {
                     </span>
                   </div>
                 )}
-                <SearchTriggerButton
-                  onClick={() => setSearchModalFor('courses')}
-                  active={!!courseSearch.trim()}
-                  label="フォームを検索"
-                />
                 <Button
                   onClick={() => setIsCreateTypeDialogOpen(true)}
                   className="h-9 rounded-md bg-[#2864f0] px-4 text-white shadow-sm hover:bg-[#285ac8]"
@@ -1251,6 +1279,11 @@ function AdminPageInner() {
                     </Link>
                   </Button>
                 )}
+                <SearchTriggerButton
+                  onClick={() => setSearchModalFor('courses')}
+                  active={!!courseSearch.trim()}
+                  label="フォームを検索"
+                />
             </AdminPageHeader>
 
             <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
@@ -1268,7 +1301,7 @@ function AdminPageInner() {
               onClose={() => setSearchModalFor(null)}
               value={courseSearch}
               onChange={setCourseSearch}
-              placeholder="フォーム名・担当者・コードで検索"
+              placeholder="フォームを検索"
               resultCount={filteredCourses.length}
               totalCount={courses.length}
               unitLabel="フォーム"
@@ -2325,11 +2358,6 @@ function AdminPageInner() {
                     {currentPeriodEndLabel}で解約予定
                   </div>
                 )}
-                <SearchTriggerButton
-                  onClick={() => setSearchModalFor('rooms')}
-                  active={!!roomSearch.trim()}
-                  label="ルームを検索"
-                />
                 <Button
                   onClick={() => {
                     if (planInfo && !planInfo.canCreateRoom) {
@@ -2353,6 +2381,11 @@ function AdminPageInner() {
                     </Link>
                   </Button>
                 )}
+                <SearchTriggerButton
+                  onClick={() => setSearchModalFor('rooms')}
+                  active={!!roomSearch.trim()}
+                  label="ルームを検索"
+                />
             </AdminPageHeader>
 
             <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
@@ -2370,7 +2403,7 @@ function AdminPageInner() {
               onClose={() => setSearchModalFor(null)}
               value={roomSearch}
               onChange={setRoomSearch}
-              placeholder="ルーム名・コード・ステータスで検索"
+              placeholder="ルームを検索"
               resultCount={filteredRooms.length}
               totalCount={rooms.length}
               unitLabel="ルーム"
