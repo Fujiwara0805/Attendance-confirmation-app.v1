@@ -105,6 +105,7 @@ export async function GET(
           title: room.title,
           status: room.status,
           created_at: room.created_at,
+          linked_course_code: room.linked_course_code,
         },
         course,
         attendanceCount,
