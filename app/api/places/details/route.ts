@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getCurrentUser } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
+  // autocomplete と同様、管理画面の位置情報設定専用。未認証の課金枠悪用を防ぐためログイン必須。
+  const user = await getCurrentUser();
+  if (!user?.email) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const placeId = request.nextUrl.searchParams.get('place_id');
   if (!placeId) {
     return NextResponse.json({ error: 'place_id required' }, { status: 400 });

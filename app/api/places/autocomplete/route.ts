@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getCurrentUser } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
+  // 位置情報設定（管理画面）専用のプロキシ。未認証で叩けると Google Places の
+  // 課金枠を第三者に消費されうる（キーがリファラ制限付きでもサーバー経由だと制限を回避できる）。
+  // 全呼び出し元は管理画面なのでログイン必須にする。
+  const user = await getCurrentUser();
+  if (!user?.email) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const input = request.nextUrl.searchParams.get('input');
   if (!input) {
     return NextResponse.json({ predictions: [] });

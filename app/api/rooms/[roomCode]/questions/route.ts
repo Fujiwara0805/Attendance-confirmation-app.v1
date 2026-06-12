@@ -112,6 +112,12 @@ export async function POST(
       return NextResponse.json({ error: 'Question text is required' }, { status: 400 });
     }
 
+    // 公開（未認証）エンドポイントのため、本文・投稿者名の長さを制限して
+    // 過大入力によるストレージ肥大・UI崩れを防ぐ。
+    const trimmedText = text.trim().slice(0, 1000);
+    const trimmedAuthor =
+      typeof authorName === 'string' ? authorName.trim().slice(0, 50) : '';
+
     // モデレーション有効時は pending、無効時は即時 approved
     const initialStatus = room.moderation_enabled ? 'pending' : 'approved';
 
@@ -119,8 +125,8 @@ export async function POST(
       .from('questions')
       .insert({
         room_id: room.id,
-        text: text.trim(),
-        author_name: isAnonymous ? '匿名' : (authorName || '匿名'),
+        text: trimmedText,
+        author_name: isAnonymous ? '匿名' : (trimmedAuthor || '匿名'),
         is_anonymous: isAnonymous !== false,
         status: initialStatus,
         ...(participantId ? { participant_id: participantId } : {}),

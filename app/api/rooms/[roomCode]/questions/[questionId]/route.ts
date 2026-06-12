@@ -53,28 +53,37 @@ export async function PATCH(
       return NextResponse.json(data);
     }
 
-    // 参加者によるテキスト編集
+    // 参加者によるテキスト編集（本人 participantId 一致 もしくはホストのみ）
     if (!text || typeof text !== 'string' || text.trim().length === 0) {
       return NextResponse.json({ error: 'Question text is required' }, { status: 400 });
     }
+    const trimmedText = text.trim().slice(0, 1000);
 
-    if (participantId) {
-      const { data: question } = await supabase
-        .from('questions')
-        .select('participant_id')
-        .eq('id', params.questionId)
-        .eq('room_id', room.id)
-        .is('deleted_at', null)
-        .single();
+    // 編集対象の所有者を確認する。participantId 未指定で本人確認を素通りできると、
+    // 第三者が任意の質問本文を書き換えられてしまう（DELETE と同じくホスト認証へフォールバックする）。
+    const { data: question } = await supabase
+      .from('questions')
+      .select('participant_id')
+      .eq('id', params.questionId)
+      .eq('room_id', room.id)
+      .is('deleted_at', null)
+      .single();
 
-      if (question?.participant_id && question.participant_id !== participantId) {
+    if (!question) {
+      return NextResponse.json({ error: 'Question not found' }, { status: 404 });
+    }
+
+    const isOwner = !!participantId && question.participant_id === participantId;
+    if (!isOwner) {
+      const session = await getCurrentUser();
+      if (!session?.email || session.email !== room.host_id) {
         return NextResponse.json({ error: 'Not authorized to edit this question' }, { status: 403 });
       }
     }
 
     const { data, error } = await supabase
       .from('questions')
-      .update({ text: text.trim() })
+      .update({ text: trimmedText })
       .eq('id', params.questionId)
       .eq('room_id', room.id)
       .is('deleted_at', null)

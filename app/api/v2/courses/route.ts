@@ -9,23 +9,38 @@ export async function GET(req: NextRequest) {
   try {
     const supabase = createServerClient();
     const { searchParams } = new URL(req.url);
-    let teacherEmail = searchParams.get('teacher_email');
+    const teacherEmailParam = searchParams.get('teacher_email');
     const category = searchParams.get('category');
 
-    // "self" の場合はログインユーザーのメールを使用
-    if (teacherEmail === 'self') {
-      const user = await getCurrentUser();
-      teacherEmail = user?.email || null;
-    }
+    const user = await getCurrentUser();
+    const sessionEmail = user?.email || null;
+
+    // 全項目（位置情報・カスタム項目・招待設定を含む）を返すのは「認証済みのオーナー本人が
+    // 自分の講義を取得する」場合に限る。任意の teacher_email を未認証で指定して他人の講義設定を
+    // 引けないよう、self もしくは自分自身のメール指定のみオーナースコープとして許可する。
+    const ownerEmail =
+      teacherEmailParam === 'self' ||
+      (!!teacherEmailParam && teacherEmailParam === sessionEmail)
+        ? sessionEmail
+        : null;
+    const isOwnerScoped = !!ownerEmail;
+
+    // 公開リスト（出席フォームの講義ピッカー）は最小限の非機微フィールドのみ返す。
+    // location_settings(GPS座標)・custom_fields・invitation_settings・enabled_default_fields は
+    // 全テナント横断の漏洩につながるため公開リストには含めない（個別講義の完全な設定は
+    // /api/v2/courses/[courseCode] でコード保持者のみが取得する）。
+    const columns = isOwnerScoped
+      ? 'id, code, name, description, teacher_name, category, template_id, enabled_default_fields, custom_fields, location_settings, status, created_at, form_type, invitation_settings, cooldown_minutes'
+      : 'id, code, name, description, teacher_name, category, status, created_at, form_type';
 
     let query = supabase
       .from('courses')
-      .select('id, code, name, description, teacher_name, category, template_id, enabled_default_fields, custom_fields, location_settings, status, created_at, form_type, invitation_settings, cooldown_minutes')
+      .select(columns)
       .order('created_at', { ascending: false });
 
-    // 管理者フィルタ（自分の講義のみ）
-    if (teacherEmail) {
-      query = query.eq('teacher_email', teacherEmail);
+    // 管理者フィルタ（自分の講義のみ）／公開はアクティブな講義のみ
+    if (isOwnerScoped) {
+      query = query.eq('teacher_email', ownerEmail);
     } else {
       query = query.eq('status', 'active');
     }

@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { createServerClient } from '@/lib/supabase';
 import {
+  getHistoryRetentionDays,
+  getUserSubscription,
+  isWithinHistoryRetention,
+} from '@/lib/subscription';
+import {
   extractPollPayload,
   getPollMode,
   getPollOptionLabel,
@@ -35,6 +40,22 @@ export async function GET(
 
     if (!room || room.host_id !== session.email) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    // 履歴保持の課金ゲート（個数→反復への移行）。Free は作成から30日を超えた
+    // セッション記録の閲覧・出力を不可にし、Pro/Enterprise は無期限。データは消さず
+    // アクセスのみ制限するため、アップグレードで即座に過去の記録へ戻れる。
+    const subscription = await getUserSubscription(session.email);
+    if (!isWithinHistoryRetention(subscription.plan, room.created_at)) {
+      const retentionDays = getHistoryRetentionDays(subscription.plan);
+      return NextResponse.json(
+        {
+          error: `この記録は作成から${retentionDays}日を超えています。Proプランにアップグレードすると過去の記録をいつでも閲覧・出力できます。`,
+          code: 'RETENTION_LIMIT',
+          retentionDays,
+        },
+        { status: 403 }
+      );
     }
 
     const type = req.nextUrl.searchParams.get('type') || 'summary';

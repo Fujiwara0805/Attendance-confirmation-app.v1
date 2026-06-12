@@ -1531,7 +1531,14 @@ export default function HostPage() {
         if (timeZone) qs.set('timeZone', timeZone);
         if (pollId) qs.set('pollId', pollId);
         const res = await fetch(`/api/rooms/${roomCode}/export?${qs.toString()}`);
-        if (!res.ok) throw new Error('failed');
+        if (!res.ok) {
+          // 履歴保持の課金ゲート（Free が30日超の記録を出力しようとした等）は理由を明示する。
+          const data = await res.json().catch(() => null);
+          if (data?.code === 'RETENTION_LIMIT' && data?.error) {
+            alert(data.error);
+          }
+          throw new Error('failed');
+        }
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');

@@ -2,13 +2,38 @@ import { createServerClient } from '@/lib/supabase';
 import Stripe from 'stripe';
 
 // プラン制限
+//
+// 価値の置き方を「個数」から「反復」へ移す（metagame-strategy.md 第3版）。
+// 個数制限（maxForms/maxRooms/maxPolls）は据え置きつつ、毎週使う現場ほど課金理由が
+// 強くなるよう「履歴の保持期間」を新しい有料価値の軸として追加する。
+//   - historyRetentionDays: セッション記録（レポート/CSV/JSON 出力）にアクセスできる
+//     作成日からの日数。null = 無期限。Free は 30 日、Pro/Enterprise は無期限。
+//   - データは削除しない（保持はしたままアクセスのみゲート）。アップグレードで即時に
+//     過去の記録へアクセスが戻る（poll-votes-archive-invariant と整合）。
 export const PLAN_LIMITS = {
-  free: { maxForms: 2, maxRooms: 1, maxPolls: 2 },
-  paid: { maxForms: Infinity, maxRooms: Infinity, maxPolls: Infinity },
-  enterprise: { maxForms: Infinity, maxRooms: Infinity, maxPolls: Infinity },
+  free: { maxForms: 2, maxRooms: 1, maxPolls: 2, historyRetentionDays: 30 },
+  paid: { maxForms: Infinity, maxRooms: Infinity, maxPolls: Infinity, historyRetentionDays: null },
+  enterprise: { maxForms: Infinity, maxRooms: Infinity, maxPolls: Infinity, historyRetentionDays: null },
 } as const;
 
 export type PlanType = 'free' | 'paid' | 'enterprise';
+
+// セッション記録の保持日数（null = 無期限）。
+export function getHistoryRetentionDays(plan: PlanType): number | null {
+  const days = PLAN_LIMITS[plan].historyRetentionDays;
+  return typeof days === 'number' && Number.isFinite(days) ? days : null;
+}
+
+// 指定した作成日時のセッション記録が、そのプランの保持期間内にあるか。
+// 無期限プラン（null）と日時不明（パース不可）は常にアクセス可とする（安全側）。
+export function isWithinHistoryRetention(plan: PlanType, createdAt: string | Date | null | undefined): boolean {
+  const days = getHistoryRetentionDays(plan);
+  if (days == null) return true;
+  if (!createdAt) return true;
+  const created = new Date(createdAt).getTime();
+  if (!Number.isFinite(created)) return true;
+  return created >= Date.now() - days * 24 * 60 * 60 * 1000;
+}
 
 export interface SubscriptionInfo {
   plan: PlanType;
@@ -30,7 +55,7 @@ export interface UsageInfo {
 export interface PlanInfo {
   subscription: SubscriptionInfo;
   usage: UsageInfo;
-  limits: { maxForms: number; maxRooms: number };
+  limits: { maxForms: number; maxRooms: number; maxPolls: number; historyRetentionDays: number | null };
   canCreateForm: boolean;
   canCreateRoom: boolean;
 }
