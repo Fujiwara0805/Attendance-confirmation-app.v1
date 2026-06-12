@@ -235,7 +235,11 @@ function SidebarContent({
               height={32}
               className="rounded-lg shrink-0"
             />
-            <span className="text-sm font-bold text-[#323232] tracking-tight truncate">ざせきくん</span>
+            <span className="min-w-0 text-xs font-bold leading-tight text-[#323232]">
+              その場にいる全員を、
+              <br />
+              主役にする。
+            </span>
           </Link>
         )}
         {collapsed && (
@@ -552,7 +556,7 @@ export default function AdminShell(props: AdminShellProps) {
               height={28}
               className="rounded-md"
             />
-            <span className="text-sm font-semibold text-slate-900 tracking-tight">ざせきくん</span>
+            <span className="whitespace-nowrap text-xs font-semibold text-slate-900">その場にいる全員を、主役にする。</span>
           </Link>
           <Button
             variant="ghost"

@@ -19,7 +19,7 @@ const features = [
     description:
       'GPS連携により、対象エリア内にいる参加者だけが出席登録を行えます。代理出席やなりすましをしにくくし、信頼できる出席データを残します。ジオフェンス機能で対象エリアを柔軟に設定でき、教室・会場・オフィスなどあらゆるシーンに対応可能です。',
     image:
-      'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774357308/charlesdeluvio-Lks7vei-eAg-unsplash_offkod.jpg',
+      'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1781271356/%E5%87%BA%E5%B8%AD%E4%BD%8D%E7%BD%AE%E6%83%85%E5%A0%B1_aivbsz.png',
     alt: '位置情報による不正抑止のイメージ',
   },
   {
@@ -27,7 +27,7 @@ const features = [
     description:
       '参加者はアプリのダウンロードもログインも不要。QRコードをスマートフォンで読み取るだけで、わずか数秒で出席登録が完了します。受付の混雑を解消し、イベントや授業の開始をスムーズにします。',
     image:
-      'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774357428/marc-pineda-FT5kTEisT4k-unsplash_jfhitk.jpg',
+      'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1781271353/%E5%87%BA%E5%B8%ADQR%E3%81%9F%E3%82%99%E3%81%91%E3%81%A6%E3%82%99%E5%AE%8C%E4%BA%86_hrin3f.png',
     alt: 'QRコードスキャンのイメージ',
   },
   {
@@ -35,7 +35,7 @@ const features = [
     description:
       'すべての出席データを自動で集計し、ダッシュボード上でリアルタイムに可視化します。出席率の推移や参加者の傾向を一目で把握でき、CSVエクスポートで後処理もスムーズ。ルーム機能と連携すれば、出席とその場の反応（Q&A・投票）をひとつのセッションレポートとして残せます。',
     image:
-      'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774357507/stephen-dawson-qwtCeJ5cLYs-unsplash_mobp9w.jpg',
+      'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1781271353/%E5%87%BA%E5%B8%AD%E9%9B%86%E8%A8%88_CSV_gnzi9j.png',
     alt: 'リアルタイムデータ集計のイメージ',
   },
   {
@@ -43,7 +43,7 @@ const features = [
     description:
       '数百人から1,000人を超える大規模イベントでも、安定して快適に動作します。堅牢なクラウドインフラによるオートスケーリングで、参加者が急増しても快適なレスポンスを維持。大学の講義からカンファレンスまで、あらゆる規模に対応します。',
     image:
-      'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774357569/alexandre-pellaes-6vAjp0pscX0-unsplash_dfsotz.jpg',
+      'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1781271356/%E5%87%BA%E5%B8%AD%E5%A4%A7%E8%A6%8F%E6%A8%A1%E3%81%A6%E3%82%99%E3%82%82%E5%AE%89%E5%AE%9A_mutgq4.png',
     alt: '大規模イベントのイメージ',
   },
 ];
@@ -71,7 +71,7 @@ export default function AttendanceFeaturePage() {
                 <div className="mt-8 flex flex-wrap gap-3">
                   <Link
                     href="/admin/login"
-                    className="inline-flex items-center gap-2 text-sm sm:text-base font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] transition-all px-6 h-12 rounded-xl shadow-lg shadow-indigo-200/50"
+                    className="inline-flex items-center gap-2 text-sm sm:text-base font-semibold text-white hover:text-white bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 active:scale-[0.97] transition-all px-6 h-12 rounded-xl shadow-lg shadow-indigo-200/50"
                   >
                     無料で始める
                     <ArrowRight className="w-4 h-4" />
@@ -91,7 +91,7 @@ export default function AttendanceFeaturePage() {
                 transition={{ ...fadeIn.transition, delay: 0.1 }}
               >
                 <img
-src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774357674/dom-fou-YRMWVcdyhmI-unsplash_sq9hvg.jpg"
+                  src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1781271352/%E8%A3%BD%E5%93%81%E3%82%AB%E3%83%BC%E3%83%88%E3%82%99%E5%87%BA%E5%B8%AD%E7%AE%A1%E7%90%86_lo9syv.png"
                   alt="教室での出席管理のイメージ"
                   className="rounded-2xl shadow-xl ring-1 ring-black/5 w-full h-auto object-cover aspect-[4/3]"
                   loading="lazy"
@@ -161,7 +161,7 @@ src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774
               <div className="mt-8">
                 <Link
                   href="/admin/login"
-                  className="inline-flex items-center gap-2 text-sm sm:text-base font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] transition-all px-8 h-12 rounded-xl shadow-lg shadow-indigo-200/50"
+                  className="inline-flex items-center gap-2 text-sm sm:text-base font-semibold text-white hover:text-white bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 active:scale-[0.97] transition-all px-8 h-12 rounded-xl shadow-lg shadow-indigo-200/50"
                 >
                   無料で始める
                   <ArrowRight className="w-4 h-4" />

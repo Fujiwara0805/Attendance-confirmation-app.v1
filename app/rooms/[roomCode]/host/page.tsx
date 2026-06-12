@@ -1961,7 +1961,7 @@ export default function HostPage() {
             <Link href="/" className="flex min-w-0 items-center gap-2.5 transition-opacity hover:opacity-80">
               <Image src={LOGO_URL} alt="ざせきくん" width={28} height={28} className="shrink-0 rounded-md" />
               <div className="min-w-0">
-                <p className="truncate text-sm font-bold leading-tight text-[#323232]">ざせきくん</p>
+                <p className="truncate text-xs font-bold leading-tight text-[#323232]">その場にいる全員を、主役にする。</p>
                 <p className="truncate text-[11px] font-semibold leading-tight text-[#8c8989]">{room.title}</p>
               </div>
             </Link>
@@ -3587,7 +3587,13 @@ function HostSideNav({
             title="管理画面へ"
           >
             <Image src={LOGO_URL} alt="ざせきくん" width={isCollapsed ? 28 : 32} height={isCollapsed ? 28 : 32} className="rounded-lg" />
-            {!isCollapsed && <span className="truncate text-sm font-bold text-[#323232]">ざせきくん</span>}
+            {!isCollapsed && (
+              <span className="min-w-0 text-xs font-bold leading-tight text-[#323232]">
+                その場にいる全員を、
+                <br />
+                主役にする。
+              </span>
+            )}
           </Link>
           {!mobile && !isCollapsed && (
             <button

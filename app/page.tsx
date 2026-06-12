@@ -177,7 +177,7 @@ const products = [
     title: 'リアルタイムQ&A・ライブ投票',
     description: '質問・投票・クイズで、参加者全員の声が場に届く。結果はその場でスクリーンへ。',
     href: '/features/live-interaction',
-image:'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774403349/israel-palacio-Y20JJ_ddy9M-unsplash_hkanai.jpg',
+    image: 'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1781271353/%E8%A3%BD%E5%93%81%E3%82%AB%E3%83%BC%E3%83%88%E3%82%99%E3%83%A9%E3%82%A4%E3%83%95%E3%82%99Q_A%E6%8A%95%E7%A5%A8_ej7bq0.png',
     color: 'from-orange-600 to-pink-600',
   },
   {
@@ -185,7 +185,7 @@ image:'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v17
     title: '出席管理フォーム',
     description: '位置情報×QRコードで、確かな出席記録を手間なく残せる。',
     href: '/features/attendance',
-    image: 'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774357674/dom-fou-YRMWVcdyhmI-unsplash_sq9hvg.jpg',
+    image: 'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1781271352/%E8%A3%BD%E5%93%81%E3%82%AB%E3%83%BC%E3%83%88%E3%82%99%E5%87%BA%E5%B8%AD%E7%AE%A1%E7%90%86_lo9syv.png',
     color: 'from-blue-600 to-indigo-600',
   },
   {
@@ -193,7 +193,7 @@ image:'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v17
     title: '招待フォーム・参加者管理',
     description: 'SNS告知から事前登録、QRコード発行、当日受付まで一気通貫。',
     href: '/features/invitation',
-    image: 'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774402879/jakob-dalbjorn-cuKJre3nyYc-unsplash_usnazo.jpg',
+    image: 'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1781271352/%E8%A3%BD%E5%93%81%E3%82%AB%E3%83%BC%E3%83%88%E3%82%99%E6%8B%9B%E5%BE%85%E3%83%95%E3%82%A9%E3%83%BC%E3%83%A0_qnq4ad.png',
     color: 'from-teal-600 to-emerald-600',
   },
 ];
@@ -391,8 +391,8 @@ export default function LandingPage() {
         <div className="mx-auto max-w-6xl flex items-center justify-between px-5 py-3">
           <Link href="/" className="flex items-center gap-2.5">
             <Image src={LOGO_URL} alt="ざせきくん" width={36} height={36} className="rounded-lg" />
-            <span className="hidden sm:block text-lg font-bold tracking-tight text-slate-900">
-              ざせきくん
+            <span className="hidden sm:block whitespace-nowrap text-sm lg:text-base font-bold text-slate-900">
+              その場にいる全員を、主役にする。
             </span>
           </Link>
           <div className="flex items-center gap-1">
@@ -545,11 +545,7 @@ export default function LandingPage() {
                 transition={{ duration: 0.5, delay: 0.2 }}
                 className="mt-6 text-lg sm:text-xl lg:text-2xl text-slate-500 leading-relaxed max-w-xl mx-auto lg:mx-0"
               >
-                リアルタイムQ&A・ライブ投票で
-                <br className="sm:hidden" />
-                場が動く。出席・受付の記録も、
-                <br className="sm:hidden" />
-                1つのプラットフォームに残る。
+                リアルタイムQ&A・ライブ投票で参加者の反応を拾い、場を動かす。出席・受付管理からデータ管理まで、すべて一元化。
               </motion.p>
 
               <motion.div
@@ -587,8 +583,8 @@ export default function LandingPage() {
 
               <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-indigo-300/30 ring-1 ring-black/5">
                 <img
-                  src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774357569/alexandre-pellaes-6vAjp0pscX0-unsplash_dfsotz.jpg"
-                  alt="カンファレンス会場"
+                  src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1781271353/LP_wh3jfp.png"
+                  alt="ざせきくんのリアルタイムQ&A・ライブ投票・出席管理の利用イメージ"
                   className="w-full h-auto object-cover aspect-[4/3]"
                   loading="eager"
                   decoding="async"

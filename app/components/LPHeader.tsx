@@ -24,8 +24,8 @@ export default function LPHeader() {
       <div className="mx-auto max-w-6xl flex items-center justify-between px-5 py-3">
         <Link href="/" className="flex items-center gap-2.5">
           <Image src={LOGO_URL} alt="ざせきくん" width={36} height={36} className="rounded-lg" />
-          <span className="hidden sm:block text-lg font-bold tracking-tight text-slate-900">
-            ざせきくん
+          <span className="hidden sm:block whitespace-nowrap text-sm lg:text-base font-bold text-slate-900">
+            その場にいる全員を、主役にする。
           </span>
         </Link>
         <div className="flex items-center gap-1">

@@ -19,7 +19,7 @@ const features = [
     description:
       'イベントの参加確認を招待フォームで効率化。招待フォーム→事前登録→QRコード発行→当日受付の一気通貫フローを実現できます。SNSやメールでフォームのURLを共有するだけで参加者が簡単に登録でき、主催者の手作業を大幅に削減します。',
     image:
-      'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774357984/annie-spratt-vgbLaqJGEbY-unsplash_r4m6mq.jpg',
+      'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1781271356/%E6%8B%9B%E5%BE%85%E3%83%95%E3%82%A9%E3%83%BC%E3%83%A0%E4%BD%9C%E6%88%90_%E9%85%8D%E5%B8%83_wyenlz.png',
     reverse: false,
   },
   {
@@ -27,7 +27,7 @@ const features = [
     description:
       '事前登録が完了した参加者には、個別のQRコードが自動で発行されます。当日はスマートフォンに表示されたQRコードをスキャンするだけで受付が完了するため、長蛇の列や紙の名簿チェックはもう不要。受付スタッフの負担も最小限に抑えられます。',
     image:
-'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774402426/helena-lopes-yIcm3DWRz-c-unsplash_ezy6vc.jpg',
+      'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1781271357/%E6%8B%9B%E5%BE%85_%E5%80%8B%E5%88%A5QR%E7%99%BA%E8%A1%8C_%E5%8F%97%E4%BB%98_emansl.png',
     reverse: true,
   },
   {
@@ -35,7 +35,7 @@ const features = [
     description:
       '誰が事前登録し、誰が当日実際に出席したかをリアルタイムで一元管理できます。ダッシュボードで参加状況を即座に確認でき、CSVエクスポート機能で社内報告やマーケティング分析にも活用可能。受付の記録が実施後もそのまま残るため、イベント後のフォローアップや報告資料の作成も効率的に行えます。',
     image:
-'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774402502/myriam-jessier-eveI7MOcSmw-unsplash_zw0jks.jpg',
+      'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1781271354/%E6%8B%9B%E5%BE%85_%E5%8F%82%E5%8A%A0%E8%80%85%E3%83%86%E3%82%99%E3%83%BC%E3%82%BF%E7%AE%A1%E7%90%86_blfbg9.png',
     reverse: false,
   },
   {
@@ -43,7 +43,7 @@ const features = [
     description:
       '参加者の所属・役職・食事制限・Tシャツサイズなど、イベントの内容に合わせた入力項目を自由に追加できます。必要な情報を事前に漏れなく収集できるため、当日の準備や手配がスムーズになり、参加者の満足度向上にもつながります。',
     image:
-'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774358129/headway-5QgIuuBxKwM-unsplash_xabba5.jpg',
+      'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1781272695/%E3%82%AB%E3%82%B9%E3%82%BF%E3%83%A0%E3%83%95%E3%82%A9%E3%83%BC%E3%83%A0_dq8eqm.png',
     reverse: true,
   },
 ];
@@ -72,7 +72,7 @@ export default function InvitationFeaturePage() {
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link
                   href="/admin/login"
-                  className="inline-flex items-center gap-2 text-sm sm:text-base font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] transition-all px-6 h-12 rounded-xl shadow-lg shadow-indigo-200/50"
+                  className="inline-flex items-center gap-2 text-sm sm:text-base font-semibold text-white hover:text-white bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 active:scale-[0.97] transition-all px-6 h-12 rounded-xl shadow-lg shadow-indigo-200/50"
                 >
                   無料で始める
                   <ArrowRight className="w-4 h-4" />
@@ -89,7 +89,7 @@ export default function InvitationFeaturePage() {
 
             <motion.div {...fadeIn} transition={{ ...fadeIn.transition, delay: 0.1 }}>
               <img
-src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774402879/jakob-dalbjorn-cuKJre3nyYc-unsplash_usnazo.jpg"
+                src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1781271352/%E8%A3%BD%E5%93%81%E3%82%AB%E3%83%BC%E3%83%88%E3%82%99%E6%8B%9B%E5%BE%85%E3%83%95%E3%82%A9%E3%83%BC%E3%83%A0_qnq4ad.png"
                 alt="イベント受付のイメージ"
                 className="rounded-2xl shadow-xl ring-1 ring-black/5 w-full h-auto object-cover aspect-[4/3]"
                 loading="lazy"
@@ -151,7 +151,7 @@ src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774
             <div className="mt-8">
               <Link
                 href="/admin/login"
-                className="inline-flex items-center gap-2 text-sm sm:text-base font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] transition-all px-8 h-12 rounded-xl shadow-lg shadow-indigo-200/50"
+                className="inline-flex items-center gap-2 text-sm sm:text-base font-semibold text-white hover:text-white bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 active:scale-[0.97] transition-all px-8 h-12 rounded-xl shadow-lg shadow-indigo-200/50"
               >
                 無料で始める
                 <ArrowRight className="w-4 h-4" />

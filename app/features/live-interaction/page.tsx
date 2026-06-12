@@ -27,7 +27,7 @@ const features = [
     description:
       '参加者はスマートフォンから質問を投稿でき、「いいね」の多い質問が自動的に上位へ表示されます。匿名投稿にも対応しているため、発言しにくい参加者からも率直な質問が集まり、講演やセミナーの内容を深められます。',
     image:
-'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774358294/felicia-buitenwerf-Qs_Zkak27Jk-unsplash_ljjxwq.jpg',
+      'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1781271354/%E3%83%A9%E3%82%A4%E3%83%95%E3%82%99%E3%83%98%E3%82%9A%E3%83%BC%E3%82%B7%E3%82%99%E3%83%92%E3%83%BC%E3%83%AD%E3%83%BC_y1avem.png',
     icon: MessageCircleQuestion,
     reverse: false,
   },
@@ -36,7 +36,7 @@ const features = [
     description:
       '用途に応じて4つの形式から選べます。意見を集める「通常投票」、正解を設定できる「クイズ」（制限時間・正答率表示・画像添付・複数問の連続出題に対応）、候補を順位付けして集計する「ランキング」、短い回答を付箋で集めて分類する「ブレスト」。回答はその場でグラフとして可視化されます。',
     image:
-'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774358337/flipsnack-LUqSTRx3_Ig-unsplash_b4hkct.jpg',
+      'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1781274360/%E3%82%AF%E3%82%A4%E3%82%B9%E3%82%99%E5%BD%A2%E5%BC%8F_ixffpd.png',
     icon: BarChart3,
     reverse: true,
   },
@@ -45,7 +45,7 @@ const features = [
     description:
       '資料投影画面では、Canva・Googleスライドなどを投影しながら、Q&Aや投票・クイズの結果を同じ画面に重ねて表示できます。スライドを切り替えることなく、参加者の反応を会場全体でリアルタイムに共有できます。',
     image:
-'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774358479/product-school-lVTtqIY6pL0-unsplash_pfrzxn.jpg',
+      'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1781271354/%E3%83%A9%E3%82%A4%E3%83%95%E3%82%99Q_A_%E6%8A%95%E7%A5%A8_%E6%8A%95%E5%BD%B1_bxnxge.png',
     icon: Monitor,
     reverse: false,
   },
@@ -54,7 +54,7 @@ const features = [
     description:
       '参加者はアプリのインストールも会員登録も不要です。QRコードを読み取るだけで、匿名のまま質問や投票に参加できます。参加のハードルを下げることで、より多くの率直な声が集まります。',
     image:
-'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774403129/redd-francisco-5U_28ojjgms-unsplash_blguut.jpg',
+      'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1781273915/%E5%8C%BF%E5%90%8D_v79aql.png',
     icon: UserRoundX,
     reverse: true,
   },
@@ -63,7 +63,7 @@ const features = [
     description:
       '受付用・スクリーン投影用・管理用を、同一アカウントで同時に運用できます。端末ごとに役割へ最適化された画面を表示できるため、運営チームで分担しながらスムーズに進行できます。',
     image:
-'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774403542/adam-nowakowski-D4LDw5eXhgg-unsplash_v7clmg.jpg',
+      'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1781273519/%E8%A4%87%E6%95%B0%E7%AB%AF%E6%9C%AB_swsbsg.png',
     icon: Laptop,
     reverse: false,
   },
@@ -72,7 +72,7 @@ const features = [
     description:
       '実施した投票・クイズの結果やQ&Aのハイライトは、終了後に1枚のセッションレポートにまとまります。印刷・PDF保存・CSV出力に対応し、授業の振り返りや研修の報告資料にそのまま使えます。出席フォームと連携すれば、出席の記録も同じレポートに並びます。',
     image:
-'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774357507/stephen-dawson-qwtCeJ5cLYs-unsplash_mobp9w.jpg',
+      'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1781271354/%E3%82%BB%E3%83%83%E3%82%B7%E3%83%A7%E3%83%B3%E3%83%AC%E3%83%9B%E3%82%9A%E3%83%BC%E3%83%88_ok2f57.png',
     icon: FileText,
     reverse: true,
   },
@@ -102,7 +102,7 @@ export default function LiveInteractionPage() {
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link
                   href="/admin/login"
-                  className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-6 h-12 text-sm sm:text-base font-semibold text-white shadow-lg shadow-indigo-200/50 transition-all hover:bg-indigo-700 active:scale-[0.98]"
+                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 px-6 h-12 text-sm sm:text-base font-semibold text-white hover:text-white shadow-lg shadow-indigo-200/50 transition-all hover:from-indigo-700 hover:to-blue-700 active:scale-[0.97]"
                 >
                   無料で始める
                   <ArrowRight className="h-4 w-4" />
@@ -121,7 +121,7 @@ export default function LiveInteractionPage() {
               transition={{ ...fadeIn.transition, delay: 0.15 }}
             >
               <img
-src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774403349/israel-palacio-Y20JJ_ddy9M-unsplash_hkanai.jpg"
+                src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1781271353/%E8%A3%BD%E5%93%81%E3%82%AB%E3%83%BC%E3%83%88%E3%82%99%E3%83%A9%E3%82%A4%E3%83%95%E3%82%99Q_A%E6%8A%95%E7%A5%A8_ej7bq0.png"
                 alt="Q&A・投票・クイズのイメージ"
                 className="rounded-2xl shadow-xl ring-1 ring-black/5 w-full h-auto object-cover aspect-[4/3]"
                 loading="lazy"
@@ -190,7 +190,7 @@ src="https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_800/v1774
             <div className="mt-8">
               <Link
                 href="/admin/login"
-                className="inline-flex items-center gap-2 rounded-xl bg-white px-8 h-12 text-sm sm:text-base font-semibold text-indigo-700 shadow-lg transition-all hover:bg-indigo-50 active:scale-[0.98]"
+                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 px-8 h-12 text-sm sm:text-base font-semibold text-white hover:text-white shadow-lg shadow-indigo-200/50 transition-all hover:from-indigo-700 hover:to-blue-700 active:scale-[0.97]"
               >
                 無料で始める
                 <ArrowRight className="h-4 w-4" />
