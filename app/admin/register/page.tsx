@@ -100,7 +100,7 @@ function AdminRegisterForm() {
       if (result?.error) {
         setStep('complete')
       } else {
-        router.push('/admin')
+        router.push('/admin?first=1')
       }
     } catch {
       setError(

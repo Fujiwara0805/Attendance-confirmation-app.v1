@@ -517,20 +517,26 @@ export default function HostPage() {
   const { data: session, status: authStatus } = useSession();
   const roomCode = (params.roomCode as string).toUpperCase();
   const requestedTab = searchParams.get('tab');
+  const firstRunRequested = searchParams.get('first') === '1';
 
   const [room, setRoom] = useState<Room | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<HostTab>(isHostTab(requestedTab) ? requestedTab : 'questions');
+  const [tab, setTab] = useState<HostTab>(
+    isHostTab(requestedTab) ? requestedTab : firstRunRequested ? 'polls' : 'questions'
+  );
   const [copied, setCopied] = useState(false);
   const [qrUrl, setQrUrl] = useState('');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [firstRunPollGuideDismissed, setFirstRunPollGuideDismissed] = useState(false);
 
   useEffect(() => {
     if (isHostTab(requestedTab)) {
       setTab(requestedTab);
+    } else if (firstRunRequested) {
+      setTab('polls');
     }
-  }, [requestedTab]);
+  }, [requestedTab, firstRunRequested]);
 
   // Question filters
   const [sortMode, setSortMode] = useState<SortMode>('popular');
@@ -2274,6 +2280,50 @@ export default function HostPage() {
               totalCount={polls.length}
               unitLabel="カード"
             />
+
+            {firstRunRequested && !firstRunPollGuideDismissed && polls.length === 0 && (
+              <section className="rounded-lg border border-[#aac8ff] bg-[#ebf3ff] p-4 sm:p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-white text-[#2864f0] ring-1 ring-[#aac8ff]">
+                      <Hammer className="h-5 w-5" />
+                    </span>
+                    <div className="min-w-0">
+                      <h3 className="text-base font-bold text-[#323232] sm:text-lg">
+                        まずはワークカードを作成します
+                      </h3>
+                      <p className="mt-1 text-sm leading-relaxed text-[#595959]">
+                        投票・クイズ形式・ランキング形式・ブレスト形式から選ぶと、参加者がスマホから回答できるカードを作成できます。
+                      </p>
+                      <p className="mt-1 text-xs leading-relaxed text-[#595959]">
+                        作成後は「スクリーンに表示」して、スクリーン側で回答開始します。
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setFirstRunPollGuideDismissed(true)}
+                      className="inline-flex h-9 items-center rounded-md border border-[#aac8ff] bg-white px-3 text-xs font-bold text-[#595959] hover:bg-white/80"
+                    >
+                      あとで
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFirstRunPollGuideDismissed(true);
+                        setShowPollTypeModal(true);
+                      }}
+                      disabled={atPollLimit}
+                      className="inline-flex h-9 items-center gap-1.5 rounded-md bg-[#2864f0] px-3 text-xs font-bold text-white shadow-sm hover:bg-[#285ac8] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      ワークカードを作成
+                    </button>
+                  </div>
+                </div>
+              </section>
+            )}
 
             {atPollLimit && (
               <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">

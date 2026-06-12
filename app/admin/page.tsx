@@ -297,12 +297,15 @@ function AdminPageInner() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const firstRunRequested = searchParams.get('first') === '1';
   const initialSection = (() => {
     const param = searchParams.get('section');
     if (param === 'export' || param === 'rooms' || param === 'courses') return param;
     return 'courses';
   })();
   const [activeTab, setActiveTab] = useState<'courses' | 'export' | 'rooms'>(initialSection);
+  const [firstRunGuideVisible, setFirstRunGuideVisible] = useState(firstRunRequested);
+  const [firstRunGuideDismissed, setFirstRunGuideDismissed] = useState(false);
   const CARDS_PER_PAGE = 6;
   const [coursePage, setCoursePage] = useState(1);
   const [roomPage, setRoomPage] = useState(1);
@@ -324,6 +327,12 @@ function AdminPageInner() {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [activeTab]);
+
+  useEffect(() => {
+    if (firstRunRequested) {
+      setFirstRunGuideVisible(true);
+    }
+  }, [firstRunRequested]);
 
   const renderPagination = useCallback(
     (currentPage: number, totalPages: number, onChange: (page: number) => void) => {
@@ -837,6 +846,20 @@ function AdminPageInner() {
     return null;
   }
 
+  async function showCourseQr(course: Course) {
+    setQrCourse(course);
+    setIsQrDialogOpen(true);
+    const basePath = course.formType === 'invitation' ? '/invitation/' : '/attendance/';
+    const url = `${window.location.origin}${basePath}${course.code}`;
+    try {
+      const QRCode = await import('qrcode');
+      const dataUrl = await QRCode.toDataURL(url, { width: 512, margin: 2 });
+      setQrDataUrl(dataUrl);
+    } catch {
+      showToast("エラー", "QRコードの生成に失敗しました。", "destructive");
+    }
+  }
+
   // 新規講義の追加（Supabase v2 API）
   const handleAddCourse = async () => {
     if (!newCourse.courseName.trim() || !newCourse.teacherName.trim()) {
@@ -865,12 +888,32 @@ function AdminPageInner() {
       });
 
       if (response.ok) {
+        const data = await response.json();
         showToast("作成完了", "新しい出席フォームを作成しました。");
         setIsAddDialogOpen(false);
         setNewCourse({ courseName: '', teacherName: '', enableLocation: false, locationName: '', latitude: 33.1751332, longitude: 131.6138803, radius: 0.5, cooldownMinutes: 15 });
         setLocationResolved(false);
         setLocationError(null);
         await fetchCourses(); fetchPlanInfo();
+        if (firstRunGuideVisible && data.course?.code) {
+          await showCourseQr({
+            id: data.course.id,
+            code: data.course.code,
+            courseName: data.course.name,
+            teacherName: data.course.teacher_name,
+            status: data.course.status || 'active',
+            createdBy: '',
+            createdAt: data.course.created_at || '',
+            lastUpdated: data.course.created_at || '',
+            isCustomForm: false,
+            customFields: data.course.custom_fields || [],
+            enabledDefaultFields: data.course.enabled_default_fields || [],
+            locationSettings: data.course.location_settings || undefined,
+            formType: data.course.form_type || 'attendance',
+            invitationSettings: data.course.invitation_settings || undefined,
+            cooldownMinutes: typeof data.course.cooldown_minutes === 'number' ? data.course.cooldown_minutes : 15,
+          });
+        }
       } else {
         const errorData = await response.json();
         showToast("追加失敗", errorData.message || "フォームの作成に失敗しました。", "destructive");
@@ -1043,10 +1086,14 @@ function AdminPageInner() {
         body: JSON.stringify({ title: newRoomTitle.trim() }),
       });
       if (response.ok) {
+        const data = await response.json();
         showToast("作成完了", "ルームを作成しました。");
         setNewRoomTitle('');
         setIsCreateRoomDialogOpen(false);
         await fetchRooms(); fetchPlanInfo();
+        if (firstRunGuideVisible && data?.code) {
+          router.push(`/rooms/${data.code}/host?tab=polls&first=1`);
+        }
       } else {
         const err = await response.json();
         if (err.code === 'PLAN_LIMIT_EXCEEDED') {
@@ -1201,17 +1248,7 @@ function AdminPageInner() {
 
   // QRコード表示
   const handleShowQr = async (course: Course) => {
-    setQrCourse(course);
-    setIsQrDialogOpen(true);
-    const basePath = course.formType === 'invitation' ? '/invitation/' : '/attendance/';
-    const url = `${window.location.origin}${basePath}${course.code}`;
-    try {
-      const QRCode = await import('qrcode');
-      const dataUrl = await QRCode.toDataURL(url, { width: 512, margin: 2 });
-      setQrDataUrl(dataUrl);
-    } catch {
-      showToast("エラー", "QRコードの生成に失敗しました。", "destructive");
-    }
+    await showCourseQr(course);
   };
 
   // QRコードダウンロード
@@ -1221,6 +1258,20 @@ function AdminPageInner() {
     link.href = qrDataUrl;
     link.download = `qr-${qrCourse.code}.png`;
     link.click();
+  };
+
+  const shouldShowFirstRunGuide =
+    !firstRunGuideDismissed &&
+    (firstRunGuideVisible || (!loadingCourses && !loadingRooms && courses.length === 0 && rooms.length === 0));
+
+  const goToFirstForms = () => {
+    setFirstRunGuideVisible(true);
+    setActiveTab('courses');
+  };
+
+  const startFirstRoom = () => {
+    setFirstRunGuideVisible(true);
+    setActiveTab('rooms');
   };
 
   const activeSection: AdminSection = activeTab;
@@ -1233,6 +1284,84 @@ function AdminPageInner() {
       roomCount={rooms.length}
       onSelectInPageSection={(section) => setActiveTab(section)}
     >
+        {shouldShowFirstRunGuide && (
+          <div className="border-b border-[#dce8ff] bg-[#f3f7ff]">
+            <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6">
+              <div className="rounded-lg border border-[#aac8ff] bg-white p-4 shadow-sm sm:p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="min-w-0">
+                    <div className="inline-flex items-center gap-1.5 rounded-md bg-[#ebf3ff] px-2.5 py-1 text-xs font-bold text-[#1e46aa]">
+                      <Sparkles className="h-3.5 w-3.5" />
+                      5分で最初のQRを出す
+                    </div>
+                    <h2 className="mt-3 text-lg font-bold leading-tight text-[#323232] sm:text-xl">
+                      まずは目的を選んでください
+                    </h2>
+                    <p className="mt-1 max-w-2xl text-sm leading-relaxed text-[#595959]">
+                      ルーム管理ではQ&Aやワークカードを準備し、フォーム管理では出席・招待などの参加者情報を集めるフォームを作成します。
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setFirstRunGuideDismissed(true)}
+                    className="self-start rounded-md px-3 py-2 text-xs font-semibold text-[#595959] hover:bg-[#f7f5f5] hover:text-[#323232]"
+                  >
+                    あとで
+                  </button>
+                </div>
+
+                <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={startFirstRoom}
+                    className="group rounded-lg border border-[#aac8ff] bg-[#ebf3ff] p-4 text-left transition-colors hover:border-[#2864f0] hover:bg-[#dce8ff]"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-white text-[#2864f0] ring-1 ring-[#aac8ff]">
+                        <Airplay className="h-5 w-5" />
+                      </span>
+                      <span className="rounded bg-white px-2 py-0.5 text-[10px] font-bold text-[#1e46aa] ring-1 ring-[#aac8ff]">
+                        推奨
+                      </span>
+                    </div>
+                    <p className="mt-3 text-base font-bold leading-relaxed text-[#323232]">
+                      <span className="block">参加者の反応を知りたい</span>
+                      <span className="block">Q&A機能</span>
+                      <span className="block">ワーク機能（投票・クイズ形式・ランキング形式・ブレスト形式）を使用する</span>
+                    </p>
+                    <p className="mt-1 text-xs leading-relaxed text-[#595959]">
+                      ルーム管理画面へ進みます。ルーム作成後、ホスト管理画面でワークカードの作成へ進めます。
+                    </p>
+                    <span className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-[#2864f0]">
+                      ルーム管理へ <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={goToFirstForms}
+                    className="group rounded-lg border border-[#e9e7e7] bg-white p-4 text-left transition-colors hover:border-[#2864f0] hover:bg-[#f7fbff]"
+                  >
+                    <span className="flex h-10 w-10 items-center justify-center rounded-md bg-[#ebf3ff] text-[#2864f0]">
+                      <ClipboardEdit className="h-5 w-5" />
+                    </span>
+                    <p className="mt-3 text-base font-bold leading-relaxed text-[#323232]">
+                      <span className="block">参加者管理がしたい</span>
+                      <span className="block">フォームの作成</span>
+                    </p>
+                    <p className="mt-1 text-xs leading-relaxed text-[#595959]">
+                      フォーム管理画面へ進みます。出席フォームや招待フォームを作成し、参加者にURLやQRを共有できます。
+                    </p>
+                    <span className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-[#2864f0]">
+                      フォーム管理へ <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                    </span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'courses' | 'export' | 'rooms')} className="w-full">
           {/* ===== COURSES TAB ===== */}
           <TabsContent value="courses" className="mt-0">
