@@ -788,9 +788,9 @@ export default function LandingPage() {
               Use Cases
             </span>
             <h2 className="mt-5 text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">
-              大学の授業から研修・イベントまで、
+              大学の授業から
               <br className="sm:hidden" />
-              あなたの現場で。
+              研修・イベントまで、あなたの現場で。
             </h2>
             <p className="mt-4 text-base lg:text-lg text-slate-500 max-w-2xl mx-auto">
               ざせきくんは、出席・受付・その場の反応・実施後の記録を、QRコードひとつでつなぐ参加管理プラットフォームです。
