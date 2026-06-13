@@ -197,7 +197,7 @@ function AdminPageHeader({
       className="border-b"
       style={{ backgroundColor: theme.headerBg, borderColor: theme.headerBorder }}
     >
-      <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
           <span
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border"
@@ -221,17 +221,17 @@ function AdminPageHeader({
           </div>
         </div>
         {(children || helpHref) && (
-          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+          <div className="flex shrink-0 items-center gap-2">
             {children}
             {helpHref && (
               <Link
                 href={helpHref}
-                className="hidden h-12 min-w-[52px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-md border border-[#aac8ff] bg-white px-2 text-[#2864f0] transition-colors hover:bg-[#ebf3ff] sm:inline-flex"
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#aac8ff] bg-white text-[#2864f0] transition-colors hover:bg-[#ebf3ff] sm:h-12 sm:min-w-[52px] sm:flex-col sm:gap-0.5 sm:px-2"
                 aria-label={`${title}のヘルプを開く`}
                 title={`${title}のヘルプ`}
               >
                 <HelpCircle className="h-4 w-4" />
-                <span className="text-[10px] font-bold leading-none">FAQ</span>
+                <span className="hidden text-[10px] font-bold leading-none sm:inline">FAQ</span>
               </Link>
             )}
           </div>
@@ -1378,7 +1378,7 @@ function AdminPageInner() {
             >
                 {/* プランバッジ */}
                 {planInfo && planInfo.subscription.plan !== 'paid' && (
-                  <div className={`inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-bold ${
+                  <div className={`hidden h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-bold sm:inline-flex ${
                     planInfo.subscription.plan === 'enterprise'
                       ? 'bg-slate-800 text-white'
                       : 'bg-slate-100 text-slate-600'
@@ -1391,18 +1391,21 @@ function AdminPageInner() {
                 )}
                 <Button
                   onClick={() => setIsCreateTypeDialogOpen(true)}
-                  className="h-9 rounded-md bg-[#2864f0] px-4 text-white shadow-sm hover:bg-[#285ac8]"
+                  className="h-9 w-9 rounded-md bg-[#2864f0] px-0 text-white shadow-sm hover:bg-[#285ac8] sm:w-auto sm:px-4"
+                  aria-label="新規作成"
+                  title="新規作成"
                 >
-                  <Plus className="h-3.5 w-3.5 mr-1.5" />
-                  新規作成
+                  <Plus className="h-3.5 w-3.5 sm:mr-1.5" />
+                  <span className="hidden sm:inline">新規作成</span>
                 </Button>
                 {planInfo && planInfo.subscription.plan === 'free' && !planInfo.canCreateForm && (
                   <Button
                     asChild
-                    className="h-9 rounded-md bg-[#2864f0] px-4 text-white shadow-sm hover:bg-[#285ac8]"
+                    className="h-9 w-9 rounded-md bg-[#2864f0] px-0 text-white shadow-sm hover:bg-[#285ac8] sm:w-auto sm:px-4"
                   >
-                    <Link href="/admin/account">
-                      Proにアップグレード
+                    <Link href="/admin/account" aria-label="Proにアップグレード" title="Proにアップグレード">
+                      <Sparkles className="h-3.5 w-3.5 sm:mr-1.5" />
+                      <span className="hidden sm:inline">Proにアップグレード</span>
                     </Link>
                   </Button>
                 )}
@@ -2467,7 +2470,7 @@ function AdminPageInner() {
             >
                 {/* ルーム数バッジ */}
                 {planInfo && planInfo.subscription.plan !== 'paid' && (
-                  <div className={`inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-bold ${
+                  <div className={`hidden h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-bold sm:inline-flex ${
                     planInfo.subscription.plan === 'enterprise'
                       ? 'bg-slate-800 text-white'
                       : 'bg-slate-100 text-slate-600'
@@ -2479,7 +2482,7 @@ function AdminPageInner() {
                   </div>
                 )}
                 {planInfo && planInfo.subscription.status === 'cancelled' && currentPeriodEndLabel && (
-                  <div className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700">
+                  <div className="hidden items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 sm:inline-flex">
                     {currentPeriodEndLabel}で解約予定
                   </div>
                 )}
@@ -2491,18 +2494,21 @@ function AdminPageInner() {
                     }
                     setIsCreateRoomDialogOpen(true);
                   }}
-                  className="h-9 rounded-md bg-[#2864f0] px-4 text-white shadow-sm hover:bg-[#285ac8]"
+                  className="h-9 w-9 rounded-md bg-[#2864f0] px-0 text-white shadow-sm hover:bg-[#285ac8] sm:w-auto sm:px-4"
+                  aria-label="ルーム作成"
+                  title="ルーム作成"
                 >
-                  <Plus className="h-3.5 w-3.5 mr-1.5" />
-                  ルーム作成
+                  <Plus className="h-3.5 w-3.5 sm:mr-1.5" />
+                  <span className="hidden sm:inline">ルーム作成</span>
                 </Button>
                 {planInfo && planInfo.subscription.plan === 'free' && !planInfo.canCreateRoom && (
                   <Button
                     asChild
-                    className="h-9 rounded-md bg-[#2864f0] px-4 text-white shadow-sm hover:bg-[#285ac8]"
+                    className="h-9 w-9 rounded-md bg-[#2864f0] px-0 text-white shadow-sm hover:bg-[#285ac8] sm:w-auto sm:px-4"
                   >
-                    <Link href="/admin/account">
-                      Proにアップグレード
+                    <Link href="/admin/account" aria-label="Proにアップグレード" title="Proにアップグレード">
+                      <Sparkles className="h-3.5 w-3.5 sm:mr-1.5" />
+                      <span className="hidden sm:inline">Proにアップグレード</span>
                     </Link>
                   </Button>
                 )}

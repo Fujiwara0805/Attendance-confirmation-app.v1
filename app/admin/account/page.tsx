@@ -70,7 +70,7 @@ function AccountPageHeader() {
       className="border-b"
       style={{ backgroundColor: ACCOUNT_COLOR_THEME.headerBg, borderColor: ACCOUNT_COLOR_THEME.headerBorder }}
     >
-      <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
           <span
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border"
@@ -97,7 +97,7 @@ function AccountPageHeader() {
             </p>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+        <div className="flex shrink-0 items-center gap-2">
           <Link
             href="/admin/faq#account"
             className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#aac8ff] bg-white text-[#2864f0] transition-colors hover:bg-[#ebf3ff]"
