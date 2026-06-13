@@ -2066,14 +2066,24 @@ export default function HostPage() {
                     onClick={() => setShowPollTypeModal(true)}
                     disabled={atPollLimit}
                     title={atPollLimit ? `Freeプランではライブ投票カードを${pollLimit}個まで作成できます` : 'ライブ投票を新規作成'}
-                    className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md bg-[#2864f0] px-3 text-xs font-bold text-white shadow-sm transition-colors hover:bg-[#285ac8] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:hover:bg-slate-300"
+                    className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[#2864f0] text-white shadow-sm transition-colors hover:bg-[#285ac8] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:hover:bg-slate-300"
+                    aria-label="ライブ投票を新規作成"
                   >
-                    <Plus className="h-3.5 w-3.5" />
-                    新規作成
+                    <Plus className="h-4 w-4" />
                   </button>
                 </>
               )}
-              {/* モバイルでは ? アイコンを非表示（FAQはハンバーガーメニューから開ける） */}
+              {tab !== 'faq' && (
+                <button
+                  type="button"
+                  onClick={() => setTab('faq')}
+                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#9dd8b1] bg-white text-[#00963c] transition-colors hover:bg-[#eaf8ef]"
+                  aria-label="ホスト管理のFAQを開く"
+                  title="ホスト管理のFAQ"
+                >
+                  <HelpCircle className="h-4 w-4" />
+                </button>
+              )}
               <a
                 href={`/rooms/${roomCode}/present`}
                 target={`zasekikun-present-${roomCode}`}

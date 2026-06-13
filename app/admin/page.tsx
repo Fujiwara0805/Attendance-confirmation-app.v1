@@ -1395,7 +1395,7 @@ function AdminPageInner() {
                   aria-label="新規作成"
                   title="新規作成"
                 >
-                  <Plus className="h-3.5 w-3.5 sm:mr-1.5" />
+                  <Plus className="h-4 w-4 sm:mr-1.5" />
                   <span className="hidden sm:inline">新規作成</span>
                 </Button>
                 {planInfo && planInfo.subscription.plan === 'free' && !planInfo.canCreateForm && (
@@ -1404,7 +1404,7 @@ function AdminPageInner() {
                     className="h-9 w-9 rounded-md bg-[#2864f0] px-0 text-white shadow-sm hover:bg-[#285ac8] sm:w-auto sm:px-4"
                   >
                     <Link href="/admin/account" aria-label="Proにアップグレード" title="Proにアップグレード">
-                      <Sparkles className="h-3.5 w-3.5 sm:mr-1.5" />
+                      <Sparkles className="h-4 w-4 sm:mr-1.5" />
                       <span className="hidden sm:inline">Proにアップグレード</span>
                     </Link>
                   </Button>
@@ -2498,7 +2498,7 @@ function AdminPageInner() {
                   aria-label="ルーム作成"
                   title="ルーム作成"
                 >
-                  <Plus className="h-3.5 w-3.5 sm:mr-1.5" />
+                  <Plus className="h-4 w-4 sm:mr-1.5" />
                   <span className="hidden sm:inline">ルーム作成</span>
                 </Button>
                 {planInfo && planInfo.subscription.plan === 'free' && !planInfo.canCreateRoom && (
@@ -2507,7 +2507,7 @@ function AdminPageInner() {
                     className="h-9 w-9 rounded-md bg-[#2864f0] px-0 text-white shadow-sm hover:bg-[#285ac8] sm:w-auto sm:px-4"
                   >
                     <Link href="/admin/account" aria-label="Proにアップグレード" title="Proにアップグレード">
-                      <Sparkles className="h-3.5 w-3.5 sm:mr-1.5" />
+                      <Sparkles className="h-4 w-4 sm:mr-1.5" />
                       <span className="hidden sm:inline">Proにアップグレード</span>
                     </Link>
                   </Button>
