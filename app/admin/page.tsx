@@ -226,12 +226,12 @@ function AdminPageHeader({
             {helpHref && (
               <Link
                 href={helpHref}
-                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#aac8ff] bg-white text-[#2864f0] transition-colors hover:bg-[#ebf3ff] sm:h-12 sm:min-w-[52px] sm:flex-col sm:gap-0.5 sm:px-2"
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#aac8ff] bg-white text-[#2864f0] transition-colors hover:bg-[#ebf3ff] lg:h-12 lg:min-w-[52px] lg:flex-col lg:gap-0.5 lg:px-2"
                 aria-label={`${title}のヘルプを開く`}
                 title={`${title}のヘルプ`}
               >
                 <HelpCircle className="h-4 w-4" />
-                <span className="hidden text-[10px] font-bold leading-none sm:inline">FAQ</span>
+                <span className="hidden text-[10px] font-bold leading-none lg:inline">FAQ</span>
               </Link>
             )}
           </div>
@@ -1267,11 +1267,13 @@ function AdminPageInner() {
   const goToFirstForms = () => {
     setFirstRunGuideVisible(true);
     setActiveTab('courses');
+    setFirstRunGuideDismissed(true);
   };
 
   const startFirstRoom = () => {
     setFirstRunGuideVisible(true);
     setActiveTab('rooms');
+    setFirstRunGuideDismissed(true);
   };
 
   const activeSection: AdminSection = activeTab;
@@ -1284,83 +1286,82 @@ function AdminPageInner() {
       roomCount={rooms.length}
       onSelectInPageSection={(section) => setActiveTab(section)}
     >
-        {shouldShowFirstRunGuide && (
-          <div className="border-b border-[#dce8ff] bg-[#f3f7ff]">
-            <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6">
-              <div className="rounded-lg border border-[#aac8ff] bg-white p-4 shadow-sm sm:p-5">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="min-w-0">
-                    <div className="inline-flex items-center gap-1.5 rounded-md bg-[#ebf3ff] px-2.5 py-1 text-xs font-bold text-[#1e46aa]">
-                      <Sparkles className="h-3.5 w-3.5" />
-                      5分で最初のQRを出す
-                    </div>
-                    <h2 className="mt-3 text-lg font-bold leading-tight text-[#323232] sm:text-xl">
-                      まずは目的を選んでください
-                    </h2>
-                    <p className="mt-1 max-w-2xl text-sm leading-relaxed text-[#595959]">
-                      ルーム管理ではQ&Aやワークカードを準備し、フォーム管理では出席・招待などの参加者情報を集めるフォームを作成します。
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setFirstRunGuideDismissed(true)}
-                    className="self-start rounded-md px-3 py-2 text-xs font-semibold text-[#595959] hover:bg-[#f7f5f5] hover:text-[#323232]"
-                  >
-                    あとで
-                  </button>
-                </div>
-
-                <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
-                  <button
-                    type="button"
-                    onClick={startFirstRoom}
-                    className="group rounded-lg border border-[#aac8ff] bg-[#ebf3ff] p-4 text-left transition-colors hover:border-[#2864f0] hover:bg-[#dce8ff]"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-white text-[#2864f0] ring-1 ring-[#aac8ff]">
-                        <Airplay className="h-5 w-5" />
-                      </span>
-                      <span className="rounded bg-white px-2 py-0.5 text-[10px] font-bold text-[#1e46aa] ring-1 ring-[#aac8ff]">
-                        推奨
-                      </span>
-                    </div>
-                    <p className="mt-3 text-base font-bold leading-relaxed text-[#323232]">
-                      <span className="block">参加者の反応を知りたい</span>
-                      <span className="block">Q&A機能</span>
-                      <span className="block">ワーク機能（投票・クイズ形式・ランキング形式・ブレスト形式）を使用する</span>
-                    </p>
-                    <p className="mt-1 text-xs leading-relaxed text-[#595959]">
-                      ルーム管理画面へ進みます。ルーム作成後、ホスト管理画面でワークカードの作成へ進めます。
-                    </p>
-                    <span className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-[#2864f0]">
-                      ルーム管理へ <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={goToFirstForms}
-                    className="group rounded-lg border border-[#e9e7e7] bg-white p-4 text-left transition-colors hover:border-[#2864f0] hover:bg-[#f7fbff]"
-                  >
-                    <span className="flex h-10 w-10 items-center justify-center rounded-md bg-[#ebf3ff] text-[#2864f0]">
-                      <ClipboardEdit className="h-5 w-5" />
-                    </span>
-                    <p className="mt-3 text-base font-bold leading-relaxed text-[#323232]">
-                      <span className="block">参加者管理がしたい</span>
-                      <span className="block">フォームの作成</span>
-                    </p>
-                    <p className="mt-1 text-xs leading-relaxed text-[#595959]">
-                      フォーム管理画面へ進みます。出席フォームや招待フォームを作成し、参加者にURLやQRを共有できます。
-                    </p>
-                    <span className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-[#2864f0]">
-                      フォーム管理へ <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-                    </span>
-                  </button>
-                </div>
+        <CustomModal
+          isOpen={shouldShowFirstRunGuide}
+          onClose={() => setFirstRunGuideDismissed(true)}
+          title="60秒で最初のQRコードを発行する"
+          description="ルーム管理ではQ&Aやワークカードを準備し、フォーム管理では出席・招待などの参加者情報を集めるフォームを作成します。"
+          className="max-w-4xl"
+        >
+          <div className="space-y-4">
+            <div>
+              <div className="inline-flex items-center gap-1.5 rounded-md bg-[#ebf3ff] px-2.5 py-1 text-xs font-bold text-[#1e46aa]">
+                <Sparkles className="h-3.5 w-3.5" />
+                60秒で最初のQRコードを発行する
               </div>
+              <h2 className="mt-3 text-lg font-bold leading-tight text-[#323232] sm:text-xl">
+                まずは目的を選んでください
+              </h2>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+              <button
+                type="button"
+                onClick={startFirstRoom}
+                className="group rounded-lg border border-[#aac8ff] bg-[#ebf3ff] p-4 text-left transition-colors hover:border-[#2864f0] hover:bg-[#dce8ff]"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-white text-[#2864f0] ring-1 ring-[#aac8ff]">
+                    <Airplay className="h-5 w-5" />
+                  </span>
+                  <span className="rounded bg-white px-2 py-0.5 text-[10px] font-bold text-[#1e46aa] ring-1 ring-[#aac8ff]">
+                    推奨
+                  </span>
+                </div>
+                <p className="mt-3 text-base font-bold leading-relaxed text-[#323232]">
+                  <span className="block">参加者の反応を知りたい</span>
+                  <span className="block">Q&A機能／ワーク機能（投票・クイズ形式・ランキング形式・ブレスト形式）を使用する</span>
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-[#595959]">
+                  ルーム管理画面へ進みます。ルーム作成後、ホスト管理画面でワークカードの作成へ進めます。
+                </p>
+                <span className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-[#2864f0]">
+                  ルーム管理へ <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={goToFirstForms}
+                className="group rounded-lg border border-[#e9e7e7] bg-white p-4 text-left transition-colors hover:border-[#2864f0] hover:bg-[#f7fbff]"
+              >
+                <span className="flex h-10 w-10 items-center justify-center rounded-md bg-[#ebf3ff] text-[#2864f0]">
+                  <ClipboardEdit className="h-5 w-5" />
+                </span>
+                <p className="mt-3 text-base font-bold leading-relaxed text-[#323232]">
+                  <span className="block">参加者管理がしたい</span>
+                  <span className="block">フォームの作成（出席・参加者管理）</span>
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-[#595959]">
+                  フォーム管理画面へ進みます。出席フォームや招待フォームを作成し、参加者にURLやQRを共有できます。
+                </p>
+                <span className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-[#2864f0]">
+                  フォーム管理へ <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                </span>
+              </button>
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setFirstRunGuideDismissed(true)}
+                className="rounded-md px-3 py-2 text-xs font-semibold text-[#595959] hover:bg-[#f7f5f5] hover:text-[#323232]"
+              >
+                あとで
+              </button>
             </div>
           </div>
-        )}
+        </CustomModal>
 
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'courses' | 'export' | 'rooms')} className="w-full">
           {/* ===== COURSES TAB ===== */}
@@ -1378,7 +1379,7 @@ function AdminPageInner() {
             >
                 {/* プランバッジ */}
                 {planInfo && planInfo.subscription.plan !== 'paid' && (
-                  <div className={`hidden h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-bold sm:inline-flex ${
+                  <div className={`hidden h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-bold lg:inline-flex ${
                     planInfo.subscription.plan === 'enterprise'
                       ? 'bg-slate-800 text-white'
                       : 'bg-slate-100 text-slate-600'
@@ -1391,21 +1392,21 @@ function AdminPageInner() {
                 )}
                 <Button
                   onClick={() => setIsCreateTypeDialogOpen(true)}
-                  className="h-9 w-9 rounded-md bg-[#2864f0] px-0 text-white shadow-sm hover:bg-[#285ac8] sm:w-auto sm:px-4"
+                  className="h-9 w-9 rounded-md bg-[#2864f0] px-0 text-white shadow-sm hover:bg-[#285ac8] lg:w-auto lg:px-4"
                   aria-label="新規作成"
                   title="新規作成"
                 >
-                  <Plus className="h-4 w-4 sm:mr-1.5" />
-                  <span className="hidden sm:inline">新規作成</span>
+                  <Plus className="h-4 w-4 lg:mr-1.5" />
+                  <span className="hidden lg:inline">新規作成</span>
                 </Button>
                 {planInfo && planInfo.subscription.plan === 'free' && !planInfo.canCreateForm && (
                   <Button
                     asChild
-                    className="h-9 w-9 rounded-md bg-[#2864f0] px-0 text-white shadow-sm hover:bg-[#285ac8] sm:w-auto sm:px-4"
+                    className="h-9 w-9 rounded-md bg-[#2864f0] px-0 text-white shadow-sm hover:bg-[#285ac8] lg:w-auto lg:px-4"
                   >
                     <Link href="/admin/account" aria-label="Proにアップグレード" title="Proにアップグレード">
-                      <Sparkles className="h-4 w-4 sm:mr-1.5" />
-                      <span className="hidden sm:inline">Proにアップグレード</span>
+                      <Sparkles className="h-4 w-4 lg:mr-1.5" />
+                      <span className="hidden lg:inline">Proにアップグレード</span>
                     </Link>
                   </Button>
                 )}
@@ -2470,7 +2471,7 @@ function AdminPageInner() {
             >
                 {/* ルーム数バッジ */}
                 {planInfo && planInfo.subscription.plan !== 'paid' && (
-                  <div className={`hidden h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-bold sm:inline-flex ${
+                  <div className={`hidden h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-bold lg:inline-flex ${
                     planInfo.subscription.plan === 'enterprise'
                       ? 'bg-slate-800 text-white'
                       : 'bg-slate-100 text-slate-600'
@@ -2482,7 +2483,7 @@ function AdminPageInner() {
                   </div>
                 )}
                 {planInfo && planInfo.subscription.status === 'cancelled' && currentPeriodEndLabel && (
-                  <div className="hidden items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 sm:inline-flex">
+                  <div className="hidden items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 lg:inline-flex">
                     {currentPeriodEndLabel}で解約予定
                   </div>
                 )}
@@ -2494,21 +2495,21 @@ function AdminPageInner() {
                     }
                     setIsCreateRoomDialogOpen(true);
                   }}
-                  className="h-9 w-9 rounded-md bg-[#2864f0] px-0 text-white shadow-sm hover:bg-[#285ac8] sm:w-auto sm:px-4"
+                  className="h-9 w-9 rounded-md bg-[#2864f0] px-0 text-white shadow-sm hover:bg-[#285ac8] lg:w-auto lg:px-4"
                   aria-label="ルーム作成"
                   title="ルーム作成"
                 >
-                  <Plus className="h-4 w-4 sm:mr-1.5" />
-                  <span className="hidden sm:inline">ルーム作成</span>
+                  <Plus className="h-4 w-4 lg:mr-1.5" />
+                  <span className="hidden lg:inline">ルーム作成</span>
                 </Button>
                 {planInfo && planInfo.subscription.plan === 'free' && !planInfo.canCreateRoom && (
                   <Button
                     asChild
-                    className="h-9 w-9 rounded-md bg-[#2864f0] px-0 text-white shadow-sm hover:bg-[#285ac8] sm:w-auto sm:px-4"
+                    className="h-9 w-9 rounded-md bg-[#2864f0] px-0 text-white shadow-sm hover:bg-[#285ac8] lg:w-auto lg:px-4"
                   >
                     <Link href="/admin/account" aria-label="Proにアップグレード" title="Proにアップグレード">
-                      <Sparkles className="h-4 w-4 sm:mr-1.5" />
-                      <span className="hidden sm:inline">Proにアップグレード</span>
+                      <Sparkles className="h-4 w-4 lg:mr-1.5" />
+                      <span className="hidden lg:inline">Proにアップグレード</span>
                     </Link>
                   </Button>
                 )}
