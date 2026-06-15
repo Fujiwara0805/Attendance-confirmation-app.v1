@@ -1909,6 +1909,8 @@ export default function HostPage() {
   const activeHostItem = HOST_NAV_ITEMS.find((item) => item.key === tab) || HOST_NAV_ITEMS[0];
   const activeHostTheme = HOST_COLOR_THEMES[activeHostItem.key];
   const ActiveHostIcon = activeHostItem.icon;
+  const currentPollVisual = POLL_MODE_VISUAL[pollMode];
+  const CurrentPollIcon = currentPollVisual.icon;
 
   return (
     <div className="min-h-screen bg-[#f7f5f5] lg:flex print:bg-white">
@@ -2053,13 +2055,8 @@ export default function HostPage() {
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              {tab === 'polls' && (
+              {tab === 'polls' ? (
                 <>
-                  <SearchTriggerButton
-                    onClick={() => setPollSearchOpen(true)}
-                    active={!!pollSearch.trim()}
-                    label="カードを検索"
-                  />
                   <button
                     type="button"
                     onClick={() => setShowPollTypeModal(true)}
@@ -2070,28 +2067,66 @@ export default function HostPage() {
                   >
                     <Plus className="h-4 w-4" />
                   </button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#e1dcdc] bg-white text-[#595959] transition-colors hover:border-[#aac8ff] hover:bg-[#ebf3ff] hover:text-[#2864f0]"
+                        aria-label="その他のメニュー"
+                        title="その他のメニュー"
+                      >
+                        <MoreVertical className="h-5 w-5" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem onClick={() => setPollSearchOpen(true)}>
+                        <Search className="mr-2 h-4 w-4 text-slate-500" />
+                        カードを検索
+                        {pollSearch.trim() && (
+                          <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[#2864f0]" />
+                        )}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <a
+                          href={`/rooms/${roomCode}/present`}
+                          target={`zasekikun-present-${roomCode}`}
+                          rel="noopener noreferrer"
+                        >
+                          <Monitor className="mr-2 h-4 w-4 text-slate-500" />
+                          スクリーンを開く
+                        </a>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setTab('faq')}>
+                        <HelpCircle className="mr-2 h-4 w-4 text-slate-500" />
+                        FAQ
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </>
+              ) : (
+                <>
+                  {tab !== 'faq' && (
+                    <button
+                      type="button"
+                      onClick={() => setTab('faq')}
+                      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#9dd8b1] bg-white text-[#00963c] transition-colors hover:bg-[#eaf8ef]"
+                      aria-label="ホスト管理のFAQを開く"
+                      title="ホスト管理のFAQ"
+                    >
+                      <HelpCircle className="h-4 w-4" />
+                    </button>
+                  )}
+                  <a
+                    href={`/rooms/${roomCode}/present`}
+                    target={`zasekikun-present-${roomCode}`}
+                    rel="noopener noreferrer"
+                    className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#e1dcdc] bg-white text-[#2864f0] transition-colors hover:border-[#aac8ff] hover:bg-[#ebf3ff]"
+                    title="スクリーン画面を開く"
+                  >
+                    <Monitor className="h-4 w-4" />
+                  </a>
                 </>
               )}
-              {tab !== 'faq' && (
-                <button
-                  type="button"
-                  onClick={() => setTab('faq')}
-                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#9dd8b1] bg-white text-[#00963c] transition-colors hover:bg-[#eaf8ef]"
-                  aria-label="ホスト管理のFAQを開く"
-                  title="ホスト管理のFAQ"
-                >
-                  <HelpCircle className="h-4 w-4" />
-                </button>
-              )}
-              <a
-                href={`/rooms/${roomCode}/present`}
-                target={`zasekikun-present-${roomCode}`}
-                rel="noopener noreferrer"
-                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#e1dcdc] bg-white text-[#2864f0] transition-colors hover:border-[#aac8ff] hover:bg-[#ebf3ff]"
-                title="スクリーン画面を開く"
-              >
-                <Monitor className="h-4 w-4" />
-              </a>
             </div>
           </div>
         </div>
@@ -2390,39 +2425,47 @@ export default function HostPage() {
                   exit={{ opacity: 0, height: 0 }}
                   className="scroll-mt-24 rounded-2xl bg-white ring-1 ring-slate-200 p-5 space-y-3 overflow-hidden"
                 >
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <span className="text-xs font-bold text-emerald-700 bg-emerald-50 ring-1 ring-emerald-200 px-2 py-1 rounded-full">
-                        {POLL_MODE_LABELS[pollMode]}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <span
+                        className={`mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ring-1 ${currentPollVisual.iconBg} ${currentPollVisual.iconText} ${currentPollVisual.iconRing}`}
+                        aria-hidden
+                      >
+                        <CurrentPollIcon className="h-5 w-5" />
                       </span>
-                      <h3 className="mt-2 text-base font-bold text-slate-900">
-                        {editingPollId
-                          ? pollMode === 'standard'
-                            ? '通常投票を編集'
+                      <div className="min-w-0">
+                        <h3 className="text-base font-bold leading-tight text-slate-900">
+                          {editingPollId
+                            ? pollMode === 'standard'
+                              ? '通常投票を編集'
+                              : pollMode === 'quiz'
+                              ? 'クイズ形式を編集'
+                              : pollMode === 'ranking'
+                              ? 'ランキング形式を編集'
+                              : 'ブレスト形式を編集'
+                            : pollMode === 'standard'
+                            ? '通常投票を作成'
                             : pollMode === 'quiz'
-                            ? 'クイズ形式を編集'
+                            ? 'クイズ形式を作成'
                             : pollMode === 'ranking'
-                            ? 'ランキング形式を編集'
-                            : 'ブレスト形式を編集'
-                          : pollMode === 'standard'
-                          ? '通常投票を作成'
-                          : pollMode === 'quiz'
-                          ? 'クイズ形式を作成'
-                          : pollMode === 'ranking'
-                          ? 'ランキング形式を作成'
-                          : 'ブレスト形式を作成'}
-                      </h3>
-                      {editingPollId && selectedEditingPoll && (
-                        <p className="mt-1 text-xs font-semibold text-emerald-700">
-                          選択中のカード「{selectedEditingPoll.question}」をこの画面で編集しています
-                        </p>
-                      )}
+                            ? 'ランキング形式を作成'
+                            : 'ブレスト形式を作成'}
+                        </h3>
+                        <span className={`mt-1.5 inline-flex rounded-full px-2 py-1 text-xs font-bold ring-1 ${currentPollVisual.badgeBg} ${currentPollVisual.badgeText} ${currentPollVisual.badgeRing}`}>
+                          {POLL_MODE_LABELS[pollMode]}
+                        </span>
+                        {editingPollId && selectedEditingPoll && (
+                          <p className="mt-1 text-xs font-semibold text-emerald-700">
+                            選択中のカード「{selectedEditingPoll.question}」をこの画面で編集しています
+                          </p>
+                        )}
+                      </div>
                     </div>
                     {!editingPollId && (
                       <button
                         type="button"
                         onClick={() => setShowPollTypeModal(true)}
-                        className="text-xs font-semibold text-slate-500 hover:text-slate-800"
+                        className="shrink-0 text-xs font-semibold text-slate-500 hover:text-slate-800"
                       >
                         種類を変更
                       </button>
@@ -3748,25 +3791,25 @@ function PollTypeModal({
       mode: 'standard',
       title: '通常投票',
       desc: '従来のチェック回答・複数選択の投票です。',
-      icon: <BarChart3 className="w-5 h-5" />,
+      icon: <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5" />,
     },
     {
       mode: 'quiz',
       title: 'クイズ形式',
       desc: '1つの投票内に1-1、1-2、1-3のような複数問題を作成します。',
-      icon: <BookOpen className="w-5 h-5" />,
+      icon: <BookOpen className="h-4 w-4 sm:h-5 sm:w-5" />,
     },
     {
       mode: 'ranking',
       title: 'ランキング形式',
       desc: '多数の候補を順位と重みで集計します。',
-      icon: <ListOrdered className="w-5 h-5" />,
+      icon: <ListOrdered className="h-4 w-4 sm:h-5 sm:w-5" />,
     },
     {
       mode: 'free_text',
       title: 'ブレスト形式',
       desc: '短文回答を付箋のように集め、スクリーンで分類します。',
-      icon: <Hand className="w-5 h-5" />,
+      icon: <Hand className="h-4 w-4 sm:h-5 sm:w-5" />,
     },
   ];
 
@@ -3792,12 +3835,12 @@ function PollTypeModal({
         initial={{ opacity: 0, y: 16, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 12, scale: 0.98 }}
-        className="w-full max-w-2xl rounded-2xl bg-white p-5 shadow-2xl ring-1 ring-slate-200"
+        className="w-full max-w-sm rounded-2xl bg-white p-4 shadow-2xl ring-1 ring-slate-200 sm:max-w-2xl sm:p-5"
       >
-        <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="mb-3 flex items-start justify-between gap-3 sm:mb-4">
           <div>
-            <h3 className="text-lg font-extrabold text-slate-900">投票の種類を選択</h3>
-            <p className="mt-1 text-sm text-slate-500">用途に合わせて作成フォームを切り替えます。</p>
+            <h3 className="text-base font-extrabold text-slate-900 sm:text-lg">投票の種類を選択</h3>
+            <p className="mt-1 text-xs text-slate-500 sm:text-sm">用途に合わせて作成フォームを切り替えます。</p>
           </div>
           <button
             type="button"
@@ -3808,19 +3851,21 @@ function PollTypeModal({
             <X className="w-5 h-5" />
           </button>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-2 gap-2 sm:gap-3">
           {items.map((item) => (
             <button
               key={item.mode}
               type="button"
               onClick={() => onSelect(item.mode)}
-              className={`min-h-[150px] rounded-2xl bg-white p-4 text-left ring-1 ring-slate-200 transition-colors ${cardStyles[item.mode].card}`}
+              className={`min-h-[112px] rounded-xl bg-white p-3 text-left ring-1 ring-slate-200 transition-colors sm:min-h-[150px] sm:rounded-2xl sm:p-4 ${cardStyles[item.mode].card}`}
             >
-              <span className={`mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl ring-1 ${cardStyles[item.mode].badge}`}>
-                {item.icon}
+              <span className="flex items-center gap-2 sm:block">
+                <span className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ring-1 sm:mb-3 sm:h-10 sm:w-10 sm:rounded-xl ${cardStyles[item.mode].badge}`}>
+                  {item.icon}
+                </span>
+                <span className="block text-sm font-bold text-slate-900">{item.title}</span>
               </span>
-              <span className="block text-sm font-bold text-slate-900">{item.title}</span>
-              <span className="mt-1 block text-xs leading-relaxed text-slate-500">{item.desc}</span>
+              <span className="mt-1 block text-[11px] leading-relaxed text-slate-500 line-clamp-2 sm:text-xs sm:line-clamp-none">{item.desc}</span>
             </button>
           ))}
         </div>
@@ -4494,7 +4539,10 @@ function PollResultCard({
             </select>
           </div>
           <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+            <h3 className="text-sm font-bold leading-snug text-slate-900 line-clamp-2 break-words sm:hidden">
+              {poll.question || '（無題）'}
+            </h3>
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] sm:mt-0">
               <span
                 className={`inline-flex items-center font-bold px-2 py-0.5 rounded-full ring-1 ${visual.badgeBg} ${visual.badgeText} ${visual.badgeRing}`}
               >
@@ -4531,7 +4579,7 @@ function PollResultCard({
                 </button>
               )}
             </div>
-            <h3 className="mt-1.5 text-sm sm:text-base font-bold text-slate-900 leading-snug break-words line-clamp-2">
+            <h3 className="mt-1.5 hidden text-base font-bold leading-snug text-slate-900 line-clamp-2 break-words sm:block">
               {poll.question || '（無題）'}
             </h3>
             <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-slate-500">
