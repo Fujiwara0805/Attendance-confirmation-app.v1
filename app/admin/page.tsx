@@ -1264,16 +1264,33 @@ function AdminPageInner() {
     !firstRunGuideDismissed &&
     (firstRunGuideVisible || (!loadingCourses && !loadingRooms && courses.length === 0 && rooms.length === 0));
 
+  // ?first=1 がURLに残るとリロードや再レンダー時にガイドが再表示されてしまうため、
+  // ガイドを閉じる操作ではURLからもfirstパラメータを除去する
+  const clearFirstRunParam = () => {
+    if (!firstRunRequested) return;
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('first');
+    const query = params.toString();
+    router.replace(query ? `/admin?${query}` : '/admin', { scroll: false });
+  };
+
+  const dismissFirstRunGuide = () => {
+    setFirstRunGuideDismissed(true);
+    clearFirstRunParam();
+  };
+
   const goToFirstForms = () => {
     setFirstRunGuideVisible(true);
     setActiveTab('courses');
     setFirstRunGuideDismissed(true);
+    clearFirstRunParam();
   };
 
   const startFirstRoom = () => {
     setFirstRunGuideVisible(true);
     setActiveTab('rooms');
     setFirstRunGuideDismissed(true);
+    clearFirstRunParam();
   };
 
   const activeSection: AdminSection = activeTab;
@@ -1288,7 +1305,7 @@ function AdminPageInner() {
     >
         <CustomModal
           isOpen={shouldShowFirstRunGuide}
-          onClose={() => setFirstRunGuideDismissed(true)}
+          onClose={dismissFirstRunGuide}
           title="60秒で最初のQRコードを発行する"
           description="ルーム管理ではQ&Aやワークカードを準備し、フォーム管理では出席・招待などの参加者情報を集めるフォームを作成します。"
           className="max-w-4xl"
@@ -1354,7 +1371,7 @@ function AdminPageInner() {
             <div className="flex justify-end">
               <button
                 type="button"
-                onClick={() => setFirstRunGuideDismissed(true)}
+                onClick={dismissFirstRunGuide}
                 className="rounded-md px-3 py-2 text-xs font-semibold text-[#595959] hover:bg-[#f7f5f5] hover:text-[#323232]"
               >
                 あとで
