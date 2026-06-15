@@ -416,6 +416,7 @@ function AdminPageInner() {
   // フォーム管理用の状態
   const [courses, setCourses] = useState<Course[]>([]);
   const [loadingCourses, setLoadingCourses] = useState<boolean>(false);
+  const [coursesLoaded, setCoursesLoaded] = useState<boolean>(false);
   
   // 新規講義追加用の状態
   const [isAddDialogOpen, setIsAddDialogOpen] = useState<boolean>(false);
@@ -591,6 +592,7 @@ function AdminPageInner() {
   interface Room { id: string; code: string; title: string; status: string; host_id: string; created_at: string; }
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loadingRooms, setLoadingRooms] = useState<boolean>(false);
+  const [roomsLoaded, setRoomsLoaded] = useState<boolean>(false);
   const [isCreateRoomDialogOpen, setIsCreateRoomDialogOpen] = useState<boolean>(false);
   const [newRoomTitle, setNewRoomTitle] = useState<string>('');
   const [creatingRoom, setCreatingRoom] = useState<boolean>(false);
@@ -690,6 +692,7 @@ function AdminPageInner() {
       if (response.ok) {
         const data = await response.json();
         setRooms(Array.isArray(data) ? data : data.rooms || []);
+        setRoomsLoaded(true);
       }
     } catch (error) {
       console.error('Failed to fetch rooms:', error);
@@ -730,6 +733,7 @@ function AdminPageInner() {
         if (mappedCourses.length > 0) {
           showToast("データ更新", `${mappedCourses.length}件のフォームを読み込みました。`);
         }
+        setCoursesLoaded(true);
       } else {
         const errorData = await response.json();
         showToast("読み込みエラー", errorData.message || "フォーム情報の読み込みに失敗しました。", "destructive");
@@ -1295,6 +1299,8 @@ function AdminPageInner() {
   // フォームもルームも1つも無いとき「だけ」初回ガイドを表示する（first=1 による強制表示はしない）
   const shouldShowFirstRunGuide =
     !firstRunGuideDismissed &&
+    coursesLoaded &&
+    roomsLoaded &&
     !loadingCourses &&
     !loadingRooms &&
     courses.length === 0 &&
