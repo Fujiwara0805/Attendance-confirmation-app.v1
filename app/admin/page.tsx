@@ -183,6 +183,8 @@ function AdminPageHeader({
   icon: Icon,
   theme = ADMIN_COLOR_THEMES.courses,
   helpHref,
+  onSearch,
+  searchLabel = '検索',
   children,
 }: {
   title: string;
@@ -190,6 +192,8 @@ function AdminPageHeader({
   icon: React.ComponentType<{ className?: string }>;
   theme?: AdminColorTheme;
   helpHref?: string;
+  onSearch?: () => void;
+  searchLabel?: string;
   children?: React.ReactNode;
 }) {
   return (
@@ -226,13 +230,41 @@ function AdminPageHeader({
             {helpHref && (
               <Link
                 href={helpHref}
-                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#aac8ff] bg-white text-[#2864f0] transition-colors hover:bg-[#ebf3ff] lg:h-12 lg:min-w-[52px] lg:flex-col lg:gap-0.5 lg:px-2"
+                className={`${onSearch ? 'hidden lg:inline-flex' : 'inline-flex'} h-8 w-8 shrink-0 items-center justify-center rounded-md border border-[#aac8ff] bg-white text-[#2864f0] transition-colors hover:bg-[#ebf3ff] lg:h-12 lg:min-w-[52px] lg:flex-col lg:gap-0.5 lg:px-2`}
                 aria-label={`${title}のヘルプを開く`}
                 title={`${title}のヘルプ`}
               >
-                <HelpCircle className="h-4 w-4" />
+                <HelpCircle className="h-5 w-5 lg:h-4 lg:w-4" />
                 <span className="hidden text-[10px] font-bold leading-none lg:inline">FAQ</span>
               </Link>
+            )}
+            {/* モバイルではプラスの横に3点メニューを置き、検索とFAQをまとめる */}
+            {onSearch && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-[#e1dcdc] bg-white text-[#595959] transition-colors hover:border-[#aac8ff] hover:bg-[#ebf3ff] hover:text-[#2864f0] lg:hidden"
+                    aria-label="その他のメニュー"
+                  >
+                    <MoreVertical className="h-5 w-5" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-44">
+                  <DropdownMenuItem onClick={onSearch}>
+                    <Search className="mr-2 h-4 w-4 text-slate-500" />
+                    {searchLabel}
+                  </DropdownMenuItem>
+                  {helpHref && (
+                    <DropdownMenuItem asChild>
+                      <Link href={helpHref}>
+                        <HelpCircle className="mr-2 h-4 w-4 text-slate-500" />
+                        FAQ
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
           </div>
         )}
@@ -1260,37 +1292,28 @@ function AdminPageInner() {
     link.click();
   };
 
+  // フォームもルームも1つも無いとき「だけ」初回ガイドを表示する（first=1 による強制表示はしない）
   const shouldShowFirstRunGuide =
     !firstRunGuideDismissed &&
-    (firstRunGuideVisible || (!loadingCourses && !loadingRooms && courses.length === 0 && rooms.length === 0));
-
-  // ?first=1 がURLに残るとリロードや再レンダー時にガイドが再表示されてしまうため、
-  // ガイドを閉じる操作ではURLからもfirstパラメータを除去する
-  const clearFirstRunParam = () => {
-    if (!firstRunRequested) return;
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete('first');
-    const query = params.toString();
-    router.replace(query ? `/admin?${query}` : '/admin', { scroll: false });
-  };
+    !loadingCourses &&
+    !loadingRooms &&
+    courses.length === 0 &&
+    rooms.length === 0;
 
   const dismissFirstRunGuide = () => {
     setFirstRunGuideDismissed(true);
-    clearFirstRunParam();
   };
 
   const goToFirstForms = () => {
     setFirstRunGuideVisible(true);
     setActiveTab('courses');
     setFirstRunGuideDismissed(true);
-    clearFirstRunParam();
   };
 
   const startFirstRoom = () => {
     setFirstRunGuideVisible(true);
     setActiveTab('rooms');
     setFirstRunGuideDismissed(true);
-    clearFirstRunParam();
   };
 
   const activeSection: AdminSection = activeTab;
@@ -1327,18 +1350,18 @@ function AdminPageInner() {
                 onClick={startFirstRoom}
                 className="group rounded-lg border border-[#aac8ff] bg-[#ebf3ff] p-4 text-left transition-colors hover:border-[#2864f0] hover:bg-[#dce8ff]"
               >
-                <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-white text-[#2864f0] ring-1 ring-[#aac8ff]">
                     <Airplay className="h-5 w-5" />
                   </span>
-                  <span className="rounded bg-white px-2 py-0.5 text-[10px] font-bold text-[#1e46aa] ring-1 ring-[#aac8ff]">
+                  <p className="min-w-0 flex-1 text-base font-bold leading-relaxed text-[#323232]">
+                    <span className="block">参加者の反応を知りたい</span>
+                    <span className="block">Q&A機能／ワーク機能（投票・クイズ形式・ランキング形式・ブレスト形式）を使用する</span>
+                  </p>
+                  <span className="shrink-0 self-start rounded bg-white px-2 py-0.5 text-[10px] font-bold text-[#1e46aa] ring-1 ring-[#aac8ff]">
                     推奨
                   </span>
                 </div>
-                <p className="mt-3 text-base font-bold leading-relaxed text-[#323232]">
-                  <span className="block">参加者の反応を知りたい</span>
-                  <span className="block">Q&A機能／ワーク機能（投票・クイズ形式・ランキング形式・ブレスト形式）を使用する</span>
-                </p>
                 <p className="mt-1 text-xs leading-relaxed text-[#595959]">
                   ルーム管理画面へ進みます。ルーム作成後、ホスト管理画面でワークカードの作成へ進めます。
                 </p>
@@ -1352,13 +1375,15 @@ function AdminPageInner() {
                 onClick={goToFirstForms}
                 className="group rounded-lg border border-[#e9e7e7] bg-white p-4 text-left transition-colors hover:border-[#2864f0] hover:bg-[#f7fbff]"
               >
-                <span className="flex h-10 w-10 items-center justify-center rounded-md bg-[#ebf3ff] text-[#2864f0]">
-                  <ClipboardEdit className="h-5 w-5" />
-                </span>
-                <p className="mt-3 text-base font-bold leading-relaxed text-[#323232]">
-                  <span className="block">参加者管理がしたい</span>
-                  <span className="block">フォームの作成（出席・参加者管理）</span>
-                </p>
+                <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[#ebf3ff] text-[#2864f0]">
+                    <ClipboardEdit className="h-5 w-5" />
+                  </span>
+                  <p className="min-w-0 flex-1 text-base font-bold leading-relaxed text-[#323232]">
+                    <span className="block">参加者管理がしたい</span>
+                    <span className="block">フォームの作成（出席・参加者管理）</span>
+                  </p>
+                </div>
                 <p className="mt-1 text-xs leading-relaxed text-[#595959]">
                   フォーム管理画面へ進みます。出席フォームや招待フォームを作成し、参加者にURLやQRを共有できます。
                 </p>
@@ -1393,6 +1418,8 @@ function AdminPageInner() {
               icon={BookOpen}
               theme={ADMIN_COLOR_THEMES.courses}
               helpHref="/admin/faq#forms"
+              onSearch={() => setSearchModalFor('courses')}
+              searchLabel="フォームを検索"
             >
                 {/* プランバッジ */}
                 {planInfo && planInfo.subscription.plan !== 'paid' && (
@@ -1409,20 +1436,20 @@ function AdminPageInner() {
                 )}
                 <Button
                   onClick={() => setIsCreateTypeDialogOpen(true)}
-                  className="h-9 w-9 rounded-md bg-[#2864f0] px-0 text-white shadow-sm hover:bg-[#285ac8] lg:w-auto lg:px-4"
+                  className="h-8 w-8 rounded-md bg-[#2864f0] px-0 text-white shadow-sm hover:bg-[#285ac8] lg:h-9 lg:w-auto lg:px-4"
                   aria-label="新規作成"
                   title="新規作成"
                 >
-                  <Plus className="h-4 w-4 lg:mr-1.5" />
+                  <Plus className="h-5 w-5 lg:mr-1.5 lg:h-4 lg:w-4" />
                   <span className="hidden lg:inline">新規作成</span>
                 </Button>
                 {planInfo && planInfo.subscription.plan === 'free' && !planInfo.canCreateForm && (
                   <Button
                     asChild
-                    className="h-9 w-9 rounded-md bg-[#2864f0] px-0 text-white shadow-sm hover:bg-[#285ac8] lg:w-auto lg:px-4"
+                    className="h-8 w-8 rounded-md bg-[#2864f0] px-0 text-white shadow-sm hover:bg-[#285ac8] lg:h-9 lg:w-auto lg:px-4"
                   >
                     <Link href="/admin/account" aria-label="Proにアップグレード" title="Proにアップグレード">
-                      <Sparkles className="h-4 w-4 lg:mr-1.5" />
+                      <Sparkles className="h-5 w-5 lg:mr-1.5 lg:h-4 lg:w-4" />
                       <span className="hidden lg:inline">Proにアップグレード</span>
                     </Link>
                   </Button>
@@ -1431,6 +1458,7 @@ function AdminPageInner() {
                   onClick={() => setSearchModalFor('courses')}
                   active={!!courseSearch.trim()}
                   label="フォームを検索"
+                  className="hidden lg:inline-flex"
                 />
             </AdminPageHeader>
 
@@ -2485,6 +2513,8 @@ function AdminPageInner() {
               icon={Airplay}
               theme={ADMIN_COLOR_THEMES.rooms}
               helpHref="/admin/faq#rooms"
+              onSearch={() => setSearchModalFor('rooms')}
+              searchLabel="ルームを検索"
             >
                 {/* ルーム数バッジ */}
                 {planInfo && planInfo.subscription.plan !== 'paid' && (
@@ -2512,20 +2542,20 @@ function AdminPageInner() {
                     }
                     setIsCreateRoomDialogOpen(true);
                   }}
-                  className="h-9 w-9 rounded-md bg-[#2864f0] px-0 text-white shadow-sm hover:bg-[#285ac8] lg:w-auto lg:px-4"
+                  className="h-8 w-8 rounded-md bg-[#2864f0] px-0 text-white shadow-sm hover:bg-[#285ac8] lg:h-9 lg:w-auto lg:px-4"
                   aria-label="ルーム作成"
                   title="ルーム作成"
                 >
-                  <Plus className="h-4 w-4 lg:mr-1.5" />
+                  <Plus className="h-5 w-5 lg:mr-1.5 lg:h-4 lg:w-4" />
                   <span className="hidden lg:inline">ルーム作成</span>
                 </Button>
                 {planInfo && planInfo.subscription.plan === 'free' && !planInfo.canCreateRoom && (
                   <Button
                     asChild
-                    className="h-9 w-9 rounded-md bg-[#2864f0] px-0 text-white shadow-sm hover:bg-[#285ac8] lg:w-auto lg:px-4"
+                    className="h-8 w-8 rounded-md bg-[#2864f0] px-0 text-white shadow-sm hover:bg-[#285ac8] lg:h-9 lg:w-auto lg:px-4"
                   >
                     <Link href="/admin/account" aria-label="Proにアップグレード" title="Proにアップグレード">
-                      <Sparkles className="h-4 w-4 lg:mr-1.5" />
+                      <Sparkles className="h-5 w-5 lg:mr-1.5 lg:h-4 lg:w-4" />
                       <span className="hidden lg:inline">Proにアップグレード</span>
                     </Link>
                   </Button>
@@ -2534,6 +2564,7 @@ function AdminPageInner() {
                   onClick={() => setSearchModalFor('rooms')}
                   active={!!roomSearch.trim()}
                   label="ルームを検索"
+                  className="hidden lg:inline-flex"
                 />
             </AdminPageHeader>
 

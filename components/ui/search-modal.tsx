@@ -105,10 +105,12 @@ export function SearchTriggerButton({
   onClick,
   active,
   label = '検索',
+  className = 'inline-flex',
 }: {
   onClick: () => void;
   active?: boolean;
   label?: string;
+  className?: string;
 }) {
   return (
     <button
@@ -116,7 +118,7 @@ export function SearchTriggerButton({
       onClick={onClick}
       title={`${label}（⌘K / Ctrl+K）`}
       aria-label={label}
-      className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border transition-colors lg:h-12 lg:min-w-[52px] lg:flex-col lg:gap-0.5 lg:px-2 ${
+      className={`${className} h-9 w-9 shrink-0 items-center justify-center rounded-md border transition-colors lg:h-12 lg:min-w-[52px] lg:flex-col lg:gap-0.5 lg:px-2 ${
         active
           ? 'border-[#2864f0] bg-[#ebf3ff] text-[#2864f0]'
           : 'border-[#e1dcdc] bg-white text-[#595959] hover:border-[#aac8ff] hover:bg-[#ebf3ff] hover:text-[#2864f0]'

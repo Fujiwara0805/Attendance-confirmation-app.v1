@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 
 export type AdminSection = 'courses' | 'export' | 'rooms' | 'account' | 'faq';
 
@@ -572,6 +572,8 @@ export default function AdminShell(props: AdminShellProps) {
 
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetContent side="left" className="p-0 w-80 sm:max-w-sm">
+          {/* スクリーンリーダー用タイトル（Radixのアクセシビリティ要件を満たす） */}
+          <SheetTitle className="sr-only">メニュー</SheetTitle>
           <div className="h-full flex flex-col">
             <SidebarContent {...props} onAfterNavigate={() => setMobileOpen(false)} />
           </div>
