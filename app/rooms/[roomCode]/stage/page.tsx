@@ -133,6 +133,7 @@ export default function StagePage() {
   }, [questions]);
 
   const realtimeOffline = !qConnected && !pConnected;
+  const hasActiveWorkspaceCard = activePolls.length > 0;
 
   useEffect(() => {
     const id = window.setInterval(() => setNowMs(Date.now()), 500);
@@ -548,96 +549,103 @@ export default function StagePage() {
           </header>
 
           <div ref={vSplitRef} className="flex min-h-0 flex-1 flex-col">
-          <section
-            className="flex min-h-0 flex-col border-b border-slate-200 bg-white"
-            style={{ flexGrow: workspacePercent, flexBasis: 0 }}
-          >
-            <div className="flex shrink-0 items-center justify-between px-5 py-3">
-              <div className="inline-flex items-center gap-2">
-                <Trees className="w-4 h-4 text-[#2864f0]" />
-                <h3 className="text-sm font-extrabold tracking-tight text-slate-900">ワークスペース</h3>
-              </div>
-              <span className="text-xs font-semibold text-slate-400">{activePolls.length}</span>
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
-              <StagePollDeck
-                polls={activePolls}
-                pollVotes={pollVotes}
-                nowMs={nowMs}
-                startingPollId={startingPollId}
-                onStartPoll={startPollTimer}
-                closingPollId={closingPollId}
-                onClosePoll={closePoll}
-              />
-            </div>
-          </section>
-
-          <div
-            role="separator"
-            aria-label="ワークスペースと質問チャットの境界"
-            aria-orientation="horizontal"
-            onPointerDown={startWorkspaceResize}
-            className={`flex shrink-0 cursor-row-resize items-center justify-center border-y border-slate-200 py-1 transition-colors ${
-              isVResizing ? 'bg-indigo-100' : 'bg-slate-50 hover:bg-indigo-50'
-            }`}
-            title="ドラッグで高さを調整"
-          >
-            <div className="h-1 w-10 rounded-full bg-slate-300" />
-          </div>
-
-          <section className="flex min-h-0 flex-col" style={{ flexGrow: 100 - workspacePercent, flexBasis: 0 }}>
-            <div className="flex shrink-0 items-center justify-between border-b border-slate-200 bg-slate-50 px-5 py-3">
-              <div className="inline-flex items-center gap-2">
-                <MessageSquare className="w-4 h-4 text-indigo-500" />
-                <h3 className="text-sm font-extrabold tracking-tight text-slate-900">質問チャット</h3>
-              </div>
-              <span className="text-xs font-semibold text-slate-400">{visibleQuestions.length}</span>
-            </div>
-
-            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
-              {visibleQuestions.length === 0 ? (
-                <div className="flex h-full flex-col items-center justify-center px-4 text-center">
-                  <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50">
-                    <BarChart3 className="w-7 h-7 text-indigo-200" />
-                  </div>
-                  <p className="text-sm font-bold text-slate-500">質問を待っています</p>
-                  <p className="mt-1 text-xs leading-relaxed text-slate-400">
-                    参加者の質問はここにチャット形式で表示されます。
-                  </p>
-                </div>
-              ) : (
-                visibleQuestions.map((question, index) => (
-                  <motion.article
-                    key={question.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: Math.min(index * 0.025, 0.2) }}
-                    className={`rounded-2xl border p-3 shadow-sm ${
-                      question.is_pinned ? 'border-indigo-200 bg-indigo-50' : 'border-slate-200 bg-white'
-                    }`}
-                  >
-                    <div className="mb-1.5 flex items-center justify-between gap-2">
-                      <span className="truncate text-xs font-bold text-slate-500">
-                        {question.author_name === 'Anonymous' ? '匿名' : question.author_name}
-                      </span>
-                      <span className="inline-flex shrink-0 items-center gap-1 text-xs font-bold text-indigo-600 tabular-nums">
-                        <ThumbsUp className="w-3.5 h-3.5" />
-                        {question.upvote_count}
-                      </span>
+            {hasActiveWorkspaceCard && (
+              <>
+                <section
+                  className="flex min-h-0 flex-col border-b border-slate-200 bg-white"
+                  style={{ flexGrow: workspacePercent, flexBasis: 0 }}
+                >
+                  <div className="flex shrink-0 items-center justify-between px-5 py-3">
+                    <div className="inline-flex items-center gap-2">
+                      <Trees className="w-4 h-4 text-[#2864f0]" />
+                      <h3 className="text-sm font-extrabold tracking-tight text-slate-900">ワークスペース</h3>
                     </div>
-                    <p className="whitespace-pre-wrap break-words text-sm font-medium leading-relaxed text-slate-900">
-                      {question.text}
+                    <span className="text-xs font-semibold text-slate-400">{activePolls.length}</span>
+                  </div>
+                  <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+                    <StagePollDeck
+                      polls={activePolls}
+                      pollVotes={pollVotes}
+                      nowMs={nowMs}
+                      startingPollId={startingPollId}
+                      onStartPoll={startPollTimer}
+                      closingPollId={closingPollId}
+                      onClosePoll={closePoll}
+                    />
+                  </div>
+                </section>
+
+                <div
+                  role="separator"
+                  aria-label="ワークスペースと質問チャットの境界"
+                  aria-orientation="horizontal"
+                  onPointerDown={startWorkspaceResize}
+                  className={`flex shrink-0 cursor-row-resize items-center justify-center border-y border-slate-200 py-1 transition-colors ${
+                    isVResizing ? 'bg-indigo-100' : 'bg-slate-50 hover:bg-indigo-50'
+                  }`}
+                  title="ドラッグで高さを調整"
+                >
+                  <div className="h-1 w-10 rounded-full bg-slate-300" />
+                </div>
+              </>
+            )}
+
+            <section
+              className="flex min-h-0 flex-col"
+              style={{ flexGrow: hasActiveWorkspaceCard ? 100 - workspacePercent : 1, flexBasis: 0 }}
+            >
+              <div className="flex shrink-0 items-center justify-between border-b border-slate-200 bg-slate-50 px-5 py-3">
+                <div className="inline-flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4 text-indigo-500" />
+                  <h3 className="text-sm font-extrabold tracking-tight text-slate-900">質問チャット</h3>
+                </div>
+                <span className="text-xs font-semibold text-slate-400">{visibleQuestions.length}</span>
+              </div>
+
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
+                {visibleQuestions.length === 0 ? (
+                  <div className="flex h-full flex-col items-center justify-center px-4 text-center">
+                    <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50">
+                      <BarChart3 className="w-7 h-7 text-indigo-200" />
+                    </div>
+                    <p className="text-sm font-bold text-slate-500">質問を待っています</p>
+                    <p className="mt-1 text-xs leading-relaxed text-slate-400">
+                      参加者の質問はここにチャット形式で表示されます。
                     </p>
-                    {question.is_pinned && (
-                      <span className="mt-2 inline-flex rounded-full bg-indigo-100 px-2 py-0.5 text-[11px] font-bold text-indigo-700">
-                        固定
-                      </span>
-                    )}
-                  </motion.article>
-                ))
-              )}
-            </div>
-          </section>
+                  </div>
+                ) : (
+                  visibleQuestions.map((question, index) => (
+                    <motion.article
+                      key={question.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: Math.min(index * 0.025, 0.2) }}
+                      className={`rounded-2xl border p-3 shadow-sm ${
+                        question.is_pinned ? 'border-indigo-200 bg-indigo-50' : 'border-slate-200 bg-white'
+                      }`}
+                    >
+                      <div className="mb-1.5 flex items-center justify-between gap-2">
+                        <span className="truncate text-xs font-bold text-slate-500">
+                          {question.author_name === 'Anonymous' ? '匿名' : question.author_name}
+                        </span>
+                        <span className="inline-flex shrink-0 items-center gap-1 text-xs font-bold text-indigo-600 tabular-nums">
+                          <ThumbsUp className="w-3.5 h-3.5" />
+                          {question.upvote_count}
+                        </span>
+                      </div>
+                      <p className="whitespace-pre-wrap break-words text-sm font-medium leading-relaxed text-slate-900">
+                        {question.text}
+                      </p>
+                      {question.is_pinned && (
+                        <span className="mt-2 inline-flex rounded-full bg-indigo-100 px-2 py-0.5 text-[11px] font-bold text-indigo-700">
+                          固定
+                        </span>
+                      )}
+                    </motion.article>
+                  ))
+                )}
+              </div>
+            </section>
           </div>
         </aside>
       </div>
