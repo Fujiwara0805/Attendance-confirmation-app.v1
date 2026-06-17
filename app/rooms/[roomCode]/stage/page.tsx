@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import type { PointerEvent as ReactPointerEvent } from 'react';
+import type { ChangeEvent as ReactChangeEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
@@ -10,16 +10,20 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  FileText,
+  FileSpreadsheet,
   Loader2,
   Maximize,
   MessageSquare,
   MonitorUp,
   PauseCircle,
   Play,
+  Presentation,
   RefreshCw,
   StopCircle,
   ThumbsUp,
   Trees,
+  Upload,
   WifiOff,
   X,
 } from 'lucide-react';
@@ -37,6 +41,16 @@ import {
   optionLetter,
   POLL_AGGREGATION_SETTLE_MS,
 } from '@/lib/pollModes';
+import {
+  parseProjectionDocument,
+  type ProjectionDocument,
+  type ProjectionSheetChart,
+  type ProjectionSheetObject,
+  type ProjectionSheet,
+  type ProjectionSlide,
+  type ProjectionSlideElement,
+  type ProjectionWordDocument,
+} from '@/lib/projectionDocument';
 import RankingResults from '../../components/RankingResults';
 
 interface Room {
@@ -57,14 +71,21 @@ export default function StagePage() {
   const splitRef = useRef<HTMLDivElement>(null);
   const vSplitRef = useRef<HTMLDivElement>(null);
   const videoHostRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [room, setRoom] = useState<Room | null>(null);
   const [roomLoading, setRoomLoading] = useState(true);
   const [qrUrl, setQrUrl] = useState<string | null>(null);
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [videoReady, setVideoReady] = useState(false);
+  const [projectionDocument, setProjectionDocument] = useState<ProjectionDocument | null>(null);
+  const [fileImportError, setFileImportError] = useState<string | null>(null);
+  const [importingFile, setImportingFile] = useState(false);
+  const [activeSheetIndex, setActiveSheetIndex] = useState(0);
+  const [activeSlideIndex, setActiveSlideIndex] = useState(0);
   const [sharedPercent, setSharedPercent] = useState(70);
   const [workspacePercent, setWorkspacePercent] = useState(45);
+  const [chatCollapsed, setChatCollapsed] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [isVResizing, setIsVResizing] = useState(false);
@@ -239,6 +260,45 @@ export default function StagePage() {
     router.push(`/rooms/${roomCode}/present?view=poll`);
   };
 
+  const startScreenCapture = () => {
+    setProjectionDocument(null);
+    setFileImportError(null);
+    startScreenShare();
+  };
+
+  const openFilePicker = () => {
+    fileInputRef.current?.click();
+  };
+
+  const clearProjectionDocument = () => {
+    setProjectionDocument(null);
+    setFileImportError(null);
+    setActiveSheetIndex(0);
+    setActiveSlideIndex(0);
+  };
+
+  const handleProjectionFileChange = async (event: ReactChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || importingFile) return;
+
+    setImportingFile(true);
+    setFileImportError(null);
+
+    try {
+      const parsed = await parseProjectionDocument(file);
+      stopScreenShare();
+      setProjectionDocument(parsed);
+      setActiveSheetIndex(0);
+      setActiveSlideIndex(0);
+      setVideoReady(false);
+    } catch (error) {
+      setFileImportError(error instanceof Error ? error.message : '資料ファイルを取り込めませんでした。');
+    } finally {
+      setImportingFile(false);
+    }
+  };
+
   const startPollTimer = useCallback(async (pollId: string) => {
     if (startingPollId) return;
     setStartingPollId(pollId);
@@ -340,7 +400,9 @@ export default function StagePage() {
 
   const layoutStyle = isDesktop
     ? {
-        gridTemplateColumns: `minmax(0, ${sharedPercent}fr) 10px minmax(320px, ${100 - sharedPercent}fr)`,
+        gridTemplateColumns: chatCollapsed
+          ? 'minmax(0, 1fr)'
+          : `minmax(0, ${sharedPercent}fr) 10px minmax(320px, ${100 - sharedPercent}fr)`,
       }
     : undefined;
 
@@ -366,9 +428,33 @@ export default function StagePage() {
       <span className="pointer-events-none fixed bottom-2 left-3 z-50 text-[10px] font-semibold tracking-wide text-white/35">
         ざせきくん
       </span>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".xlsx,.xls,.csv,.pptx,.docx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        className="hidden"
+        onChange={handleProjectionFileChange}
+      />
       <div ref={splitRef} className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-[minmax(0,7fr)_10px_minmax(340px,3fr)]" style={layoutStyle}>
-        <main className="relative h-[55vh] min-h-0 lg:h-full bg-black flex items-center justify-center overflow-hidden">
-          {captureStream ? (
+        <main className={`relative min-h-0 bg-black flex items-center justify-center overflow-hidden ${
+          chatCollapsed ? 'h-full' : 'h-[55vh] lg:h-full'
+        }`}>
+          {projectionDocument ? (
+            <ProjectionDocumentStage
+              projectionDocument={projectionDocument}
+              activeSheetIndex={activeSheetIndex}
+              onSheetIndexChange={setActiveSheetIndex}
+              activeSlideIndex={activeSlideIndex}
+              onSlideIndexChange={setActiveSlideIndex}
+              onFullscreen={enterFullscreen}
+              onOpenClassicScreen={openClassicScreen}
+              onOpenPollScreen={openPollScreen}
+              onStartScreenCapture={startScreenCapture}
+              onPickFile={openFilePicker}
+              onClear={clearProjectionDocument}
+              importingFile={importingFile}
+            />
+          ) : captureStream ? (
             <>
               <div ref={videoHostRef} className="absolute inset-0 h-full w-full bg-black" />
               {!videoReady && (
@@ -398,42 +484,57 @@ export default function StagePage() {
                   <button
                     type="button"
                     onClick={enterFullscreen}
-                    className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-white/90 px-3 text-xs font-semibold text-slate-900 shadow-sm hover:bg-white"
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-white/90 text-slate-900 shadow-sm hover:bg-white"
+                    aria-label="全画面"
+                    title="全画面"
                   >
-                    <Maximize className="w-4 h-4" />
-                    全画面
+                    <Maximize className="h-4 w-4" />
                   </button>
                   <button
                     type="button"
                     onClick={openClassicScreen}
-                    className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-indigo-500 px-3 text-xs font-semibold text-white shadow-sm hover:bg-indigo-400"
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500 text-white shadow-sm hover:bg-indigo-400"
+                    aria-label="スクリーン画面"
+                    title="スクリーン画面"
                   >
-                    <MonitorUp className="w-4 h-4" />
-                    スクリーン画面
+                    <MonitorUp className="h-4 w-4" />
                   </button>
                   <button
                     type="button"
                     onClick={openPollScreen}
-                    className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-emerald-500 px-3 text-xs font-semibold text-white shadow-sm hover:bg-emerald-400"
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500 text-white shadow-sm hover:bg-emerald-400"
+                    aria-label="ワークスペース画面"
+                    title="ワークスペース画面"
                   >
-                    <Trees className="w-4 h-4" />
-                    ワークスペース画面
+                    <Trees className="h-4 w-4" />
                   </button>
                   <button
                     type="button"
-                    onClick={startScreenShare}
-                    className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-white/90 px-3 text-xs font-semibold text-slate-900 shadow-sm hover:bg-white"
+                    onClick={openFilePicker}
+                    disabled={importingFile}
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-amber-400 text-slate-900 shadow-sm hover:bg-amber-300 disabled:opacity-60"
+                    aria-label="ファイルを変更"
+                    title="ファイルを変更"
                   >
-                    <RefreshCw className="w-4 h-4" />
-                    取り込み直す
+                    {importingFile ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={startScreenCapture}
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-white/90 text-slate-900 shadow-sm hover:bg-white"
+                    aria-label="画面を取り込み直す"
+                    title="画面を取り込み直す"
+                  >
+                    <RefreshCw className="h-4 w-4" />
                   </button>
                   <button
                     type="button"
                     onClick={stopScreenShare}
-                    className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-rose-500 px-3 text-xs font-semibold text-white shadow-sm hover:bg-rose-600"
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-rose-500 text-white shadow-sm hover:bg-rose-600"
+                    aria-label="停止"
+                    title="停止"
                   >
-                    <PauseCircle className="w-4 h-4" />
-                    停止
+                    <PauseCircle className="h-4 w-4" />
                   </button>
                 </div>
               </div>
@@ -456,46 +557,55 @@ export default function StagePage() {
               </h1>
               <p className="mt-3 text-sm sm:text-base leading-relaxed text-slate-300">
                 Canva / Google Slides などのブラウザ資料ツールを発表モードにし、<br />
-                その資料画面だけをざせきくんに取り込みます。
+                その資料画面、または Excel / PowerPoint / Word ファイルをざせきくんに取り込みます。
               </p>
               <div className="mt-5 rounded-2xl bg-white/10 p-4 text-left ring-1 ring-white/15">
-                <p className="text-xs font-bold uppercase tracking-wide text-indigo-200">かんたん3ステップ</p>
+                <p className="text-xs font-bold uppercase tracking-wide text-indigo-200">取り込み方法</p>
                 <ol className="mt-3 space-y-2 text-sm leading-relaxed text-slate-200">
-                  <li>1. Canva / Google Slides を発表モードで開く</li>
-                  <li>2. 下の「資料を取り込む」を押す</li>
-                  <li>3. 共有対象で発表中のタブ（または画面全体）を選ぶ</li>
+                  <li>1. ブラウザ資料は発表モードで開き、「画面を取り込む」を押す</li>
+                  <li>2. Excel / PowerPoint / Word は「ファイルを取り込む」から選択する</li>
+                  <li>3. 取り込んだ資料を全画面にしてスクリーンに表示する</li>
                 </ol>
                 <p className="mt-3 text-xs leading-relaxed text-slate-400">
-                  取り込んだら全画面にしてスクリーンに表示します。編集画面のタブを選ぶと編集画面が映るのでご注意ください。
+                  PowerPoint は .pptx、Excel は .xlsx / .xls / .csv、Word は .docx に対応しています。PowerPoint取り込みでは発表者ツールは使えません。発表者ツールを使う場合はブラウザの資料ツールを画面取り込みしてください。
                 </p>
                 <div className="mt-3 rounded-lg bg-amber-400/15 px-3 py-2 text-xs font-bold leading-relaxed text-amber-100 ring-1 ring-amber-300/25">
                   <p>発表者用メモがスクリーンに映る場合は、画面設定をミラーリングOFF（拡張表示）にしてください。</p>
                 </div>
               </div>
-              <div className="mt-7 flex flex-nowrap items-center justify-center gap-2">
+              <div className="mx-auto mt-7 grid w-full max-w-[720px] grid-cols-4 gap-2">
                 <button
                   type="button"
-                  onClick={startScreenShare}
-                  className="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-amber-400 px-3.5 text-sm font-bold text-slate-900 shadow-lg shadow-amber-900/20 ring-1 ring-amber-300 hover:bg-amber-300"
+                  onClick={startScreenCapture}
+                  className="inline-flex h-11 min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-amber-400 px-2 text-xs font-bold text-slate-900 shadow-lg shadow-amber-900/20 ring-1 ring-amber-300 hover:bg-amber-300 sm:text-sm"
                 >
                   <Play className="w-4 h-4 fill-current" />
-                  資料を取り込む
+                  画面取込
+                </button>
+                <button
+                  type="button"
+                  onClick={openFilePicker}
+                  disabled={importingFile}
+                  className="inline-flex h-11 min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-white px-2 text-xs font-bold text-slate-900 ring-1 ring-white/60 hover:bg-slate-100 disabled:opacity-60 sm:text-sm"
+                >
+                  {importingFile ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                  ファイル取込
                 </button>
                 <button
                   type="button"
                   onClick={openPollScreen}
-                  className="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-emerald-500 px-3.5 text-sm font-bold text-white ring-1 ring-emerald-400 hover:bg-emerald-400"
+                  className="inline-flex h-11 min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-emerald-500 px-2 text-xs font-bold text-white ring-1 ring-emerald-400 hover:bg-emerald-400 sm:text-sm"
                 >
                   <Trees className="w-4 h-4" />
-                  ワークスペース画面
+                  ワークスペース
                 </button>
                 <button
                   type="button"
                   onClick={openClassicScreen}
-                  className="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-indigo-500 px-3.5 text-sm font-bold text-white ring-1 ring-indigo-400 hover:bg-indigo-400"
+                  className="inline-flex h-11 min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-indigo-500 px-2 text-xs font-bold text-white ring-1 ring-indigo-400 hover:bg-indigo-400 sm:text-sm"
                 >
                   <MonitorUp className="w-4 h-4" />
-                  スクリーン画面
+                  スクリーン
                 </button>
               </div>
               {captureError && (
@@ -503,22 +613,35 @@ export default function StagePage() {
                   {captureError}
                 </p>
               )}
+              {fileImportError && (
+                <p className="mt-4 rounded-lg bg-rose-500/15 px-4 py-3 text-sm text-rose-100 ring-1 ring-rose-300/20">
+                  {fileImportError}
+                </p>
+              )}
+            </div>
+          )}
+          {fileImportError && (projectionDocument || captureStream) && (
+            <div className="absolute bottom-4 left-4 right-4 z-30 rounded-xl bg-rose-500/95 px-4 py-3 text-sm font-semibold text-white shadow-2xl ring-1 ring-rose-200/40">
+              {fileImportError}
             </div>
           )}
         </main>
 
-        <div
-          role="separator"
-          aria-label="資料投影画面とチャットの境界"
-          aria-orientation="vertical"
-          onPointerDown={startResize}
-          className={`hidden lg:flex cursor-col-resize items-center justify-center bg-slate-900 transition-colors ${
-            isResizing ? 'bg-indigo-600' : 'hover:bg-indigo-500'
-          }`}
-        >
-          <div className="h-16 w-1 rounded-full bg-white/50" />
-        </div>
+        {!chatCollapsed && (
+          <div
+            role="separator"
+            aria-label="資料投影画面とチャットの境界"
+            aria-orientation="vertical"
+            onPointerDown={startResize}
+            className={`hidden lg:flex cursor-col-resize items-center justify-center bg-slate-900 transition-colors ${
+              isResizing ? 'bg-indigo-600' : 'hover:bg-indigo-500'
+            }`}
+          >
+            <div className="h-16 w-1 rounded-full bg-white/50" />
+          </div>
+        )}
 
+        {!chatCollapsed && (
         <aside className="h-[45vh] min-h-0 overflow-hidden border-l border-slate-800 bg-slate-50 text-slate-900 flex flex-col lg:h-full">
           <header className="shrink-0 border-b border-slate-200 bg-white px-5 py-4">
             <div className="flex items-start justify-between gap-4">
@@ -529,16 +652,27 @@ export default function StagePage() {
                   参加コード <span className="font-mono font-bold tracking-widest text-indigo-600">{room.code}</span>
                 </p>
               </div>
-              {qrUrl && (
+              <div className="flex shrink-0 items-start gap-2">
                 <button
                   type="button"
-                  onClick={() => setQrModalOpen(true)}
-                  className="shrink-0 rounded-xl bg-white p-1.5 shadow-sm ring-1 ring-slate-200 transition hover:ring-indigo-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-                  title="QRコードを拡大"
+                  onClick={() => setChatCollapsed(true)}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-700 shadow-sm ring-1 ring-slate-200 transition hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                  aria-label="質問チャットを閉じる"
+                  title="質問チャットを閉じる"
                 >
-                  <img src={qrUrl} alt="参加QRコード" className="h-16 w-16" />
+                  <ChevronRight className="h-5 w-5" />
                 </button>
-              )}
+                {qrUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setQrModalOpen(true)}
+                    className="rounded-xl bg-white p-1.5 shadow-sm ring-1 ring-slate-200 transition hover:ring-indigo-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                    title="QRコードを拡大"
+                  >
+                    <img src={qrUrl} alt="参加QRコード" className="h-16 w-16" />
+                  </button>
+                )}
+              </div>
             </div>
             {realtimeOffline && (
               <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
@@ -648,7 +782,19 @@ export default function StagePage() {
             </section>
           </div>
         </aside>
+        )}
       </div>
+      {chatCollapsed && (
+        <button
+          type="button"
+          onClick={() => setChatCollapsed(false)}
+          className="fixed right-4 top-1/2 z-40 inline-flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white text-slate-900 shadow-2xl ring-1 ring-slate-200 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+          aria-label="質問チャットを開く"
+          title="質問チャットを開く"
+        >
+          <ChevronLeft className="h-6 w-6" />
+        </button>
+      )}
       {qrModalOpen && qrUrl && (
         <div
           role="dialog"
@@ -680,6 +826,972 @@ export default function StagePage() {
   );
 }
 
+function ProjectionDocumentStage({
+  projectionDocument,
+  activeSheetIndex,
+  onSheetIndexChange,
+  activeSlideIndex,
+  onSlideIndexChange,
+  onFullscreen,
+  onOpenClassicScreen,
+  onOpenPollScreen,
+  onStartScreenCapture,
+  onPickFile,
+  onClear,
+  importingFile,
+}: {
+  projectionDocument: ProjectionDocument;
+  activeSheetIndex: number;
+  onSheetIndexChange: (index: number) => void;
+  activeSlideIndex: number;
+  onSlideIndexChange: (index: number) => void;
+  onFullscreen: () => void;
+  onOpenClassicScreen: () => void;
+  onOpenPollScreen: () => void;
+  onStartScreenCapture: () => void;
+  onPickFile: () => void;
+  onClear: () => void;
+  importingFile: boolean;
+}) {
+  const isSpreadsheet = projectionDocument.kind === 'spreadsheet';
+  const isPresentation = projectionDocument.kind === 'presentation';
+  const displayName =
+    projectionDocument.kind === 'spreadsheet'
+      ? 'Excel投影中'
+      : projectionDocument.kind === 'presentation'
+      ? 'PowerPoint投影中'
+      : 'Word投影中';
+  const documentIcon =
+    projectionDocument.kind === 'spreadsheet' ? (
+      <FileSpreadsheet className="h-4 w-4 shrink-0 text-emerald-300" />
+    ) : projectionDocument.kind === 'presentation' ? (
+      <Presentation className="h-4 w-4 shrink-0 text-sky-300" />
+    ) : (
+      <FileText className="h-4 w-4 shrink-0 text-indigo-200" />
+    );
+  const safeSheetIndex =
+    projectionDocument.kind === 'spreadsheet'
+      ? Math.min(activeSheetIndex, Math.max(projectionDocument.sheets.length - 1, 0))
+      : 0;
+  const safeSlideIndex =
+    projectionDocument.kind === 'presentation'
+      ? Math.min(activeSlideIndex, Math.max(projectionDocument.slides.length - 1, 0))
+      : 0;
+
+  return (
+    <>
+      <ProjectionDocumentViewer
+        projectionDocument={projectionDocument}
+        activeSheetIndex={safeSheetIndex}
+        activeSlideIndex={safeSlideIndex}
+      />
+      <div className="absolute left-4 right-4 top-4 z-20 flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <div className="inline-flex max-w-[min(62vw,520px)] items-center gap-2 rounded-full bg-black/65 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-md">
+            {documentIcon}
+            <span className="shrink-0">{displayName}</span>
+            <span className="truncate text-white/70">{projectionDocument.name}</span>
+          </div>
+
+          {projectionDocument.kind === 'spreadsheet' && projectionDocument.sheets.length > 1 && (
+            <select
+              value={safeSheetIndex}
+              onChange={(event) => onSheetIndexChange(Number(event.target.value))}
+              className="h-9 max-w-[220px] rounded-lg border border-white/15 bg-black/60 px-3 text-xs font-semibold text-white outline-none backdrop-blur-md"
+              aria-label="表示するシート"
+            >
+              {projectionDocument.sheets.map((sheet, index) => (
+                <option key={`${sheet.name}-${index}`} value={index}>
+                  {sheet.name}
+                </option>
+              ))}
+            </select>
+          )}
+
+          {isPresentation && (
+            <div className="inline-flex h-9 items-center rounded-lg bg-black/60 p-1 text-xs font-semibold text-white backdrop-blur-md">
+              <button
+                type="button"
+                onClick={() => onSlideIndexChange(Math.max(0, safeSlideIndex - 1))}
+                disabled={safeSlideIndex === 0}
+                className="inline-flex h-7 w-7 items-center justify-center rounded-md hover:bg-white/15 disabled:opacity-35"
+                aria-label="前のスライド"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <span className="min-w-[66px] px-2 text-center tabular-nums">
+                {safeSlideIndex + 1} / {projectionDocument.slides.length}
+              </span>
+              <button
+                type="button"
+                onClick={() => onSlideIndexChange(Math.min(projectionDocument.slides.length - 1, safeSlideIndex + 1))}
+                disabled={safeSlideIndex >= projectionDocument.slides.length - 1}
+                className="inline-flex h-7 w-7 items-center justify-center rounded-md hover:bg-white/15 disabled:opacity-35"
+                aria-label="次のスライド"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={onFullscreen}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-white/90 text-slate-900 shadow-sm hover:bg-white"
+            aria-label="全画面"
+            title="全画面"
+          >
+            <Maximize className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={onOpenClassicScreen}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500 text-white shadow-sm hover:bg-indigo-400"
+            aria-label="スクリーン画面"
+            title="スクリーン画面"
+          >
+            <MonitorUp className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={onOpenPollScreen}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500 text-white shadow-sm hover:bg-emerald-400"
+            aria-label="ワークスペース画面"
+            title="ワークスペース画面"
+          >
+            <Trees className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={onPickFile}
+            disabled={importingFile}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-amber-400 text-slate-900 shadow-sm hover:bg-amber-300 disabled:opacity-60"
+            aria-label="ファイルを変更"
+            title="ファイルを変更"
+          >
+            {importingFile ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+          </button>
+          <button
+            type="button"
+            onClick={onStartScreenCapture}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-white/90 text-slate-900 shadow-sm hover:bg-white"
+            aria-label="画面を取り込む"
+            title="画面を取り込む"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={onClear}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-rose-500 text-white shadow-sm hover:bg-rose-600"
+            aria-label="停止"
+            title="停止"
+          >
+            <PauseCircle className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function ProjectionDocumentViewer({
+  projectionDocument,
+  activeSheetIndex,
+  activeSlideIndex,
+}: {
+  projectionDocument: ProjectionDocument;
+  activeSheetIndex: number;
+  activeSlideIndex: number;
+}) {
+  if (projectionDocument.kind === 'spreadsheet') {
+    const sheet = projectionDocument.sheets[activeSheetIndex] || projectionDocument.sheets[0];
+    return <SpreadsheetProjection sheet={sheet} />;
+  }
+
+  if (projectionDocument.kind === 'word') {
+    return <WordProjection document={projectionDocument} />;
+  }
+
+  const slide = projectionDocument.slides[activeSlideIndex] || projectionDocument.slides[0];
+  return <PresentationProjection slide={slide} slideSize={projectionDocument.slideSize} />;
+}
+
+function SpreadsheetProjection({ sheet }: { sheet: ProjectionSheet }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const panStateRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    scrollLeft: number;
+    scrollTop: number;
+  } | null>(null);
+  const [isPanning, setIsPanning] = useState(false);
+  const hasRows = sheet.rows.length > 0 && sheet.totalColumns > 0;
+  const hasObjects = sheet.objects.length > 0;
+
+  const startPan = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+
+    const target = event.target instanceof HTMLElement ? event.target : null;
+    if (target?.closest('button, a, input, select, textarea, [role="button"]')) return;
+
+    const scrollElement = scrollRef.current;
+    if (!scrollElement) return;
+
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    panStateRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      scrollLeft: scrollElement.scrollLeft,
+      scrollTop: scrollElement.scrollTop,
+    };
+    setIsPanning(true);
+  };
+
+  const movePan = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const panState = panStateRef.current;
+    const scrollElement = scrollRef.current;
+    if (!panState || panState.pointerId !== event.pointerId || !scrollElement) return;
+
+    event.preventDefault();
+    scrollElement.scrollLeft = panState.scrollLeft - (event.clientX - panState.startX);
+    scrollElement.scrollTop = panState.scrollTop - (event.clientY - panState.startY);
+  };
+
+  const endPan = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (panStateRef.current?.pointerId !== event.pointerId) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    panStateRef.current = null;
+    setIsPanning(false);
+  };
+
+  return (
+    <div
+      ref={scrollRef}
+      className={`absolute inset-0 overflow-auto bg-slate-100 px-4 pb-5 pt-24 text-slate-950 sm:px-6 lg:pt-24 ${
+        isPanning ? 'cursor-grabbing select-none' : 'cursor-grab'
+      }`}
+      onPointerDown={startPan}
+      onPointerMove={movePan}
+      onPointerUp={endPan}
+      onPointerCancel={endPan}
+    >
+      {!hasRows && !hasObjects ? (
+        <div className="flex h-full items-center justify-center text-center">
+          <div className="rounded-xl bg-white px-6 py-5 shadow-sm ring-1 ring-slate-200">
+            <FileSpreadsheet className="mx-auto mb-3 h-8 w-8 text-emerald-500" />
+            <p className="text-sm font-bold text-slate-700">このシートに表示できるデータがありません</p>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-8">
+          {hasRows && (
+            <div className="min-w-max">
+              <table className="border-collapse bg-white text-left text-sm shadow-sm ring-1 ring-slate-300">
+                <tbody>
+                  {sheet.rows.map((row, rowIndex) => (
+                    <tr key={rowIndex}>
+                      {row.map((cell, columnIndex) => (
+                        <td
+                          key={`${rowIndex}-${columnIndex}`}
+                          style={sheet.cellStyles[rowIndex]?.[columnIndex]?.backgroundColor
+                            ? { backgroundColor: sheet.cellStyles[rowIndex][columnIndex].backgroundColor }
+                            : undefined}
+                          className={`max-w-[360px] whitespace-pre-wrap break-words border border-slate-300 px-3 py-2 align-top ${
+                            rowIndex === 0
+                              ? 'bg-slate-900 font-bold text-white'
+                              : columnIndex === 0
+                              ? 'bg-slate-50 font-semibold text-slate-900'
+                              : 'bg-white text-slate-900'
+                          }`}
+                        >
+                          {cell || <span className="text-slate-300"> </span>}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {hasObjects && <SpreadsheetObjects objects={sheet.objects} />}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const CHART_COLORS = ['#2563eb', '#16a34a', '#dc2626', '#9333ea', '#ea580c', '#0891b2', '#4f46e5', '#be123c'];
+
+function SpreadsheetObjects({ objects }: { objects: ProjectionSheetObject[] }) {
+  return (
+    <section className="max-w-[1280px] space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200">
+          <BarChart3 className="h-5 w-5" />
+        </div>
+        <div>
+          <h2 className="text-base font-extrabold tracking-tight text-slate-950">シート内グラフ・画像</h2>
+          <p className="text-xs font-semibold text-slate-500">{objects.length}件のオブジェクトを表示しています</p>
+        </div>
+      </div>
+      <div className="grid gap-4 xl:grid-cols-2">
+        {objects.map((object, index) => (
+          <SpreadsheetObjectCard key={`${object.id}-${index}`} object={object} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function SpreadsheetObjectCard({ object }: { object: ProjectionSheetObject }) {
+  return (
+    <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <header className="mb-3 flex min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="truncate text-sm font-extrabold text-slate-900">{object.title}</h3>
+          {object.anchor && (
+            <p className="mt-0.5 text-xs font-semibold text-slate-500">配置: {object.anchor}</p>
+          )}
+        </div>
+        <span className="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-600">
+          {object.type === 'chart' ? 'グラフ' : '画像'}
+        </span>
+      </header>
+
+      {object.type === 'image' ? (
+        <div className="overflow-hidden rounded-lg bg-slate-50 ring-1 ring-slate-200">
+          <img src={object.src} alt={object.alt} className="max-h-[620px] w-full object-contain" />
+        </div>
+      ) : (
+        <SpreadsheetChartPreview chart={object} />
+      )}
+    </article>
+  );
+}
+
+function SpreadsheetChartPreview({ chart }: { chart: ProjectionSheetChart }) {
+  const series = chart.series.filter((item) => item.values.some((value) => Number.isFinite(value)));
+
+  if (series.length === 0) {
+    return (
+      <div className="flex min-h-[220px] items-center justify-center rounded-lg bg-slate-50 px-4 py-8 text-center ring-1 ring-slate-200">
+        <p className="text-sm font-bold text-slate-500">このグラフの系列データを読み取れませんでした</p>
+      </div>
+    );
+  }
+
+  const chartBody =
+    chart.chartType === 'scatter' ? (
+      <ScatterChartSvg series={series} />
+    ) : chart.chartType === 'line' || chart.chartType === 'area' ? (
+      <LineChartSvg series={series} fillArea={chart.chartType === 'area'} />
+    ) : (
+      <BarChartSvg series={series} horizontal={chart.orientation === 'horizontal'} />
+    );
+
+  return (
+    <div className="space-y-3">
+      <ChartLegend series={series} />
+      <div className="overflow-x-auto rounded-lg bg-slate-50 p-3 ring-1 ring-slate-200">
+        {chartBody}
+      </div>
+    </div>
+  );
+}
+
+function ChartLegend({ series }: { series: ProjectionSheetChart['series'] }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {series.map((item, index) => (
+        <span
+          key={`${item.name}-${index}`}
+          className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-600"
+        >
+          <span
+            className="h-2.5 w-2.5 shrink-0 rounded-full"
+            style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}
+          />
+          <span className="truncate">{item.name}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function BarChartSvg({
+  series,
+  horizontal,
+}: {
+  series: ProjectionSheetChart['series'];
+  horizontal: boolean;
+}) {
+  return horizontal ? <HorizontalBarChartSvg series={series} /> : <VerticalBarChartSvg series={series} />;
+}
+
+function HorizontalBarChartSvg({ series }: { series: ProjectionSheetChart['series'] }) {
+  const labels = getChartLabels(series);
+  const width = 900;
+  const left = 210;
+  const right = 34;
+  const top = 34;
+  const bottom = 46;
+  const groupHeight = Math.max(30, series.length * 14 + 16);
+  const height = Math.max(260, top + bottom + labels.length * groupHeight);
+  const { min, max } = getValueExtent(series.flatMap((item) => item.values));
+  const x = (value: number) => scaleValue(value, min, max, left, width - right);
+  const zeroX = x(0);
+  const ticks = makeTicks(min, max, 5);
+  const barHeight = Math.max(5, Math.min(13, (groupHeight - 10) / Math.max(series.length, 1)));
+
+  return (
+    <svg
+      viewBox={`0 0 ${width} ${height}`}
+      role="img"
+      className="block w-full max-w-none"
+      style={{ minWidth: `${width}px`, height: `${height}px` }}
+    >
+      {ticks.map((tick) => {
+        const tickX = x(tick);
+        return (
+          <g key={tick}>
+            <line x1={tickX} y1={top - 8} x2={tickX} y2={height - bottom + 8} stroke="#dbe3ef" />
+            <text x={tickX} y={height - 14} textAnchor="middle" className="fill-slate-500 text-[11px] font-bold">
+              {formatChartValue(tick)}
+            </text>
+          </g>
+        );
+      })}
+      <line x1={zeroX} y1={top - 10} x2={zeroX} y2={height - bottom + 10} stroke="#475569" strokeWidth={1.5} />
+      {labels.map((label, labelIndex) => {
+        const groupTop = top + labelIndex * groupHeight;
+        return (
+          <g key={`${label}-${labelIndex}`}>
+            <text
+              x={left - 12}
+              y={groupTop + groupHeight / 2 + 4}
+              textAnchor="end"
+              className="fill-slate-700 text-[12px] font-bold"
+            >
+              {truncateLabel(label, 22)}
+            </text>
+            {series.map((item, seriesIndex) => {
+              const value = item.values[labelIndex];
+              if (!Number.isFinite(value)) return null;
+              const valueX = x(value);
+              const rectX = Math.min(zeroX, valueX);
+              const rectWidth = Math.max(1, Math.abs(valueX - zeroX));
+              const rectY = groupTop + 7 + seriesIndex * (barHeight + 2);
+              const placeValueAbove =
+                (value < 0 && rectX < left + 72) ||
+                (value >= 0 && rectX + rectWidth > width - right - 64);
+              const valueLabelX = placeValueAbove
+                ? Math.min(width - right - 8, Math.max(left + 8, rectX + rectWidth / 2))
+                : value >= 0
+                ? rectX + rectWidth + 5
+                : rectX - 5;
+              const valueLabelY = placeValueAbove ? Math.max(14, rectY - 4) : rectY + barHeight - 1;
+              const valueTextAnchor = placeValueAbove ? 'middle' : value >= 0 ? 'start' : 'end';
+              return (
+                <g key={`${item.name}-${seriesIndex}`}>
+                  <rect
+                    x={rectX}
+                    y={rectY}
+                    width={rectWidth}
+                    height={barHeight}
+                    rx={2}
+                    fill={CHART_COLORS[seriesIndex % CHART_COLORS.length]}
+                  />
+                  <text
+                    x={valueLabelX}
+                    y={valueLabelY}
+                    textAnchor={valueTextAnchor}
+                    className="fill-slate-500 text-[10px] font-bold"
+                  >
+                    {formatChartValue(value)}
+                  </text>
+                </g>
+              );
+            })}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+function VerticalBarChartSvg({ series }: { series: ProjectionSheetChart['series'] }) {
+  const labels = getChartLabels(series);
+  const width = Math.max(760, labels.length * Math.max(56, series.length * 18 + 18) + 100);
+  const height = 360;
+  const left = 58;
+  const right = 28;
+  const top = 26;
+  const bottom = 86;
+  const plotWidth = width - left - right;
+  const { min, max } = getValueExtent(series.flatMap((item) => item.values));
+  const y = (value: number) => scaleValue(value, min, max, height - bottom, top);
+  const zeroY = y(0);
+  const ticks = makeTicks(min, max, 5);
+  const groupWidth = plotWidth / Math.max(labels.length, 1);
+  const barWidth = Math.max(5, Math.min(20, (groupWidth - 10) / Math.max(series.length, 1)));
+
+  return (
+    <svg
+      viewBox={`0 0 ${width} ${height}`}
+      role="img"
+      className="block max-w-none"
+      style={{ width: `${width}px`, height: `${height}px` }}
+    >
+      {ticks.map((tick) => {
+        const tickY = y(tick);
+        return (
+          <g key={tick}>
+            <line x1={left} y1={tickY} x2={width - right} y2={tickY} stroke="#dbe3ef" />
+            <text x={left - 10} y={tickY + 4} textAnchor="end" className="fill-slate-500 text-[11px] font-bold">
+              {formatChartValue(tick)}
+            </text>
+          </g>
+        );
+      })}
+      <line x1={left} y1={zeroY} x2={width - right} y2={zeroY} stroke="#475569" strokeWidth={1.5} />
+      {labels.map((label, labelIndex) => {
+        const groupX = left + labelIndex * groupWidth;
+        return (
+          <g key={`${label}-${labelIndex}`}>
+            {series.map((item, seriesIndex) => {
+              const value = item.values[labelIndex];
+              if (!Number.isFinite(value)) return null;
+              const barX = groupX + (groupWidth - barWidth * series.length) / 2 + seriesIndex * barWidth;
+              const valueY = y(value);
+              const rectY = Math.min(zeroY, valueY);
+              const rectHeight = Math.max(1, Math.abs(valueY - zeroY));
+              return (
+                <rect
+                  key={`${item.name}-${seriesIndex}`}
+                  x={barX}
+                  y={rectY}
+                  width={barWidth - 2}
+                  height={rectHeight}
+                  rx={2}
+                  fill={CHART_COLORS[seriesIndex % CHART_COLORS.length]}
+                />
+              );
+            })}
+            <text
+              x={groupX + groupWidth / 2}
+              y={height - bottom + 24}
+              textAnchor="end"
+              transform={`rotate(-42 ${groupX + groupWidth / 2} ${height - bottom + 24})`}
+              className="fill-slate-600 text-[11px] font-bold"
+            >
+              {truncateLabel(label, 16)}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+function LineChartSvg({
+  series,
+  fillArea,
+}: {
+  series: ProjectionSheetChart['series'];
+  fillArea: boolean;
+}) {
+  const labels = getChartLabels(series);
+  const pointCount = Math.max(labels.length, ...series.map((item) => item.values.length));
+  const width = Math.max(760, pointCount * 48 + 100);
+  const height = 360;
+  const left = 58;
+  const right = 28;
+  const top = 26;
+  const bottom = 78;
+  const { min, max } = getValueExtent(series.flatMap((item) => item.values));
+  const y = (value: number) => scaleValue(value, min, max, height - bottom, top);
+  const x = (index: number) => scaleValue(index, 0, Math.max(pointCount - 1, 1), left, width - right);
+  const zeroY = y(0);
+  const ticks = makeTicks(min, max, 5);
+  const labelStep = Math.max(1, Math.ceil(labels.length / 10));
+
+  return (
+    <svg
+      viewBox={`0 0 ${width} ${height}`}
+      role="img"
+      className="block max-w-none"
+      style={{ width: `${width}px`, height: `${height}px` }}
+    >
+      {ticks.map((tick) => {
+        const tickY = y(tick);
+        return (
+          <g key={tick}>
+            <line x1={left} y1={tickY} x2={width - right} y2={tickY} stroke="#dbe3ef" />
+            <text x={left - 10} y={tickY + 4} textAnchor="end" className="fill-slate-500 text-[11px] font-bold">
+              {formatChartValue(tick)}
+            </text>
+          </g>
+        );
+      })}
+      <line x1={left} y1={zeroY} x2={width - right} y2={zeroY} stroke="#475569" strokeWidth={1.5} />
+      {series.map((item, seriesIndex) => {
+        const points = item.values
+          .map((value, index) => (Number.isFinite(value) ? `${x(index)},${y(value)}` : null))
+          .filter(Boolean)
+          .join(' ');
+        const color = CHART_COLORS[seriesIndex % CHART_COLORS.length];
+        const areaPoints = `${left},${zeroY} ${points} ${x(item.values.length - 1)},${zeroY}`;
+        return (
+          <g key={`${item.name}-${seriesIndex}`}>
+            {fillArea && <polygon points={areaPoints} fill={color} opacity={0.14} />}
+            <polyline points={points} fill="none" stroke={color} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
+            {item.values.map((value, index) => (
+              Number.isFinite(value) ? (
+                <circle key={index} cx={x(index)} cy={y(value)} r={3.5} fill={color} stroke="#ffffff" strokeWidth={1.5} />
+              ) : null
+            ))}
+          </g>
+        );
+      })}
+      {labels.map((label, index) => (
+        index % labelStep === 0 ? (
+          <text
+            key={`${label}-${index}`}
+            x={x(index)}
+            y={height - bottom + 24}
+            textAnchor="end"
+            transform={`rotate(-36 ${x(index)} ${height - bottom + 24})`}
+            className="fill-slate-600 text-[11px] font-bold"
+          >
+            {truncateLabel(label, 14)}
+          </text>
+        ) : null
+      ))}
+    </svg>
+  );
+}
+
+function ScatterChartSvg({ series }: { series: ProjectionSheetChart['series'] }) {
+  const pointsBySeries = series.map((item) => ({
+    name: item.name,
+    points: item.values.map((value, index) => {
+      const categoryValue = parseChartNumber(item.categories[index]);
+      return {
+        x: Number.isFinite(categoryValue) ? categoryValue : index + 1,
+        y: value,
+        label: item.pointLabels?.[index] || '',
+      };
+    }),
+  }));
+  const xValues = pointsBySeries.flatMap((item) => item.points.map((point) => point.x));
+  const yValues = pointsBySeries.flatMap((item) => item.points.map((point) => point.y));
+  const width = 760;
+  const height = 360;
+  const left = 62;
+  const right = 30;
+  const top = 24;
+  const bottom = 56;
+  const xExtent = getValueExtent(xValues, false);
+  const yExtent = getValueExtent(yValues);
+  const x = (value: number) => scaleValue(value, xExtent.min, xExtent.max, left, width - right);
+  const y = (value: number) => scaleValue(value, yExtent.min, yExtent.max, height - bottom, top);
+  const xTicks = makeTicks(xExtent.min, xExtent.max, 5);
+  const yTicks = makeTicks(yExtent.min, yExtent.max, 5);
+
+  return (
+    <svg
+      viewBox={`0 0 ${width} ${height}`}
+      role="img"
+      className="block w-full max-w-none"
+      style={{ minWidth: `${width}px`, height: `${height}px` }}
+    >
+      {yTicks.map((tick) => {
+        const tickY = y(tick);
+        return (
+          <g key={`y-${tick}`}>
+            <line x1={left} y1={tickY} x2={width - right} y2={tickY} stroke="#dbe3ef" />
+            <text x={left - 10} y={tickY + 4} textAnchor="end" className="fill-slate-500 text-[11px] font-bold">
+              {formatChartValue(tick)}
+            </text>
+          </g>
+        );
+      })}
+      {xTicks.map((tick) => {
+        const tickX = x(tick);
+        return (
+          <g key={`x-${tick}`}>
+            <line x1={tickX} y1={top} x2={tickX} y2={height - bottom} stroke="#e2e8f0" />
+            <text x={tickX} y={height - 18} textAnchor="middle" className="fill-slate-500 text-[11px] font-bold">
+              {formatChartValue(tick)}
+            </text>
+          </g>
+        );
+      })}
+      <line x1={left} y1={height - bottom} x2={width - right} y2={height - bottom} stroke="#475569" strokeWidth={1.5} />
+      <line x1={left} y1={top} x2={left} y2={height - bottom} stroke="#475569" strokeWidth={1.5} />
+      {pointsBySeries.map((item, seriesIndex) => {
+        const color = CHART_COLORS[seriesIndex % CHART_COLORS.length];
+        return (
+          <g key={`${item.name}-${seriesIndex}`}>
+            {item.points.map((point, pointIndex) => (
+              <g key={pointIndex}>
+                <circle cx={x(point.x)} cy={y(point.y)} r={4} fill={color} opacity={0.9} />
+                {point.label && (
+                  <text
+                    x={x(point.x) + (pointIndex % 2 === 0 ? 8 : -8)}
+                    y={y(point.y) + (pointIndex % 3 === 0 ? -8 : 14)}
+                    textAnchor={pointIndex % 2 === 0 ? 'start' : 'end'}
+                    className="fill-slate-700 text-[11px] font-bold"
+                  >
+                    {truncateLabel(point.label, 18)}
+                  </text>
+                )}
+              </g>
+            ))}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+function getChartLabels(series: ProjectionSheetChart['series']) {
+  const longestCategories = series.reduce<string[]>(
+    (longest, item) => (item.categories.length > longest.length ? item.categories : longest),
+    []
+  );
+  const length = Math.max(longestCategories.length, ...series.map((item) => item.values.length));
+  return Array.from({ length }, (_, index) => longestCategories[index] || String(index + 1));
+}
+
+function getValueExtent(values: number[], includeZero = true) {
+  const finiteValues = values.filter((value) => Number.isFinite(value));
+  if (finiteValues.length === 0) return { min: 0, max: 1 };
+
+  let min = Math.min(...finiteValues);
+  let max = Math.max(...finiteValues);
+  if (includeZero) {
+    min = Math.min(min, 0);
+    max = Math.max(max, 0);
+  }
+
+  if (min === max) {
+    const padding = Math.abs(min) > 1 ? Math.abs(min) * 0.2 : 1;
+    min -= padding;
+    max += padding;
+  }
+
+  return { min, max };
+}
+
+function makeTicks(min: number, max: number, count: number) {
+  if (count <= 1) return [min];
+  const step = (max - min) / (count - 1);
+  return Array.from({ length: count }, (_, index) => min + step * index);
+}
+
+function scaleValue(value: number, min: number, max: number, start: number, end: number) {
+  if (min === max) return (start + end) / 2;
+  return start + ((value - min) / (max - min)) * (end - start);
+}
+
+function formatChartValue(value: number) {
+  const absolute = Math.abs(value);
+  if (absolute >= 10000) return new Intl.NumberFormat('ja-JP', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
+  if (absolute > 0 && absolute < 1) return value.toFixed(3).replace(/0+$/, '').replace(/\.$/, '');
+  return new Intl.NumberFormat('ja-JP', { maximumFractionDigits: 2 }).format(value);
+}
+
+function truncateLabel(value: string, maxLength: number) {
+  return value.length > maxLength ? `${value.slice(0, maxLength - 1)}…` : value;
+}
+
+function parseChartNumber(value: string | undefined) {
+  const parsed = Number((value || '').replace(/,/g, '').replace(/%$/, '').trim());
+  return Number.isFinite(parsed) ? parsed : NaN;
+}
+
+function WordProjection({ document }: { document: ProjectionWordDocument }) {
+  return (
+    <div className="absolute inset-0 overflow-auto bg-slate-200 px-4 pb-10 pt-24 text-slate-950 sm:px-8">
+      <article className="mx-auto min-h-full max-w-5xl bg-white px-8 py-10 shadow-sm ring-1 ring-slate-300 sm:px-12">
+        <div className="space-y-5">
+          {document.blocks.map((block) => {
+            if (block.type === 'paragraph') {
+              const headingClass =
+                block.headingLevel === 1
+                  ? 'text-3xl font-extrabold leading-tight'
+                  : block.headingLevel === 2
+                  ? 'text-2xl font-extrabold leading-tight'
+                  : block.headingLevel
+                  ? 'text-xl font-bold leading-tight'
+                  : 'text-base font-medium leading-8';
+
+              return (
+                <p
+                  key={block.id}
+                  className={`whitespace-pre-wrap break-words text-slate-900 ${headingClass}`}
+                  style={{ textAlign: block.textAlign }}
+                >
+                  {block.text}
+                </p>
+              );
+            }
+
+            if (block.type === 'image') {
+              return (
+                <figure key={block.id} className="overflow-hidden rounded-lg bg-slate-50 ring-1 ring-slate-200">
+                  <img src={block.src} alt={block.alt} className="max-h-[720px] w-full object-contain" />
+                </figure>
+              );
+            }
+
+            return (
+              <div key={block.id} className="overflow-x-auto">
+                <table className="min-w-full border-collapse text-left text-sm">
+                  <tbody>
+                    {block.rows.map((row, rowIndex) => (
+                      <tr key={rowIndex}>
+                        {row.map((cell, columnIndex) => (
+                          <td
+                            key={`${rowIndex}-${columnIndex}`}
+                            className="max-w-[360px] whitespace-pre-wrap break-words border border-slate-300 px-3 py-2 align-top text-slate-900"
+                          >
+                            {cell || <span className="text-slate-300"> </span>}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })}
+        </div>
+      </article>
+    </div>
+  );
+}
+
+function PresentationProjection({
+  slide,
+  slideSize,
+}: {
+  slide: ProjectionSlide;
+  slideSize: { width: number; height: number };
+}) {
+  return (
+    <div className="absolute inset-0 bg-neutral-950 pt-24">
+      <svg
+        className="block h-full w-full"
+        viewBox={`0 0 ${slideSize.width} ${slideSize.height}`}
+        preserveAspectRatio="xMidYMid meet"
+        role="img"
+        aria-label={slide.title}
+        style={{ backgroundColor: slide.backgroundColor }}
+      >
+        {slide.elements.length === 0 && (
+          <text
+            x={slideSize.width / 2}
+            y={slideSize.height / 2}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fill="#64748b"
+            fontSize={24 * 12700}
+            fontWeight={700}
+          >
+            このスライドは静的プレビューで表示できる要素がありません
+          </text>
+        )}
+        {slide.elements.map((element) => (
+          <PresentationSlideElement key={element.id} element={element} slideSize={slideSize} />
+        ))}
+      </svg>
+    </div>
+  );
+}
+
+function PresentationSlideElement({
+  element,
+  slideSize,
+}: {
+  element: ProjectionSlideElement;
+  slideSize: { width: number; height: number };
+}) {
+  const rect = {
+    x: (element.rect.left / 100) * slideSize.width,
+    y: (element.rect.top / 100) * slideSize.height,
+    width: (element.rect.width / 100) * slideSize.width,
+    height: (element.rect.height / 100) * slideSize.height,
+  };
+
+  if (element.type === 'image') {
+    return (
+      <image
+        href={element.src}
+        aria-label={element.alt}
+        x={rect.x}
+        y={rect.y}
+        width={rect.width}
+        height={rect.height}
+        preserveAspectRatio="xMidYMid meet"
+      />
+    );
+  }
+
+  if (element.type === 'shape') {
+    return (
+      <rect
+        x={rect.x}
+        y={rect.y}
+        width={rect.width}
+        height={rect.height}
+        fill={element.backgroundColor}
+      />
+    );
+  }
+
+  const paddingX = Math.min(rect.width * 0.06, Math.max(element.fontSizeEmu * 0.3, rect.width * 0.015));
+  const paddingY = Math.min(rect.height * 0.18, Math.max(element.fontSizeEmu * 0.2, rect.height * 0.035));
+
+  return (
+    <foreignObject
+      x={rect.x}
+      y={rect.y}
+      width={rect.width}
+      height={rect.height}
+    >
+      <div
+        style={{
+          boxSizing: 'border-box',
+          width: '100%',
+          height: '100%',
+          overflow: 'hidden',
+          padding: `${paddingY}px ${paddingX}px`,
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          lineHeight: 1.12,
+          backgroundColor: element.backgroundColor || 'transparent',
+          color: element.color,
+          fontSize: `${element.fontSizeEmu}px`,
+          fontWeight: element.fontWeight,
+          textAlign: element.textAlign,
+        }}
+      >
+        {element.text}
+      </div>
+    </foreignObject>
+  );
+}
 function StagePollDeck({
   polls,
   pollVotes,

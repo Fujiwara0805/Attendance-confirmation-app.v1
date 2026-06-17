@@ -100,6 +100,7 @@ function setVisibleVideoStyles(video: HTMLVideoElement) {
     height: '100%',
     display: 'block',
     objectFit: 'contain',
+    objectPosition: 'center center',
     background: '#000',
     opacity: '1',
     pointerEvents: 'none',
