@@ -883,6 +883,16 @@ export default function StagePage() {
               {saveMessage}
             </div>
           )}
+          <button
+            type="button"
+            onClick={() => setChatCollapsed((prev) => !prev)}
+            className="absolute right-4 top-1/2 z-40 inline-flex -translate-y-1/2 flex-col items-center justify-center gap-0.5 rounded-2xl bg-white px-2.5 py-2 text-sky-600 shadow-2xl ring-1 ring-sky-200 hover:bg-sky-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+            aria-label={chatCollapsed ? '質問チャットを開く' : '質問チャットを閉じる'}
+            title={chatCollapsed ? '質問チャットを開く' : '質問チャットを閉じる'}
+          >
+            {chatCollapsed ? <ChevronLeft className="h-6 w-6" /> : <ChevronRight className="h-6 w-6" />}
+            <span className="text-[10px] font-bold leading-none">{chatCollapsed ? '開く' : '閉じる'}</span>
+          </button>
         </main>
 
         {!chatCollapsed && (
@@ -1033,16 +1043,6 @@ export default function StagePage() {
         </aside>
         )}
       </div>
-      <button
-        type="button"
-        onClick={() => setChatCollapsed((prev) => !prev)}
-        className="fixed right-4 top-1/2 z-40 inline-flex -translate-y-1/2 flex-col items-center justify-center gap-0.5 rounded-2xl bg-white px-2.5 py-2 text-sky-600 shadow-2xl ring-1 ring-sky-200 hover:bg-sky-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
-        aria-label={chatCollapsed ? '質問チャットを開く' : '質問チャットを閉じる'}
-        title={chatCollapsed ? '質問チャットを開く' : '質問チャットを閉じる'}
-      >
-        {chatCollapsed ? <ChevronLeft className="h-6 w-6" /> : <ChevronRight className="h-6 w-6" />}
-        <span className="text-[10px] font-bold leading-none">{chatCollapsed ? '開く' : '閉じる'}</span>
-      </button>
       {qrModalOpen && qrUrl && (
         <div
           role="dialog"
