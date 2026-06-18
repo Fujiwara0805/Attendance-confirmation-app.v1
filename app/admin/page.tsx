@@ -2892,7 +2892,7 @@ function AdminPageInner() {
                           <Button
                             asChild
                             size="sm"
-                            className="h-8 w-full px-3 text-xs bg-sky-600 hover:bg-sky-700 text-white"
+                            className="h-8 w-full px-3 text-xs bg-sky-600 hover:bg-sky-700 text-white hover:text-white"
                           >
                             <a
                               href={`/rooms/${room.code}/present`}
