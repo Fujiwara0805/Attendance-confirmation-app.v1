@@ -17,9 +17,11 @@ import {
   MessageSquare,
   MonitorUp,
   PauseCircle,
+  Pencil,
   Play,
   Presentation,
   RefreshCw,
+  Save,
   StopCircle,
   ThumbsUp,
   Trees,
@@ -43,6 +45,8 @@ import {
 } from '@/lib/pollModes';
 import {
   parseProjectionDocument,
+  isEditableProjection,
+  buildEditedProjectionBlob,
   type ProjectionDocument,
   type ProjectionSheetChart,
   type ProjectionSheetObject,
@@ -51,7 +55,9 @@ import {
   type ProjectionSlideElement,
   type ProjectionWordDocument,
 } from '@/lib/projectionDocument';
+import { createBrowserClient } from '@/lib/supabase';
 import RankingResults from '../../components/RankingResults';
+import PdfProjection from './PdfProjection';
 
 interface Room {
   id: string;
@@ -61,7 +67,32 @@ interface Room {
   moderation_enabled?: boolean;
 }
 
+// File System Access API（Chrome/Edge）の最小型。元ファイルへの上書き保存に使う。
+interface EditableFileHandle {
+  getFile: () => Promise<File>;
+  createWritable: () => Promise<{ write: (data: Blob) => Promise<void>; close: () => Promise<void> }>;
+}
+
+interface FileSystemAccessWindow {
+  showOpenFilePicker?: (options?: {
+    multiple?: boolean;
+    types?: Array<{ description?: string; accept: Record<string, string[]> }>;
+  }) => Promise<EditableFileHandle[]>;
+}
+
 const useBrowserLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
+
+// 上書き非対応ブラウザ向けのダウンロード保存。
+function downloadBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = fileName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 
 export default function StagePage() {
   const params = useParams();
@@ -72,6 +103,10 @@ export default function StagePage() {
   const vSplitRef = useRef<HTMLDivElement>(null);
   const videoHostRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // 上書き保存用: 取り込んだ元ファイルのハンドル / バイト列 / パース直後の複製。
+  const fileHandleRef = useRef<EditableFileHandle | null>(null);
+  const originalBufferRef = useRef<ArrayBuffer | null>(null);
+  const originalDocRef = useRef<ProjectionDocument | null>(null);
 
   const [room, setRoom] = useState<Room | null>(null);
   const [roomLoading, setRoomLoading] = useState(true);
@@ -81,6 +116,14 @@ export default function StagePage() {
   const [projectionDocument, setProjectionDocument] = useState<ProjectionDocument | null>(null);
   const [fileImportError, setFileImportError] = useState<string | null>(null);
   const [importingFile, setImportingFile] = useState(false);
+  // pptx は Gotenberg で PDF 化して pdf.js で正確表示する。projectionDocument(クライアント解析)とは排他。
+  const [projectionPdfUrl, setProjectionPdfUrl] = useState<string | null>(null);
+  const [projectionPdfName, setProjectionPdfName] = useState('');
+  const [convertingPptx, setConvertingPptx] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [confirmSaveOpen, setConfirmSaveOpen] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [activeSheetIndex, setActiveSheetIndex] = useState(0);
   const [activeSlideIndex, setActiveSlideIndex] = useState(0);
   const [sharedPercent, setSharedPercent] = useState(70);
@@ -260,35 +303,137 @@ export default function StagePage() {
     router.push(`/rooms/${roomCode}/present?view=poll`);
   };
 
+  const resetEditState = () => {
+    setEditMode(false);
+    setConfirmSaveOpen(false);
+    setSaveMessage(null);
+    fileHandleRef.current = null;
+    originalBufferRef.current = null;
+    originalDocRef.current = null;
+  };
+
   const startScreenCapture = () => {
     setProjectionDocument(null);
+    setProjectionPdfUrl(null);
     setFileImportError(null);
+    resetEditState();
     startScreenShare();
   };
 
-  const openFilePicker = () => {
-    fileInputRef.current?.click();
+  // File System Access API があれば書き込み可能なハンドルを得て上書き保存に備える。
+  // 非対応ブラウザは従来の隠し input にフォールバック（ハンドル無し→ダウンロード保存）。
+  const openFilePicker = async () => {
+    const picker = (window as unknown as FileSystemAccessWindow).showOpenFilePicker;
+    if (typeof picker !== 'function') {
+      fileInputRef.current?.click();
+      return;
+    }
+
+    try {
+      const [handle] = await picker({
+        multiple: false,
+        types: [
+          {
+            description: '資料ファイル',
+            accept: {
+              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+              'application/vnd.ms-excel': ['.xls'],
+              'text/csv': ['.csv'],
+              'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
+              'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+            },
+          },
+        ],
+      });
+      const file = await handle.getFile();
+      await importProjectionFile(file, handle);
+    } catch (error) {
+      // ユーザーがキャンセルした場合（AbortError）は黙って終了。
+      if ((error as { name?: string })?.name !== 'AbortError') {
+        setFileImportError('ファイルを開けませんでした。');
+      }
+    }
   };
 
   const clearProjectionDocument = () => {
     setProjectionDocument(null);
+    setProjectionPdfUrl(null);
     setFileImportError(null);
     setActiveSheetIndex(0);
     setActiveSlideIndex(0);
+    resetEditState();
   };
 
-  const handleProjectionFileChange = async (event: ReactChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file || importingFile) return;
+  // pptx をサーバー(Gotenberg)で PDF 化して取得する。成功すれば true（pdf.js で正確表示）。
+  // 変換未設定/失敗時は false を返し、呼び出し側でクライアント解析にフォールバックする。
+  const importPptxViaServer = async (file: File): Promise<boolean> => {
+    try {
+      const signRes = await fetch(`/api/rooms/${roomCode}/projection/sign-upload`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: file.name }),
+      });
+      if (!signRes.ok) return false;
+      const { path, token } = await signRes.json();
+
+      const supabase = createBrowserClient();
+      const { error: uploadError } = await supabase.storage
+        .from('projection-files')
+        .uploadToSignedUrl(path, token, file);
+      if (uploadError) return false;
+
+      const convertRes = await fetch(`/api/rooms/${roomCode}/projection/convert`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path }),
+      });
+      if (!convertRes.ok) return false; // 503(未設定)含む → フォールバック
+      const { pdfUrl } = await convertRes.json();
+      if (!pdfUrl) return false;
+
+      setProjectionPdfUrl(pdfUrl);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const importProjectionFile = async (file: File, handle: EditableFileHandle | null) => {
+    if (importingFile) return;
 
     setImportingFile(true);
     setFileImportError(null);
+    setSaveMessage(null);
+
+    const extension = file.name.split('.').pop()?.toLowerCase();
 
     try {
+      // pptx はまずサーバー変換(PowerPointと同一見た目)を試す。
+      if (extension === 'pptx') {
+        setConvertingPptx(true);
+        stopScreenShare();
+        setProjectionDocument(null);
+        resetEditState();
+        const handled = await importPptxViaServer(file);
+        setConvertingPptx(false);
+        if (handled) {
+          setProjectionPdfName(file.name);
+          setVideoReady(false);
+          return;
+        }
+        // 変換できなければ既存のクライアント解析にフォールバックする。
+      }
+
+      const buffer = await file.arrayBuffer();
       const parsed = await parseProjectionDocument(file);
       stopScreenShare();
+      setProjectionPdfUrl(null);
       setProjectionDocument(parsed);
+      // 編集可能ファイルのみ、保存時の差分元としてパース直後の状態と元バイト列を保持する。
+      originalDocRef.current = isEditableProjection(parsed) ? structuredClone(parsed) : null;
+      originalBufferRef.current = buffer;
+      fileHandleRef.current = handle;
+      setEditMode(false);
       setActiveSheetIndex(0);
       setActiveSlideIndex(0);
       setVideoReady(false);
@@ -296,6 +441,74 @@ export default function StagePage() {
       setFileImportError(error instanceof Error ? error.message : '資料ファイルを取り込めませんでした。');
     } finally {
       setImportingFile(false);
+      setConvertingPptx(false);
+    }
+  };
+
+  const handleProjectionFileChange = async (event: ReactChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    await importProjectionFile(file, null);
+  };
+
+  const handleEditCell = useCallback((sheetIndex: number, rowIndex: number, colIndex: number, value: string) => {
+    setProjectionDocument((current) => {
+      if (!current || current.kind !== 'spreadsheet') return current;
+      const sheet = current.sheets[sheetIndex];
+      if (!sheet || sheet.rows[rowIndex]?.[colIndex] === value) return current;
+      const sheets = current.sheets.map((item, index) => {
+        if (index !== sheetIndex) return item;
+        const rows = item.rows.map((row, ri) =>
+          ri === rowIndex ? row.map((cell, ci) => (ci === colIndex ? value : cell)) : row
+        );
+        return { ...item, rows };
+      });
+      return { ...current, sheets };
+    });
+  }, []);
+
+  const handleEditBlock = useCallback((blockId: string, text: string) => {
+    setProjectionDocument((current) => {
+      if (!current || current.kind !== 'word') return current;
+      const blocks = current.blocks.map((block) =>
+        block.id === blockId && block.type === 'paragraph' ? { ...block, text } : block
+      );
+      return { ...current, blocks };
+    });
+  }, []);
+
+  const performSave = async () => {
+    setConfirmSaveOpen(false);
+    const buffer = originalBufferRef.current;
+    if (!projectionDocument || !buffer || saving) return;
+
+    setSaving(true);
+    setSaveMessage(null);
+    setFileImportError(null);
+
+    try {
+      const baseline = originalDocRef.current ?? projectionDocument;
+      const blob = await buildEditedProjectionBlob(projectionDocument, baseline, buffer);
+      const handle = fileHandleRef.current;
+
+      if (handle) {
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        setSaveMessage('元のファイルに上書き保存しました。');
+        // 次回保存の差分元を、上書き後の内容に更新する。
+        originalDocRef.current = structuredClone(projectionDocument);
+        originalBufferRef.current = await (await handle.getFile()).arrayBuffer();
+      } else {
+        downloadBlob(blob, projectionDocument.name);
+        setSaveMessage('編集内容を新しいファイルとしてダウンロード保存しました。');
+        originalDocRef.current = structuredClone(projectionDocument);
+      }
+    } catch (error) {
+      setFileImportError(error instanceof Error ? error.message : '上書き保存できませんでした。');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -344,6 +557,12 @@ export default function StagePage() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [qrModalOpen]);
+
+  useEffect(() => {
+    if (!saveMessage) return;
+    const timer = window.setTimeout(() => setSaveMessage(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [saveMessage]);
 
   const updateSharedPercent = useCallback((clientX: number) => {
     const rect = splitRef.current?.getBoundingClientRect();
@@ -435,11 +654,37 @@ export default function StagePage() {
         className="hidden"
         onChange={handleProjectionFileChange}
       />
-      <div ref={splitRef} className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-[minmax(0,7fr)_10px_minmax(340px,3fr)]" style={layoutStyle}>
+      <div
+        ref={splitRef}
+        className={`grid h-full min-h-0 grid-cols-1 ${
+          chatCollapsed ? '' : 'lg:grid-cols-[minmax(0,7fr)_10px_minmax(340px,3fr)]'
+        }`}
+        style={layoutStyle}
+      >
         <main className={`relative min-h-0 bg-black flex items-center justify-center overflow-hidden ${
           chatCollapsed ? 'h-full' : 'h-[55vh] lg:h-full'
         }`}>
-          {projectionDocument ? (
+          {convertingPptx ? (
+            <div className="w-full max-w-md px-8 text-center">
+              <Loader2 className="mx-auto mb-4 h-9 w-9 animate-spin text-sky-300" />
+              <p className="text-base font-bold text-white">資料を変換しています…</p>
+              <p className="mt-2 text-sm leading-relaxed text-slate-300">
+                PowerPoint と同じ見た目で表示できるよう、スライドを変換中です。
+              </p>
+            </div>
+          ) : projectionPdfUrl ? (
+            <PdfProjection
+              pdfUrl={projectionPdfUrl}
+              fileName={projectionPdfName}
+              onFullscreen={enterFullscreen}
+              onOpenClassicScreen={openClassicScreen}
+              onOpenPollScreen={openPollScreen}
+              onStartScreenCapture={startScreenCapture}
+              onPickFile={openFilePicker}
+              onClear={clearProjectionDocument}
+              importingFile={importingFile}
+            />
+          ) : projectionDocument ? (
             <ProjectionDocumentStage
               projectionDocument={projectionDocument}
               activeSheetIndex={activeSheetIndex}
@@ -453,6 +698,14 @@ export default function StagePage() {
               onPickFile={openFilePicker}
               onClear={clearProjectionDocument}
               importingFile={importingFile}
+              canEdit={isEditableProjection(projectionDocument)}
+              editMode={editMode}
+              onSetEditMode={setEditMode}
+              onSave={() => setConfirmSaveOpen(true)}
+              saving={saving}
+              canOverwrite={!!fileHandleRef.current}
+              onEditCell={handleEditCell}
+              onEditBlock={handleEditBlock}
             />
           ) : captureStream ? (
             <>
@@ -557,7 +810,7 @@ export default function StagePage() {
               </h1>
               <p className="mt-3 text-sm sm:text-base leading-relaxed text-slate-300">
                 Canva / Google Slides などのブラウザ資料ツールを発表モードにし、<br />
-                その資料画面、または Excel / PowerPoint / Word ファイルをざせきくんに取り込みます。
+                スクリーンに投影できます。または Excel / PowerPoint / Word ファイルを取り込むことができます。
               </p>
               <div className="mt-5 rounded-2xl bg-white/10 p-4 text-left ring-1 ring-white/15">
                 <p className="text-xs font-bold uppercase tracking-wide text-indigo-200">取り込み方法</p>
@@ -620,9 +873,14 @@ export default function StagePage() {
               )}
             </div>
           )}
-          {fileImportError && (projectionDocument || captureStream) && (
+          {fileImportError && (projectionDocument || projectionPdfUrl || captureStream) && (
             <div className="absolute bottom-4 left-4 right-4 z-30 rounded-xl bg-rose-500/95 px-4 py-3 text-sm font-semibold text-white shadow-2xl ring-1 ring-rose-200/40">
               {fileImportError}
+            </div>
+          )}
+          {saveMessage && (
+            <div className="absolute bottom-4 left-4 right-4 z-30 rounded-xl bg-emerald-600/95 px-4 py-3 text-sm font-semibold text-white shadow-2xl ring-1 ring-emerald-200/40">
+              {saveMessage}
             </div>
           )}
         </main>
@@ -656,11 +914,12 @@ export default function StagePage() {
                 <button
                   type="button"
                   onClick={() => setChatCollapsed(true)}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-700 shadow-sm ring-1 ring-slate-200 transition hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                  className="inline-flex flex-col items-center justify-center gap-0.5 rounded-xl bg-sky-50 px-2 py-1.5 text-sky-600 shadow-sm ring-1 ring-sky-200 transition hover:bg-sky-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
                   aria-label="質問チャットを閉じる"
                   title="質問チャットを閉じる"
                 >
                   <ChevronRight className="h-5 w-5" />
+                  <span className="text-[10px] font-bold leading-none">閉じる</span>
                 </button>
                 {qrUrl && (
                   <button
@@ -788,11 +1047,12 @@ export default function StagePage() {
         <button
           type="button"
           onClick={() => setChatCollapsed(false)}
-          className="fixed right-4 top-1/2 z-40 inline-flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white text-slate-900 shadow-2xl ring-1 ring-slate-200 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+          className="fixed right-4 top-1/2 z-40 inline-flex -translate-y-1/2 flex-col items-center justify-center gap-0.5 rounded-2xl bg-white px-2.5 py-2 text-sky-600 shadow-2xl ring-1 ring-sky-200 hover:bg-sky-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
           aria-label="質問チャットを開く"
           title="質問チャットを開く"
         >
           <ChevronLeft className="h-6 w-6" />
+          <span className="text-[10px] font-bold leading-none">開く</span>
         </button>
       )}
       {qrModalOpen && qrUrl && (
@@ -822,6 +1082,46 @@ export default function StagePage() {
           </div>
         </div>
       )}
+      {confirmSaveOpen && projectionDocument && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="上書き保存の確認"
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/70 p-6 backdrop-blur-sm"
+          onClick={() => setConfirmSaveOpen(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl ring-1 ring-slate-200"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3 className="text-base font-extrabold tracking-tight text-slate-950">
+              {fileHandleRef.current ? '元のファイルに上書き保存しますか？' : '編集内容を保存しますか？'}
+            </h3>
+            <p className="mt-2 text-sm leading-relaxed text-slate-600">
+              {fileHandleRef.current
+                ? `「${projectionDocument.name}」を編集した内容で上書きします。この操作は元に戻せません。`
+                : 'お使いのブラウザは元ファイルへの直接上書きに対応していないため、編集内容を新しいファイルとしてダウンロード保存します。'}
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmSaveOpen(false)}
+                className="inline-flex h-10 items-center rounded-xl px-4 text-sm font-bold text-slate-600 ring-1 ring-slate-200 transition hover:bg-slate-50"
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                onClick={performSave}
+                className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-sky-500 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-sky-400"
+              >
+                <Save className="h-4 w-4" />
+                {fileHandleRef.current ? '上書き保存' : 'ダウンロード保存'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -839,6 +1139,14 @@ function ProjectionDocumentStage({
   onPickFile,
   onClear,
   importingFile,
+  canEdit,
+  editMode,
+  onSetEditMode,
+  onSave,
+  saving,
+  canOverwrite,
+  onEditCell,
+  onEditBlock,
 }: {
   projectionDocument: ProjectionDocument;
   activeSheetIndex: number;
@@ -852,6 +1160,14 @@ function ProjectionDocumentStage({
   onPickFile: () => void;
   onClear: () => void;
   importingFile: boolean;
+  canEdit: boolean;
+  editMode: boolean;
+  onSetEditMode: (value: boolean) => void;
+  onSave: () => void;
+  saving: boolean;
+  canOverwrite: boolean;
+  onEditCell: (sheetIndex: number, rowIndex: number, colIndex: number, value: string) => void;
+  onEditBlock: (blockId: string, text: string) => void;
 }) {
   const isSpreadsheet = projectionDocument.kind === 'spreadsheet';
   const isPresentation = projectionDocument.kind === 'presentation';
@@ -884,6 +1200,9 @@ function ProjectionDocumentStage({
         projectionDocument={projectionDocument}
         activeSheetIndex={safeSheetIndex}
         activeSlideIndex={safeSlideIndex}
+        editMode={canEdit && editMode}
+        onEditCell={onEditCell}
+        onEditBlock={onEditBlock}
       />
       <div className="absolute left-4 right-4 top-4 z-20 flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -936,6 +1255,50 @@ function ProjectionDocumentStage({
         </div>
 
         <div className="flex flex-wrap items-center justify-end gap-2">
+          {canEdit && (
+            <>
+              {/* デフォルトはハンド操作。編集アイコンに切り替えると直接編集できる。 */}
+              <div className="inline-flex h-10 items-center rounded-lg bg-black/60 p-1 backdrop-blur-md">
+                <button
+                  type="button"
+                  onClick={() => onSetEditMode(false)}
+                  className={`inline-flex h-8 w-8 items-center justify-center rounded-md transition ${
+                    editMode ? 'text-white hover:bg-white/15' : 'bg-white text-slate-900'
+                  }`}
+                  aria-label="ハンド操作"
+                  aria-pressed={!editMode}
+                  title="ハンド操作"
+                >
+                  <Hand className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onSetEditMode(true)}
+                  className={`inline-flex h-8 w-8 items-center justify-center rounded-md transition ${
+                    editMode ? 'bg-sky-500 text-white' : 'text-white hover:bg-white/15'
+                  }`}
+                  aria-label="編集"
+                  aria-pressed={editMode}
+                  title="編集"
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
+              </div>
+              {editMode && (
+                <button
+                  type="button"
+                  onClick={onSave}
+                  disabled={saving}
+                  className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-sky-500 px-3 text-sm font-bold text-white shadow-sm hover:bg-sky-400 disabled:opacity-60"
+                  aria-label={canOverwrite ? '元のファイルに上書き保存' : '編集内容をダウンロード保存'}
+                  title={canOverwrite ? '元のファイルに上書き保存' : '編集内容をダウンロード保存'}
+                >
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  保存
+                </button>
+              )}
+            </>
+          )}
           <button
             type="button"
             onClick={onFullscreen}
@@ -1001,25 +1364,45 @@ function ProjectionDocumentViewer({
   projectionDocument,
   activeSheetIndex,
   activeSlideIndex,
+  editMode,
+  onEditCell,
+  onEditBlock,
 }: {
   projectionDocument: ProjectionDocument;
   activeSheetIndex: number;
   activeSlideIndex: number;
+  editMode: boolean;
+  onEditCell: (sheetIndex: number, rowIndex: number, colIndex: number, value: string) => void;
+  onEditBlock: (blockId: string, text: string) => void;
 }) {
   if (projectionDocument.kind === 'spreadsheet') {
     const sheet = projectionDocument.sheets[activeSheetIndex] || projectionDocument.sheets[0];
-    return <SpreadsheetProjection sheet={sheet} />;
+    return (
+      <SpreadsheetProjection
+        sheet={sheet}
+        editMode={editMode}
+        onEditCell={(rowIndex, colIndex, value) => onEditCell(activeSheetIndex, rowIndex, colIndex, value)}
+      />
+    );
   }
 
   if (projectionDocument.kind === 'word') {
-    return <WordProjection document={projectionDocument} />;
+    return <WordProjection document={projectionDocument} editMode={editMode} onEditBlock={onEditBlock} />;
   }
 
   const slide = projectionDocument.slides[activeSlideIndex] || projectionDocument.slides[0];
   return <PresentationProjection slide={slide} slideSize={projectionDocument.slideSize} />;
 }
 
-function SpreadsheetProjection({ sheet }: { sheet: ProjectionSheet }) {
+function SpreadsheetProjection({
+  sheet,
+  editMode,
+  onEditCell,
+}: {
+  sheet: ProjectionSheet;
+  editMode: boolean;
+  onEditCell: (rowIndex: number, colIndex: number, value: string) => void;
+}) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const panStateRef = useRef<{
     pointerId: number;
@@ -1034,9 +1417,11 @@ function SpreadsheetProjection({ sheet }: { sheet: ProjectionSheet }) {
 
   const startPan = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return;
+    // 編集モードではパンを無効化し、セルにカーソルを置けるようにする。
+    if (editMode) return;
 
     const target = event.target instanceof HTMLElement ? event.target : null;
-    if (target?.closest('button, a, input, select, textarea, [role="button"]')) return;
+    if (target?.closest('button, a, input, select, textarea, [role="button"], [contenteditable]')) return;
 
     const scrollElement = scrollRef.current;
     if (!scrollElement) return;
@@ -1076,7 +1461,7 @@ function SpreadsheetProjection({ sheet }: { sheet: ProjectionSheet }) {
     <div
       ref={scrollRef}
       className={`absolute inset-0 overflow-auto bg-slate-100 px-4 pb-5 pt-24 text-slate-950 sm:px-6 lg:pt-24 ${
-        isPanning ? 'cursor-grabbing select-none' : 'cursor-grab'
+        editMode ? 'cursor-auto' : isPanning ? 'cursor-grabbing select-none' : 'cursor-grab'
       }`}
       onPointerDown={startPan}
       onPointerMove={movePan}
@@ -1104,15 +1489,22 @@ function SpreadsheetProjection({ sheet }: { sheet: ProjectionSheet }) {
                           style={sheet.cellStyles[rowIndex]?.[columnIndex]?.backgroundColor
                             ? { backgroundColor: sheet.cellStyles[rowIndex][columnIndex].backgroundColor }
                             : undefined}
+                          contentEditable={editMode}
+                          suppressContentEditableWarning
+                          onBlur={
+                            editMode
+                              ? (event) => onEditCell(rowIndex, columnIndex, event.currentTarget.innerText)
+                              : undefined
+                          }
                           className={`max-w-[360px] whitespace-pre-wrap break-words border border-slate-300 px-3 py-2 align-top ${
                             rowIndex === 0
                               ? 'bg-slate-900 font-bold text-white'
                               : columnIndex === 0
                               ? 'bg-slate-50 font-semibold text-slate-900'
                               : 'bg-white text-slate-900'
-                          }`}
+                          } ${editMode ? 'cursor-text outline-none focus:ring-2 focus:ring-inset focus:ring-sky-500' : ''}`}
                         >
-                          {cell || <span className="text-slate-300"> </span>}
+                          {editMode ? cell : cell || <span className="text-slate-300"> </span>}
                         </td>
                       ))}
                     </tr>
@@ -1620,7 +2012,15 @@ function parseChartNumber(value: string | undefined) {
   return Number.isFinite(parsed) ? parsed : NaN;
 }
 
-function WordProjection({ document }: { document: ProjectionWordDocument }) {
+function WordProjection({
+  document,
+  editMode,
+  onEditBlock,
+}: {
+  document: ProjectionWordDocument;
+  editMode: boolean;
+  onEditBlock: (blockId: string, text: string) => void;
+}) {
   return (
     <div className="absolute inset-0 overflow-auto bg-slate-200 px-4 pb-10 pt-24 text-slate-950 sm:px-8">
       <article className="mx-auto min-h-full max-w-5xl bg-white px-8 py-10 shadow-sm ring-1 ring-slate-300 sm:px-12">
@@ -1639,7 +2039,12 @@ function WordProjection({ document }: { document: ProjectionWordDocument }) {
               return (
                 <p
                   key={block.id}
-                  className={`whitespace-pre-wrap break-words text-slate-900 ${headingClass}`}
+                  contentEditable={editMode}
+                  suppressContentEditableWarning
+                  onBlur={editMode ? (event) => onEditBlock(block.id, event.currentTarget.innerText) : undefined}
+                  className={`whitespace-pre-wrap break-words text-slate-900 ${headingClass} ${
+                    editMode ? 'cursor-text rounded-sm outline-none focus:ring-2 focus:ring-sky-500' : ''
+                  }`}
                   style={{ textAlign: block.textAlign }}
                 >
                   {block.text}
@@ -1690,7 +2095,7 @@ function PresentationProjection({
   slideSize: { width: number; height: number };
 }) {
   return (
-    <div className="absolute inset-0 bg-neutral-950 pt-24">
+    <div className="absolute inset-0 bg-neutral-950">
       <svg
         className="block h-full w-full"
         viewBox={`0 0 ${slideSize.width} ${slideSize.height}`}
@@ -1743,7 +2148,7 @@ function PresentationSlideElement({
         y={rect.y}
         width={rect.width}
         height={rect.height}
-        preserveAspectRatio="xMidYMid meet"
+        preserveAspectRatio="none"
       />
     );
   }

@@ -36,6 +36,7 @@ import {
   ArrowRight,
   QrCode,
   Download,
+  MonitorUp,
   Play,
   StopCircle,
   Clock,
@@ -605,6 +606,7 @@ function AdminPageInner() {
   const [copyPendingCode, setCopyPendingCode] = useState<string | null>(null);
   const [viewPendingCode, setViewPendingCode] = useState<string | null>(null);
   const [hostPendingCode, setHostPendingCode] = useState<string | null>(null);
+  const [screenPendingCode, setScreenPendingCode] = useState<string | null>(null);
   const [duplicatePendingCode, setDuplicatePendingCode] = useState<string | null>(null);
 
   // 削除確認モーダル用の状態
@@ -1167,11 +1169,18 @@ function AdminPageInner() {
     router.push(`/rooms/${code}`);
   };
 
-  // ホスト管理画面へ遷移
+  // ワーク管理画面（ホスト画面）へ遷移
   const handleOpenHostView = (code: string, withExportTab = false) => {
     if (hostPendingCode) return;
     setHostPendingCode(code);
     router.push(withExportTab ? `/rooms/${code}/host?tab=export` : `/rooms/${code}/host`);
+  };
+
+  // スクリーン（投影）画面へ遷移
+  const handleOpenScreenView = (code: string) => {
+    if (screenPendingCode) return;
+    setScreenPendingCode(code);
+    router.push(`/rooms/${code}/present`);
   };
 
   // ルーム編集ダイアログを開く
@@ -2879,23 +2888,27 @@ function AdminPageInner() {
                             size="sm"
                             disabled={hostPendingCode === room.code}
                             onClick={() => handleOpenHostView(room.code)}
-                            className="h-8 w-full px-3 text-xs bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-60 disabled:pointer-events-none"
+                            className="h-8 w-full px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-60 disabled:pointer-events-none"
                           >
                             {hostPendingCode === room.code ? (
                               <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
                             ) : (
                               <Settings className="h-3 w-3 mr-1.5" />
                             )}
-                            ホスト管理
+                            ワーク管理
                           </Button>
                           <Button
-                            variant="outline"
                             size="sm"
-                            onClick={() => router.push(`/rooms/${room.code}/host?tab=export`)}
-                            className="h-8 w-full px-3 text-xs border-slate-200 text-slate-600 hover:text-indigo-600 hover:border-indigo-300"
+                            disabled={screenPendingCode === room.code}
+                            onClick={() => handleOpenScreenView(room.code)}
+                            className="h-8 w-full px-3 text-xs bg-sky-600 hover:bg-sky-700 text-white disabled:opacity-60 disabled:pointer-events-none"
                           >
-                            <Download className="h-3 w-3 mr-1.5" />
-                            データ出力
+                            {screenPendingCode === room.code ? (
+                              <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                            ) : (
+                              <MonitorUp className="h-3 w-3 mr-1.5" />
+                            )}
+                            スクリーンを開く
                           </Button>
                         </div>
 

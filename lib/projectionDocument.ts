@@ -19,6 +19,9 @@ export interface ProjectionSheet {
   totalRows: number;
   totalColumns: number;
   objects: ProjectionSheetObject[];
+  // 上書き保存で元セルを特定するための対応情報。
+  sourceRows: number[]; // 表示行 index → 元シートの行 index(0始まり)
+  sourceStartColumn: number; // 表示列 0 が対応する元シートの列 index(0始まり)
 }
 
 export interface ProjectionCellStyle {
@@ -203,6 +206,258 @@ export async function parseProjectionDocument(file: File): Promise<ProjectionDoc
   throw new Error('Excel（.xlsx/.xls/.csv）、PowerPoint（.pptx）、Word（.docx）を選択してください。');
 }
 
+// ───────────────────────────────────────────────────────────
+// インライン編集 → 上書き保存（元ファイルの内部 XML をパッチして書式を温存する）
+// ───────────────────────────────────────────────────────────
+
+const SPREADSHEET_MAIN_NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+const WORD_MAIN_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+const XML_NAMESPACE = 'http://www.w3.org/XML/1998/namespace';
+
+// その場編集の対象（xlsx / csv / docx）。xls・pptx は対象外。
+export function isEditableProjection(document: ProjectionDocument): boolean {
+  if (document.kind === 'word') return true;
+  if (document.kind === 'spreadsheet') {
+    const extension = document.name.split('.').pop()?.toLowerCase();
+    return extension === 'xlsx' || extension === 'csv';
+  }
+  return false;
+}
+
+export async function buildEditedProjectionBlob(
+  document: ProjectionDocument,
+  originalDocument: ProjectionDocument,
+  originalBuffer: ArrayBuffer
+): Promise<Blob> {
+  if (document.kind === 'spreadsheet') {
+    const extension = document.name.split('.').pop()?.toLowerCase();
+    if (extension === 'csv') {
+      return buildEditedCsvBlob(document.sheets[0]);
+    }
+    const originalSheets = originalDocument.kind === 'spreadsheet' ? originalDocument.sheets : document.sheets;
+    return buildEditedSpreadsheetBlob(originalBuffer, document.sheets, originalSheets);
+  }
+
+  if (document.kind === 'word') {
+    const originalBlocks = originalDocument.kind === 'word' ? originalDocument.blocks : document.blocks;
+    return buildEditedWordBlob(originalBuffer, document.blocks, originalBlocks);
+  }
+
+  throw new Error('このファイル形式は上書き保存に対応していません。');
+}
+
+function buildEditedCsvBlob(sheet: ProjectionSheet | undefined): Blob {
+  const rows = sheet?.rows ?? [];
+  const escapeCsv = (value: string) => (/[",\n\r]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value);
+  const csv = rows.map((row) => row.map((cell) => escapeCsv(cell ?? '')).join(',')).join('\r\n');
+  // 先頭 BOM で日本語を含む CSV を Excel が文字化けせず開けるようにする。
+  return new Blob(['﻿', csv], { type: 'text/csv;charset=utf-8' });
+}
+
+interface SheetEdit {
+  row: number; // 1始まりの行番号(XML の r 属性)
+  column: number; // 0始まりの列 index
+  ref: string; // 例 "B5"
+  value: string;
+}
+
+async function buildEditedSpreadsheetBlob(
+  originalBuffer: ArrayBuffer,
+  sheets: ProjectionSheet[],
+  originalSheets: ProjectionSheet[]
+): Promise<Blob> {
+  const spreadsheetPackage = await readSpreadsheetPackage(originalBuffer);
+  if (!spreadsheetPackage) {
+    throw new Error('Excel ファイルを保存用に展開できませんでした。');
+  }
+
+  const { zip, sheetPathsByName } = spreadsheetPackage;
+
+  for (let sheetIndex = 0; sheetIndex < sheets.length; sheetIndex += 1) {
+    const sheet = sheets[sheetIndex];
+    const edits = collectSheetEdits(sheet, originalSheets[sheetIndex]);
+    if (edits.length === 0) continue;
+
+    const sheetPath = sheetPathsByName.get(sheet.name);
+    if (!sheetPath) continue;
+
+    const sheetXml = await zip.file(sheetPath)?.async('string');
+    if (!sheetXml) continue;
+
+    zip.file(sheetPath, patchSheetXml(sheetXml, edits));
+  }
+
+  return zip.generateAsync({
+    type: 'blob',
+    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+}
+
+function collectSheetEdits(sheet: ProjectionSheet, originalSheet: ProjectionSheet | undefined): SheetEdit[] {
+  const edits: SheetEdit[] = [];
+
+  for (let rowIndex = 0; rowIndex < sheet.rows.length; rowIndex += 1) {
+    const row = sheet.rows[rowIndex];
+    const originalRow = originalSheet?.rows[rowIndex];
+    const sourceRow = sheet.sourceRows[rowIndex];
+    if (sourceRow === undefined) continue;
+
+    for (let columnIndex = 0; columnIndex < row.length; columnIndex += 1) {
+      const value = row[columnIndex] ?? '';
+      if (value === (originalRow?.[columnIndex] ?? '')) continue;
+
+      const sourceColumn = sheet.sourceStartColumn + columnIndex;
+      edits.push({
+        row: sourceRow + 1,
+        column: sourceColumn,
+        ref: `${columnIndexToName(sourceColumn)}${sourceRow + 1}`,
+        value,
+      });
+    }
+  }
+
+  return edits;
+}
+
+function patchSheetXml(sheetXml: string, edits: SheetEdit[]): string {
+  const sheetDoc = parseXml(sheetXml);
+  const sheetData = getFirstDescendantByLocalName(sheetDoc, 'sheetData');
+  if (!sheetData) return sheetXml;
+
+  for (const edit of edits) {
+    const rowElement = ensureRowElement(sheetDoc, sheetData, edit.row);
+    const cellElement = ensureCellElement(sheetDoc, rowElement, edit);
+    writeCellValue(sheetDoc, cellElement, edit.value);
+  }
+
+  return withXmlDeclaration(new XMLSerializer().serializeToString(sheetDoc));
+}
+
+// XMLSerializer はブラウザによって XML 宣言を出力したりしなかったりするため、
+// 二重宣言にならないよう、無い場合のみ補う。
+function withXmlDeclaration(serialized: string): string {
+  return serialized.startsWith('<?xml')
+    ? serialized
+    : `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n${serialized}`;
+}
+
+function ensureRowElement(doc: Document, sheetData: Element, rowNumber: number): Element {
+  const rows = getDirectChildrenByLocalName(sheetData, 'row');
+  const existing = rows.find((row) => Number(row.getAttribute('r')) === rowNumber);
+  if (existing) return existing;
+
+  const rowElement = doc.createElementNS(SPREADSHEET_MAIN_NS, 'row');
+  rowElement.setAttribute('r', String(rowNumber));
+  const insertBefore = rows.find((row) => Number(row.getAttribute('r')) > rowNumber) || null;
+  sheetData.insertBefore(rowElement, insertBefore);
+  return rowElement;
+}
+
+function ensureCellElement(doc: Document, rowElement: Element, edit: SheetEdit): Element {
+  const cells = getDirectChildrenByLocalName(rowElement, 'c');
+  const existing = cells.find((cell) => cell.getAttribute('r') === edit.ref);
+  if (existing) return existing;
+
+  const cellElement = doc.createElementNS(SPREADSHEET_MAIN_NS, 'c');
+  cellElement.setAttribute('r', edit.ref);
+  const insertBefore =
+    cells.find((cell) => {
+      const reference = parseCellReference(cell.getAttribute('r') || '');
+      return reference ? reference.column > edit.column : false;
+    }) || null;
+  rowElement.insertBefore(cellElement, insertBefore);
+  return cellElement;
+}
+
+function writeCellValue(doc: Document, cell: Element, value: string): void {
+  // 既存の値ノード(v / is / f など)を取り除いてから書き直す。s(スタイル)属性は温存する。
+  Array.from(cell.childNodes).forEach((node) => cell.removeChild(node));
+
+  if (value === '') {
+    cell.removeAttribute('t');
+    return;
+  }
+
+  const trimmed = value.trim();
+  const numeric = Number(trimmed);
+  const isNumeric = trimmed !== '' && Number.isFinite(numeric) && String(numeric) === trimmed;
+
+  if (isNumeric) {
+    cell.removeAttribute('t');
+    const valueElement = doc.createElementNS(SPREADSHEET_MAIN_NS, 'v');
+    valueElement.textContent = trimmed;
+    cell.appendChild(valueElement);
+    return;
+  }
+
+  cell.setAttribute('t', 'inlineStr');
+  const inlineString = doc.createElementNS(SPREADSHEET_MAIN_NS, 'is');
+  const textElement = doc.createElementNS(SPREADSHEET_MAIN_NS, 't');
+  textElement.setAttributeNS(XML_NAMESPACE, 'xml:space', 'preserve');
+  textElement.textContent = value;
+  inlineString.appendChild(textElement);
+  cell.appendChild(inlineString);
+}
+
+async function buildEditedWordBlob(
+  originalBuffer: ArrayBuffer,
+  blocks: ProjectionWordBlock[],
+  originalBlocks: ProjectionWordBlock[]
+): Promise<Blob> {
+  const zip = await JSZip.loadAsync(originalBuffer);
+  const documentXml = await zip.file('word/document.xml')?.async('string');
+  if (!documentXml) {
+    throw new Error('Word ファイルを保存用に展開できませんでした。');
+  }
+
+  const originalById = new Map(originalBlocks.map((block) => [block.id, block]));
+  const edits: Array<{ index: number; text: string }> = [];
+
+  for (const block of blocks) {
+    if (block.type !== 'paragraph') continue;
+    const original = originalById.get(block.id);
+    if (original && original.type === 'paragraph' && original.text === block.text) continue;
+
+    const match = block.id.match(/^word-paragraph-(\d+)$/);
+    if (match) edits.push({ index: Number(match[1]), text: block.text });
+  }
+
+  if (edits.length > 0) {
+    const documentDoc = parseXml(documentXml);
+    const body = getFirstDescendantByLocalName(documentDoc, 'body');
+    if (!body) {
+      throw new Error('Word ファイルの本文を保存用に解析できませんでした。');
+    }
+
+    const bodyChildren = Array.from(body.children).filter(
+      (child) => child.localName === 'p' || child.localName === 'tbl'
+    );
+
+    for (const edit of edits) {
+      const paragraph = bodyChildren[edit.index];
+      if (paragraph && paragraph.localName === 'p') writeParagraphText(paragraph, edit.text);
+    }
+
+    zip.file('word/document.xml', withXmlDeclaration(new XMLSerializer().serializeToString(documentDoc)));
+  }
+
+  return zip.generateAsync({
+    type: 'blob',
+    mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  });
+}
+
+function writeParagraphText(paragraph: Element, text: string): void {
+  // 段落内の全 run のテキストを先頭 run にまとめ、残りは空にする（段落・先頭 run の書式は温存）。
+  const textNodes = getDescendantsByLocalName(paragraph, 't').filter((node) => node.namespaceURI === WORD_MAIN_NS);
+  if (textNodes.length === 0) return;
+
+  textNodes.forEach((node, index) => {
+    node.textContent = index === 0 ? text : '';
+    node.setAttributeNS(XML_NAMESPACE, 'xml:space', 'preserve');
+  });
+}
+
 async function parseSpreadsheet(file: File): Promise<ProjectionSpreadsheetDocument> {
   const XLSX = await import('xlsx');
   const extension = file.name.split('.').pop()?.toLowerCase();
@@ -257,6 +512,8 @@ async function parseSpreadsheet(file: File): Promise<ProjectionSpreadsheetDocume
       totalRows: rows.length,
       totalColumns,
       objects: spreadsheetPackage ? await readSheetObjects(spreadsheetPackage, sheetName) : [],
+      sourceRows: rowRecords.map((row) => row.sourceRow),
+      sourceStartColumn: range ? range.s.c : 0,
     };
   }));
 
@@ -285,80 +542,20 @@ async function parsePresentation(file: File): Promise<ProjectionPresentationDocu
     const slideXml = await slideFile.async('string');
     const slideDoc = parseXml(slideXml);
     const relationships = await readRelationships(zip, slidePath);
-    const elements: ProjectionSlideElement[] = [];
     const slideNumber = extractSlideNumber(slidePath);
+    const context: SlideContext = { zip, relationships, slidePath, slideSize, slideNumber };
     const shapeTree = getFirstDescendantByLocalName(slideDoc, 'spTree');
-    const drawableNodes = shapeTree
-      ? Array.from(shapeTree.children).filter((node) => node.localName === 'sp' || node.localName === 'pic')
-      : [
-          ...getDescendantsByLocalName(slideDoc, 'sp'),
-          ...getDescendantsByLocalName(slideDoc, 'pic'),
-        ];
+    const counter = { value: 0 };
 
-    for (let index = 0; index < drawableNodes.length; index += 1) {
-      const node = drawableNodes[index];
-
-      if (node.localName === 'sp') {
-        const shapeProperties = getFirstDescendantByLocalName(node, 'spPr');
-        const text = extractShapeText(node);
-        const fillColor = shapeProperties ? extractSolidFillColor(shapeProperties) : null;
-        const rect = extractRect(shapeProperties || node, slideSize);
-        const imageFill = await parsePictureElement(
-          zip,
-          relationships,
-          slidePath,
-          node,
-          slideSize,
-          slideNumber,
-          index
+    // spTree を再帰的に走査し、grpSp（グループ）はその座標変換を子へ伝播させる。
+    // spTree が無い壊れたファイルだけ、従来どおり sp/pic をフラットに拾うフォールバックにする。
+    const elements = shapeTree
+      ? await collectSlideElements(context, shapeTree, identityTransform, counter)
+      : await collectSlideElementsFlat(
+          context,
+          [...getDescendantsByLocalName(slideDoc, 'sp'), ...getDescendantsByLocalName(slideDoc, 'pic')],
+          counter
         );
-
-        if (imageFill) {
-          elements.push(imageFill);
-          continue;
-        }
-
-        if (!rect || (!text && !fillColor)) continue;
-
-        if (text) {
-          elements.push({
-            type: 'text',
-            id: `slide-${slideNumber}-text-${index}`,
-            rect,
-            text,
-            fontSizeEmu: extractFontSizeEmu(node),
-            color: extractTextColor(node),
-            backgroundColor: fillColor,
-            fontWeight: extractFontWeight(node),
-            textAlign: extractTextAlign(node),
-          });
-          continue;
-        }
-
-        if (fillColor) {
-          elements.push({
-            type: 'shape',
-            id: `slide-${slideNumber}-shape-${index}`,
-            rect,
-            backgroundColor: fillColor,
-          });
-        }
-        continue;
-      }
-
-      if (node.localName === 'pic') {
-        const pictureElement = await parsePictureElement(
-          zip,
-          relationships,
-          slidePath,
-          node,
-          slideSize,
-          slideNumber,
-          index
-        );
-        if (pictureElement) elements.push(pictureElement);
-      }
-    }
 
     slides.push({
       id: `slide-${slideNumber}`,
@@ -374,6 +571,139 @@ async function parsePresentation(file: File): Promise<ProjectionPresentationDocu
     slideSize,
     slides,
   };
+}
+
+interface SlideContext {
+  zip: JSZipType;
+  relationships: Map<string, string>;
+  slidePath: string;
+  slideSize: { width: number; height: number };
+  slideNumber: number;
+}
+
+interface RectEmu {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+// 子要素のローカル EMU 矩形をスライド EMU 座標へ写す変換。グループはこれを合成して入れ子に伝える。
+type RectTransform = (rect: RectEmu) => RectEmu;
+const identityTransform: RectTransform = (rect) => rect;
+
+async function collectSlideElements(
+  context: SlideContext,
+  parent: Element,
+  transform: RectTransform,
+  counter: { value: number }
+): Promise<ProjectionSlideElement[]> {
+  const elements: ProjectionSlideElement[] = [];
+
+  for (const node of Array.from(parent.children)) {
+    if (node.localName === 'grpSp') {
+      const childTransform = composeGroupTransform(node, transform);
+      elements.push(...(await collectSlideElements(context, node, childTransform, counter)));
+      continue;
+    }
+
+    if (node.localName === 'sp' || node.localName === 'pic') {
+      const element = await processLeafNode(context, node, counter.value++, transform);
+      if (element) elements.push(element);
+    }
+  }
+
+  return elements;
+}
+
+async function collectSlideElementsFlat(
+  context: SlideContext,
+  nodes: Element[],
+  counter: { value: number }
+): Promise<ProjectionSlideElement[]> {
+  const elements: ProjectionSlideElement[] = [];
+  for (const node of nodes) {
+    const element = await processLeafNode(context, node, counter.value++, identityTransform);
+    if (element) elements.push(element);
+  }
+  return elements;
+}
+
+async function processLeafNode(
+  context: SlideContext,
+  node: Element,
+  index: number,
+  transform: RectTransform
+): Promise<ProjectionSlideElement | null> {
+  if (node.localName === 'pic') {
+    return parsePictureElement(context, node, index, transform);
+  }
+
+  // p:sp — 画像塗り（blipFill）を優先し、無ければテキスト／単色図形として扱う。
+  const shapeProperties = getFirstDescendantByLocalName(node, 'spPr');
+  const imageFill = await parsePictureElement(context, node, index, transform);
+  if (imageFill) return imageFill;
+
+  const localRect = extractRectEmu(shapeProperties || node);
+  const rect = localRect ? emuRectToPercent(transform(localRect), context.slideSize) : null;
+  const text = extractShapeText(node);
+  const fillColor = shapeProperties ? extractSolidFillColor(shapeProperties) : null;
+  if (!rect || (!text && !fillColor)) return null;
+
+  if (text) {
+    return {
+      type: 'text',
+      id: `slide-${context.slideNumber}-text-${index}`,
+      rect,
+      text,
+      fontSizeEmu: extractFontSizeEmu(node),
+      color: extractTextColor(node),
+      backgroundColor: fillColor,
+      fontWeight: extractFontWeight(node),
+      textAlign: extractTextAlign(node),
+    };
+  }
+
+  return {
+    type: 'shape',
+    id: `slide-${context.slideNumber}-shape-${index}`,
+    rect,
+    backgroundColor: fillColor as string,
+  };
+}
+
+function composeGroupTransform(grpSp: Element, parent: RectTransform): RectTransform {
+  const grpSpPr = getDirectChildByLocalName(grpSp, 'grpSpPr');
+  const xfrm = grpSpPr ? getDirectChildByLocalName(grpSpPr, 'xfrm') : null;
+  if (!xfrm) return parent;
+
+  const off = getDirectChildByLocalName(xfrm, 'off');
+  const ext = getDirectChildByLocalName(xfrm, 'ext');
+  const chOff = getDirectChildByLocalName(xfrm, 'chOff');
+  const chExt = getDirectChildByLocalName(xfrm, 'chExt');
+  if (!off || !ext || !chOff || !chExt) return parent;
+
+  const ox = Number(off.getAttribute('x'));
+  const oy = Number(off.getAttribute('y'));
+  const ecx = Number(ext.getAttribute('cx'));
+  const ecy = Number(ext.getAttribute('cy'));
+  const cox = Number(chOff.getAttribute('x'));
+  const coy = Number(chOff.getAttribute('y'));
+  const cecx = Number(chExt.getAttribute('cx'));
+  const cecy = Number(chExt.getAttribute('cy'));
+  if (![ox, oy, ecx, ecy, cox, coy, cecx, cecy].every(Number.isFinite) || cecx === 0 || cecy === 0) {
+    return parent;
+  }
+
+  const scaleX = ecx / cecx;
+  const scaleY = ecy / cecy;
+  return (rect) =>
+    parent({
+      x: ox + (rect.x - cox) * scaleX,
+      y: oy + (rect.y - coy) * scaleY,
+      width: rect.width * scaleX,
+      height: rect.height * scaleY,
+    });
 }
 
 async function parseWordDocument(file: File): Promise<ProjectionWordDocument> {
@@ -420,34 +750,31 @@ async function parseWordDocument(file: File): Promise<ProjectionWordDocument> {
 }
 
 async function parsePictureElement(
-  zip: JSZipType,
-  relationships: Map<string, string>,
-  slidePath: string,
+  context: SlideContext,
   picture: Element,
-  slideSize: { width: number; height: number },
-  slideNumber: number,
-  index: number
+  index: number,
+  transform: RectTransform
 ): Promise<ProjectionSlideImageElement | null> {
   const blip = getFirstDescendantByLocalName(picture, 'blip');
   const relationshipId = blip
     ? getRelationshipAttribute(blip, 'embed') || getRelationshipAttribute(blip, 'link')
     : null;
-  const target = relationshipId ? relationships.get(relationshipId) : null;
-  const rect = extractRect(picture, slideSize);
+  const target = relationshipId ? context.relationships.get(relationshipId) : null;
+  const localRect = extractRectEmu(picture);
 
-  if (!target || !rect) return null;
+  if (!target || !localRect) return null;
 
-  const mediaPath = resolveRelationshipTarget(slidePath, target);
-  const mediaFile = zip.file(mediaPath);
+  const mediaPath = resolveRelationshipTarget(context.slidePath, target);
+  const mediaFile = context.zip.file(mediaPath);
   if (!mediaFile) return null;
 
   const src = `data:${mimeTypeForPath(mediaPath)};base64,${await mediaFile.async('base64')}`;
   return {
     type: 'image',
-    id: `slide-${slideNumber}-image-${index}`,
-    rect,
+    id: `slide-${context.slideNumber}-image-${index}`,
+    rect: emuRectToPercent(transform(localRect), context.slideSize),
     src,
-    alt: `スライド ${slideNumber} の画像 ${index + 1}`,
+    alt: `スライド ${context.slideNumber} の画像 ${index + 1}`,
   };
 }
 
@@ -691,6 +1018,8 @@ function createEmptySheet(): ProjectionSheet {
     totalRows: 0,
     totalColumns: 0,
     objects: [],
+    sourceRows: [],
+    sourceStartColumn: 0,
   };
 }
 
@@ -1304,7 +1633,7 @@ function extractWordText(root: ParentNode) {
     .trim();
 }
 
-function extractRect(root: ParentNode, slideSize: { width: number; height: number }): ProjectionSlideRect | null {
+function extractRectEmu(root: ParentNode): RectEmu | null {
   const transform = root instanceof Element && root.localName === 'xfrm' ? root : getFirstDescendantByLocalName(root, 'xfrm');
   const offset = transform ? getFirstDescendantByLocalName(transform, 'off') : null;
   const extent = transform ? getFirstDescendantByLocalName(transform, 'ext') : null;
@@ -1317,11 +1646,15 @@ function extractRect(root: ParentNode, slideSize: { width: number; height: numbe
 
   if (![x, y, width, height].every(Number.isFinite) || width <= 0 || height <= 0) return null;
 
+  return { x, y, width, height };
+}
+
+function emuRectToPercent(rect: RectEmu, slideSize: { width: number; height: number }): ProjectionSlideRect {
   return {
-    left: (x / slideSize.width) * 100,
-    top: (y / slideSize.height) * 100,
-    width: (width / slideSize.width) * 100,
-    height: (height / slideSize.height) * 100,
+    left: (rect.x / slideSize.width) * 100,
+    top: (rect.y / slideSize.height) * 100,
+    width: (rect.width / slideSize.width) * 100,
+    height: (rect.height / slideSize.height) * 100,
   };
 }
 
