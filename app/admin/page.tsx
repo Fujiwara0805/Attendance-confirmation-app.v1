@@ -606,7 +606,6 @@ function AdminPageInner() {
   const [copyPendingCode, setCopyPendingCode] = useState<string | null>(null);
   const [viewPendingCode, setViewPendingCode] = useState<string | null>(null);
   const [hostPendingCode, setHostPendingCode] = useState<string | null>(null);
-  const [screenPendingCode, setScreenPendingCode] = useState<string | null>(null);
   const [duplicatePendingCode, setDuplicatePendingCode] = useState<string | null>(null);
 
   // 削除確認モーダル用の状態
@@ -1174,13 +1173,6 @@ function AdminPageInner() {
     if (hostPendingCode) return;
     setHostPendingCode(code);
     router.push(withExportTab ? `/rooms/${code}/host?tab=export` : `/rooms/${code}/host`);
-  };
-
-  // スクリーン（投影）画面へ遷移
-  const handleOpenScreenView = (code: string) => {
-    if (screenPendingCode) return;
-    setScreenPendingCode(code);
-    router.push(`/rooms/${code}/present`);
   };
 
   // ルーム編集ダイアログを開く
@@ -2898,17 +2890,18 @@ function AdminPageInner() {
                             ワーク管理
                           </Button>
                           <Button
+                            asChild
                             size="sm"
-                            disabled={screenPendingCode === room.code}
-                            onClick={() => handleOpenScreenView(room.code)}
-                            className="h-8 w-full px-3 text-xs bg-sky-600 hover:bg-sky-700 text-white disabled:opacity-60 disabled:pointer-events-none"
+                            className="h-8 w-full px-3 text-xs bg-sky-600 hover:bg-sky-700 text-white"
                           >
-                            {screenPendingCode === room.code ? (
-                              <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
-                            ) : (
+                            <a
+                              href={`/rooms/${room.code}/present`}
+                              target={`zasekikun-present-${room.code}`}
+                              rel="noopener noreferrer"
+                            >
                               <MonitorUp className="h-3 w-3 mr-1.5" />
-                            )}
-                            スクリーンを開く
+                              スクリーンを開く
+                            </a>
                           </Button>
                         </div>
 
