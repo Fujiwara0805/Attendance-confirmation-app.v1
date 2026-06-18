@@ -68,6 +68,7 @@ import { useRoomPresence } from '@/lib/hooks/useRoomPresence';
 import { formatDistanceToNow } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import {
+  POLL_AGGREGATION_SETTLE_MS,
   POLL_MODE_LABELS,
   QUIZ_OPTION_COUNTS,
   clampNumber,
@@ -389,7 +390,7 @@ const HOST_FAQ_SECTIONS: Array<{
     icon: Hammer,
     summary: '通常投票・クイズ・ランキング・ブレスト形式のカードを作成し、回答を集計できます。',
     body:
-      '通常投票は選択肢から回答してもらう基本形式で、複数選択にも対応します。クイズ形式では正解を設定でき、1枚のカードに複数問をまとめて入れられます（スクリーンの「次の問題」で順番に出題でき、順番も崩れません）。ランキング形式は候補を順位で回答してもらい、重み付けして集計します。ブレスト形式は参加者の短い自由回答を付箋カードとして集める形式です。各カードの「表示する」でスクリーンに出し、スクリーン側の「回答開始」で受付を始めます。',
+      '通常投票は選択肢から回答してもらう基本形式で、複数選択にも対応します。クイズ形式では正解を設定でき、1枚のカードに複数問をまとめて入れられます（スクリーンの「次の問題」で順番に出題でき、順番も崩れません）。ランキング形式は候補を順位で回答してもらい、重み付けして集計します。ブレスト形式は参加者の短い自由回答を付箋カードとして集める形式です。各カードの「表示する」でスクリーンに出し、Q&A機能タブまたは投影画面の「回答開始」で受付を始めます。',
     tips: ['新規作成はヘッダー右側のボタンから行います。', 'カードのドラッグ並び替えは管理画面の整理用です（スクリーンの表示順とは別。表示順の決め方は「スクリーン表示と出題の流れ」を参照）。', 'クイズの設問は「問題番号」で並びます。番号を変えると、その問題が指定位置に移動し、ほかの問題は自動でずれます（番号は常に1から連番）。例：問題1〜10がある状態で新しい問題を「3」にすると、旧3〜10が4〜11に繰り下がって挿入されます。並びはスクリーン画面・資料投影画面・参加者の投票画面すべてに反映されます。'],
   },
   {
@@ -398,7 +399,7 @@ const HOST_FAQ_SECTIONS: Array<{
     icon: Monitor,
     summary: '「スクリーンに表示」「回答開始」「終了／再開」の違いと、問題を順番に出すコツ。',
     body:
-      'ボタンの意味は2段階です。ワーク機能タブの「スクリーンに表示」はカードをスクリーンに出す操作、スクリーン画面（資料投影画面の右サブ画面）の「回答開始」は回答受付タイマーを始める操作です。ヘッダー右上の「終了／再開」はセッション全体の開閉で、個々の問題とは別レイヤーです。問題を順番どおり出したい場合、いちばん確実なのは1枚のクイズカードに複数問を入れて「次の問題」で進める方法です。別カードを並べる場合は「一斉開始」で1→2→3の順を指定するとスクリーンにその順で並びます（指定なしで1枚ずつ開始したときは作成順で並びます）。',
+      'ボタンの意味は2段階です。ワーク機能タブの「表示する」はカードをスクリーンに出す操作、表示中カードの「回答開始」は回答受付タイマーを始める操作です。「回答開始」と「次に進む」はQ&A機能タブ・スクリーン画面・資料投影画面のいずれからでも実行できます。ヘッダー右上の「終了／再開」はセッション全体の開閉で、個々の問題とは別レイヤーです。問題を順番どおり出したい場合、いちばん確実なのは1枚のクイズカードに複数問を入れて「次の問題」で進める方法です。別カードを並べる場合は「一斉開始」で1→2→3の順を指定するとスクリーンにその順で並びます（指定なしで1枚ずつ開始したときは作成順で並びます）。',
     tips: ['複数カードを順番に出すときは、スクリーン画面・資料投影画面のワークスペースとも先頭の1枚だけが表示されます。各カードの「次に進む」で締切＆次のカードへ進められます（管理画面に戻らずに操作できます）。', '結果をしっかり見せたいときは、タイマー終了で結果が出てから「次に進む」を押してください。', '資料投影画面では、資料とチャットの境界（縦線）をドラッグで横幅を、ワークスペースと質問チャットの境界（横線）をドラッグで高さを、それぞれ調整できます。'],
   },
   {
@@ -608,6 +609,7 @@ export default function HostPage() {
   const POLLS_PER_PAGE = 9;
   const [roomStatusLoading, setRoomStatusLoading] = useState(false);
   const [pollStatusPendingId, setPollStatusPendingId] = useState<string | null>(null);
+  const [pollTimerStartingId, setPollTimerStartingId] = useState<string | null>(null);
   const [pollDeletingId, setPollDeletingId] = useState<string | null>(null);
   const [pollDeleteConfirm, setPollDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   const [selectedPollIds, setSelectedPollIds] = useState<string[]>([]);
@@ -1243,6 +1245,34 @@ export default function HostPage() {
       setPollStatusPendingId(null);
     }
   };
+
+  const handleStartPollTimer = useCallback(async (pollId: string) => {
+    if (pollTimerStartingId) return;
+    const currentPoll = polls.find((poll) => poll.id === pollId);
+    if (!currentPoll || currentPoll.status !== 'active' || currentPoll.started_at) return;
+
+    setPollTimerStartingId(pollId);
+    try {
+      const res = await fetch(`/api/rooms/${roomCode}/polls/${pollId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          startTimer: true,
+          clientStartedAt: new Date().toISOString(),
+          clientTimeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to start poll timer');
+      const updatedPoll = (await res.json()) as Poll;
+      optimisticUpsertPoll(updatedPoll);
+      setExportData(null);
+    } catch (error) {
+      console.error('start poll timer failed', error);
+      window.alert('タイマーを開始できませんでした。時間をおいて再度お試しください。');
+    } finally {
+      setPollTimerStartingId(null);
+    }
+  }, [optimisticUpsertPoll, pollTimerStartingId, polls, roomCode]);
 
   const handleTogglePollSelect = useCallback((pollId: string) => {
     setSelectedPollIds((prev) => {
@@ -2138,6 +2168,18 @@ export default function HostPage() {
         {/* === Questions Tab === */}
         {tab === 'questions' && (
           <div className="space-y-4">
+            {screenVisiblePolls.length > 0 && (
+              <ActivePollQaControls
+                key={screenVisiblePolls[0].poll.id}
+                poll={screenVisiblePolls[0].poll}
+                votes={pollVotes[screenVisiblePolls[0].poll.id] || []}
+                activeCount={screenVisiblePolls.length}
+                starting={pollTimerStartingId === screenVisiblePolls[0].poll.id}
+                closing={pollStatusPendingId === screenVisiblePolls[0].poll.id}
+                onStart={() => handleStartPollTimer(screenVisiblePolls[0].poll.id)}
+                onNext={() => handlePollStatus(screenVisiblePolls[0].poll.id, 'closed')}
+              />
+            )}
             {/* Moderation toggle (always visible) */}
             <div className="flex items-center gap-3 rounded-xl bg-white ring-1 ring-slate-200 px-4 py-3">
               <div className="flex items-center gap-2.5 flex-1 min-w-0">
@@ -4316,6 +4358,134 @@ function HostQuestionRow({
         </div>
       </div>
     </motion.div>
+  );
+}
+
+function ActivePollQaControls({
+  poll,
+  votes,
+  activeCount,
+  starting,
+  closing,
+  onStart,
+  onNext,
+}: {
+  poll: Poll;
+  votes: PollVote[];
+  activeCount: number;
+  starting: boolean;
+  closing: boolean;
+  onStart: () => void;
+  onNext: () => void;
+}) {
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  const { meta } = extractPollPayload(poll.options);
+  const mode = getPollMode(meta.mode);
+  const timeLimit = Number(meta.timeLimitSeconds || 0);
+  const parsedStartMs = poll.started_at ? new Date(poll.started_at).getTime() : NaN;
+  const timerStartMs = Number.isFinite(parsedStartMs) ? parsedStartMs : null;
+  const timerNotStarted = timeLimit > 0 && timerStartMs === null;
+  const timerRemaining =
+    timeLimit > 0 && timerStartMs !== null
+      ? Math.max(0, Math.ceil(timeLimit - (nowMs - timerStartMs) / 1000))
+      : null;
+  const deadlineMs = timerStartMs !== null && timeLimit > 0 ? timerStartMs + timeLimit * 1000 : null;
+  const aggregating =
+    deadlineMs !== null && nowMs >= deadlineMs && nowMs < deadlineMs + POLL_AGGREGATION_SETTLE_MS;
+  const answering =
+    timeLimit === 0 ||
+    (timerStartMs !== null && timerRemaining !== null && timerRemaining > 0);
+  const revealed =
+    timeLimit === 0 ||
+    (timerStartMs !== null && timerRemaining !== null && timerRemaining <= 0 && !aggregating);
+  const hasNext = activeCount > 1;
+  const totalRespondents =
+    mode === 'free_text'
+      ? votes.filter((vote) => !!vote.value).length
+      : mode === 'ranking' || mode === 'quiz'
+      ? new Set(votes.map((vote) => vote.participant_id).filter(Boolean)).size
+      : votes.length;
+  const formatCountdown = (seconds: number) =>
+    `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
+
+  useEffect(() => {
+    if (timerStartMs === null || timeLimit <= 0 || revealed) return;
+    const intervalId = window.setInterval(() => setNowMs(Date.now()), 500);
+    return () => window.clearInterval(intervalId);
+  }, [revealed, timeLimit, timerStartMs]);
+
+  return (
+    <section className="overflow-hidden rounded-xl border border-[#aac8ff] bg-white shadow-sm shadow-blue-100/60">
+      <div className="flex flex-col gap-3 bg-[#ebf3ff] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 text-xs font-extrabold text-[#1e46aa]">
+              <Monitor className="h-4 w-4" />
+              スクリーン表示中のワーク
+            </span>
+            <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold text-[#2864f0] ring-1 ring-[#aac8ff]">
+              カード 1 / {activeCount}
+            </span>
+            <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold text-[#595959] ring-1 ring-[#e1dcdc]">
+              {POLL_MODE_LABELS[mode]}
+            </span>
+          </div>
+          <p className="mt-1.5 truncate text-sm font-bold text-[#323232]">{poll.question || '（無題）'}</p>
+        </div>
+        <span className="shrink-0 text-xs font-bold tabular-nums text-[#595959]">
+          回答 {totalRespondents}件
+        </span>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 px-4 py-3">
+        {timerNotStarted ? (
+          <button
+            type="button"
+            onClick={onStart}
+            disabled={starting || closing}
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#2864f0] px-3 text-xs font-bold text-white transition-colors hover:bg-[#285ac8] disabled:opacity-60"
+          >
+            {starting ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Play className="h-3.5 w-3.5 fill-current" />
+            )}
+            回答開始（{formatCountdown(timeLimit)}）
+          </button>
+        ) : aggregating ? (
+          <span className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-slate-100 px-3 text-xs font-bold text-slate-600">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            回答を集計中
+          </span>
+        ) : answering ? (
+          <span className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-emerald-50 px-3 text-xs font-bold text-emerald-700 ring-1 ring-emerald-200">
+            <Clock className="h-3.5 w-3.5" />
+            {timeLimit > 0 ? `回答受付中 ${formatCountdown(timerRemaining ?? timeLimit)}` : '回答受付中'}
+          </span>
+        ) : (
+          <span className="inline-flex h-9 items-center rounded-lg bg-slate-100 px-3 text-xs font-bold text-slate-600">
+            結果表示中
+          </span>
+        )}
+
+        {hasNext && revealed && (
+          <button
+            type="button"
+            onClick={onNext}
+            disabled={closing || starting}
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-rose-600 px-3 text-xs font-bold text-white transition-colors hover:bg-rose-700 disabled:opacity-60 sm:ml-auto"
+            title="このカードを締め切って次のカードへ進みます"
+          >
+            {closing ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <StopCircle className="h-3.5 w-3.5" />
+            )}
+            次に進む
+          </button>
+        )}
+      </div>
+    </section>
   );
 }
 
