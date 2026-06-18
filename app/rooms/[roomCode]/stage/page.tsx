@@ -911,16 +911,6 @@ export default function StagePage() {
                 </p>
               </div>
               <div className="flex shrink-0 items-start gap-2">
-                <button
-                  type="button"
-                  onClick={() => setChatCollapsed(true)}
-                  className="inline-flex flex-col items-center justify-center gap-0.5 rounded-xl bg-sky-50 px-2 py-1.5 text-sky-600 shadow-sm ring-1 ring-sky-200 transition hover:bg-sky-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
-                  aria-label="質問チャットを閉じる"
-                  title="質問チャットを閉じる"
-                >
-                  <ChevronRight className="h-5 w-5" />
-                  <span className="text-[10px] font-bold leading-none">閉じる</span>
-                </button>
                 {qrUrl && (
                   <button
                     type="button"
@@ -1043,18 +1033,16 @@ export default function StagePage() {
         </aside>
         )}
       </div>
-      {chatCollapsed && (
-        <button
-          type="button"
-          onClick={() => setChatCollapsed(false)}
-          className="fixed right-4 top-1/2 z-40 inline-flex -translate-y-1/2 flex-col items-center justify-center gap-0.5 rounded-2xl bg-white px-2.5 py-2 text-sky-600 shadow-2xl ring-1 ring-sky-200 hover:bg-sky-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
-          aria-label="質問チャットを開く"
-          title="質問チャットを開く"
-        >
-          <ChevronLeft className="h-6 w-6" />
-          <span className="text-[10px] font-bold leading-none">開く</span>
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={() => setChatCollapsed((prev) => !prev)}
+        className="fixed right-4 top-1/2 z-40 inline-flex -translate-y-1/2 flex-col items-center justify-center gap-0.5 rounded-2xl bg-white px-2.5 py-2 text-sky-600 shadow-2xl ring-1 ring-sky-200 hover:bg-sky-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+        aria-label={chatCollapsed ? '質問チャットを開く' : '質問チャットを閉じる'}
+        title={chatCollapsed ? '質問チャットを開く' : '質問チャットを閉じる'}
+      >
+        {chatCollapsed ? <ChevronLeft className="h-6 w-6" /> : <ChevronRight className="h-6 w-6" />}
+        <span className="text-[10px] font-bold leading-none">{chatCollapsed ? '開く' : '閉じる'}</span>
+      </button>
       {qrModalOpen && qrUrl && (
         <div
           role="dialog"
