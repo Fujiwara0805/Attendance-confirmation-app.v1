@@ -14,7 +14,6 @@ import {
   Plus,
   Trash2,
   Edit,
-  BookOpen,
   Save,
   Loader2,
   Sparkles,
@@ -29,7 +28,8 @@ import {
   Search,
   CheckCircle,
   Settings,
-  Airplay,
+  Presentation,
+  FilePenLine,
   FileText,
   Globe,
   Users,
@@ -1647,7 +1647,7 @@ function AdminPageInner() {
               >
                 <div className="flex items-center gap-3">
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-white text-[#2864f0] ring-1 ring-[#aac8ff]">
-                    <Airplay className="h-5 w-5" />
+                    <Presentation className="h-5 w-5" />
                   </span>
                   <p className="min-w-0 flex-1 text-base font-bold leading-relaxed text-[#323232]">
                     <span className="block">参加者の反応を知りたい</span>
@@ -1710,7 +1710,7 @@ function AdminPageInner() {
                   ? `${courses.length} 件のフォームを管理中`
                   : 'フォーム（出席管理、招待状）を作成して始めましょう'
               }
-              icon={BookOpen}
+              icon={FilePenLine}
               theme={ADMIN_COLOR_THEMES.courses}
               helpHref="/admin/faq#forms"
               onSearch={() => setSearchModalFor('courses')}
@@ -2886,7 +2886,7 @@ function AdminPageInner() {
                   ? `${rooms.length} 件のルームを管理中`
                   : 'ルームを作成してインタラクティブなQ&Aや投票を始めましょう'
               }
-              icon={Airplay}
+              icon={Presentation}
               theme={ADMIN_COLOR_THEMES.rooms}
               helpHref="/admin/faq#rooms"
               onSearch={() => setSearchModalFor('rooms')}
@@ -3073,7 +3073,7 @@ function AdminPageInner() {
                 className="flex flex-col items-center justify-center py-20 px-4"
               >
                 <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-purple-50 to-fuchsia-50 ring-1 ring-purple-100 flex items-center justify-center mb-5 shadow-sm">
-                  <Airplay className="h-9 w-9 text-purple-400" />
+                  <Presentation className="h-9 w-9 text-purple-400" />
                 </div>
                 <h3 className="text-lg font-semibold text-slate-900 mb-2">最初のルームを作成しましょう</h3>
                 <div className="grid w-full max-w-3xl grid-cols-1 gap-3 mb-6 sm:grid-cols-3">
@@ -3089,7 +3089,7 @@ function AdminPageInner() {
                       description: 'ルーム名を入力して作成すると、参加用コードとQRを発行。参加者の登録は不要です。',
                     },
                     {
-                      icon: Airplay,
+                      icon: Presentation,
                       title: '反応は画面へ、終われば記録に',
                       description: '反応はスクリーンに共有でき、終了後はセッションレポートとして残せます。',
                     },
@@ -3153,7 +3153,7 @@ function AdminPageInner() {
                     >
                       <div className="p-4 sm:p-5">
                         {/* Top row: title + status */}
-                        <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="flex items-start justify-between gap-2 mb-3">
                           <div className="flex items-center gap-2 min-w-0 flex-1">
                             {/* 並び替えコントロール */}
                             <div className="flex shrink-0 flex-col items-center gap-1">
@@ -3206,11 +3206,12 @@ function AdminPageInner() {
                               </select>
                             </div>
                             <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
-                              <Airplay className="h-4 w-4 text-indigo-600" />
+                              <Presentation className="h-4 w-4 text-indigo-600" />
                             </div>
                             <h3 className="text-sm sm:text-base font-semibold text-slate-900 truncate">{room.title}</h3>
                           </div>
-                          <div className="flex shrink-0 items-center gap-1.5">
+                          <div className="flex shrink-0 flex-col items-end gap-1.5">
+                            <div className="flex items-center gap-1.5">
                             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${
                               room.status === 'active'
                                 ? 'bg-emerald-100 text-emerald-700'
@@ -3277,13 +3278,13 @@ function AdminPageInner() {
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             </div>
+                            </div>
+                            {/* Room code（状態表記の下に配置） */}
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[11px] text-slate-400">コード:</span>
+                              <code className="text-xs font-mono bg-slate-100 px-2 py-0.5 rounded text-slate-600">{room.code}</code>
+                            </div>
                           </div>
-                        </div>
-
-                        {/* Room code */}
-                        <div className="flex items-center gap-1.5 mb-3">
-                          <span className="text-xs text-slate-400">コード:</span>
-                          <code className="text-xs font-mono bg-slate-100 px-2 py-0.5 rounded text-slate-600">{room.code}</code>
                         </div>
 
                         {/* Actions row 1: main actions */}

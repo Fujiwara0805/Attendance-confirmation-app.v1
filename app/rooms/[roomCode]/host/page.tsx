@@ -31,7 +31,6 @@ import {
   Users,
   Trophy,
   ArrowLeft,
-  BookOpen,
   ListOrdered,
   X,
   Clock,
@@ -51,6 +50,9 @@ import {
   Hammer,
   FileText,
   MoreVertical,
+  Vote,
+  MessageCircleQuestion,
+  StickyNote,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -213,7 +215,7 @@ const POLL_MODE_VISUAL: Record<
   }
 > = {
   standard: {
-    icon: BarChart3,
+    icon: Vote,
     badgeBg: 'bg-emerald-50',
     badgeText: 'text-emerald-700',
     badgeRing: 'ring-emerald-200',
@@ -223,7 +225,7 @@ const POLL_MODE_VISUAL: Record<
     cardRing: 'hover:ring-emerald-200',
   },
   quiz: {
-    icon: BookOpen,
+    icon: MessageCircleQuestion,
     badgeBg: 'bg-violet-50',
     badgeText: 'text-violet-700',
     badgeRing: 'ring-violet-200',
@@ -243,7 +245,7 @@ const POLL_MODE_VISUAL: Record<
     cardRing: 'hover:ring-amber-200',
   },
   free_text: {
-    icon: Hand,
+    icon: StickyNote,
     badgeBg: 'bg-orange-50',
     badgeText: 'text-orange-700',
     badgeRing: 'ring-orange-200',
@@ -3833,13 +3835,13 @@ function PollTypeModal({
       mode: 'standard',
       title: '通常投票',
       desc: '従来のチェック回答・複数選択の投票です。',
-      icon: <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5" />,
+      icon: <Vote className="h-4 w-4 sm:h-5 sm:w-5" />,
     },
     {
       mode: 'quiz',
       title: 'クイズ形式',
       desc: '1つの投票内に1-1、1-2、1-3のような複数問題を作成します。',
-      icon: <BookOpen className="h-4 w-4 sm:h-5 sm:w-5" />,
+      icon: <MessageCircleQuestion className="h-4 w-4 sm:h-5 sm:w-5" />,
     },
     {
       mode: 'ranking',
@@ -3851,7 +3853,7 @@ function PollTypeModal({
       mode: 'free_text',
       title: 'ブレスト形式',
       desc: '短文回答を付箋のように集め、スクリーンで分類します。',
-      icon: <Hand className="h-4 w-4 sm:h-5 sm:w-5" />,
+      icon: <StickyNote className="h-4 w-4 sm:h-5 sm:w-5" />,
     },
   ];
 
@@ -4648,56 +4650,25 @@ function PollResultCard({
               : 'border-[#e9e7e7] hover:border-[#aac8ff] hover:shadow-sm'
       }`}
     >
-      <div className="border-b border-[#e9e7e7] p-4">
-        <div className="flex items-start gap-3">
-          {onToggleSelect && !hideSelection && (
+      <div className="relative border-b border-[#e9e7e7] p-4">
+        {onDragStart && (
+          <div className="absolute right-4 top-4 flex flex-col items-center gap-1">
             <button
               type="button"
-              onClick={onToggleSelect}
-              disabled={isScreenVisible}
-              className={`shrink-0 mt-1 inline-flex h-6 w-6 items-center justify-center rounded border text-[11px] font-extrabold transition-colors ${
-                isScreenVisible
-                  ? 'cursor-not-allowed border-[#9dd8b1] bg-[#eaf8ef] text-[#00963c]'
-                  : selected
-                  ? 'border-[#00963c] bg-[#00963c] text-white'
-                  : 'border-slate-300 bg-white text-transparent hover:border-[#00963c]'
-              }`}
-              title={
-                isScreenVisible
-                  ? 'スクリーン画面に表示中のカードは選択できません'
-                  : selected
-                  ? `選択 ${selectionNumber}（クリックで解除）`
-                  : 'カードを選択'
-              }
-              aria-label={
-                isScreenVisible
-                  ? 'スクリーン画面に表示中'
-                  : selected
-                  ? `選択 ${selectionNumber}`
-                  : 'カードを選択'
-              }
-              aria-pressed={selected}
+              draggable
+              onDragStart={onDragStart}
+              onDragEnd={onDragEnd}
+              onPointerDown={onPointerReorderStart}
+              className="inline-flex h-6 w-9 touch-none items-center justify-center rounded-md border border-[#e9e7e7] bg-white text-[#595959] cursor-grab select-none transition-colors hover:border-[#9dd8b1] hover:text-[#00963c] active:cursor-grabbing"
+              title="ドラッグして並び替え"
+              aria-label="ドラッグして並び替え"
             >
-              {isScreenVisible ? (
-                <Monitor className="h-3.5 w-3.5" />
-              ) : selected ? (
-                <span className="leading-none">{selectionNumber}</span>
-              ) : (
-                <Check className="h-3 w-3" />
-              )}
+              <GripVertical className="h-3.5 w-3.5" />
             </button>
-          )}
-          <div className="flex shrink-0 flex-col items-center gap-4">
-            <span
-              className={`inline-flex h-11 w-11 items-center justify-center rounded-lg ring-1 ${visual.iconBg} ${visual.iconText} ${visual.iconRing}`}
-              aria-hidden
-            >
-              <ModeIcon className="w-5 h-5" />
-            </span>
             <select
               value={orderPosition}
               onChange={(e) => onMoveToPosition(Number(e.target.value))}
-              className="h-7 w-11 rounded-md border border-[#e9e7e7] bg-white px-1 text-center text-xs font-extrabold tabular-nums text-[#323232] outline-none focus:border-[#9dd8b1]"
+              className="h-6 w-9 rounded-md border border-[#e9e7e7] bg-white px-0.5 text-center text-[11px] font-extrabold tabular-nums text-[#323232] outline-none focus:border-[#9dd8b1]"
               title={`表示順を1〜${totalPollCount}から選択`}
               aria-label="カード番号"
             >
@@ -4708,11 +4679,58 @@ function PollResultCard({
               ))}
             </select>
           </div>
-          <div className="min-w-0 flex-1">
+        )}
+        <div className="flex items-start gap-3">
+          <div className="flex shrink-0 flex-col items-center gap-1.5">
+            <span
+              className={`inline-flex h-9 w-9 items-center justify-center rounded-lg ring-1 ${visual.iconBg} ${visual.iconText} ${visual.iconRing}`}
+              aria-hidden
+            >
+              <ModeIcon className="w-5 h-5" />
+            </span>
+            {onToggleSelect && !hideSelection && (
+              <button
+                type="button"
+                onClick={onToggleSelect}
+                disabled={isScreenVisible}
+                className={`inline-flex h-6 w-6 items-center justify-center rounded border text-[11px] font-extrabold transition-colors ${
+                  isScreenVisible
+                    ? 'cursor-not-allowed border-[#9dd8b1] bg-[#eaf8ef] text-[#00963c]'
+                    : selected
+                    ? 'border-[#00963c] bg-[#00963c] text-white'
+                    : 'border-slate-300 bg-white text-transparent hover:border-[#00963c]'
+                }`}
+                title={
+                  isScreenVisible
+                    ? 'スクリーン画面に表示中のカードは選択できません'
+                    : selected
+                    ? `選択 ${selectionNumber}（クリックで解除）`
+                    : 'カードを選択'
+                }
+                aria-label={
+                  isScreenVisible
+                    ? 'スクリーン画面に表示中'
+                    : selected
+                    ? `選択 ${selectionNumber}`
+                    : 'カードを選択'
+                }
+                aria-pressed={selected}
+              >
+                {isScreenVisible ? (
+                  <Monitor className="h-3.5 w-3.5" />
+                ) : selected ? (
+                  <span className="leading-none">{selectionNumber}</span>
+                ) : (
+                  <Check className="h-3 w-3" />
+                )}
+              </button>
+            )}
+          </div>
+          <div className="min-w-0 flex-1 pr-10">
             <h3 className="text-sm font-bold leading-snug text-slate-900 line-clamp-2 break-words sm:hidden">
               {poll.question || '（無題）'}
             </h3>
-            <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] sm:mt-0">
+            <div className="mt-1.5 flex min-h-9 flex-wrap items-center gap-1.5 text-[11px] sm:mt-0">
               <span
                 className={`inline-flex items-center font-bold px-2 py-0.5 rounded-full ring-1 ${visual.badgeBg} ${visual.badgeText} ${visual.badgeRing}`}
               >
@@ -4733,23 +4751,8 @@ function PollResultCard({
                   編集中
                 </span>
               )}
-              {onDragStart && (
-                <button
-                  type="button"
-                  draggable
-                  onDragStart={onDragStart}
-                  onDragEnd={onDragEnd}
-                  onPointerDown={onPointerReorderStart}
-                  className="ml-auto inline-flex touch-none flex-col items-center justify-center rounded-md border border-[#e9e7e7] bg-white px-2 py-1 text-[#595959] cursor-grab select-none transition-colors hover:border-[#9dd8b1] hover:text-[#00963c] active:cursor-grabbing"
-                  title="ドラッグして並び替え"
-                  aria-label="ドラッグして並び替え"
-                >
-                  <GripVertical className="h-3.5 w-3.5" />
-                  <span className="text-[10px] font-bold leading-none mt-0.5">並び替え</span>
-                </button>
-              )}
             </div>
-            <h3 className="mt-1.5 hidden text-base font-bold leading-snug text-slate-900 line-clamp-2 break-words sm:block">
+            <h3 className="mt-1 hidden text-base font-bold leading-snug text-slate-900 line-clamp-2 break-words sm:block">
               {poll.question || '（無題）'}
             </h3>
             <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-slate-500">

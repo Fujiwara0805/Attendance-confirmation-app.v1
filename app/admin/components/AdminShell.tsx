@@ -6,9 +6,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import {
-  Airplay,
+  Presentation,
   BarChart3,
-  BookOpen,
+  FilePenLine,
   HelpCircle,
   LogOut,
   Menu,
@@ -88,7 +88,7 @@ const MENU_ITEMS: Array<{
     key: 'courses',
     label: 'フォーム管理',
     description: 'フォーム作成・管理',
-    icon: BookOpen,
+    icon: FilePenLine,
     iconBg: 'bg-[#ebf3ff]',
     iconColor: 'text-[#2864f0]',
     activeBg: 'bg-[#dce8ff] text-[#23418c]',
@@ -98,7 +98,7 @@ const MENU_ITEMS: Array<{
     key: 'rooms',
     label: 'ルーム管理',
     description: 'Q&A / ワーク機能',
-    icon: Airplay,
+    icon: Presentation,
     iconBg: 'bg-[#ebf3ff]',
     iconColor: 'text-[#2864f0]',
     activeBg: 'bg-[#dce8ff] text-[#23418c]',
@@ -286,7 +286,7 @@ function SidebarContent({
           <div className="grid grid-cols-2 gap-2">
             <div className="bg-white rounded-lg ring-1 ring-[#dce8ff] p-2.5">
               <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#8c8989]">
-                <BookOpen className="h-4 w-4 text-[#2864f0]" />
+                <FilePenLine className="h-4 w-4 text-[#2864f0]" />
                 フォーム
               </div>
               <div className="mt-1 flex items-baseline gap-1">
@@ -302,7 +302,7 @@ function SidebarContent({
             </div>
             <div className="bg-white rounded-lg ring-1 ring-[#dce8ff] p-2.5">
               <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#8c8989]">
-                <Airplay className="h-4 w-4 text-[#2864f0]" />
+                <Presentation className="h-4 w-4 text-[#2864f0]" />
                 ルーム
               </div>
               <div className="mt-1 flex items-baseline gap-1">
