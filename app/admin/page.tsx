@@ -43,6 +43,7 @@ import {
   ClipboardEdit,
   HelpCircle,
   MoreVertical,
+  GripVertical,
 } from 'lucide-react';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import {
@@ -88,6 +89,53 @@ interface Course {
 }
 
 const COOLDOWN_MINUTE_OPTIONS = [0, 1, 3, 5, 10, 15, 30, 45, 60, 90, 120, 180, 360, 720, 1440];
+
+// カード並び替え（フォーム/ルーム）共通ヘルパー
+// 既存の order 配列をベースに source を target の位置へ移動した新しい order を返す。
+function moveIdInOrder(
+  prev: string[],
+  allIds: string[],
+  sourceId: string,
+  target: { id?: string; position?: number }
+): string[] {
+  const currentIdSet = new Set(allIds);
+  const base = [
+    ...prev.filter((id) => currentIdSet.has(id)),
+    ...allIds.filter((id) => !prev.includes(id)),
+  ];
+  const from = base.indexOf(sourceId);
+  if (from < 0) return prev;
+  let to: number;
+  if (target.id !== undefined) {
+    to = base.indexOf(target.id);
+    if (to < 0) return prev;
+  } else {
+    to = Math.min(Math.max((target.position ?? 1) - 1, 0), Math.max(0, base.length - 1));
+  }
+  if (from === to) return prev;
+  const next = [...base];
+  const [moved] = next.splice(from, 1);
+  next.splice(to, 0, moved);
+  return next;
+}
+
+// order 配列の並びに従って items を並べ替える。未登録の項目は created_at 降順で後ろに置く。
+function applyManualOrder<T>(
+  items: T[],
+  getId: (item: T) => string,
+  order: string[],
+  getTime: (item: T) => number
+): T[] {
+  const orderIndex = new Map(order.map((id, index) => [id, index] as const));
+  return [...items].sort((a, b) => {
+    const ai = orderIndex.get(getId(a));
+    const bi = orderIndex.get(getId(b));
+    if (ai !== undefined && bi !== undefined) return ai - bi;
+    if (ai !== undefined) return -1;
+    if (bi !== undefined) return 1;
+    return getTime(b) - getTime(a);
+  });
+}
 
 const COURSE_STATUS_SEARCH_LABELS: Record<string, string> = {
   active: '受付中 公開中 開始中 active open',
@@ -344,6 +392,21 @@ function AdminPageInner() {
   const [roomPage, setRoomPage] = useState(1);
   const [courseSearch, setCourseSearch] = useState('');
   const [roomSearch, setRoomSearch] = useState('');
+
+  // カード並び替え用の状態（フォーム / ルーム）
+  const orderStorageScope = session?.user?.email || 'anon';
+  const courseOrderStorageKey = `admin-course-order:${orderStorageScope}`;
+  const roomOrderStorageKey = `admin-room-order:${orderStorageScope}`;
+  const [courseOrder, setCourseOrder] = useState<string[]>([]);
+  const [roomOrder, setRoomOrder] = useState<string[]>([]);
+  const courseOrderInitializedRef = useRef(false);
+  const roomOrderInitializedRef = useRef(false);
+  const [draggingCourseId, setDraggingCourseId] = useState<string | null>(null);
+  const [dragOverCourseId, setDragOverCourseId] = useState<string | null>(null);
+  const [dragOverCoursePage, setDragOverCoursePage] = useState<number | null>(null);
+  const [draggingRoomId, setDraggingRoomId] = useState<string | null>(null);
+  const [dragOverRoomId, setDragOverRoomId] = useState<string | null>(null);
+  const [dragOverRoomPage, setDragOverRoomPage] = useState<number | null>(null);
   // 検索はヘッダーの検索ボタン（⌘K）から開くモーダルに集約（常時表示バーは廃止）
   const [searchModalFor, setSearchModalFor] = useState<'courses' | 'rooms' | null>(null);
 
@@ -368,7 +431,17 @@ function AdminPageInner() {
   }, [firstRunRequested]);
 
   const renderPagination = useCallback(
-    (currentPage: number, totalPages: number, onChange: (page: number) => void) => {
+    (
+      currentPage: number,
+      totalPages: number,
+      onChange: (page: number) => void,
+      drag?: {
+        isDragging: boolean;
+        dragOverPage: number | null;
+        setDragOverPage: (page: number | null) => void;
+        onDropToPage: (page: number) => void;
+      }
+    ) => {
       if (totalPages <= 1) return null;
       const pages: number[] = [];
       for (let i = 1; i <= totalPages; i++) pages.push(i);
@@ -388,8 +461,34 @@ function AdminPageInner() {
               key={p}
               type="button"
               onClick={() => onChange(p)}
+              onDragOver={
+                drag
+                  ? (e) => {
+                      if (!drag.isDragging) return;
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = 'move';
+                      drag.setDragOverPage(p);
+                    }
+                  : undefined
+              }
+              onDragLeave={
+                drag
+                  ? () => drag.setDragOverPage(drag.dragOverPage === p ? null : drag.dragOverPage)
+                  : undefined
+              }
+              onDrop={
+                drag
+                  ? (e) => {
+                      e.preventDefault();
+                      drag.onDropToPage(p);
+                      drag.setDragOverPage(null);
+                    }
+                  : undefined
+              }
               className={`h-9 min-w-9 px-3 inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors ${
-                p === currentPage
+                drag && drag.dragOverPage === p
+                  ? 'bg-indigo-50 text-indigo-700 ring-2 ring-indigo-400 ring-offset-2'
+                  : p === currentPage
                   ? 'bg-indigo-600 text-white shadow-sm'
                   : 'text-slate-600 hover:bg-slate-100'
               }`}
@@ -765,8 +864,197 @@ function AdminPageInner() {
     }
   }, [status, fetchCourses, fetchRooms, fetchPlanInfo]);
 
+  // 保存済みの並び順を localStorage から復元（フォーム）
+  useEffect(() => {
+    if (!coursesLoaded || !session?.user?.email || courseOrderInitializedRef.current) return;
+    courseOrderInitializedRef.current = true;
+    try {
+      const raw = window.localStorage.getItem(courseOrderStorageKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          setCourseOrder(parsed.filter((id): id is string => typeof id === 'string'));
+        }
+      }
+    } catch {}
+  }, [coursesLoaded, courseOrderStorageKey, session?.user?.email]);
+
+  // 保存済みの並び順を localStorage から復元（ルーム）
+  useEffect(() => {
+    if (!roomsLoaded || !session?.user?.email || roomOrderInitializedRef.current) return;
+    roomOrderInitializedRef.current = true;
+    try {
+      const raw = window.localStorage.getItem(roomOrderStorageKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          setRoomOrder(parsed.filter((id): id is string => typeof id === 'string'));
+        }
+      }
+    } catch {}
+  }, [roomsLoaded, roomOrderStorageKey, session?.user?.email]);
+
+  const orderedCourses = useMemo(
+    () =>
+      applyManualOrder(
+        courses,
+        (course) => course.id,
+        courseOrder,
+        (course) => new Date(course.createdAt || 0).getTime()
+      ),
+    [courses, courseOrder]
+  );
+
+  const orderedRooms = useMemo(
+    () =>
+      applyManualOrder(
+        rooms,
+        (room) => room.id,
+        roomOrder,
+        (room) => new Date(room.created_at || 0).getTime()
+      ),
+    [rooms, roomOrder]
+  );
+
+  const persistCourseOrder = useCallback(
+    (nextOrder: string[]) => {
+      try {
+        window.localStorage.setItem(courseOrderStorageKey, JSON.stringify(nextOrder));
+      } catch {}
+    },
+    [courseOrderStorageKey]
+  );
+
+  const persistRoomOrder = useCallback(
+    (nextOrder: string[]) => {
+      try {
+        window.localStorage.setItem(roomOrderStorageKey, JSON.stringify(nextOrder));
+      } catch {}
+    },
+    [roomOrderStorageKey]
+  );
+
+  const moveCourseCard = useCallback(
+    (sourceId: string, target: { id?: string; position?: number }) => {
+      setCourseOrder((prev) => {
+        const next = moveIdInOrder(prev, courses.map((c) => c.id), sourceId, target);
+        if (next === prev) return prev;
+        persistCourseOrder(next);
+        return next;
+      });
+      if (target.position !== undefined) {
+        setCoursePage(Math.max(1, Math.ceil(target.position / CARDS_PER_PAGE)));
+      }
+    },
+    [courses, persistCourseOrder]
+  );
+
+  const moveRoomCard = useCallback(
+    (sourceId: string, target: { id?: string; position?: number }) => {
+      setRoomOrder((prev) => {
+        const next = moveIdInOrder(prev, rooms.map((r) => r.id), sourceId, target);
+        if (next === prev) return prev;
+        persistRoomOrder(next);
+        return next;
+      });
+      if (target.position !== undefined) {
+        setRoomPage(Math.max(1, Math.ceil(target.position / CARDS_PER_PAGE)));
+      }
+    },
+    [rooms, persistRoomOrder]
+  );
+
+  const findCardIdFromPoint = useCallback(
+    (selector: string, datasetKey: string, clientX: number, clientY: number) => {
+      if (typeof document === 'undefined') return null;
+      const elements =
+        typeof document.elementsFromPoint === 'function'
+          ? document.elementsFromPoint(clientX, clientY)
+          : [document.elementFromPoint(clientX, clientY)].filter(Boolean);
+      for (const element of elements) {
+        if (!(element instanceof HTMLElement)) continue;
+        const card = element.closest<HTMLElement>(selector);
+        const id = card?.dataset[datasetKey];
+        if (id) return id;
+      }
+      return null;
+    },
+    []
+  );
+
+  // タッチ端末向けの Pointer Events ベースの並び替え（フォーム / ルーム共通）
+  const startPointerReorder = useCallback(
+    (opts: {
+      sourceId: string;
+      event: React.PointerEvent<HTMLElement>;
+      cardSelector: string;
+      datasetKey: string;
+      onMove: (sourceId: string, targetId: string) => void;
+      setDragging: (id: string | null) => void;
+      setDragOver: (id: string | null) => void;
+      setDragOverPage: (page: number | null) => void;
+    }) => {
+      const { sourceId, event, cardSelector, datasetKey, onMove, setDragging, setDragOver, setDragOverPage } = opts;
+      if (event.pointerType === 'mouse' || event.button !== 0) return;
+      event.preventDefault();
+      const sourceElement = event.currentTarget;
+      sourceElement.setPointerCapture?.(event.pointerId);
+      setDragging(sourceId);
+      setDragOver(sourceId);
+
+      const previousBodyOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+
+      const updateTarget = (clientX: number, clientY: number) => {
+        const targetId = findCardIdFromPoint(cardSelector, datasetKey, clientX, clientY);
+        setDragOver(targetId || null);
+        return targetId;
+      };
+
+      const handlePointerMove = (moveEvent: PointerEvent) => {
+        moveEvent.preventDefault();
+        const edgeSize = 72;
+        if (moveEvent.clientY < edgeSize) {
+          window.scrollBy({ top: -14, behavior: 'auto' });
+        } else if (moveEvent.clientY > window.innerHeight - edgeSize) {
+          window.scrollBy({ top: 14, behavior: 'auto' });
+        }
+        updateTarget(moveEvent.clientX, moveEvent.clientY);
+      };
+
+      const cleanup = () => {
+        sourceElement.releasePointerCapture?.(event.pointerId);
+        window.removeEventListener('pointermove', handlePointerMove);
+        window.removeEventListener('pointerup', handlePointerUp);
+        window.removeEventListener('pointercancel', handlePointerCancel);
+        document.body.style.overflow = previousBodyOverflow;
+        setDragging(null);
+        setDragOver(null);
+        setDragOverPage(null);
+      };
+
+      function handlePointerUp(upEvent: PointerEvent) {
+        upEvent.preventDefault();
+        const targetId = updateTarget(upEvent.clientX, upEvent.clientY);
+        if (targetId && targetId !== sourceId) {
+          onMove(sourceId, targetId);
+        }
+        cleanup();
+      }
+
+      function handlePointerCancel() {
+        cleanup();
+      }
+
+      window.addEventListener('pointermove', handlePointerMove, { passive: false });
+      window.addEventListener('pointerup', handlePointerUp, { passive: false });
+      window.addEventListener('pointercancel', handlePointerCancel);
+    },
+    [findCardIdFromPoint]
+  );
+
   const filteredCourses = useMemo(() => {
-    return filterBySearchScore(courses, courseSearch, (course) => {
+    return filterBySearchScore(orderedCourses, courseSearch, (course) => {
       const typeLabel =
         course.formType === 'invitation'
           ? '招待フォーム 招待状 受付フォーム invitation invite'
@@ -801,10 +1089,10 @@ function AdminPageInner() {
         ],
       };
     });
-  }, [courseSearch, courses]);
+  }, [courseSearch, orderedCourses]);
 
   const filteredRooms = useMemo(() => {
-    return filterBySearchScore(rooms, roomSearch, (room) => {
+    return filterBySearchScore(orderedRooms, roomSearch, (room) => {
       const statusLabel = ROOM_STATUS_SEARCH_LABELS[room.status || ''] || room.status || '';
       return {
         primaryFields: [room.title, room.code],
@@ -817,7 +1105,7 @@ function AdminPageInner() {
         ],
       };
     });
-  }, [roomSearch, rooms]);
+  }, [roomSearch, orderedRooms]);
 
   // ページネーション：データ件数変化時に範囲外なら調整
   useEffect(() => {
@@ -2215,17 +2503,36 @@ function AdminPageInner() {
                   const formUrl = typeof window !== 'undefined'
                     ? `${window.location.origin}${basePath}${course.code}`
                     : `${basePath}${course.code}`;
+                  const orderPosition = orderedCourses.findIndex((c) => c.id === course.id) + 1;
+                  const totalCourseCount = orderedCourses.length;
+                  const isDragging = draggingCourseId === course.id;
+                  const isDragOver = dragOverCourseId === course.id && draggingCourseId !== course.id;
 
                   return (
                     <motion.div
                       key={course.id}
+                      data-course-card-id={course.id}
                       initial={{ opacity: 0, y: 12 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.05, duration: 0.25 }}
+                      animate={{ opacity: isDragging ? 0.5 : 1, y: 0 }}
+                      transition={{ delay: isDragging ? 0 : index * 0.05, duration: 0.25 }}
+                      onDragOver={(e) => {
+                        if (!draggingCourseId) return;
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'move';
+                        if (dragOverCourseId !== course.id) setDragOverCourseId(course.id);
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const sourceId = e.dataTransfer.getData('text/plain') || draggingCourseId;
+                        if (sourceId && sourceId !== course.id) moveCourseCard(sourceId, { id: course.id });
+                        setDraggingCourseId(null);
+                        setDragOverCourseId(null);
+                        setDragOverCoursePage(null);
+                      }}
                       className={`
                         group relative bg-white rounded-2xl ring-1 transition-all duration-300
                         hover:shadow-lg hover:-translate-y-0.5
-                        ${course.formType === 'invitation'
+                        ${isDragOver ? 'ring-2 ring-emerald-400 ring-offset-2' : course.formType === 'invitation'
                           ? 'ring-emerald-200/80 shadow-sm shadow-emerald-100/50'
                           : course.isCustomForm
                             ? 'ring-purple-200/80 shadow-sm shadow-purple-100/50'
@@ -2237,6 +2544,56 @@ function AdminPageInner() {
                         {/* Top row: name + actions */}
                         <div className="flex items-start justify-between gap-3 mb-3">
                           <div className="flex items-center gap-2 min-w-0">
+                            {/* 並び替えコントロール */}
+                            <div className="flex shrink-0 flex-col items-center gap-1">
+                              <button
+                                type="button"
+                                draggable
+                                onDragStart={(e) => {
+                                  setDraggingCourseId(course.id);
+                                  setDragOverCourseId(course.id);
+                                  e.dataTransfer.effectAllowed = 'move';
+                                  e.dataTransfer.setData('text/plain', course.id);
+                                }}
+                                onDragEnd={() => {
+                                  setDraggingCourseId(null);
+                                  setDragOverCourseId(null);
+                                  setDragOverCoursePage(null);
+                                }}
+                                onPointerDown={(e) =>
+                                  startPointerReorder({
+                                    sourceId: course.id,
+                                    event: e,
+                                    cardSelector: '[data-course-card-id]',
+                                    datasetKey: 'courseCardId',
+                                    onMove: (sourceId, targetId) => moveCourseCard(sourceId, { id: targetId }),
+                                    setDragging: setDraggingCourseId,
+                                    setDragOver: setDragOverCourseId,
+                                    setDragOverPage: setDragOverCoursePage,
+                                  })
+                                }
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-flex h-7 w-6 touch-none cursor-grab items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-indigo-600 active:cursor-grabbing"
+                                title="ドラッグして並び替え"
+                                aria-label="ドラッグして並び替え"
+                              >
+                                <GripVertical className="h-4 w-4" />
+                              </button>
+                              <select
+                                value={orderPosition}
+                                onChange={(e) => moveCourseCard(course.id, { position: Number(e.target.value) })}
+                                onClick={(e) => e.stopPropagation()}
+                                className="h-6 w-9 rounded-md border border-slate-200 bg-white px-0.5 text-center text-[11px] font-bold tabular-nums text-slate-600 outline-none focus:border-indigo-400"
+                                title={`表示順を1〜${totalCourseCount}から選択`}
+                                aria-label="カード番号"
+                              >
+                                {Array.from({ length: totalCourseCount }, (_, i) => i + 1).map((position) => (
+                                  <option key={position} value={position}>
+                                    {position}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
                             <div className={`
                               flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center
                               ${course.formType === 'invitation'
@@ -2501,7 +2858,19 @@ function AdminPageInner() {
               {renderPagination(
                 coursePage,
                 Math.max(1, Math.ceil(filteredCourses.length / CARDS_PER_PAGE)),
-                setCoursePage
+                setCoursePage,
+                {
+                  isDragging: !!draggingCourseId,
+                  dragOverPage: dragOverCoursePage,
+                  setDragOverPage: setDragOverCoursePage,
+                  onDropToPage: (page) => {
+                    const sourceId = draggingCourseId;
+                    if (sourceId) moveCourseCard(sourceId, { position: (page - 1) * CARDS_PER_PAGE + 1 });
+                    setDraggingCourseId(null);
+                    setDragOverCourseId(null);
+                    setDragOverCoursePage(null);
+                  },
+                }
               )}
               </>
             )}
@@ -2753,18 +3122,89 @@ function AdminPageInner() {
               <>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {filteredRooms.slice((roomPage - 1) * CARDS_PER_PAGE, roomPage * CARDS_PER_PAGE).map((room, index) => {
+                  const orderPosition = orderedRooms.findIndex((r) => r.id === room.id) + 1;
+                  const totalRoomCount = orderedRooms.length;
+                  const isDragging = draggingRoomId === room.id;
+                  const isDragOver = dragOverRoomId === room.id && draggingRoomId !== room.id;
                   return (
                     <motion.div
                       key={room.id}
+                      data-room-card-id={room.id}
                       initial={{ opacity: 0, y: 12 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.05, duration: 0.25 }}
-                      className="group relative bg-white rounded-2xl ring-1 ring-black/5 shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5"
+                      animate={{ opacity: isDragging ? 0.5 : 1, y: 0 }}
+                      transition={{ delay: isDragging ? 0 : index * 0.05, duration: 0.25 }}
+                      onDragOver={(e) => {
+                        if (!draggingRoomId) return;
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'move';
+                        if (dragOverRoomId !== room.id) setDragOverRoomId(room.id);
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const sourceId = e.dataTransfer.getData('text/plain') || draggingRoomId;
+                        if (sourceId && sourceId !== room.id) moveRoomCard(sourceId, { id: room.id });
+                        setDraggingRoomId(null);
+                        setDragOverRoomId(null);
+                        setDragOverRoomPage(null);
+                      }}
+                      className={`group relative bg-white rounded-2xl ring-1 shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 ${
+                        isDragOver ? 'ring-2 ring-emerald-400 ring-offset-2' : 'ring-black/5'
+                      }`}
                     >
                       <div className="p-4 sm:p-5">
                         {/* Top row: title + status */}
                         <div className="flex items-start justify-between gap-2 mb-2">
                           <div className="flex items-center gap-2 min-w-0 flex-1">
+                            {/* 並び替えコントロール */}
+                            <div className="flex shrink-0 flex-col items-center gap-1">
+                              <button
+                                type="button"
+                                draggable
+                                onDragStart={(e) => {
+                                  setDraggingRoomId(room.id);
+                                  setDragOverRoomId(room.id);
+                                  e.dataTransfer.effectAllowed = 'move';
+                                  e.dataTransfer.setData('text/plain', room.id);
+                                }}
+                                onDragEnd={() => {
+                                  setDraggingRoomId(null);
+                                  setDragOverRoomId(null);
+                                  setDragOverRoomPage(null);
+                                }}
+                                onPointerDown={(e) =>
+                                  startPointerReorder({
+                                    sourceId: room.id,
+                                    event: e,
+                                    cardSelector: '[data-room-card-id]',
+                                    datasetKey: 'roomCardId',
+                                    onMove: (sourceId, targetId) => moveRoomCard(sourceId, { id: targetId }),
+                                    setDragging: setDraggingRoomId,
+                                    setDragOver: setDragOverRoomId,
+                                    setDragOverPage: setDragOverRoomPage,
+                                  })
+                                }
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-flex h-7 w-6 touch-none cursor-grab items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-indigo-600 active:cursor-grabbing"
+                                title="ドラッグして並び替え"
+                                aria-label="ドラッグして並び替え"
+                              >
+                                <GripVertical className="h-4 w-4" />
+                              </button>
+                              <select
+                                value={orderPosition}
+                                onChange={(e) => moveRoomCard(room.id, { position: Number(e.target.value) })}
+                                onClick={(e) => e.stopPropagation()}
+                                className="h-6 w-9 rounded-md border border-slate-200 bg-white px-0.5 text-center text-[11px] font-bold tabular-nums text-slate-600 outline-none focus:border-indigo-400"
+                                title={`表示順を1〜${totalRoomCount}から選択`}
+                                aria-label="カード番号"
+                              >
+                                {Array.from({ length: totalRoomCount }, (_, i) => i + 1).map((position) => (
+                                  <option key={position} value={position}>
+                                    {position}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
                             <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
                               <Airplay className="h-4 w-4 text-indigo-600" />
                             </div>
@@ -2980,7 +3420,19 @@ function AdminPageInner() {
               {renderPagination(
                 roomPage,
                 Math.max(1, Math.ceil(filteredRooms.length / CARDS_PER_PAGE)),
-                setRoomPage
+                setRoomPage,
+                {
+                  isDragging: !!draggingRoomId,
+                  dragOverPage: dragOverRoomPage,
+                  setDragOverPage: setDragOverRoomPage,
+                  onDropToPage: (page) => {
+                    const sourceId = draggingRoomId;
+                    if (sourceId) moveRoomCard(sourceId, { position: (page - 1) * CARDS_PER_PAGE + 1 });
+                    setDraggingRoomId(null);
+                    setDragOverRoomId(null);
+                    setDragOverRoomPage(null);
+                  },
+                }
               )}
               </>
             )}
