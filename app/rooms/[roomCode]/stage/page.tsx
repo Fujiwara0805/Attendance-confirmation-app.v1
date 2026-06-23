@@ -107,6 +107,7 @@ export default function StagePage() {
   const fileHandleRef = useRef<EditableFileHandle | null>(null);
   const originalBufferRef = useRef<ArrayBuffer | null>(null);
   const originalDocRef = useRef<ProjectionDocument | null>(null);
+  const projectionPdfObjectUrlRef = useRef<string | null>(null);
 
   const [room, setRoom] = useState<Room | null>(null);
   const [roomLoading, setRoomLoading] = useState(true);
@@ -115,10 +116,12 @@ export default function StagePage() {
   const [videoReady, setVideoReady] = useState(false);
   const [projectionDocument, setProjectionDocument] = useState<ProjectionDocument | null>(null);
   const [fileImportError, setFileImportError] = useState<string | null>(null);
+  const [fileImportNotice, setFileImportNotice] = useState<string | null>(null);
   const [importingFile, setImportingFile] = useState(false);
   // pptx は Gotenberg で PDF 化して pdf.js で正確表示する。projectionDocument(クライアント解析)とは排他。
   const [projectionPdfUrl, setProjectionPdfUrl] = useState<string | null>(null);
   const [projectionPdfName, setProjectionPdfName] = useState('');
+  const [projectionPdfKind, setProjectionPdfKind] = useState<'pdf' | 'powerpoint'>('pdf');
   const [convertingPptx, setConvertingPptx] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -312,10 +315,24 @@ export default function StagePage() {
     originalDocRef.current = null;
   };
 
+  const revokeProjectionPdfObjectUrl = useCallback(() => {
+    if (!projectionPdfObjectUrlRef.current) return;
+    URL.revokeObjectURL(projectionPdfObjectUrlRef.current);
+    projectionPdfObjectUrlRef.current = null;
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      revokeProjectionPdfObjectUrl();
+    };
+  }, [revokeProjectionPdfObjectUrl]);
+
   const startScreenCapture = () => {
     setProjectionDocument(null);
+    revokeProjectionPdfObjectUrl();
     setProjectionPdfUrl(null);
     setFileImportError(null);
+    setFileImportNotice(null);
     resetEditState();
     startScreenShare();
   };
@@ -341,6 +358,7 @@ export default function StagePage() {
               'text/csv': ['.csv'],
               'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
               'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+              'application/pdf': ['.pdf'],
             },
           },
         ],
@@ -357,8 +375,10 @@ export default function StagePage() {
 
   const clearProjectionDocument = () => {
     setProjectionDocument(null);
+    revokeProjectionPdfObjectUrl();
     setProjectionPdfUrl(null);
     setFileImportError(null);
+    setFileImportNotice(null);
     setActiveSheetIndex(0);
     setActiveSlideIndex(0);
     resetEditState();
@@ -391,7 +411,9 @@ export default function StagePage() {
       const { pdfUrl } = await convertRes.json();
       if (!pdfUrl) return false;
 
+      revokeProjectionPdfObjectUrl();
       setProjectionPdfUrl(pdfUrl);
+      setProjectionPdfKind('powerpoint');
       return true;
     } catch {
       return false;
@@ -403,30 +425,60 @@ export default function StagePage() {
 
     setImportingFile(true);
     setFileImportError(null);
+    setFileImportNotice(null);
     setSaveMessage(null);
 
     const extension = file.name.split('.').pop()?.toLowerCase();
+    const isPdfFile = extension === 'pdf' || file.type === 'application/pdf';
+    const isPptxFile = extension === 'pptx';
 
     try {
+      if (isPdfFile) {
+        stopScreenShare();
+        setProjectionDocument(null);
+        resetEditState();
+        revokeProjectionPdfObjectUrl();
+        const pdfUrl = URL.createObjectURL(file);
+        projectionPdfObjectUrlRef.current = pdfUrl;
+        setProjectionPdfUrl(pdfUrl);
+        setProjectionPdfName(file.name || 'PDF資料.pdf');
+        setProjectionPdfKind('pdf');
+        setActiveSheetIndex(0);
+        setActiveSlideIndex(0);
+        setVideoReady(false);
+        return;
+      }
+
       // pptx はまずサーバー変換(PowerPointと同一見た目)を試す。
-      if (extension === 'pptx') {
+      if (isPptxFile) {
+        setFileImportNotice(
+          '精度重視の場合は、PowerPointでPDF保存したファイルを取り込んでください。'
+        );
         setConvertingPptx(true);
         stopScreenShare();
         setProjectionDocument(null);
+        revokeProjectionPdfObjectUrl();
         resetEditState();
         const handled = await importPptxViaServer(file);
         setConvertingPptx(false);
         if (handled) {
           setProjectionPdfName(file.name);
+          setFileImportNotice(
+            'PowerPointをPDFに変換して表示しています。崩れる場合はPDF保存版を取り込んでください。'
+          );
           setVideoReady(false);
           return;
         }
         // 変換できなければ既存のクライアント解析にフォールバックする。
+        setFileImportNotice(
+          'PDF変換が使えないため簡易表示です。精度重視の場合はPDF保存版を取り込んでください。'
+        );
       }
 
       const buffer = await file.arrayBuffer();
       const parsed = await parseProjectionDocument(file);
       stopScreenShare();
+      revokeProjectionPdfObjectUrl();
       setProjectionPdfUrl(null);
       setProjectionDocument(parsed);
       // 編集可能ファイルのみ、保存時の差分元としてパース直後の状態と元バイト列を保持する。
@@ -650,7 +702,7 @@ export default function StagePage() {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".xlsx,.xls,.csv,.pptx,.docx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        accept=".xlsx,.xls,.csv,.pptx,.docx,.pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf"
         className="hidden"
         onChange={handleProjectionFileChange}
       />
@@ -669,13 +721,17 @@ export default function StagePage() {
               <Loader2 className="mx-auto mb-4 h-9 w-9 animate-spin text-sky-300" />
               <p className="text-base font-bold text-white">資料を変換しています…</p>
               <p className="mt-2 text-sm leading-relaxed text-slate-300">
-                PowerPoint と同じ見た目で表示できるよう、スライドを変換中です。
+                PowerPoint と同じ見た目で表示できるよう、PDF に変換中です。
+              </p>
+              <p className="mt-3 rounded-xl bg-amber-400/15 px-4 py-3 text-xs font-semibold leading-relaxed text-amber-100 ring-1 ring-amber-300/25">
+                精度重視の場合は、PDF保存版の取り込みが最も安定します。
               </p>
             </div>
           ) : projectionPdfUrl ? (
             <PdfProjection
               pdfUrl={projectionPdfUrl}
               fileName={projectionPdfName}
+              documentKind={projectionPdfKind}
               onFullscreen={enterFullscreen}
               onOpenClassicScreen={openClassicScreen}
               onOpenPollScreen={openPollScreen}
@@ -810,20 +866,19 @@ export default function StagePage() {
               </h1>
               <p className="mt-3 text-sm sm:text-base leading-relaxed text-slate-300">
                 Canva / Google Slides などのブラウザ資料ツールを発表モードにし、<br />
-                スクリーンに投影できます。または Excel / PowerPoint / Word ファイルを取り込むことができます。
+                スクリーンに投影できます。または Excel / PowerPoint / Word / PDF ファイルを取り込むことができます。
               </p>
               <div className="mt-5 rounded-2xl bg-white/10 p-4 text-left ring-1 ring-white/15">
                 <p className="text-xs font-bold uppercase tracking-wide text-indigo-200">取り込み方法</p>
-                <ol className="mt-3 space-y-2 text-sm leading-relaxed text-slate-200">
-                  <li>1. ブラウザ資料は発表モードで開き、「画面を取り込む」を押す</li>
-                  <li>2. Excel / PowerPoint / Word は「ファイルを取り込む」から選択する</li>
-                  <li>3. 取り込んだ資料を全画面にしてスクリーンに表示する</li>
-                </ol>
-                <p className="mt-3 text-xs leading-relaxed text-slate-400">
-                  PowerPoint は .pptx、Excel は .xlsx / .xls / .csv、Word は .docx に対応しています。PowerPoint取り込みでは発表者ツールは使えません。発表者ツールを使う場合はブラウザの資料ツールを画面取り込みしてください。
-                </p>
+                <div className="mt-3 grid gap-2 text-sm leading-relaxed text-slate-200">
+                  <p>ブラウザ資料は発表モードで開き、「画面を取り込む」を押してください。</p>
+                  <p>ファイルは Excel / PowerPoint / Word / PDF を取り込めます。</p>
+                </div>
+                <div className="mt-3 rounded-lg bg-sky-400/15 px-3 py-2 text-xs font-bold leading-relaxed text-sky-100 ring-1 ring-sky-300/25">
+                  <p>スライドの見た目を優先する場合は、PDF保存版の取り込みが最も安定します。</p>
+                </div>
                 <div className="mt-3 rounded-lg bg-amber-400/15 px-3 py-2 text-xs font-bold leading-relaxed text-amber-100 ring-1 ring-amber-300/25">
-                  <p>発表者用メモがスクリーンに映る場合は、画面設定をミラーリングOFF（拡張表示）にしてください。</p>
+                  <p>発表者用メモを使う場合は、画面取り込みで発表画面だけを選択してください。</p>
                 </div>
               </div>
               <div className="mx-auto mt-7 grid w-full max-w-[720px] grid-cols-4 gap-2">
@@ -876,6 +931,11 @@ export default function StagePage() {
           {fileImportError && (projectionDocument || projectionPdfUrl || captureStream) && (
             <div className="absolute bottom-4 left-4 right-4 z-30 rounded-xl bg-rose-500/95 px-4 py-3 text-sm font-semibold text-white shadow-2xl ring-1 ring-rose-200/40">
               {fileImportError}
+            </div>
+          )}
+          {fileImportNotice && !fileImportError && (projectionDocument || projectionPdfUrl || captureStream) && (
+            <div className="absolute bottom-4 left-4 right-4 z-30 rounded-xl bg-amber-400/95 px-4 py-3 text-sm font-semibold leading-relaxed text-slate-950 shadow-2xl ring-1 ring-amber-100">
+              {fileImportNotice}
             </div>
           )}
           {saveMessage && (

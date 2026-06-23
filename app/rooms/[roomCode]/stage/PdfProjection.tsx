@@ -5,6 +5,7 @@ import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 import {
   ChevronLeft,
   ChevronRight,
+  FileText,
   Loader2,
   Maximize,
   MonitorUp,
@@ -27,9 +28,11 @@ export default function PdfProjection({
   onPickFile,
   onClear,
   importingFile,
+  documentKind = 'pdf',
 }: {
   pdfUrl: string;
   fileName: string;
+  documentKind?: 'pdf' | 'powerpoint';
   onFullscreen: () => void;
   onOpenClassicScreen: () => void;
   onOpenPollScreen: () => void;
@@ -46,6 +49,9 @@ export default function PdfProjection({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [resizeTick, setResizeTick] = useState(0);
+  const isPowerPoint = documentKind === 'powerpoint';
+  const documentLabel = isPowerPoint ? 'PowerPoint投影中' : 'PDF投影中';
+  const pageUnitLabel = isPowerPoint ? 'スライド' : 'ページ';
 
   // PDF を読み込む。
   useEffect(() => {
@@ -157,8 +163,12 @@ export default function PdfProjection({
       <div className="absolute left-4 right-4 top-4 z-20 flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <div className="inline-flex max-w-[min(62vw,520px)] items-center gap-2 rounded-full bg-black/65 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-md">
-            <Presentation className="h-4 w-4 shrink-0 text-sky-300" />
-            <span className="shrink-0">PowerPoint投影中</span>
+            {isPowerPoint ? (
+              <Presentation className="h-4 w-4 shrink-0 text-sky-300" />
+            ) : (
+              <FileText className="h-4 w-4 shrink-0 text-indigo-200" />
+            )}
+            <span className="shrink-0">{documentLabel}</span>
             <span className="truncate text-white/70">{fileName}</span>
           </div>
 
@@ -168,8 +178,9 @@ export default function PdfProjection({
                 type="button"
                 onClick={goPrev}
                 disabled={pageIndex === 0}
-                className="inline-flex h-7 w-7 items-center justify-center rounded-md hover:bg-white/15 disabled:opacity-35"
-                aria-label="前のスライド"
+                className="inline-flex h-7 w-7 items-center justify-center rounded-md transition hover:bg-white/15 disabled:opacity-35"
+                aria-label={`前の${pageUnitLabel}`}
+                title={`前の${pageUnitLabel}`}
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
@@ -180,8 +191,9 @@ export default function PdfProjection({
                 type="button"
                 onClick={goNext}
                 disabled={pageIndex >= numPages - 1}
-                className="inline-flex h-7 w-7 items-center justify-center rounded-md hover:bg-white/15 disabled:opacity-35"
-                aria-label="次のスライド"
+                className="inline-flex h-7 w-7 items-center justify-center rounded-md transition hover:bg-white/15 disabled:opacity-35"
+                aria-label={`次の${pageUnitLabel}`}
+                title={`次の${pageUnitLabel}`}
               >
                 <ChevronRight className="h-4 w-4" />
               </button>
