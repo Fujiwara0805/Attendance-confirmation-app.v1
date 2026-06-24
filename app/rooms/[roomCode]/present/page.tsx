@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquare, Trees, ThumbsUp, Maximize, Minimize, X, Loader2, WifiOff, MonitorUp, ChevronLeft, ChevronRight, Clock, Play, StopCircle } from 'lucide-react';
 import { useRealtimeQuestions } from '@/lib/hooks/useRealtimeQuestions';
 import { useRealtimePolls, type Poll, type PollVote } from '@/lib/hooks/useRealtimePolls';
+import { enterFullscreenPreferExternal, useHasExternalDisplay } from '@/lib/externalDisplay';
 import {
   extractPollPayload,
   FREE_TEXT_CARD_COLORS,
@@ -56,6 +57,12 @@ export default function PresentPage() {
     searchParams?.get('view') === 'poll' ? 'poll' : 'qa'
   );
   const [isFullscreen, setIsFullscreen] = useState(false);
+  // 外部（拡張）ディスプレイ接続の有無。許可不要の screen.isExtended を購読。
+  const hasExternalDisplay = useHasExternalDisplay();
+  // 外部全画面で許可消費時に「もう一度押してください」を促す一時メッセージ。
+  const [fullscreenHint, setFullscreenHint] = useState<string | null>(null);
+  // 「外部ディスプレイで全画面表示」プロンプトを閉じたか（同セッション中のみ抑制）。
+  const [presentPromptDismissed, setPresentPromptDismissed] = useState(false);
   const [qrUrl, setQrUrl] = useState<string | null>(null);
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [qrModalMode, setQrModalMode] = useState<'join' | 'upload' | null>(null);
@@ -257,21 +264,38 @@ export default function PresentPage() {
     [roomCode]
   );
 
-  const toggleFullscreen = () => {
+  // 外部ディスプレイがあればそこへ、無ければ現在画面へ全画面化する。
+  // 初回は「ウィンドウの管理」許可でユーザー操作が消費され全画面に入れないことが
+  // あるため、その時だけ（外部接続時のみ）再クリックを促す。2 回目以降はキャッシュ済み。
+  // isFullscreen は fullscreenchange ハンドラで一元同期する。
+  const enterScreenFullscreen = useCallback(async () => {
+    setFullscreenHint(null);
+    const target = await enterFullscreenPreferExternal(containerRef.current);
+    if (target === 'none' && hasExternalDisplay) {
+      setFullscreenHint('外部ディスプレイの使用を許可したら、もう一度ボタンを押してください。');
+    }
+  }, [hasExternalDisplay]);
+
+  const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
-      containerRef.current?.requestFullscreen();
-      setIsFullscreen(true);
+      void enterScreenFullscreen();
     } else {
       document.exitFullscreen();
-      setIsFullscreen(false);
     }
-  };
+  }, [enterScreenFullscreen]);
 
   useEffect(() => {
     const handler = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener('fullscreenchange', handler);
     return () => document.removeEventListener('fullscreenchange', handler);
   }, []);
+
+  // 許可後の再クリックを促すヒントは一定時間で自動的に消す。
+  useEffect(() => {
+    if (!fullscreenHint) return;
+    const timer = window.setTimeout(() => setFullscreenHint(null), 6000);
+    return () => window.clearTimeout(timer);
+  }, [fullscreenHint]);
 
   if (!room) {
     return <div className="min-h-screen bg-gray-50 flex items-center justify-center text-sm sm:text-base text-gray-400">読み込み中...</div>;
@@ -374,7 +398,23 @@ export default function PresentPage() {
           )}
           <button
             onClick={toggleFullscreen}
-            className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors"
+            className={`p-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors ${
+              hasExternalDisplay && !isFullscreen ? 'ring-2 ring-amber-300' : ''
+            }`}
+            aria-label={
+              isFullscreen
+                ? '全画面を終了'
+                : hasExternalDisplay
+                ? '外部ディスプレイに全画面'
+                : '全画面'
+            }
+            title={
+              isFullscreen
+                ? '全画面を終了'
+                : hasExternalDisplay
+                ? '外部ディスプレイに全画面'
+                : '全画面'
+            }
           >
             {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
           </button>
@@ -1020,6 +1060,75 @@ export default function PresentPage() {
               exit={{ scale: 0.96, opacity: 0 }}
               className="max-h-[92vh] max-w-[94vw] rounded-2xl bg-white object-contain shadow-2xl"
             />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 外部ディスプレイ接続時、開いた直後に「外部ディスプレイで全画面表示」を1タップで促す。
+          全画面に入る（isFullscreen）と自動的に消える。「このまま表示」で同セッション中は抑制。 */}
+      <AnimatePresence>
+        {hasExternalDisplay && !isFullscreen && !presentPromptDismissed && (
+          <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-label="外部ディスプレイで全画面表示"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-[140] flex items-center justify-center bg-slate-950/55 p-6 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.94, opacity: 0, y: 8 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.94, opacity: 0, y: 8 }}
+              transition={{ type: 'spring', stiffness: 360, damping: 28 }}
+              className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl ring-1 ring-slate-200"
+            >
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 ring-1 ring-indigo-100">
+                <MonitorUp className="h-7 w-7 text-indigo-500" />
+              </div>
+              <h2 className="text-lg font-extrabold tracking-tight text-slate-900">外部ディスプレイが接続されています</h2>
+              <p className="mt-2 text-sm leading-relaxed text-slate-500">
+                スクリーン画面を外部ディスプレイ（プロジェクター）に全画面で投影します。手元のこの画面はそのまま操作に使えます。
+              </p>
+              {fullscreenHint && (
+                <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold leading-relaxed text-amber-700 ring-1 ring-amber-200">
+                  {fullscreenHint}
+                </p>
+              )}
+              <div className="mt-5 flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={() => void enterScreenFullscreen()}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 text-sm font-bold text-white shadow-sm transition-colors hover:bg-indigo-700"
+                >
+                  <Maximize className="h-4 w-4" />
+                  外部ディスプレイで全画面表示
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPresentPromptDismissed(true)}
+                  className="inline-flex h-10 items-center justify-center rounded-xl px-4 text-sm font-bold text-slate-500 ring-1 ring-slate-200 transition hover:bg-slate-50"
+                >
+                  このまま表示
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* プロンプトを閉じた後でも、ヘッダーの全画面ボタンで許可が消費されたときのヒントを表示する。 */}
+      <AnimatePresence>
+        {fullscreenHint && presentPromptDismissed && !isFullscreen && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 12 }}
+            className="fixed bottom-5 left-1/2 z-[140] -translate-x-1/2 rounded-xl bg-amber-400/95 px-4 py-3 text-sm font-semibold text-slate-950 shadow-2xl ring-1 ring-amber-100"
+          >
+            {fullscreenHint}
           </motion.div>
         )}
       </AnimatePresence>
