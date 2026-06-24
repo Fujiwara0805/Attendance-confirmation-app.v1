@@ -32,6 +32,7 @@ import {
 import { useRealtimeQuestions } from '@/lib/hooks/useRealtimeQuestions';
 import { useRealtimePolls, type Poll, type PollVote } from '@/lib/hooks/useRealtimePolls';
 import { captureStreamStore, useCaptureStream } from '@/lib/captureStreamStore';
+import { enterFullscreenPreferExternal, useHasExternalDisplay } from '@/lib/externalDisplay';
 import {
   extractPollPayload,
   getPollMode,
@@ -149,6 +150,9 @@ export default function StagePage() {
     startScreenShare,
     stopScreenShare,
   } = useCaptureStream();
+
+  // 外部（拡張）ディスプレイ接続の有無。許可不要の screen.isExtended を購読。
+  const hasExternalDisplay = useHasExternalDisplay();
 
   useEffect(() => {
     fetch(`/api/rooms/${roomCode}`)
@@ -289,9 +293,15 @@ export default function StagePage() {
     };
   }, [captureStream, roomLoading, room]);
 
-  const enterFullscreen = () => {
-    stageRef.current?.requestFullscreen?.();
-  };
+  // 外部ディスプレイがあればそこへ、無ければ現在画面へ全画面化する。
+  // 初回は「ウィンドウの管理」許可でユーザー操作が消費され全画面に入れないことが
+  // あるため、その時だけ（外部接続時のみ）再クリックを促す。2 回目以降はキャッシュ済み。
+  const enterFullscreen = useCallback(async () => {
+    const target = await enterFullscreenPreferExternal(stageRef.current);
+    if (target === 'none' && hasExternalDisplay) {
+      setSaveMessage('外部ディスプレイの使用を許可したら、もう一度ボタンを押してください。');
+    }
+  }, [hasExternalDisplay]);
 
   // 画面共有は captureStreamStore が保持しているため、遷移時に停止しない。
   // present へ移る前に video DOM を退避し、stage に戻ったら同じ DOM を表示へ戻す。
@@ -793,9 +803,11 @@ export default function StagePage() {
                   <button
                     type="button"
                     onClick={enterFullscreen}
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-white/90 text-slate-900 shadow-sm hover:bg-white"
-                    aria-label="全画面"
-                    title="全画面"
+                    className={`inline-flex h-10 w-10 items-center justify-center rounded-lg bg-white/90 text-slate-900 shadow-sm hover:bg-white ${
+                      hasExternalDisplay ? 'ring-2 ring-amber-300' : ''
+                    }`}
+                    aria-label={hasExternalDisplay ? '外部ディスプレイに全画面' : '全画面'}
+                    title={hasExternalDisplay ? '外部ディスプレイに全画面' : '全画面'}
                   >
                     <Maximize className="h-4 w-4" />
                   </button>
