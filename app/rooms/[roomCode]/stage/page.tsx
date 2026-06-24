@@ -33,6 +33,7 @@ import { useRealtimeQuestions } from '@/lib/hooks/useRealtimeQuestions';
 import { useRealtimePolls, type Poll, type PollVote } from '@/lib/hooks/useRealtimePolls';
 import { captureStreamStore, useCaptureStream } from '@/lib/captureStreamStore';
 import { enterFullscreenPreferExternal, useHasExternalDisplay } from '@/lib/externalDisplay';
+import { useScreenDisplay, useScreenQrOverlay, type ScreenCommand } from '@/lib/hooks/useScreenOverlay';
 import {
   extractPollPayload,
   getPollMode,
@@ -514,6 +515,62 @@ export default function StagePage() {
     await importProjectionFile(file, null);
   };
 
+  // 参加QRの拡大表示を操作ハブ（ステージ管理タブ）と broadcast 同期する。
+  // 資料投影画面でも present と同様にQRを表示できるようにする。
+  const { enlarged: qrEnlarged, setEnlarged: setQrEnlarged } = useScreenQrOverlay(room?.id || null);
+  useEffect(() => {
+    setQrModalOpen(qrEnlarged);
+  }, [qrEnlarged]);
+
+  // clearProjectionDocument は毎レンダー再生成されるため ref 経由で最新を参照する。
+  const clearProjectionDocumentRef = useRef(clearProjectionDocument);
+  clearProjectionDocumentRef.current = clearProjectionDocument;
+
+  // 操作ハブ（ステージ管理タブ）からの遠隔操作を受け、現在状態を返す。
+  const handleScreenCommand = useCallback(
+    (cmd: ScreenCommand) => {
+      if (cmd.type === 'stage-chat') {
+        setChatCollapsed(cmd.collapsed);
+      } else if (cmd.type === 'navigate' && cmd.target === 'present') {
+        captureStreamStore.parkVideo();
+        router.push(`/rooms/${roomCode}/present${cmd.view === 'poll' ? '?view=poll' : ''}`);
+      } else if (cmd.type === 'stage-stop') {
+        captureStreamStore.stop();
+        clearProjectionDocumentRef.current();
+      } else if (cmd.type === 'stage-fullscreen') {
+        if (typeof window !== 'undefined') window.focus();
+        void enterFullscreen();
+      }
+    },
+    [roomCode, router, enterFullscreen]
+  );
+  const stageScreenState = useMemo(
+    () => ({
+      screen: 'stage' as const,
+      chatCollapsed,
+      hasDoc: !!projectionDocument || !!projectionPdfUrl,
+      capturing: !!captureStream,
+      qrVisible: qrEnlarged,
+    }),
+    [chatCollapsed, projectionDocument, projectionPdfUrl, captureStream, qrEnlarged]
+  );
+  useScreenDisplay(room?.id || null, handleScreenCommand, stageScreenState);
+
+  // 操作ハブからのファイル受け渡し口。同一オリジンの操作ウィンドウから直接呼ばれる。
+  // importProjectionFile は毎レンダー再生成されるため ref 経由で最新を参照する。
+  const importProjectionFileRef = useRef(importProjectionFile);
+  importProjectionFileRef.current = importProjectionFile;
+  useEffect(() => {
+    const w = window as Window & { __zasekikunImportProjectionFile?: (file: File) => void };
+    w.__zasekikunImportProjectionFile = (file: File) => {
+      void importProjectionFileRef.current(file, null);
+    };
+    return () => {
+      delete w.__zasekikunImportProjectionFile;
+    };
+  }, []);
+
+
   const handleEditCell = useCallback((sheetIndex: number, rowIndex: number, colIndex: number, value: string) => {
     setProjectionDocument((current) => {
       if (!current || current.kind !== 'spreadsheet') return current;
@@ -614,11 +671,11 @@ export default function StagePage() {
   useEffect(() => {
     if (!qrModalOpen) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setQrModalOpen(false);
+      if (event.key === 'Escape') setQrEnlarged(false);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [qrModalOpen]);
+  }, [qrModalOpen, setQrEnlarged]);
 
   useEffect(() => {
     if (!saveMessage) return;
@@ -996,7 +1053,7 @@ export default function StagePage() {
                 {qrUrl && (
                   <button
                     type="button"
-                    onClick={() => setQrModalOpen(true)}
+                    onClick={() => setQrEnlarged(true)}
                     className="rounded-xl bg-white p-1.5 shadow-sm ring-1 ring-slate-200 transition hover:ring-indigo-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                     title="QRコードを拡大"
                   >
@@ -1121,13 +1178,13 @@ export default function StagePage() {
           aria-modal="true"
           aria-label="参加QRコード"
           className="fixed inset-0 z-[120] flex items-center justify-center bg-white/85 p-6 backdrop-blur-3xl"
-          onClick={() => setQrModalOpen(false)}
+          onClick={() => setQrEnlarged(false)}
         >
           <button
             type="button"
             onClick={(event) => {
               event.stopPropagation();
-              setQrModalOpen(false);
+              setQrEnlarged(false);
             }}
             className="fixed right-5 top-5 inline-flex h-11 items-center gap-2 rounded-xl bg-white px-4 text-sm font-bold text-slate-900 shadow-lg ring-1 ring-slate-200 hover:bg-slate-50"
           >

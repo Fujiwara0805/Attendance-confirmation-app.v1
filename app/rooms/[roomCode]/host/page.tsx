@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef, type ComponentType, type ReactNode } from 'react';
-import { useParams, useSearchParams } from 'next/navigation';
+import { useState, useEffect, useCallback, useMemo, useRef, type ChangeEvent, type ComponentType, type ReactNode } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import SessionReportContent from '../report/SessionReportContent';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -19,6 +19,10 @@ import {
   StopCircle,
   Trash2,
   Monitor,
+  MonitorUp,
+  LayoutDashboard,
+  Upload,
+  Maximize,
   Loader2,
   ShieldCheck,
   ShieldOff,
@@ -67,7 +71,8 @@ import Link from 'next/link';
 import { useRealtimeQuestions } from '@/lib/hooks/useRealtimeQuestions';
 import { useRealtimePolls, type Poll, type PollVote } from '@/lib/hooks/useRealtimePolls';
 import { useRoomPresence } from '@/lib/hooks/useRoomPresence';
-import { useScreenQrOverlay } from '@/lib/hooks/useScreenOverlay';
+import { useScreenQrOverlay, useScreenControl } from '@/lib/hooks/useScreenOverlay';
+import { openScreenWithControl } from '@/lib/screenWindow';
 import { formatDistanceToNow } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import {
@@ -263,7 +268,7 @@ const HOST_NAV_ITEMS: Array<{
   description: string;
   icon: ComponentType<{ className?: string }>;
 }> = [
-  { key: 'questions', label: 'Q&A機能', description: '承認・回答管理', icon: MessageSquare },
+  { key: 'questions', label: 'ステージ管理', description: '承認・スクリーン操作', icon: LayoutDashboard },
   { key: 'polls', label: 'ワーク機能', description: 'カード作成・集計', icon: Hammer },
   { key: 'summary', label: 'サマリー', description: '状況の確認', icon: PieChart },
   { key: 'integration', label: '連携', description: '出席フォーム紐付け', icon: Link2 },
@@ -517,6 +522,7 @@ function makeQuizQuestionDraft(index: number): QuizQuestionDraft {
 
 export default function HostPage() {
   const params = useParams();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session, status: authStatus } = useSession();
   const roomCode = (params.roomCode as string).toUpperCase();
@@ -820,6 +826,108 @@ export default function HostPage() {
   const presenceCount = useRoomPresence(room?.id || null, session?.user?.email || null);
   // スクリーン画面（present）のQR拡大表示をホスト管理画面から遠隔開閉する（broadcast 同期）。
   const { enlarged: qrEnlarged, setEnlarged: setQrEnlarged } = useScreenQrOverlay(room?.id || null);
+
+  // ステージ管理（このタブ）= 操作ハブ。単一の投影窓を使い回し、開く/表示切替/
+  // チャット開閉/取り込みを遠隔操作する。表示切替は窓内クライアント遷移（broadcast
+  // コマンド）で行い、画面共有ストリームを保持する。状態は投影窓から受信して表示。
+  const { screenState, screenOpen, sendCommand } = useScreenControl(room?.id || null);
+  const projectionWindowRef = useRef<Window | null>(null);
+  const projectionFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // 投影窓を開く（未オープン時）。外部ディスプレイ向けに大きめサイズで開く。
+  const openProjectionWindow = useCallback(
+    (target: 'present' | 'stage', view?: 'qa' | 'poll') => {
+      if (typeof window === 'undefined') return;
+      const query = target === 'present' && view === 'poll' ? '?view=poll' : '';
+      const features = `width=${window.screen.availWidth},height=${window.screen.availHeight},left=0,top=0`;
+      const win = window.open(
+        `/rooms/${roomCode}/${target}${query}`,
+        `zasekikun-screen-${roomCode}`,
+        features
+      );
+      if (win) {
+        projectionWindowRef.current = win;
+        win.focus();
+      }
+    },
+    [roomCode]
+  );
+
+  // 投影窓の参照を得る。カードから開いた場合は projectionWindowRef、
+  // 「スクリーンを開く」で自窓を present にした場合は、このポップアップを開いた
+  // 元ウィンドウ（window.opener）がそのまま投影窓になっている。
+  const getProjectionWindow = useCallback((): Window | null => {
+    const refWin = projectionWindowRef.current;
+    if (refWin && !refWin.closed) return refWin;
+    if (typeof window === 'undefined') return null;
+    const opener = window.opener as Window | null;
+    if (opener && !opener.closed) {
+      try {
+        void opener.location.href; // 同一オリジン確認（クロスオリジンだと例外）。
+        return opener;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }, []);
+
+  // 表示する画面を選ぶ。スクリーンが開いていれば窓内遷移コマンドを送り（窓を増やさない）、
+  // 未オープンのときだけ新しく投影窓を開く。＝ルームとスクリーンは1対1。
+  const showScreen = useCallback(
+    (target: 'present' | 'stage', view?: 'qa' | 'poll') => {
+      if (screenOpen) {
+        if (target === 'present' && screenState?.screen === 'present') {
+          sendCommand({ type: 'present-view', view: view ?? 'qa' });
+        } else {
+          sendCommand({ type: 'navigate', target, view });
+        }
+        getProjectionWindow()?.focus();
+      } else {
+        openProjectionWindow(target, view);
+      }
+    },
+    [screenOpen, screenState?.screen, sendCommand, getProjectionWindow, openProjectionWindow]
+  );
+
+  const toggleStageChat = useCallback(() => {
+    sendCommand({ type: 'stage-chat', collapsed: !(screenState?.chatCollapsed ?? false) });
+  }, [screenState?.chatCollapsed, sendCommand]);
+
+  // 投影を停止（画面共有/資料をクリア）。リモートで実行できる。
+  const requestStageStop = useCallback(() => {
+    sendCommand({ type: 'stage-stop' });
+  }, [sendCommand]);
+
+  // 最大表示（全画面）。全画面化は投影窓のユーザー操作が要るため前面化＋誘導も行う。
+  const requestStageFullscreen = useCallback(() => {
+    getProjectionWindow()?.focus();
+    sendCommand({ type: 'stage-fullscreen' });
+  }, [getProjectionWindow, sendCommand]);
+
+  // ファイル取り込み: 操作ウィンドウ側でファイル選択（ここはユーザー操作で活性化済み）し、
+  // 同一オリジンの投影窓（stage）が公開する関数へ File を直接受け渡す。
+  const handleProjectionFile = useCallback(
+    (e: ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      e.target.value = '';
+      if (!file) return;
+      const win = getProjectionWindow() as
+        | (Window & { __zasekikunImportProjectionFile?: (f: File) => void })
+        | null;
+      if (win && typeof win.__zasekikunImportProjectionFile === 'function') {
+        win.__zasekikunImportProjectionFile(file);
+        win.focus();
+      }
+    },
+    [getProjectionWindow]
+  );
+
+  // 「スクリーンを開く」: 操作ポップアップを開き、今の窓を全画面 present へクライアント遷移。
+  const handleOpenScreen = useCallback(() => {
+    openScreenWithControl(roomCode, (url) => router.push(url));
+  }, [roomCode, router]);
+
   const pollOrderStorageKey = `host-poll-order:${roomCode}`;
 
   useEffect(() => {
@@ -1955,6 +2063,8 @@ export default function HostPage() {
         activeTab={tab}
         onSelectTab={setTab}
         presenceCount={Math.max(presenceCount, 1)}
+        screenOpen={screenOpen}
+        onOpenScreen={handleOpenScreen}
         qrUrl={qrUrl}
         copied={copied}
         onCopyCode={handleCopyCode}
@@ -1976,6 +2086,8 @@ export default function HostPage() {
             activeTab={tab}
             onSelectTab={setTab}
             presenceCount={Math.max(presenceCount, 1)}
+            screenOpen={screenOpen}
+            onOpenScreen={handleOpenScreen}
             qrUrl={qrUrl}
             copied={copied}
             onCopyCode={handleCopyCode}
@@ -2051,30 +2163,17 @@ export default function HostPage() {
                 <span className="text-[10px] font-bold leading-none">FAQ</span>
               </button>
             )}
-            <button
-              type="button"
-              onClick={() => setQrEnlarged(!qrEnlarged)}
-              aria-pressed={qrEnlarged}
-              className={`inline-flex h-12 min-w-[52px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-md border px-2 transition-colors ${
-                qrEnlarged
-                  ? 'border-[#2864f0] bg-[#2864f0] text-white hover:bg-[#285ac8]'
-                  : 'border-[#e1dcdc] bg-white text-[#2864f0] hover:border-[#aac8ff] hover:bg-[#ebf3ff]'
-              }`}
-              title={qrEnlarged ? 'スクリーンのQR拡大を閉じる' : 'スクリーンにQRを拡大表示'}
-            >
-              <QrCode className="w-4 h-4" />
-              <span className="text-[10px] font-bold leading-none">{qrEnlarged ? '閉じる' : 'QR拡大'}</span>
-            </button>
-            <a
-              href={`/rooms/${roomCode}/present`}
-              target={`zasekikun-present-${roomCode}`}
-              rel="noopener noreferrer"
-              className="inline-flex h-12 min-w-[52px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-md border border-[#e1dcdc] bg-white px-2 text-[#2864f0] transition-colors hover:border-[#aac8ff] hover:bg-[#ebf3ff]"
-              title="スクリーン画面を開く"
-            >
-              <Monitor className="w-4 h-4" />
-              <span className="text-[10px] font-bold leading-none">開く</span>
-            </a>
+            {!screenOpen && (
+              <button
+                type="button"
+                onClick={handleOpenScreen}
+                className="inline-flex h-12 min-w-[52px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-md border border-[#e1dcdc] bg-white px-2 text-[#2864f0] transition-colors hover:border-[#aac8ff] hover:bg-[#ebf3ff]"
+                title="スクリーン画面を開く（操作用ウィンドウも開きます）"
+              >
+                <Monitor className="w-4 h-4" />
+                <span className="text-[10px] font-bold leading-none">スクリーン</span>
+              </button>
+            )}
           </HostPageHeader>
         </div>
 
@@ -2135,26 +2234,12 @@ export default function HostPage() {
                           <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[#2864f0]" />
                         )}
                       </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onSelect={(e) => {
-                          e.preventDefault();
-                          setQrEnlarged(!qrEnlarged);
-                        }}
-                      >
-                        <QrCode className="mr-2 h-4 w-4 text-slate-500" />
-                        {qrEnlarged ? 'スクリーンのQRを閉じる' : 'スクリーンにQRを拡大表示'}
-                        {qrEnlarged && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[#2864f0]" />}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <a
-                          href={`/rooms/${roomCode}/present`}
-                          target={`zasekikun-present-${roomCode}`}
-                          rel="noopener noreferrer"
-                        >
+                      {!screenOpen && (
+                        <DropdownMenuItem onClick={handleOpenScreen}>
                           <Monitor className="mr-2 h-4 w-4 text-slate-500" />
                           スクリーンを開く
-                        </a>
-                      </DropdownMenuItem>
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem onClick={() => setTab('faq')}>
                         <HelpCircle className="mr-2 h-4 w-4 text-slate-500" />
                         FAQ
@@ -2175,28 +2260,16 @@ export default function HostPage() {
                       <HelpCircle className="h-4 w-4" />
                     </button>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => setQrEnlarged(!qrEnlarged)}
-                    aria-pressed={qrEnlarged}
-                    className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border transition-colors ${
-                      qrEnlarged
-                        ? 'border-[#2864f0] bg-[#2864f0] text-white hover:bg-[#285ac8]'
-                        : 'border-[#e1dcdc] bg-white text-[#2864f0] hover:border-[#aac8ff] hover:bg-[#ebf3ff]'
-                    }`}
-                    title={qrEnlarged ? 'スクリーンのQR拡大を閉じる' : 'スクリーンにQRを拡大表示'}
-                  >
-                    <QrCode className="h-4 w-4" />
-                  </button>
-                  <a
-                    href={`/rooms/${roomCode}/present`}
-                    target={`zasekikun-present-${roomCode}`}
-                    rel="noopener noreferrer"
-                    className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#e1dcdc] bg-white text-[#2864f0] transition-colors hover:border-[#aac8ff] hover:bg-[#ebf3ff]"
-                    title="スクリーン画面を開く"
-                  >
-                    <Monitor className="h-4 w-4" />
-                  </a>
+                  {!screenOpen && (
+                    <button
+                      type="button"
+                      onClick={handleOpenScreen}
+                      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#e1dcdc] bg-white text-[#2864f0] transition-colors hover:border-[#aac8ff] hover:bg-[#ebf3ff]"
+                      title="スクリーン画面を開く（操作用ウィンドウも開きます）"
+                    >
+                      <Monitor className="h-4 w-4" />
+                    </button>
+                  )}
                 </>
               )}
             </div>
@@ -2262,6 +2335,183 @@ export default function HostPage() {
                 />
               </button>
             </div>
+
+            {/* ステージ操作: スクリーンが開いている時だけ表示（発表者ツール風の操作・状態） */}
+            {screenOpen && (
+            <div className="space-y-3 rounded-xl bg-white px-4 py-3 ring-1 ring-slate-200">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <Monitor className="h-5 w-5 shrink-0 text-[#2864f0]" />
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-slate-800 sm:text-sm">スクリーン操作</p>
+                    <p className="mt-0.5 text-[11px] leading-tight text-slate-500 sm:text-xs">
+                      投影スクリーン・資料投影画面を遠隔操作します
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setQrEnlarged(!qrEnlarged)}
+                  aria-pressed={qrEnlarged}
+                  className={`inline-flex shrink-0 items-center gap-1 rounded-md px-2.5 py-1.5 text-[11px] font-bold transition-colors ${
+                    qrEnlarged
+                      ? 'bg-[#2864f0] text-white hover:bg-[#285ac8]'
+                      : 'bg-white text-[#2864f0] ring-1 ring-[#aac8ff] hover:bg-[#ebf3ff]'
+                  }`}
+                  title={qrEnlarged ? 'スクリーンのQRを閉じる' : 'スクリーンにQRを表示'}
+                >
+                  <QrCode className="h-3.5 w-3.5" />
+                  {qrEnlarged ? 'QRを閉じる' : 'QRを表示'}
+                </button>
+              </div>
+
+              {/* 状態パネル */}
+              <div className="flex flex-wrap items-center gap-1.5 rounded-lg bg-slate-50 px-3 py-2 text-[11px] font-semibold ring-1 ring-slate-200">
+                {screenState ? (
+                  <>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-slate-700 ring-1 ring-slate-200">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                      {screenState.screen === 'stage' ? '資料投影画面' : 'スクリーン画面'}
+                    </span>
+                    {screenState.screen === 'present' && (
+                      <span className="rounded-full bg-white px-2 py-0.5 text-slate-600 ring-1 ring-slate-200">
+                        {screenState.view === 'poll' ? 'ワークスペース' : 'Q&A'}
+                      </span>
+                    )}
+                    {screenState.screen === 'stage' && (
+                      <span className="rounded-full bg-white px-2 py-0.5 text-slate-600 ring-1 ring-slate-200">
+                        チャット{screenState.chatCollapsed ? '閉' : '開'}
+                      </span>
+                    )}
+                    {screenState.qrVisible && (
+                      <span className="rounded-full bg-white px-2 py-0.5 text-[#2864f0] ring-1 ring-[#aac8ff]">
+                        QR表示中
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-slate-400">
+                    <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
+                    スクリーン未表示
+                  </span>
+                )}
+              </div>
+
+              {/* 画面切替 */}
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => showScreen('present', screenState?.screen === 'present' ? screenState?.view ?? 'qa' : 'qa')}
+                  className={`inline-flex flex-col items-center justify-center gap-1 rounded-lg border px-2 py-2.5 text-[11px] font-bold transition-colors ${
+                    screenState?.screen === 'present'
+                      ? 'border-[#2864f0] bg-[#ebf3ff] text-[#2864f0]'
+                      : 'border-[#aac8ff] bg-white text-[#2864f0] hover:bg-[#ebf3ff]'
+                  }`}
+                  title="スクリーン画面を表示"
+                >
+                  <Monitor className="h-4 w-4" />
+                  スクリーン画面
+                </button>
+                <button
+                  type="button"
+                  onClick={() => showScreen('stage')}
+                  className={`inline-flex flex-col items-center justify-center gap-1 rounded-lg border px-2 py-2.5 text-[11px] font-bold transition-colors ${
+                    screenState?.screen === 'stage'
+                      ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
+                      : 'border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-50'
+                  }`}
+                  title="資料投影画面を表示"
+                >
+                  <MonitorUp className="h-4 w-4" />
+                  資料投影画面
+                </button>
+              </div>
+
+              {/* サブ操作: スクリーン画面 → Q&A / ワークスペース切替 */}
+              {screenState?.screen === 'present' && (
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => sendCommand({ type: 'present-view', view: 'qa' })}
+                    className={`inline-flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-[11px] font-bold transition-colors ${
+                      screenState.view !== 'poll'
+                        ? 'border-[#2864f0] bg-[#ebf3ff] text-[#2864f0]'
+                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <MessageSquare className="h-3.5 w-3.5" />
+                    Q&A
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => sendCommand({ type: 'present-view', view: 'poll' })}
+                    className={`inline-flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-[11px] font-bold transition-colors ${
+                      screenState.view === 'poll'
+                        ? 'border-[#2864f0] bg-[#ebf3ff] text-[#2864f0]'
+                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <Hammer className="h-3.5 w-3.5" />
+                    ワークスペース
+                  </button>
+                </div>
+              )}
+
+              {/* サブ操作: 資料投影画面 → チャット開閉 / ファイル取り込み / 停止 / 最大表示 */}
+              {screenState?.screen === 'stage' && (
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={toggleStageChat}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-2 text-[11px] font-bold text-slate-600 transition-colors hover:bg-slate-50"
+                  >
+                    {screenState.chatCollapsed ? (
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    ) : (
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    )}
+                    チャット{screenState.chatCollapsed ? '開く' : '閉じる'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => projectionFileInputRef.current?.click()}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-2 text-[11px] font-bold text-slate-600 transition-colors hover:bg-slate-50"
+                    title="操作画面でファイルを選び資料投影画面へ取り込み（取り込み直し）します"
+                  >
+                    <Upload className="h-3.5 w-3.5" />
+                    ファイル
+                  </button>
+                  <button
+                    type="button"
+                    onClick={requestStageStop}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-white px-2 py-2 text-[11px] font-bold text-rose-600 transition-colors hover:bg-rose-50"
+                    title="投影中の画面共有・資料を停止します"
+                  >
+                    <StopCircle className="h-3.5 w-3.5" />
+                    停止
+                  </button>
+                  <button
+                    type="button"
+                    onClick={requestStageFullscreen}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-2 text-[11px] font-bold text-slate-600 transition-colors hover:bg-slate-50"
+                    title="資料投影画面を最大表示（全画面）します"
+                  >
+                    <Maximize className="h-3.5 w-3.5" />
+                    最大表示
+                  </button>
+                </div>
+              )}
+
+              <input
+                ref={projectionFileInputRef}
+                type="file"
+                onChange={handleProjectionFile}
+                accept=".xlsx,.xls,.csv,.pptx,.docx,.pdf"
+                className="hidden"
+              />
+            </div>
+            )}
+
             {room.moderation_enabled && counts.pending > 0 && (
               <div className="flex items-center gap-2 rounded-xl bg-amber-50 ring-1 ring-amber-200 px-3 py-2.5 text-xs sm:text-sm text-amber-800">
                 <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
@@ -3632,6 +3882,8 @@ function HostSideNav({
   activeTab,
   onSelectTab,
   presenceCount,
+  screenOpen,
+  onOpenScreen,
   qrUrl,
   copied,
   onCopyCode,
@@ -3648,6 +3900,8 @@ function HostSideNav({
   activeTab: HostTab;
   onSelectTab: (tab: HostTab) => void;
   presenceCount: number;
+  screenOpen: boolean;
+  onOpenScreen: () => void;
   qrUrl: string;
   copied: boolean;
   onCopyCode: () => void;
@@ -3753,20 +4007,21 @@ function HostSideNav({
             </p>
           </a>
         </div>
-        <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-          <a
-            href={`/rooms/${roomCode}/present`}
-            target={`zasekikun-present-${roomCode}`}
-            rel="noopener noreferrer"
-            className="rounded-lg border border-[#aac8ff] bg-white p-2 transition-colors hover:bg-[#ebf3ff]"
-            title="スクリーン画面を開く"
-          >
-            <p className="font-bold text-[#8c8989]">スクリーン</p>
-            <p className="mt-1 inline-flex items-center gap-1 font-extrabold text-[#2864f0]">
-              <Monitor className="h-3.5 w-3.5 text-[#2864f0]" />
-              開く
-            </p>
-          </a>
+        <div className={`mt-3 grid gap-2 text-xs ${screenOpen ? 'grid-cols-1' : 'grid-cols-2'}`}>
+          {!screenOpen && (
+            <button
+              type="button"
+              onClick={onOpenScreen}
+              className="rounded-lg border border-[#aac8ff] bg-white p-2 text-left transition-colors hover:bg-[#ebf3ff]"
+              title="スクリーン画面を開く（操作用ウィンドウも開きます）"
+            >
+              <p className="font-bold text-[#8c8989]">スクリーン</p>
+              <p className="mt-1 inline-flex items-center gap-1 font-extrabold text-[#2864f0]">
+                <Monitor className="h-3.5 w-3.5 text-[#2864f0]" />
+                開く
+              </p>
+            </button>
+          )}
           <button
             type="button"
             disabled={roomStatusLoading}

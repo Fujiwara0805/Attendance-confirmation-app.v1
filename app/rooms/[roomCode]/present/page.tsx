@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo, type DragEvent } from 'react';
 import Link from 'next/link';
-import { useParams, useSearchParams } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquare, Trees, ThumbsUp, Maximize, Minimize, X, Loader2, WifiOff, MonitorUp, ChevronLeft, ChevronRight, Clock, Play, StopCircle } from 'lucide-react';
 import { useRealtimeQuestions } from '@/lib/hooks/useRealtimeQuestions';
 import { useRealtimePolls, type Poll, type PollVote } from '@/lib/hooks/useRealtimePolls';
 import { enterFullscreenPreferExternal, useHasExternalDisplay } from '@/lib/externalDisplay';
-import { useScreenQrOverlay } from '@/lib/hooks/useScreenOverlay';
+import { useScreenQrOverlay, useScreenDisplay, type ScreenCommand } from '@/lib/hooks/useScreenOverlay';
 import {
   extractPollPayload,
   FREE_TEXT_CARD_COLORS,
@@ -115,6 +115,24 @@ export default function PresentPage() {
     if (qrEnlarged) openJoinQrModal();
     else closeQrModal();
   }, [qrEnlarged, openJoinQrModal, closeQrModal]);
+
+  // 操作ハブ（ステージ管理タブ）からの遠隔操作を受け、現在状態を返す。
+  const router = useRouter();
+  const handleScreenCommand = useCallback(
+    (cmd: ScreenCommand) => {
+      if (cmd.type === 'present-view') setView(cmd.view);
+      else if (cmd.type === 'navigate') {
+        if (cmd.target === 'stage') router.push(`/rooms/${roomCode}/stage`);
+        else if (cmd.target === 'present') setView(cmd.view ?? 'qa');
+      }
+    },
+    [roomCode, router]
+  );
+  const presentScreenState = useMemo(
+    () => ({ screen: 'present' as const, view, qrVisible: qrEnlarged }),
+    [view, qrEnlarged]
+  );
+  useScreenDisplay(room?.id ?? null, handleScreenCommand, presentScreenState);
 
   // モーダル（参加URL生成）: 画面いっぱいに収まる解像度でQRを生成
   useEffect(() => {

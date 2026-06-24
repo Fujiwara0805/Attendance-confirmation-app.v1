@@ -64,6 +64,7 @@ import AttendanceExport from './components/AttendanceExport';
 import AdminShell, { type AdminSection } from './components/AdminShell';
 import ManualAttendanceModal from './components/ManualAttendanceModal';
 import { filterBySearchScore } from '@/lib/search';
+import { openScreenWithControl } from '@/lib/screenWindow';
 
 interface Course {
   id: string;
@@ -3331,18 +3332,12 @@ function AdminPageInner() {
                             ワーク管理
                           </Button>
                           <Button
-                            asChild
                             size="sm"
+                            onClick={() => openScreenWithControl(room.code, (url) => router.push(url))}
                             className="h-8 w-full px-3 text-xs bg-sky-600 hover:bg-sky-700 text-white hover:text-white"
                           >
-                            <a
-                              href={`/rooms/${room.code}/present`}
-                              target={`zasekikun-present-${room.code}`}
-                              rel="noopener noreferrer"
-                            >
-                              <MonitorUp className="h-3 w-3 mr-1.5" />
-                              スクリーンを開く
-                            </a>
+                            <MonitorUp className="h-3 w-3 mr-1.5" />
+                            スクリーンを開く
                           </Button>
                         </div>
 
