@@ -18,11 +18,26 @@
 export function openScreenWithControl(roomCode: string, navigate?: (url: string) => void) {
   if (typeof window === 'undefined') return;
 
+  const currentScreen = window.screen as Screen & { availLeft?: number; availTop?: number };
+  const width = Math.round(Math.min(Math.max(window.screen.availWidth * 0.22, 420), 480));
+  const height = Math.round(Math.min(Math.max(window.screen.availHeight * 0.42, 500), 620));
+  const left = Math.round((currentScreen.availLeft ?? 0) + 20);
+  const top = Math.round((currentScreen.availTop ?? 0) + 80);
+  const features = [
+    'popup',
+    `width=${width}`,
+    `height=${height}`,
+    `left=${left}`,
+    `top=${top}`,
+    'resizable=yes',
+    'scrollbars=yes',
+  ].join(',');
+
   // 1. 手元操作用のステージ管理ポップアップを開く（最優先。activation を消費しない）。
   window.open(
     `/rooms/${roomCode}/host?tab=questions`,
     `zasekikun-qa-${roomCode}`,
-    'popup,width=1280,height=720'
+    features
   );
 
   // 2. このウィンドウはスクリーン画面（present）へ遷移（プロジェクター投影用）。
