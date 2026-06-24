@@ -67,6 +67,7 @@ import Link from 'next/link';
 import { useRealtimeQuestions } from '@/lib/hooks/useRealtimeQuestions';
 import { useRealtimePolls, type Poll, type PollVote } from '@/lib/hooks/useRealtimePolls';
 import { useRoomPresence } from '@/lib/hooks/useRoomPresence';
+import { useScreenQrOverlay } from '@/lib/hooks/useScreenOverlay';
 import { formatDistanceToNow } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import {
@@ -817,6 +818,8 @@ export default function HostPage() {
     optimisticUpsertPoll,
   } = useRealtimePolls(room?.id || null);
   const presenceCount = useRoomPresence(room?.id || null, session?.user?.email || null);
+  // スクリーン画面（present）のQR拡大表示をホスト管理画面から遠隔開閉する（broadcast 同期）。
+  const { enlarged: qrEnlarged, setEnlarged: setQrEnlarged } = useScreenQrOverlay(room?.id || null);
   const pollOrderStorageKey = `host-poll-order:${roomCode}`;
 
   useEffect(() => {
@@ -2048,6 +2051,20 @@ export default function HostPage() {
                 <span className="text-[10px] font-bold leading-none">FAQ</span>
               </button>
             )}
+            <button
+              type="button"
+              onClick={() => setQrEnlarged(!qrEnlarged)}
+              aria-pressed={qrEnlarged}
+              className={`inline-flex h-12 min-w-[52px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-md border px-2 transition-colors ${
+                qrEnlarged
+                  ? 'border-[#2864f0] bg-[#2864f0] text-white hover:bg-[#285ac8]'
+                  : 'border-[#e1dcdc] bg-white text-[#2864f0] hover:border-[#aac8ff] hover:bg-[#ebf3ff]'
+              }`}
+              title={qrEnlarged ? 'スクリーンのQR拡大を閉じる' : 'スクリーンにQRを拡大表示'}
+            >
+              <QrCode className="w-4 h-4" />
+              <span className="text-[10px] font-bold leading-none">{qrEnlarged ? '閉じる' : 'QR拡大'}</span>
+            </button>
             <a
               href={`/rooms/${roomCode}/present`}
               target={`zasekikun-present-${roomCode}`}
@@ -2118,6 +2135,16 @@ export default function HostPage() {
                           <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[#2864f0]" />
                         )}
                       </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onSelect={(e) => {
+                          e.preventDefault();
+                          setQrEnlarged(!qrEnlarged);
+                        }}
+                      >
+                        <QrCode className="mr-2 h-4 w-4 text-slate-500" />
+                        {qrEnlarged ? 'スクリーンのQRを閉じる' : 'スクリーンにQRを拡大表示'}
+                        {qrEnlarged && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[#2864f0]" />}
+                      </DropdownMenuItem>
                       <DropdownMenuItem asChild>
                         <a
                           href={`/rooms/${roomCode}/present`}
@@ -2148,6 +2175,19 @@ export default function HostPage() {
                       <HelpCircle className="h-4 w-4" />
                     </button>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => setQrEnlarged(!qrEnlarged)}
+                    aria-pressed={qrEnlarged}
+                    className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border transition-colors ${
+                      qrEnlarged
+                        ? 'border-[#2864f0] bg-[#2864f0] text-white hover:bg-[#285ac8]'
+                        : 'border-[#e1dcdc] bg-white text-[#2864f0] hover:border-[#aac8ff] hover:bg-[#ebf3ff]'
+                    }`}
+                    title={qrEnlarged ? 'スクリーンのQR拡大を閉じる' : 'スクリーンにQRを拡大表示'}
+                  >
+                    <QrCode className="h-4 w-4" />
+                  </button>
                   <a
                     href={`/rooms/${roomCode}/present`}
                     target={`zasekikun-present-${roomCode}`}

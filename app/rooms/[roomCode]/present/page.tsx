@@ -8,6 +8,7 @@ import { MessageSquare, Trees, ThumbsUp, Maximize, Minimize, X, Loader2, WifiOff
 import { useRealtimeQuestions } from '@/lib/hooks/useRealtimeQuestions';
 import { useRealtimePolls, type Poll, type PollVote } from '@/lib/hooks/useRealtimePolls';
 import { enterFullscreenPreferExternal, useHasExternalDisplay } from '@/lib/externalDisplay';
+import { useScreenQrOverlay } from '@/lib/hooks/useScreenOverlay';
 import {
   extractPollPayload,
   FREE_TEXT_CARD_COLORS,
@@ -105,6 +106,16 @@ export default function PresentPage() {
     setQrModalOpen(true);
   }, []);
 
+  // ホスト管理画面（Q&A機能画面など）とQR拡大表示の状態を broadcast 同期する。
+  // どちらの端末から開閉しても相互に反映される。
+  const { enlarged: qrEnlarged, setEnlarged: setQrEnlarged } = useScreenQrOverlay(room?.id ?? null);
+
+  // 同期された拡大状態を、実際のQRモーダル開閉へ反映する（開閉処理は冪等）。
+  useEffect(() => {
+    if (qrEnlarged) openJoinQrModal();
+    else closeQrModal();
+  }, [qrEnlarged, openJoinQrModal, closeQrModal]);
+
   // モーダル（参加URL生成）: 画面いっぱいに収まる解像度でQRを生成
   useEffect(() => {
     if (!qrModalOpen || qrModalMode !== 'join' || typeof window === 'undefined') return;
@@ -134,11 +145,11 @@ export default function PresentPage() {
   useEffect(() => {
     if (!qrModalOpen) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeQrModal();
+      if (e.key === 'Escape') setQrEnlarged(false);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [qrModalOpen, closeQrModal]);
+  }, [qrModalOpen, setQrEnlarged]);
 
   useEffect(() => {
     if (!imagePreview) return;
@@ -332,7 +343,7 @@ export default function PresentPage() {
                 type="button"
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
-                onClick={openJoinQrModal}
+                onClick={() => setQrEnlarged(true)}
                 className="bg-gray-100 rounded-lg p-1.5 cursor-pointer ring-offset-2 hover:ring-2 hover:ring-indigo-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                 title="タップで拡大表示"
               >
@@ -340,7 +351,7 @@ export default function PresentPage() {
               </motion.button>
               <button
                 type="button"
-                onClick={openJoinQrModal}
+                onClick={() => setQrEnlarged(true)}
                 className="text-[11px] font-medium text-indigo-600 hover:text-indigo-800 whitespace-nowrap"
               >
                 タップして拡大表示
@@ -979,14 +990,14 @@ export default function PresentPage() {
             transition={{ duration: 0.2 }}
             className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-4 sm:p-8 pt-16 sm:pt-20 bg-white/85 backdrop-blur-3xl"
             onClick={(e) => {
-              if (e.target === e.currentTarget) closeQrModal();
+              if (e.target === e.currentTarget) setQrEnlarged(false);
             }}
           >
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                closeQrModal();
+                setQrEnlarged(false);
               }}
               className="fixed top-3 right-3 sm:top-5 sm:right-5 z-[110] flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl bg-white text-gray-900 shadow-lg border border-gray-200 hover:bg-gray-50 active:bg-gray-100 font-medium text-sm"
               aria-label="閉じる"
