@@ -71,7 +71,7 @@ import Link from 'next/link';
 import { useRealtimeQuestions } from '@/lib/hooks/useRealtimeQuestions';
 import { useRealtimePolls, type Poll, type PollVote } from '@/lib/hooks/useRealtimePolls';
 import { useRoomPresence } from '@/lib/hooks/useRoomPresence';
-import { useScreenQrOverlay, useScreenControl } from '@/lib/hooks/useScreenOverlay';
+import { useScreenQrOverlay, useScreenControl, type ScreenCommand } from '@/lib/hooks/useScreenOverlay';
 import { openScreenWithControl } from '@/lib/screenWindow';
 import { formatDistanceToNow } from 'date-fns';
 import { ja } from 'date-fns/locale';
@@ -114,6 +114,11 @@ const POLL_MODE_SEARCH_ALIASES: Record<PollMode, string> = {
   quiz: 'クイズ 確認問題 quiz',
   ranking: 'ランキング 順位付け ranking',
   free_text: 'ブレスト 付箋 自由回答 free text brainstorm',
+};
+
+type ProjectionControlWindow = Window & {
+  __zasekikunScreenCommand?: (cmd: ScreenCommand) => boolean | void;
+  __zasekikunImportProjectionFile?: (file: File) => void;
 };
 
 function formatSecondsOption(seconds: number) {
@@ -872,38 +877,65 @@ export default function HostPage() {
     return null;
   }, []);
 
+  const sendProjectionCommand = useCallback(
+    (cmd: ScreenCommand) => {
+      const win = getProjectionWindow() as ProjectionControlWindow | null;
+      if (win && !win.closed) {
+        try {
+          if (typeof win.__zasekikunScreenCommand === 'function') {
+            win.__zasekikunScreenCommand(cmd);
+            win.focus();
+            return true;
+          }
+        } catch {
+          // 直接操作できない場合は Realtime broadcast にフォールバックする。
+        }
+      }
+      sendCommand(cmd);
+      return false;
+    },
+    [getProjectionWindow, sendCommand]
+  );
+
   // 表示する画面を選ぶ。スクリーンが開いていれば窓内遷移コマンドを送り（窓を増やさない）、
   // 未オープンのときだけ新しく投影窓を開く。＝ルームとスクリーンは1対1。
   const showScreen = useCallback(
     (target: 'present' | 'stage', view?: 'qa' | 'poll') => {
       if (screenOpen) {
         if (target === 'present' && screenState?.screen === 'present') {
-          sendCommand({ type: 'present-view', view: view ?? 'qa' });
+          sendProjectionCommand({ type: 'present-view', view: view ?? 'qa' });
         } else {
-          sendCommand({ type: 'navigate', target, view });
+          sendProjectionCommand({ type: 'navigate', target, view });
         }
-        getProjectionWindow()?.focus();
       } else {
         openProjectionWindow(target, view);
       }
     },
-    [screenOpen, screenState?.screen, sendCommand, getProjectionWindow, openProjectionWindow]
+    [screenOpen, screenState?.screen, sendProjectionCommand, openProjectionWindow]
   );
 
   const toggleStageChat = useCallback(() => {
-    sendCommand({ type: 'stage-chat', collapsed: !(screenState?.chatCollapsed ?? false) });
-  }, [screenState?.chatCollapsed, sendCommand]);
+    sendProjectionCommand({ type: 'stage-chat', collapsed: !(screenState?.chatCollapsed ?? false) });
+  }, [screenState?.chatCollapsed, sendProjectionCommand]);
 
   // 投影を停止（画面共有/資料をクリア）。リモートで実行できる。
   const requestStageStop = useCallback(() => {
-    sendCommand({ type: 'stage-stop' });
-  }, [sendCommand]);
+    sendProjectionCommand({ type: 'stage-stop' });
+  }, [sendProjectionCommand]);
 
-  // 最大表示（全画面）。全画面化は投影窓のユーザー操作が要るため前面化＋誘導も行う。
+  // 最大表示（全画面）。同一オリジンの投影窓なら直接呼び、broadcast 往復の遅延を避ける。
   const requestStageFullscreen = useCallback(() => {
-    getProjectionWindow()?.focus();
-    sendCommand({ type: 'stage-fullscreen' });
-  }, [getProjectionWindow, sendCommand]);
+    const win = getProjectionWindow() as ProjectionControlWindow | null;
+    if (win && !win.closed) {
+      try {
+        win.moveTo(0, 0);
+        win.resizeTo(win.screen.availWidth, win.screen.availHeight);
+      } catch {
+        // 通常タブなど resize が許可されない場合は全画面要求に任せる。
+      }
+    }
+    sendProjectionCommand({ type: 'stage-fullscreen' });
+  }, [getProjectionWindow, sendProjectionCommand]);
 
   // ファイル取り込み: 操作ウィンドウ側でファイル選択（ここはユーザー操作で活性化済み）し、
   // 同一オリジンの投影窓（stage）が公開する関数へ File を直接受け渡す。
@@ -912,9 +944,7 @@ export default function HostPage() {
       const file = e.target.files?.[0];
       e.target.value = '';
       if (!file) return;
-      const win = getProjectionWindow() as
-        | (Window & { __zasekikunImportProjectionFile?: (f: File) => void })
-        | null;
+      const win = getProjectionWindow() as ProjectionControlWindow | null;
       if (win && typeof win.__zasekikunImportProjectionFile === 'function') {
         win.__zasekikunImportProjectionFile(file);
         win.focus();
@@ -926,6 +956,12 @@ export default function HostPage() {
   // 「スクリーンを開く」: 操作ポップアップを開き、今の窓を全画面 present へクライアント遷移。
   const handleOpenScreen = useCallback(() => {
     openScreenWithControl(roomCode, (url) => router.push(url));
+  }, [roomCode, router]);
+
+  useEffect(() => {
+    router.prefetch(`/rooms/${roomCode}/present`);
+    router.prefetch(`/rooms/${roomCode}/present?view=poll`);
+    router.prefetch(`/rooms/${roomCode}/stage`);
   }, [roomCode, router]);
 
   const pollOrderStorageKey = `host-poll-order:${roomCode}`;

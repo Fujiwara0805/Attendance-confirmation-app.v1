@@ -166,6 +166,11 @@ export default function StagePage() {
   }, [roomCode]);
 
   useEffect(() => {
+    router.prefetch(`/rooms/${roomCode}/present`);
+    router.prefetch(`/rooms/${roomCode}/present?view=poll`);
+  }, [roomCode, router]);
+
+  useEffect(() => {
     if (typeof window === 'undefined') return;
     const joinUrl = `${window.location.origin}/rooms/${roomCode}`;
     import('qrcode').then((QRCode) => {
@@ -544,6 +549,21 @@ export default function StagePage() {
     },
     [roomCode, router, enterFullscreen]
   );
+
+  const handleScreenCommandRef = useRef(handleScreenCommand);
+  handleScreenCommandRef.current = handleScreenCommand;
+
+  useEffect(() => {
+    const w = window as Window & { __zasekikunScreenCommand?: (cmd: ScreenCommand) => boolean };
+    w.__zasekikunScreenCommand = (cmd: ScreenCommand) => {
+      handleScreenCommandRef.current(cmd);
+      return true;
+    };
+    return () => {
+      delete w.__zasekikunScreenCommand;
+    };
+  }, []);
+
   const stageScreenState = useMemo(
     () => ({
       screen: 'stage' as const,

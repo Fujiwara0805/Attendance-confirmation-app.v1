@@ -79,6 +79,12 @@ export default function PresentPage() {
       .then((data) => { if (data.id) setRoom(data); });
   }, [roomCode]);
 
+  const router = useRouter();
+
+  useEffect(() => {
+    router.prefetch(`/rooms/${roomCode}/stage`);
+  }, [roomCode, router]);
+
   // Generate QR code for room participation
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -117,7 +123,6 @@ export default function PresentPage() {
   }, [qrEnlarged, openJoinQrModal, closeQrModal]);
 
   // 操作ハブ（ステージ管理タブ）からの遠隔操作を受け、現在状態を返す。
-  const router = useRouter();
   const handleScreenCommand = useCallback(
     (cmd: ScreenCommand) => {
       if (cmd.type === 'present-view') setView(cmd.view);
@@ -128,6 +133,21 @@ export default function PresentPage() {
     },
     [roomCode, router]
   );
+
+  const handleScreenCommandRef = useRef(handleScreenCommand);
+  handleScreenCommandRef.current = handleScreenCommand;
+
+  useEffect(() => {
+    const w = window as Window & { __zasekikunScreenCommand?: (cmd: ScreenCommand) => boolean };
+    w.__zasekikunScreenCommand = (cmd: ScreenCommand) => {
+      handleScreenCommandRef.current(cmd);
+      return true;
+    };
+    return () => {
+      delete w.__zasekikunScreenCommand;
+    };
+  }, []);
+
   const presentScreenState = useMemo(
     () => ({ screen: 'present' as const, view, qrVisible: qrEnlarged }),
     [view, qrEnlarged]
