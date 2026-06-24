@@ -22,7 +22,6 @@ import {
   MonitorUp,
   LayoutDashboard,
   Upload,
-  Maximize,
   Loader2,
   ShieldCheck,
   ShieldOff,
@@ -922,20 +921,6 @@ export default function HostPage() {
   const requestStageStop = useCallback(() => {
     sendProjectionCommand({ type: 'stage-stop' });
   }, [sendProjectionCommand]);
-
-  // 最大表示（全画面）。同一オリジンの投影窓なら直接呼び、broadcast 往復の遅延を避ける。
-  const requestStageFullscreen = useCallback(() => {
-    const win = getProjectionWindow() as ProjectionControlWindow | null;
-    if (win && !win.closed) {
-      try {
-        win.moveTo(0, 0);
-        win.resizeTo(win.screen.availWidth, win.screen.availHeight);
-      } catch {
-        // 通常タブなど resize が許可されない場合は全画面要求に任せる。
-      }
-    }
-    sendProjectionCommand({ type: 'stage-fullscreen' });
-  }, [getProjectionWindow, sendProjectionCommand]);
 
   // ファイル取り込み: 操作ウィンドウ側でファイル選択（ここはユーザー操作で活性化済み）し、
   // 同一オリジンの投影窓（stage）が公開する関数へ File を直接受け渡す。
@@ -2493,7 +2478,7 @@ export default function HostPage() {
                 </div>
               )}
 
-              {/* サブ操作: 資料投影画面 → チャット開閉 / ファイル取り込み / 停止 / 最大表示 */}
+              {/* サブ操作: 資料投影画面 → チャット開閉 / ファイル取り込み / 停止 */}
               {screenState?.screen === 'stage' && (
                 <div className="grid grid-cols-2 gap-2">
                   <button
@@ -2525,15 +2510,6 @@ export default function HostPage() {
                   >
                     <StopCircle className="h-3.5 w-3.5" />
                     停止
-                  </button>
-                  <button
-                    type="button"
-                    onClick={requestStageFullscreen}
-                    className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-2 text-[11px] font-bold text-slate-600 transition-colors hover:bg-slate-50"
-                    title="資料投影画面を最大表示（全画面）します"
-                  >
-                    <Maximize className="h-3.5 w-3.5" />
-                    最大表示
                   </button>
                 </div>
               )}
