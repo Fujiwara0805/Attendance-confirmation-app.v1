@@ -20,7 +20,7 @@ export function openScreenWithControl(roomCode: string, navigate?: (url: string)
 
   const currentScreen = window.screen as Screen & { availLeft?: number; availTop?: number };
   const width = Math.round(Math.min(Math.max(window.screen.availWidth * 0.22, 420), 480));
-  const height = Math.round(Math.min(Math.max(window.screen.availHeight * 0.42, 500), 620));
+  const height = Math.round(Math.min(820, Math.max(500, window.screen.availHeight - 120)));
   const left = Math.round((currentScreen.availLeft ?? 0) + 20);
   const top = Math.round((currentScreen.availTop ?? 0) + 80);
   const features = [
