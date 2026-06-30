@@ -39,6 +39,18 @@ const tagConfig: Record<TagType, { color: string; bg: string; icon: React.Elemen
 
 const announcements: { date: string; tag: TagType; description: string }[] = [
   {
+    date: '2026.06.30',
+    tag: 'アップデート',
+    description:
+      '資料投影（スクリーン）機能を強化しました。PDF・PowerPoint・Excel・Wordをそのまま取り込めるようになり、別ウィンドウや外部ディスプレイへの全画面投影、ホストページからの遠隔操作にも対応しました。',
+  },
+  {
+    date: '2026.06.30',
+    tag: 'アップデート',
+    description:
+      '管理画面の操作性を向上しました。ヘッダー検索、コース・ルームカードの並び替え、初回ガイド、ルーム・フォームの複製機能を追加しています。',
+  },
+  {
     date: '2026.06.01',
     tag: 'アップデート',
     description:
