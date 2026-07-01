@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -48,8 +49,6 @@ import {
   MapPin,
   Search,
   Navigation,
-  ChevronDown,
-  ChevronUp,
   CheckCircle,
   AlertTriangle,
   Settings,
@@ -848,29 +847,32 @@ export default function CustomFormManager({ onCourseAdded, onClose, editingCours
 
             {/* 位置情報設定トグル */}
             <div className="border border-slate-200 rounded-xl overflow-hidden">
-              <button
-                type="button"
-                onClick={() => {
-                  const next = !enableLocation;
-                  setEnableLocation(next);
-                  if (!next) {
-                    setLocationResolved(false);
-                    setLocationError(null);
-                  }
-                }}
-                className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors"
-              >
-                <div className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-indigo-500" />
-                  <span className="text-sm font-medium text-slate-700">位置情報制限を設定</span>
-                  <span className="text-xs text-slate-400">（任意）</span>
+              <div className="w-full flex items-center justify-between gap-3 px-4 py-3 bg-slate-50">
+                <div className="flex items-start gap-2 min-w-0">
+                  <MapPin className="h-4 w-4 text-indigo-500 mt-0.5 shrink-0" />
+                  <div className="flex flex-col min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-slate-700">位置情報制限を設定</span>
+                      <span className="text-xs text-slate-400">（任意）</span>
+                    </div>
+                    <span className="text-[11px] text-slate-400">
+                      {enableLocation ? '指定した場所の近くからのみ出席できます' : 'オフ：どこからでも出席できます'}
+                    </span>
+                  </div>
                 </div>
-                {enableLocation ? (
-                  <ChevronUp className="h-4 w-4 text-slate-400" />
-                ) : (
-                  <ChevronDown className="h-4 w-4 text-slate-400" />
-                )}
-              </button>
+                <Switch
+                  checked={enableLocation}
+                  onCheckedChange={(next) => {
+                    setEnableLocation(next);
+                    if (!next) {
+                      setLocationResolved(false);
+                      setLocationError(null);
+                    }
+                  }}
+                  aria-label="位置情報制限のオン・オフ"
+                  className="shrink-0 data-[state=checked]:bg-indigo-600"
+                />
+              </div>
 
               {enableLocation && (
                 <motion.div

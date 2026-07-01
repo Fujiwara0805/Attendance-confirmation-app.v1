@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef, type ChangeEvent, type ComponentType, type ReactNode } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, type ComponentType, type ReactNode } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import SessionReportContent from '../report/SessionReportContent';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   MessageSquare,
+  MessageSquareOff,
   Hand,
   BarChart3,
   PieChart,
@@ -21,7 +22,6 @@ import {
   Monitor,
   MonitorUp,
   LayoutDashboard,
-  Upload,
   Loader2,
   ShieldCheck,
   ShieldOff,
@@ -836,7 +836,6 @@ export default function HostPage() {
   // コマンド）で行い、画面共有ストリームを保持する。状態は投影窓から受信して表示。
   const { screenState, screenOpen, sendCommand } = useScreenControl(room?.id || null);
   const projectionWindowRef = useRef<Window | null>(null);
-  const projectionFileInputRef = useRef<HTMLInputElement | null>(null);
 
   // 投影窓を開く（未オープン時）。外部ディスプレイ向けに大きめサイズで開く。
   const openProjectionWindow = useCallback(
@@ -913,6 +912,31 @@ export default function HostPage() {
     [screenOpen, screenState?.screen, sendProjectionCommand, openProjectionWindow]
   );
 
+  // 画面切替ボタン: 押下直後にボタン内へローディングを表示し、投影窓が目的の画面へ
+  // 切り替わったことを state で確認したら解除する（応答が無い場合の保険で数秒後にも解除）。
+  const [switchingScreen, setSwitchingScreen] = useState<'present' | 'stage' | null>(null);
+  const switchScreenTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSwitchScreen = useCallback(
+    (target: 'present' | 'stage', view?: 'qa' | 'poll') => {
+      showScreen(target, view);
+      setSwitchingScreen(target);
+      if (switchScreenTimeoutRef.current) clearTimeout(switchScreenTimeoutRef.current);
+      switchScreenTimeoutRef.current = setTimeout(() => setSwitchingScreen(null), 6000);
+    },
+    [showScreen]
+  );
+
+  useEffect(() => {
+    if (switchingScreen && screenState?.screen === switchingScreen) {
+      setSwitchingScreen(null);
+      if (switchScreenTimeoutRef.current) {
+        clearTimeout(switchScreenTimeoutRef.current);
+        switchScreenTimeoutRef.current = null;
+      }
+    }
+  }, [screenState?.screen, switchingScreen]);
+
   const toggleStageChat = useCallback(() => {
     sendProjectionCommand({ type: 'stage-chat', collapsed: !(screenState?.chatCollapsed ?? false) });
   }, [screenState?.chatCollapsed, sendProjectionCommand]);
@@ -921,22 +945,6 @@ export default function HostPage() {
   const requestStageStop = useCallback(() => {
     sendProjectionCommand({ type: 'stage-stop' });
   }, [sendProjectionCommand]);
-
-  // ファイル取り込み: 操作ウィンドウ側でファイル選択（ここはユーザー操作で活性化済み）し、
-  // 同一オリジンの投影窓（stage）が公開する関数へ File を直接受け渡す。
-  const handleProjectionFile = useCallback(
-    (e: ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      e.target.value = '';
-      if (!file) return;
-      const win = getProjectionWindow() as ProjectionControlWindow | null;
-      if (win && typeof win.__zasekikunImportProjectionFile === 'function') {
-        win.__zasekikunImportProjectionFile(file);
-        win.focus();
-      }
-    },
-    [getProjectionWindow]
-  );
 
   // 「スクリーンを開く」: 操作ポップアップを開き、今の窓を全画面 present へクライアント遷移。
   const handleOpenScreen = useCallback(() => {
@@ -2422,28 +2430,38 @@ export default function HostPage() {
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  onClick={() => showScreen('present', screenState?.screen === 'present' ? screenState?.view ?? 'qa' : 'qa')}
-                  className={`inline-flex flex-col items-center justify-center gap-1 rounded-lg border px-2 py-2.5 text-[11px] font-bold transition-colors ${
+                  onClick={() => handleSwitchScreen('present', screenState?.screen === 'present' ? screenState?.view ?? 'qa' : 'qa')}
+                  disabled={switchingScreen !== null}
+                  className={`inline-flex flex-col items-center justify-center gap-1 rounded-lg border px-2 py-2.5 text-[11px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-70 ${
                     screenState?.screen === 'present'
                       ? 'border-[#2864f0] bg-[#ebf3ff] text-[#2864f0]'
                       : 'border-[#aac8ff] bg-white text-[#2864f0] hover:bg-[#ebf3ff]'
                   }`}
                   title="スクリーン画面を表示"
                 >
-                  <Monitor className="h-4 w-4" />
+                  {switchingScreen === 'present' ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Monitor className="h-4 w-4" />
+                  )}
                   スクリーン画面
                 </button>
                 <button
                   type="button"
-                  onClick={() => showScreen('stage')}
-                  className={`inline-flex flex-col items-center justify-center gap-1 rounded-lg border px-2 py-2.5 text-[11px] font-bold transition-colors ${
+                  onClick={() => handleSwitchScreen('stage')}
+                  disabled={switchingScreen !== null}
+                  className={`inline-flex flex-col items-center justify-center gap-1 rounded-lg border px-2 py-2.5 text-[11px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-70 ${
                     screenState?.screen === 'stage'
                       ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
                       : 'border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-50'
                   }`}
                   title="資料投影画面を表示"
                 >
-                  <MonitorUp className="h-4 w-4" />
+                  {switchingScreen === 'stage' ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <MonitorUp className="h-4 w-4" />
+                  )}
                   資料投影画面
                 </button>
               </div>
@@ -2487,20 +2505,11 @@ export default function HostPage() {
                     className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-2 text-[11px] font-bold text-slate-600 transition-colors hover:bg-slate-50"
                   >
                     {screenState.chatCollapsed ? (
-                      <ChevronRight className="h-3.5 w-3.5" />
+                      <MessageSquare className="h-3.5 w-3.5" />
                     ) : (
-                      <ChevronLeft className="h-3.5 w-3.5" />
+                      <MessageSquareOff className="h-3.5 w-3.5" />
                     )}
                     チャット{screenState.chatCollapsed ? '開く' : '閉じる'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => projectionFileInputRef.current?.click()}
-                    className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-2 text-[11px] font-bold text-slate-600 transition-colors hover:bg-slate-50"
-                    title="操作画面でファイルを選び資料投影画面へ取り込み（取り込み直し）します"
-                  >
-                    <Upload className="h-3.5 w-3.5" />
-                    ファイル
                   </button>
                   <button
                     type="button"
@@ -2513,14 +2522,6 @@ export default function HostPage() {
                   </button>
                 </div>
               )}
-
-              <input
-                ref={projectionFileInputRef}
-                type="file"
-                onChange={handleProjectionFile}
-                accept=".xlsx,.xls,.csv,.pptx,.docx,.pdf"
-                className="hidden"
-              />
             </div>
             )}
 
@@ -2590,7 +2591,7 @@ export default function HostPage() {
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
                   aria-label="状態で絞り込み"
-                  className="h-8 w-[112px] rounded-full border border-slate-200 bg-white px-2 text-[11px] font-semibold text-slate-700 focus:border-emerald-400 focus:outline-none sm:hidden"
+                  className="h-8 w-[136px] rounded-full border border-slate-200 bg-white px-2.5 text-[10px] font-semibold text-slate-700 focus:border-emerald-400 focus:outline-none sm:hidden"
                 >
                   <option value="unanswered">未回答</option>
                   <option value="all">すべて ({counts.all})</option>

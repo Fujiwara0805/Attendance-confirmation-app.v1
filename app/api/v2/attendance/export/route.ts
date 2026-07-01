@@ -198,3 +198,63 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ message: 'Internal server error' }, { status: 500 });
   }
 }
+
+// DELETE /api/v2/attendance/export?course_id=...&date=YYYY-MM-DD
+// 特定の日の出席データを物理削除する（オーナーのみ・復元不可）。
+// 誤って全件削除しないよう date（特定の日）の指定を必須にする。
+export async function DELETE(req: NextRequest) {
+  try {
+    const user = await getCurrentUser();
+    if (!user?.email) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const courseId = searchParams.get('course_id');
+    const courseCode = searchParams.get('course_code');
+    const date = searchParams.get('date'); // YYYY-MM-DD（必須）
+
+    if (!courseId && !courseCode) {
+      return NextResponse.json({ message: 'course_id or course_code is required' }, { status: 400 });
+    }
+    if (!date) {
+      return NextResponse.json({ message: '削除するには date（特定の日）の指定が必須です' }, { status: 400 });
+    }
+
+    const supabase = createServerClient();
+
+    let courseQuery = supabase.from('courses').select('id, code, teacher_email');
+    if (courseId) {
+      courseQuery = courseQuery.eq('id', courseId);
+    } else {
+      courseQuery = courseQuery.eq('code', courseCode);
+    }
+    const { data: course, error: courseError } = await courseQuery.single();
+
+    if (courseError || !course) {
+      return NextResponse.json({ message: 'Course not found' }, { status: 404 });
+    }
+    if (course.teacher_email !== user.email) {
+      return NextResponse.json({
+        message: 'Forbidden: この講義のデータを削除する権限がありません',
+      }, { status: 403 });
+    }
+
+    const { data: deleted, error: deleteError } = await supabase
+      .from('attendance')
+      .delete()
+      .eq('course_id', course.id)
+      .eq('attended_at', date)
+      .select('id');
+
+    if (deleteError) {
+      console.error('Error deleting attendance:', deleteError);
+      return NextResponse.json({ message: 'Failed to delete attendance data' }, { status: 500 });
+    }
+
+    return NextResponse.json({ deleted: deleted?.length ?? 0, date });
+  } catch (error) {
+    console.error('Error in attendance delete API:', error);
+    return NextResponse.json({ message: 'Internal server error' }, { status: 500 });
+  }
+}

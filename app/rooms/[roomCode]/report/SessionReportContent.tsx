@@ -14,8 +14,21 @@ import {
   MessageSquare,
   Printer,
   ThumbsUp,
+  Trash2,
   Users,
 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { useToast } from '@/hooks/use-toast';
 import type {
   SessionReportData,
   SessionReportRun,
@@ -282,10 +295,12 @@ export default function SessionReportContent({
   embedded?: boolean;
 }) {
   const router = useRouter();
+  const { toast } = useToast();
 
   const [report, setReport] = useState<SessionReportData | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [deletingDate, setDeletingDate] = useState(false);
   // ワークカードごとに実施履歴（複数回のrun）が蓄積される。
   // デフォルトは各カードの「直近の実施分のみ」を表示し、トグルで全履歴に展開できる。
   // 全履歴モードでは「どのカードの・いつの実施分か」を絞り込める。
@@ -317,6 +332,34 @@ export default function SessionReportContent({
   useEffect(() => {
     if (roomCode) load();
   }, [roomCode, load]);
+
+  // 選択中の実施日のワークデータ（投票結果）を物理削除（復元不可）。
+  const handleDeleteDate = useCallback(async () => {
+    if (dateFilter === 'all') return;
+    setDeletingDate(true);
+    try {
+      const res = await fetch(`/api/rooms/${roomCode}/report?date=${encodeURIComponent(dateFilter)}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast({ title: '削除エラー', description: data.error || '削除に失敗しました', variant: 'destructive', duration: 3000 });
+        return;
+      }
+      toast({
+        title: '削除しました',
+        description: `${dateFilter} の実施結果（${data.deletedVotes ?? 0} 票）を削除しました`,
+        duration: 2500,
+      });
+      setDateFilter('all');
+      await load();
+    } catch (e) {
+      console.error('Report date delete error:', e);
+      toast({ title: 'エラー', description: '削除中にエラーが発生しました', variant: 'destructive', duration: 3000 });
+    } finally {
+      setDeletingDate(false);
+    }
+  }, [dateFilter, roomCode, toast, load]);
 
   const runDateLabel = useCallback((run: SessionReportRun) => {
     if (!run.startedAt) return '日時不明';
@@ -534,19 +577,59 @@ export default function SessionReportContent({
                   </select>
                   {/* 実施日の絞り込みは全履歴モードのときのみ */}
                   {historyMode === 'all' && (
-                    <select
-                      value={dateFilter}
-                      onChange={(e) => setDateFilter(e.target.value)}
-                      aria-label="表示する実施日を選択"
-                      className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:border-emerald-400 focus:outline-none"
-                    >
-                      <option value="all">すべての実施日</option>
-                      {dateOptions.map((label) => (
-                        <option key={label} value={label}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
+                    <>
+                      <select
+                        value={dateFilter}
+                        onChange={(e) => setDateFilter(e.target.value)}
+                        aria-label="表示する実施日を選択"
+                        className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:border-emerald-400 focus:outline-none"
+                      >
+                        <option value="all">すべての実施日</option>
+                        {dateOptions.map((label) => (
+                          <option key={label} value={label}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                      {/* 選択中の実施日を物理削除（復元不可） */}
+                      {dateFilter !== 'all' && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <button
+                              type="button"
+                              disabled={deletingDate}
+                              aria-label="選択中の実施日を削除"
+                              className="inline-flex h-10 items-center gap-1.5 rounded-md border border-red-200 bg-white px-3 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-60 print:hidden"
+                            >
+                              {deletingDate ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
+                              )}
+                              この日を削除
+                            </button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>{dateFilter} の実施結果を削除しますか？</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                この日に実施したワーク（投票）の結果をデータベースから完全に削除します。
+                                <span className="font-medium text-red-600">この操作は取り消せません。</span>
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel disabled={deletingDate}>キャンセル</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleDeleteDate()}
+                                className="bg-red-600 hover:bg-red-700 text-white"
+                              >
+                                削除する
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
+                    </>
                   )}
                 </div>
               ) : undefined

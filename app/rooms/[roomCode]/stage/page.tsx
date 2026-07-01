@@ -953,18 +953,10 @@ export default function StagePage() {
               <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
                 資料投影画面
               </h1>
-              <p className="mt-3 text-sm sm:text-base leading-relaxed text-slate-300">
-                Canva / Google Slides などのブラウザ資料ツールを発表モードにし、<br />
-                スクリーンに投影できます。または Excel / PowerPoint / Word / PDF ファイルを取り込むことができます。
-              </p>
               <div className="mt-5 rounded-2xl bg-white/10 p-4 text-left ring-1 ring-white/15">
                 <p className="text-xs font-bold uppercase tracking-wide text-indigo-200">取り込み方法</p>
                 <div className="mt-3 grid gap-2 text-sm leading-relaxed text-slate-200">
-                  <p>ブラウザ資料は発表モードで開き、「画面を取り込む」を押してください。</p>
-                  <p>ファイルは Excel / PowerPoint / Word / PDF を取り込めます。</p>
-                </div>
-                <div className="mt-3 rounded-lg bg-sky-400/15 px-3 py-2 text-xs font-bold leading-relaxed text-sky-100 ring-1 ring-sky-300/25">
-                  <p>スライドの見た目を優先する場合は、PDF保存版の取り込みが最も安定します。</p>
+                  <p>ブラウザ資料ツール(canva等）を発表モードで開き、スクリーンに投影する画面を取り込んでください。ファイルは Excel / PowerPoint（非推奨） / Word / PDF を取り込めます。</p>
                 </div>
                 <div className="mt-3 rounded-lg bg-amber-400/15 px-3 py-2 text-xs font-bold leading-relaxed text-amber-100 ring-1 ring-amber-300/25">
                   <p>発表者用メモを使う場合は、画面取り込みで発表画面だけを選択してください。</p>
