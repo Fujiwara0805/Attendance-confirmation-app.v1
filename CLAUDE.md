@@ -1,52 +1,34 @@
-## Workflow Orchestration
+# ざせきくん（attendance-management）
 
-### 1. Plan Node Default
-- Enter plan mode for ANY non-trivial task (3+ steps or architectural decisions)
-- If something goes sideways, STOP and re-plan immediately – don't keep pushing
-- Use plan mode for verification steps, not just building
-- Write detailed specs upfront to reduce ambiguity
+リアルタイム Q&A・投票（投票/クイズ/ランキング/ブレスト）・出席管理・招待フォームをひとつにしたイベント運営サービス。参加者はアプリ・ログイン不要で QR コードから参加し、結果はスクリーンにリアルタイム投影される。
 
-### 2. Subagent Strategy
-- Use subagents liberally to keep main context window clean
-- Offload research, exploration, and parallel analysis to subagents
-- For complex problems, throw more compute at it via subagents
-- One task per subagent for focused execution
+## 技術スタック
 
-### 3. Self-Improvement Loop
-- After ANY correction from the user: update tasks/lessons.md with the pattern
-- Write rules for yourself that prevent the same mistake
-- Ruthlessly iterate on these lessons until mistake rate drops
-- Review lessons at session start for relevant project
+- Next.js (App Router) / React / TypeScript
+- UI: Tailwind CSS + shadcn/ui + Framer Motion
+- DB・Realtime: Supabase（`lib/supabase.ts`）
+- 課金: Stripe（`lib/subscription.ts`）。PDF 生成: Gotenberg（`lib/gotenberg.ts`）。デプロイ: Vercel
 
-### 4. Verification Before Done
-- Never mark a task complete without proving it works
-- Diff behavior between main and your changes when relevant
-- Ask yourself: "Would a staff engineer approve this?"
-- Run tests, check logs, demonstrate correctness
+## コマンド
 
-### 5. Demand Elegance (Balanced)
-- For non-trivial changes: pause and ask "is there a more elegant way?"
-- If a fix feels hacky: "Knowing everything I know now, implement the elegant solution"
-- Skip this for simple, obvious fixes – don't over-engineer
-- Challenge your own work before presenting it
+- `npm run dev` — 開発サーバ
+- `npm run build` — 本番ビルド
+- `npm run lint` — Lint
+- 型チェック: `npx tsc --noEmit`（typecheck スクリプトは未定義）
 
-### 6. Autonomous Bug Fixing
-- When given a bug report: just fix it. Don't ask for hand-holding
-- Point at logs, errors, failing tests – then resolve them
-- Zero context switching required from the user
-- Go fix failing CI tests without being told how
+テストスイートは無い。検証は typecheck + build + 該当フローの実操作で行う。
 
-## Task Management
+## ディレクトリ構成
 
-1. Plan First: Write plan to tasks/todo.md with checkable items
-2. Verify Plan: Check in before starting implementation
-3. Track Progress: Mark items complete as you go
-4. Explain Changes: High-level summary at each step
-5. Document Results: Add review section to tasks/todo.md
-6. Capture Lessons: Update tasks/lessons.md after corrections
+- `app/` — App Router。`rooms/`=ルーム（ホスト操作・投影）、`attendance/` `checkin/` `invitation/`=参加者向け、`admin/`=管理、`api/`=Route Handlers
+- `lib/` — ドメインロジック（`pollModes.ts`、`sessionReport.ts`、`screenWindow.ts`、`captureStreamStore.ts` など）
+- `components/` `hooks/` `types/`。デザイン方針は `DESIGN.md`
+- `tasks/` — ローカル作業メモ（gitignore 済み）。`lessons.md` に過去の教訓あり
 
-## Core Principles
+## プロジェクト固有の注意
 
-- Simplicity First: Make every change as simple as possible. Impact minimal code.
-- No Laziness: Find root causes. No temporary fixes. Senior developer standards.
-- Minimal Impact: Changes should only touch what's necessary. Avoid introducing bugs.
+- 投影ウィンドウの遠隔操作など揮発的な状態は Supabase Realtime の broadcast チャネル（`room-screen-${id}` / `room-control-${id}`）で渡す。DB に書かない
+- 別ウィンドウから画面共有・ファイル選択を発火する機能は transient activation 制約に注意（詳細: `tasks/lessons.md`）
+- 無料プランのレポート閲覧期限は「ルーム作成 + 30日」の既存ゲートを流用する
+- Supabase の DB 操作・マイグレーションは Supabase MCP ツール経由で行う
+- コミットメッセージは日本語・絵文字プレフィックス（既存履歴のスタイルに合わせる）
