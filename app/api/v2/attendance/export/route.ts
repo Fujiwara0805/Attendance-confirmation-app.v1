@@ -3,6 +3,25 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
 import { getCurrentUser } from '@/lib/auth';
 
+// 登録日時（created_at）は UTC で保存されているため、CSV では東京時間に変換して
+// 「YYYY/MM/DD HH:mm:ss」形式で表示する。サーバのタイムゾーンに依存しないよう
+// timeZone を明示する。
+function formatJstDateTime(value: string | null | undefined): string {
+  if (!value) return '';
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return '';
+  return date.toLocaleString('ja-JP', {
+    timeZone: 'Asia/Tokyo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+}
+
 export async function GET(req: NextRequest) {
   try {
     const user = await getCurrentUser();
@@ -151,7 +170,7 @@ export async function GET(req: NextRequest) {
             row.push(String(val).replace(/"/g, '""').replace(/\n/g, ' '));
           }
         });
-        row.push(r.attended_at || '', r.created_at || '');
+        row.push(r.attended_at || '', formatJstDateTime(r.created_at));
         csvRows.push(row.map(v => `"${v}"`).join(','));
       });
     } else {
@@ -170,7 +189,7 @@ export async function GET(req: NextRequest) {
           r.department || '',
           r.feedback || '',
           r.attended_at || '',
-          r.created_at || '',
+          formatJstDateTime(r.created_at),
         ];
         csvRows.push(row.map(v => `"${v}"`).join(','));
       });
