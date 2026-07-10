@@ -1,7 +1,8 @@
 import { createServerClient } from '@/lib/supabase';
 
 // 組織（エンタープライズ）プランの料金・制限
-export const ORG_SEAT_UNIT_PRICE = 2000; // 円/シート/月
+// UI上の呼称は「アカウント」（1アカウント=1メンバー枠）。コード内部の識別子は seat のまま
+export const ORG_SEAT_UNIT_PRICE = 500; // 円/アカウント/月
 export const ORG_MIN_SEATS = 2;
 export const ORG_INVITATION_EXPIRY_DAYS = 7;
 
@@ -99,7 +100,7 @@ export function isOrgEntitled(org: Organization): boolean {
   return false;
 }
 
-// 使用中シート数 = メンバー数 + 未受諾かつ未失効の招待数（招待発行時点でシートを消費する）
+// 使用中アカウント数 = メンバー数 + 未受諾かつ未失効の招待数（招待発行時点でアカウントを消費する）
 export async function countUsedSeats(organizationId: string): Promise<number> {
   const supabase = createServerClient();
   const nowIso = new Date().toISOString();
@@ -146,7 +147,7 @@ export async function requireOrgRole(
 }
 
 // Google ログイン時のドメイン自動参加。
-// 許可ドメインに一致・未所属・シートに空きがある場合のみ member として参加させる。
+// 許可ドメインに一致・未所属・アカウントに空きがある場合のみ member として参加させる。
 // 失敗してもログイン自体は妨げない（呼び出し側で try/catch する）。
 export async function autoJoinOrganizationByDomain(email: string): Promise<void> {
   const normalized = normalizeEmail(email);
@@ -171,7 +172,7 @@ export async function autoJoinOrganizationByDomain(email: string): Promise<void>
 
   const org = domainRow.organizations as unknown as Organization;
 
-  // 満杯なら参加しない（シートが空いた後のログインで参加する）
+  // 満杯なら参加しない（アカウントが空いた後のログインで参加する）
   const usedSeats = await countUsedSeats(org.id);
   if (usedSeats >= org.seat_limit) return;
 

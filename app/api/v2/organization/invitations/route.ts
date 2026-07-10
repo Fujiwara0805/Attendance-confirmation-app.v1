@@ -104,11 +104,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // シート上限チェック（使用シート = メンバー + 未受諾招待）
+    // アカウント上限チェック（使用アカウント = メンバー + 未受諾招待）
     const usedSeats = await countUsedSeats(org.id);
     if (usedSeats >= org.seat_limit) {
       return NextResponse.json(
-        { error: 'シート数の上限に達しています。シートを追加購入するか、招待を取り消してください' },
+        { error: 'アカウント数の上限に達しています。アカウントを追加購入するか、招待を取り消してください' },
         { status: 400 }
       );
     }
@@ -163,7 +163,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// DELETE: 招待を取り消し（シートを解放）
+// DELETE: 招待を取り消し（アカウントを解放）
 export async function DELETE(req: NextRequest) {
   try {
     const user = await getCurrentUser();

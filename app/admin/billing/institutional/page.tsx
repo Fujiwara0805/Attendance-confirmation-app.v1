@@ -43,7 +43,7 @@ export default function InstitutionalBillingPage() {
 
   const estimatedAmount = useMemo(() => {
     const monthly =
-      formData.plan === 'org' ? 2000 * Math.max(Number(formData.seatCount || 0), 0) : 550;
+      formData.plan === 'org' ? 500 * Math.max(Number(formData.seatCount || 0), 0) : 550;
     return monthly * Number(formData.termMonths || 1);
   }, [formData.plan, formData.seatCount, formData.termMonths]);
 
@@ -189,7 +189,7 @@ export default function InstitutionalBillingPage() {
                     className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   >
                     <option value="pro">Pro / 月額550円</option>
-                    <option value="org">エンタープライズ（組織）/ 1シート月額2,000円</option>
+                    <option value="org">エンタープライズ（組織）/ 1アカウント月額500円</option>
                   </select>
                   {formData.plan === 'org' && (
                     <p className="text-xs text-slate-500">
@@ -199,7 +199,7 @@ export default function InstitutionalBillingPage() {
                 </div>
                 {formData.plan === 'org' && (
                   <div className="space-y-2">
-                    <Label htmlFor="seatCount">契約シート数（最低2）</Label>
+                    <Label htmlFor="seatCount">契約アカウント数（最低2）</Label>
                     <Input
                       id="seatCount"
                       type="number"

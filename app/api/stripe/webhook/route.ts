@@ -71,7 +71,7 @@ function getPlanForSubscription(
   return unitAmount === 2000 ? 'enterprise' : 'paid';
 }
 
-// ---- 組織（シート課金）サブスク ----
+// ---- 組織（アカウント課金）サブスク ----
 // 組織サブスクのイベントを個人 subscriptions のパスに落とすと、Customer email 経由で
 // オーナー個人のプランを誤って上書きしてしまう。各ハンドラの先頭で
 // metadata.productType === 'org_subscription' を判定し、organizations テーブルのみ更新する。
@@ -119,7 +119,7 @@ function getInvoiceSubscriptionMetadata(invoice: Stripe.Invoice): Record<string,
 async function activateInstitutionalInvoice(invoice: Stripe.Invoice) {
   if (invoice.metadata?.billing_flow !== 'institutional_billing') return;
 
-  // 組織（シート課金）の銀行振込: organizations を有効化し、個人 subscriptions には触れない
+  // 組織（アカウント課金）の銀行振込: organizations を有効化し、個人 subscriptions には触れない
   if (invoice.metadata.productType === 'org_subscription' && invoice.metadata.organizationId) {
     const supabase = createServerClient();
     const seatCount = Number.parseInt(invoice.metadata.seatCount || '', 10);

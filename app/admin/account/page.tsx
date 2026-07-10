@@ -547,7 +547,7 @@ export default function AccountSettingsPage() {
                 紹介された方は Pro プランの<span className="font-semibold text-slate-700">初月が無料</span>。
                 紹介が成立する（紹介された方が Pro を契約する）と、あなたにも
                 <span className="font-semibold text-slate-700"> Pro 1ヶ月無料</span>をプレゼント（年
-                {referral?.maxRewardsPerYear ?? 12}回まで）。
+                {referral?.maxRewardsPerYear ?? 3}回まで）。
               </p>
             </div>
           </div>

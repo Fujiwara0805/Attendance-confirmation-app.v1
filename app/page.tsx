@@ -1141,14 +1141,14 @@ export default function LandingPage() {
                 <p className="text-sm lg:text-base text-slate-500 mt-1">会社・団体でまとめて利用</p>
               </div>
               <div className="mb-6">
-                <span className="text-4xl font-extrabold text-slate-900">¥2,000</span>
-                <span className="text-sm lg:text-base text-slate-400 ml-1">/ シート・月（税込）</span>
+                <span className="text-4xl font-extrabold text-slate-900">¥500</span>
+                <span className="text-sm lg:text-base text-slate-400 ml-1">/ アカウント・月（税込）</span>
               </div>
               <ul className="space-y-3 mb-8">
                 {[
                   '組織アカウント（メンバー管理）',
                   'メンバー全員 フォーム・ルーム無制限',
-                  'シート単位のわかりやすい課金',
+                  'アカウント単位のわかりやすい課金',
                   'メール招待・ドメイン自動参加',
                   '銀行振込（請求書・見積書）対応',
                   'Q&A・投票機能',

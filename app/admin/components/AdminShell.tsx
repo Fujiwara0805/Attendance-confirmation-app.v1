@@ -121,7 +121,7 @@ const MENU_ITEMS: Array<{
   {
     key: 'organization',
     label: '組織管理',
-    description: 'メンバー・シート・法人契約',
+    description: 'メンバー・アカウント・法人契約',
     icon: Building2,
     iconBg: 'bg-[#ebf3ff]',
     iconColor: 'text-[#2864f0]',
@@ -223,6 +223,12 @@ function SidebarContent({
       : subscription?.plan === 'paid'
       ? 'bg-gradient-to-br from-indigo-600 to-blue-700 text-white ring-indigo-700/30'
       : 'bg-white text-slate-900 ring-black/5';
+
+  // 組織管理はエンタープライズプラン加入時のみナビに表示する。
+  // 未加入者の導線はLPの料金セクション（/admin/organization への直接リンク）に残る
+  const visibleMenuItems = MENU_ITEMS.filter(
+    (item) => item.key !== 'organization' || subscription?.plan === 'enterprise'
+  );
 
   const isUnlimited = (limit?: number | null) =>
     limit === undefined || limit === null || limit === Infinity;
@@ -409,7 +415,7 @@ function SidebarContent({
 
       {/* Menu */}
       <nav className={`flex-1 overflow-y-auto py-4 space-y-1 ${collapsed ? 'px-2' : 'px-3'}`}>
-        {MENU_ITEMS.map((item) => {
+        {visibleMenuItems.map((item) => {
           const Icon = item.icon;
           const isActive = item.key === activeSection;
           if (collapsed) {

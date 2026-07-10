@@ -103,13 +103,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '既に別の組織に所属しています' }, { status: 409 });
     }
 
-    // 受諾時点のシート再チェック。
-    // 未受諾の招待自体が1シートを消費しているので、自分の招待分を除いて比較する
+    // 受諾時点のアカウント再チェック。
+    // 未受諾の招待自体が1アカウントを消費しているので、自分の招待分を除いて比較する
     const org = invitation.organizations as unknown as { id: string; name: string; seat_limit: number };
     const usedSeats = await countUsedSeats(invitation.organization_id);
     if (usedSeats - 1 >= org.seat_limit) {
       return NextResponse.json(
-        { error: 'シート数の上限に達しています。管理者にシートの追加を依頼してください' },
+        { error: 'アカウント数の上限に達しています。管理者にアカウントの追加を依頼してください' },
         { status: 400 }
       );
     }

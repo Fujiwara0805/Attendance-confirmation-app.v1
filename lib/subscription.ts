@@ -236,7 +236,7 @@ export async function syncUserSubscriptionFromStripe(
     });
 
     for (const subscription of subscriptions.data) {
-      // 組織サブスク（シート課金）は個人 subscriptions に同期しない
+      // 組織サブスク（アカウント課金）は個人 subscriptions に同期しない
       if (subscription.metadata?.productType === 'org_subscription') continue;
       if (ENTITLED_STRIPE_STATUSES.has(subscription.status)) {
         activeSubscriptions.push({

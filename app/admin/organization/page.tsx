@@ -121,7 +121,7 @@ function OrganizationPageHeader() {
               組織管理
             </h1>
             <p className="mt-0.5 truncate text-xs text-[#595959] sm:text-sm">
-              会社・団体のメンバーとシート、法人契約を管理します。
+              会社・団体のメンバーとアカウント、法人契約を管理します。
             </p>
           </div>
         </div>
@@ -180,7 +180,7 @@ function CreateOrganizationSection({ onCreated }: { onCreated: (data: Organizati
             <h2 className="text-base font-semibold text-slate-900">組織を作成</h2>
             <p className="mt-0.5 text-sm text-slate-500">
               会社・学校・団体単位でアカウントをまとめて管理できます。作成後にメンバーを招待し、
-              シート数分のエンタープライズ契約（1シート月額2,000円）を結ぶと、メンバー全員が無制限で利用できます。
+              アカウント数分のエンタープライズ契約（1アカウント月額500円）を結ぶと、メンバー全員が無制限で利用できます。
             </p>
           </div>
         </div>
@@ -378,7 +378,7 @@ export default function OrganizationPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '招待の取り消しに失敗しました');
       await Promise.all([fetchMembers(), fetchOrg()]);
-      toast({ title: '招待を取り消しました', description: 'シートが解放されました。', duration: 1500 });
+      toast({ title: '招待を取り消しました', description: 'アカウント枠が解放されました。', duration: 1500 });
     } catch (error) {
       toast({
         title: 'エラー',
@@ -422,7 +422,7 @@ export default function OrganizationPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'メンバーの削除に失敗しました');
       await Promise.all([fetchMembers(), fetchOrg()]);
-      toast({ title: 'メンバーを削除しました', description: 'シートが解放されました。', duration: 1500 });
+      toast({ title: 'メンバーを削除しました', description: 'アカウント枠が解放されました。', duration: 1500 });
     } catch (error) {
       toast({
         title: 'エラー',
@@ -559,8 +559,8 @@ export default function OrganizationPage() {
       if (action === 'update_seats') {
         await fetchOrg();
         toast({
-          title: 'シート数を変更しました',
-          description: `契約シート数: ${data.seatLimit}（差額は日割りで調整されます）`,
+          title: 'アカウント数を変更しました',
+          description: `契約アカウント数: ${data.seatLimit}（差額は日割りで調整されます）`,
           duration: 2500,
         });
       }
@@ -692,7 +692,7 @@ export default function OrganizationPage() {
 
           {activeTab === 'overview' && (
             <div className="space-y-6">
-              {/* 組織情報 + シート状況 */}
+              {/* 組織情報 + アカウント状況 */}
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5 sm:p-5">
                   <div className="mb-3 flex items-center gap-2">
@@ -727,12 +727,12 @@ export default function OrganizationPage() {
                       <Users className="h-3.5 w-3.5" />
                     </div>
                     <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      シート使用状況
+                      アカウント使用状況
                     </h2>
                   </div>
                   <div className="flex items-baseline gap-1.5">
                     <span className="text-2xl font-extrabold tabular-nums text-slate-900">{usedSeats}</span>
-                    <span className="text-sm text-slate-400">/ {org.seatLimit} シート</span>
+                    <span className="text-sm text-slate-400">/ {org.seatLimit} アカウント</span>
                   </div>
                   <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
                     <div
@@ -745,7 +745,7 @@ export default function OrganizationPage() {
                     />
                   </div>
                   <p className="mt-2 text-xs text-slate-400">
-                    使用シート = メンバー数 + 招待中の人数
+                    使用アカウント = メンバー数 + 招待中の人数
                   </p>
                 </section>
               </div>
@@ -757,7 +757,7 @@ export default function OrganizationPage() {
                     エンタープライズ契約が有効ではありません
                   </h3>
                   <p className="mt-1 text-sm text-indigo-700">
-                    シート数分の契約（1シート月額2,000円）を結ぶと、組織のメンバー全員がフォーム・ルーム・履歴無制限で利用できます。
+                    アカウント数分の契約（1アカウント月額500円）を結ぶと、組織のメンバー全員がフォーム・ルーム・履歴無制限で利用できます。
                     {canManage
                       ? '契約は「課金」タブから（クレジットカード / 銀行振込）行えます。'
                       : '契約は組織のオーナーまたは管理者が行えます。'}
@@ -779,7 +779,7 @@ export default function OrganizationPage() {
                     <div>
                       <h2 className="text-base font-semibold text-slate-900">メンバーを招待</h2>
                       <p className="mt-0.5 text-sm text-slate-500">
-                        招待リンクを発行し、招待相手に共有してください（リンクの有効期限は7日間）。招待中も1シートを使用します。
+                        招待リンクを発行し、招待相手に共有してください（リンクの有効期限は7日間）。招待中も1アカウントを使用します。
                       </p>
                     </div>
                   </div>
@@ -1115,7 +1115,7 @@ export default function OrganizationPage() {
                   <div>
                     <h2 className="text-base font-semibold text-slate-900">エンタープライズ（組織）プラン</h2>
                     <p className="mt-0.5 text-sm text-slate-500">
-                      1シート 月額2,000円（税込）。契約シート数の範囲でメンバーを追加でき、全員が無制限で利用できます。
+                      1アカウント 月額500円（税込）。契約アカウント数の範囲でメンバーを追加でき、全員が無制限で利用できます。
                     </p>
                   </div>
                 </div>
@@ -1126,7 +1126,7 @@ export default function OrganizationPage() {
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
                       <div>
                         <label htmlFor="billing-seats" className="mb-1.5 block text-sm font-medium text-slate-700">
-                          契約シート数（最低2）
+                          契約アカウント数（最低2）
                         </label>
                         <Input
                           id="billing-seats"
@@ -1161,24 +1161,24 @@ export default function OrganizationPage() {
                       <p className="text-sm text-slate-500">
                         月額合計:{' '}
                         <span className="font-bold text-slate-900">
-                          {(Number.parseInt(billingSeats, 10) * 2000).toLocaleString()}円
+                          {(Number.parseInt(billingSeats, 10) * 500).toLocaleString()}円
                         </span>
-                        （{billingSeats}シート × 2,000円）
+                        （{billingSeats}アカウント × 500円）
                       </p>
                     )}
                   </div>
                 ) : (
-                  // 契約中: シート変更 + ポータル
+                  // 契約中: アカウント変更 + ポータル
                   <div className="space-y-4">
                     <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                       <p className="text-sm text-slate-600">
                         現在の契約:{' '}
-                        <span className="font-bold text-slate-900">{org.seatLimit}シート</span>
+                        <span className="font-bold text-slate-900">{org.seatLimit}アカウント</span>
                         {org.billingType === 'stripe_subscription' && (
                           <>
                             {' '}／ 月額{' '}
                             <span className="font-bold text-slate-900">
-                              {(org.seatLimit * 2000).toLocaleString()}円
+                              {(org.seatLimit * 500).toLocaleString()}円
                             </span>
                           </>
                         )}
@@ -1198,7 +1198,7 @@ export default function OrganizationPage() {
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
                           <div>
                             <label htmlFor="billing-seats-update" className="mb-1.5 block text-sm font-medium text-slate-700">
-                              シート数を変更
+                              アカウント数を変更
                             </label>
                             <Input
                               id="billing-seats-update"
@@ -1231,7 +1231,7 @@ export default function OrganizationPage() {
                           </Button>
                         </div>
                         <p className="text-xs text-slate-400">
-                          増席は日割りで即時課金、減席は次回請求で調整されます。使用中のシート数より少なくはできません。
+                          増席は日割りで即時課金、減席は次回請求で調整されます。使用中のアカウント数より少なくはできません。
                         </p>
                         <button
                           type="button"
@@ -1309,7 +1309,7 @@ export default function OrganizationPage() {
                     />
                     <p className="mt-1 text-xs text-slate-400">
                       1行に1ドメイン（最大10件）。このドメインのメールアドレスで Google ログインしたユーザーは、
-                      シートに空きがあれば自動でこの組織に参加します。Gmail などのフリーメールは登録できません。
+                      アカウントに空きがあれば自動でこの組織に参加します。Gmail などのフリーメールは登録できません。
                     </p>
                   </div>
                   <Button onClick={handleSaveSettings} disabled={saving} className="h-10">

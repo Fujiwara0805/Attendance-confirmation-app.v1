@@ -1,4 +1,4 @@
-// /api/v2/organization/billing - 組織のシート課金（Checkout・シート数変更・ポータル）
+// /api/v2/organization/billing - 組織のアカウント課金（Checkout・アカウント数変更・ポータル）
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { createServerClient } from '@/lib/supabase';
@@ -35,12 +35,12 @@ export async function POST(request: NextRequest) {
     const org = membership.organization;
     const supabase = createServerClient();
 
-    // --- クレカ課金の開始（Stripe Checkout、quantity = シート数） ---
+    // --- クレカ課金の開始（Stripe Checkout、quantity = アカウント数） ---
     if (action === 'checkout') {
       const seats = Number.parseInt(String(body?.seats), 10);
       if (!Number.isFinite(seats) || seats < ORG_MIN_SEATS || seats > 1000) {
         return NextResponse.json(
-          { error: `シート数は${ORG_MIN_SEATS}〜1000で指定してください` },
+          { error: `アカウント数は${ORG_MIN_SEATS}〜1000で指定してください` },
           { status: 400 }
         );
       }
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
         (org.subscription_status === 'active' || org.subscription_status === 'past_due')
       ) {
         return NextResponse.json(
-          { error: '既に有効なサブスクリプションがあります。シート数の変更は「シート数を変更」から行ってください' },
+          { error: '既に有効なサブスクリプションがあります。アカウント数の変更は「アカウント数を変更」から行ってください' },
           { status: 400 }
         );
       }
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
       const usedSeats = await countUsedSeats(org.id);
       if (seats < usedSeats) {
         return NextResponse.json(
-          { error: `現在${usedSeats}シートを使用中です。それ以上のシート数を指定してください` },
+          { error: `現在${usedSeats}アカウントを使用中です。それ以上のアカウント数を指定してください` },
           { status: 400 }
         );
       }
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
               product_data: {
                 name: 'ざせきくん エンタープライズ（組織）プラン',
                 description:
-                  '組織のメンバー全員がフォーム・ルーム・履歴無制限で利用できるシート課金プランです（1シート/月）。',
+                  '組織のメンバー全員がフォーム・ルーム・履歴無制限で利用できるアカウント課金プランです（1アカウント/月）。',
                 images: ['https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_200/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png'],
                 metadata: {
                   category: 'software',
@@ -141,28 +141,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ url: checkoutSession.url });
     }
 
-    // --- シート数の変更（日割り調整あり） ---
+    // --- アカウント数の変更（日割り調整あり） ---
     if (action === 'update_seats') {
       const seats = Number.parseInt(String(body?.seats), 10);
       if (!Number.isFinite(seats) || seats < ORG_MIN_SEATS || seats > 1000) {
         return NextResponse.json(
-          { error: `シート数は${ORG_MIN_SEATS}〜1000で指定してください` },
+          { error: `アカウント数は${ORG_MIN_SEATS}〜1000で指定してください` },
           { status: 400 }
         );
       }
 
       if (org.billing_type !== 'stripe_subscription' || !org.stripe_subscription_id) {
         return NextResponse.json(
-          { error: 'クレジットカード決済のサブスクリプションがありません。銀行振込契約のシート変更はお問い合わせください' },
+          { error: 'クレジットカード決済のサブスクリプションがありません。銀行振込契約のアカウント変更はお問い合わせください' },
           { status: 400 }
         );
       }
 
-      // 削減時は使用中シートを下回らせない（Stripe 更新後に矛盾を作らない）
+      // 削減時は使用中アカウントを下回らせない（Stripe 更新後に矛盾を作らない）
       const usedSeats = await countUsedSeats(org.id);
       if (seats < usedSeats) {
         return NextResponse.json(
-          { error: `現在${usedSeats}シートを使用中のため、${seats}シートには削減できません。先にメンバーまたは招待を減らしてください` },
+          { error: `現在${usedSeats}アカウントを使用中のため、${seats}アカウントには削減できません。先にメンバーまたは招待を減らしてください` },
           { status: 400 }
         );
       }

@@ -25,7 +25,7 @@ const PLAN_PRICES = {
 
 const requestSchema = z.object({
   plan: z.enum(['pro', 'org']),
-  // plan='org' のときのみ使用（契約シート数）
+  // plan='org' のときのみ使用（契約アカウント数）
   seatCount: z.coerce.number().int().min(ORG_MIN_SEATS).max(1000).optional(),
   termMonths: z.coerce.number().int().min(1).max(12),
   institutionName: z.string().trim().min(1).max(120),
@@ -144,12 +144,12 @@ export async function POST(request: NextRequest) {
         );
       }
       if (!input.seatCount) {
-        return NextResponse.json({ error: 'シート数を指定してください' }, { status: 400 });
+        return NextResponse.json({ error: 'アカウント数を指定してください' }, { status: 400 });
       }
       const usedSeats = await countUsedSeats(membership.organization.id);
       if (input.seatCount < usedSeats) {
         return NextResponse.json(
-          { error: `現在${usedSeats}シートを使用中です。それ以上のシート数を指定してください` },
+          { error: `現在${usedSeats}アカウントを使用中です。それ以上のアカウント数を指定してください` },
           { status: 400 }
         );
       }
@@ -177,7 +177,7 @@ export async function POST(request: NextRequest) {
     const periodLabel = `${periodStart.toLocaleDateString('ja-JP')} - ${periodEnd.toLocaleDateString('ja-JP')}`;
     const description =
       input.plan === 'org'
-        ? `${planName} ${input.seatCount}シート × ${input.termMonths}ヶ月分（税込）`
+        ? `${planName} ${input.seatCount}アカウント × ${input.termMonths}ヶ月分（税込）`
         : `${planName} ${input.termMonths}ヶ月分（税込）`;
     const metadata = {
       service: 'zaseki_kun',

@@ -27,7 +27,7 @@
 
 ## プロジェクト固有の注意
 
-- 組織（エンタープライズ）機能: プラン解決は `lib/subscription.ts` の `getUserSubscription` に一元化（組織サブスク優先→個人にフォールバック）。個人サブスクの操作は `getPersonalSubscription` を使う。Stripe の組織サブスクは `metadata.productType='org_subscription'` で識別し、webhook 各ハンドラの先頭で分岐する（個人パスに落とすとオーナー個人のプランを誤上書きする）。シート = メンバー数 + 未受諾招待数、1ユーザー1組織（DB unique index）
+- 組織（エンタープライズ）機能: プラン解決は `lib/subscription.ts` の `getUserSubscription` に一元化（組織サブスク優先→個人にフォールバック）。個人サブスクの操作は `getPersonalSubscription` を使う。Stripe の組織サブスクは `metadata.productType='org_subscription'` で識別し、webhook 各ハンドラの先頭で分岐する（個人パスに落とすとオーナー個人のプランを誤上書きする）。課金単位は「アカウント」（UI表記。コード内部は seat_limit / seatCount のまま）= メンバー数 + 未受諾招待数、単価は `lib/organization.ts` の `ORG_SEAT_UNIT_PRICE`、1ユーザー1組織（DB unique index）。サイドバーの「組織管理」はエンタープライズ加入時のみ表示
 
 - 投影ウィンドウの遠隔操作など揮発的な状態は Supabase Realtime の broadcast チャネル（`room-screen-${id}` / `room-control-${id}`）で渡す。DB に書かない
 - 別ウィンドウから画面共有・ファイル選択を発火する機能は transient activation 制約に注意（詳細: `tasks/lessons.md`）

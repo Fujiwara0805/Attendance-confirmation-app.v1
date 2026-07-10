@@ -10,7 +10,7 @@ import { getPersonalSubscription, upsertSubscription } from '@/lib/subscription'
 //   （Stripe課金中なら次回請求にクーポン / それ以外はDB付与で自然失効）
 
 export const REFERRAL_COUPON_ID = 'zaseki_kun_referral_1m_free';
-export const REFERRAL_MAX_REWARDS_PER_YEAR = 12;
+export const REFERRAL_MAX_REWARDS_PER_YEAR = 3;
 export const REFERRAL_CODE_REGEX = /^[A-Z0-9]{8}$/;
 export const REFERRAL_COOKIE_NAME = 'zaseki_referral';
 
