@@ -4,6 +4,7 @@ import CredentialsProvider from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
 import type { NextAuthOptions } from 'next-auth'
 import { createServerClient } from '@/lib/supabase'
+import { autoJoinOrganizationByDomain } from '@/lib/organization'
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -41,7 +42,16 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async signIn() {
+    async signIn({ user, account }) {
+      // Google ログイン時、組織の許可ドメインに一致すれば自動参加させる。
+      // 自動参加の失敗でログイン自体を妨げない。
+      if (account?.provider === 'google' && user?.email) {
+        try {
+          await autoJoinOrganizationByDomain(user.email)
+        } catch (error) {
+          console.error('[auth] ドメイン自動参加に失敗しました:', error)
+        }
+      }
       return true // すべてのアカウントを許可
     },
     async session({ session, token }) {

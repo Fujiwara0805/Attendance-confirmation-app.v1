@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase';
 import Stripe from 'stripe';
+import { getOrganizationForUser, isOrgEntitled, type OrgRole } from '@/lib/organization';
 
 // プラン制限
 //
@@ -38,6 +39,11 @@ export function isWithinHistoryRetention(plan: PlanType, createdAt: string | Dat
 export interface SubscriptionInfo {
   plan: PlanType;
   status: 'active' | 'cancelled' | 'past_due' | 'incomplete';
+  // プランの由来。organization = 所属組織のサブスクにより enterprise が付与されている状態。
+  // このとき stripeCustomerId/stripeSubscriptionId は返さない（個人向けの portal/cancel が
+  // 組織サブスクを誤操作しないため。組織サブスクの管理は組織管理画面から行う）。
+  source: 'personal' | 'organization';
+  organization?: { id: string; name: string; role: OrgRole };
   stripeCustomerId?: string;
   stripeSubscriptionId?: string;
   currentPeriodEnd?: string;
@@ -101,8 +107,30 @@ function normalizeStripeStatus(status: Stripe.Subscription.Status): Subscription
   return 'incomplete';
 }
 
-// ユーザーのサブスクリプション情報を取得
+// ユーザーのサブスクリプション情報を取得。
+// 所属組織のサブスクが有効なら enterprise を返し（組織優先）、それ以外は個人サブスクで判定する。
 export async function getUserSubscription(email: string): Promise<SubscriptionInfo> {
+  const membership = await getOrganizationForUser(email);
+  if (membership && isOrgEntitled(membership.organization)) {
+    return {
+      plan: 'enterprise',
+      status: 'active',
+      source: 'organization',
+      organization: {
+        id: membership.organization.id,
+        name: membership.organization.name,
+        role: membership.role,
+      },
+      currentPeriodEnd: membership.organization.current_period_end ?? undefined,
+    };
+  }
+
+  return getPersonalSubscription(email);
+}
+
+// 個人サブスクのみで判定する（組織レイヤを通さない）。
+// 個人サブスクの portal/cancel 操作など、組織プランと切り離して扱う場面で使う。
+export async function getPersonalSubscription(email: string): Promise<SubscriptionInfo> {
   const supabase = createServerClient();
 
   const { data } = await supabase
@@ -112,7 +140,7 @@ export async function getUserSubscription(email: string): Promise<SubscriptionIn
     .single();
 
   if (!data) {
-    return { plan: 'free', status: 'active' };
+    return { plan: 'free', status: 'active', source: 'personal' };
   }
 
   // 有効期限切れチェック
@@ -120,13 +148,14 @@ export async function getUserSubscription(email: string): Promise<SubscriptionIn
     const now = new Date();
     const periodEnd = new Date(data.current_period_end);
     if (now > periodEnd && data.status !== 'active') {
-      return { plan: 'free', status: 'active' };
+      return { plan: 'free', status: 'active', source: 'personal' };
     }
   }
 
   return {
     plan: data.plan as PlanType,
     status: data.status,
+    source: 'personal',
     stripeCustomerId: data.stripe_customer_id,
     stripeSubscriptionId: data.stripe_subscription_id,
     currentPeriodEnd: data.current_period_end,
@@ -207,6 +236,8 @@ export async function syncUserSubscriptionFromStripe(
     });
 
     for (const subscription of subscriptions.data) {
+      // 組織サブスク（シート課金）は個人 subscriptions に同期しない
+      if (subscription.metadata?.productType === 'org_subscription') continue;
       if (ENTITLED_STRIPE_STATUSES.has(subscription.status)) {
         activeSubscriptions.push({
           customerId: customer.id,

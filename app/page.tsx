@@ -1138,21 +1138,21 @@ export default function LandingPage() {
               </div>
               <div className="mb-6">
                 <h3 className="text-lg font-bold text-slate-900">Enterprise プラン</h3>
-                <p className="text-sm lg:text-base text-slate-500 mt-1">法人・大規模イベント運用に</p>
+                <p className="text-sm lg:text-base text-slate-500 mt-1">会社・団体でまとめて利用</p>
               </div>
               <div className="mb-6">
-                <span className="text-4xl font-extrabold text-slate-900">要相談</span>
+                <span className="text-4xl font-extrabold text-slate-900">¥2,000</span>
+                <span className="text-sm lg:text-base text-slate-400 ml-1">/ シート・月（税込）</span>
               </div>
               <ul className="space-y-3 mb-8">
                 {[
-                  'フォーム 無制限',
-                  'ルーム 無制限',
+                  '組織アカウント（メンバー管理）',
+                  'メンバー全員 フォーム・ルーム無制限',
+                  'シート単位のわかりやすい課金',
+                  'メール招待・ドメイン自動参加',
+                  '銀行振込（請求書・見積書）対応',
                   'Q&A・投票機能',
                   '位置情報による出席管理',
-                  '招待フォーム・事前登録',
-                  'CSV / Excelエクスポート',
-                  'QRコード生成',
-                  'カスタムフォーム作成',
                   '複数端末での同時運用',
                   '優先サポート',
                 ].map((item) => (
@@ -1162,15 +1162,19 @@ export default function LandingPage() {
                   </li>
                 ))}
               </ul>
-              <p className="text-xs lg:text-sm text-red-500 font-medium mb-3 leading-relaxed">
-                ※ ご導入につきまして別途ご相談が必要です。お問い合わせフォームよりご連絡ください。
-              </p>
               <Link
-                href="/contact"
+                href="/admin/organization"
                 className="block w-full text-center text-sm lg:text-base font-semibold text-white bg-gradient-to-r from-slate-700 to-slate-900 hover:from-slate-800 hover:to-black active:scale-[0.97] transition-all px-6 py-3 rounded-xl shadow-lg shadow-slate-200/50"
               >
-                お問い合わせ
+                組織アカウントを作成
               </Link>
+              <p className="mt-3 text-xs lg:text-sm text-slate-400 text-center leading-relaxed">
+                導入のご相談は
+                <Link href="/contact" className="text-indigo-600 hover:underline mx-0.5">
+                  お問い合わせ
+                </Link>
+                から。
+              </p>
             </motion.div>
           </motion.div>
         </div>

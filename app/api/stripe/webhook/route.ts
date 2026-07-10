@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { headers } from 'next/headers';
 import { upsertSubscription, getUserSubscription } from '@/lib/subscription';
+import { createServerClient } from '@/lib/supabase';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-07-30.basil',
@@ -69,8 +70,83 @@ function getPlanForSubscription(
   return unitAmount === 2000 ? 'enterprise' : 'paid';
 }
 
+// ---- 組織（シート課金）サブスク ----
+// 組織サブスクのイベントを個人 subscriptions のパスに落とすと、Customer email 経由で
+// オーナー個人のプランを誤って上書きしてしまう。各ハンドラの先頭で
+// metadata.productType === 'org_subscription' を判定し、organizations テーブルのみ更新する。
+
+function normalizeOrgStatus(subscription: Stripe.Subscription) {
+  if (subscription.cancel_at_period_end) return 'cancelled';
+  const normalized = normalizeStripeStatus(subscription.status);
+  return normalized === 'incomplete' ? 'inactive' : normalized;
+}
+
+async function syncOrganizationSubscription(
+  organizationId: string,
+  subscription: Stripe.Subscription
+) {
+  const supabase = createServerClient();
+  const quantity = subscription.items.data[0]?.quantity;
+
+  const { error } = await supabase
+    .from('organizations')
+    .update({
+      subscription_status: normalizeOrgStatus(subscription),
+      billing_type: 'stripe_subscription',
+      stripe_customer_id: subscription.customer as string,
+      stripe_subscription_id: subscription.id,
+      ...(typeof quantity === 'number' ? { seat_limit: quantity } : {}),
+      ...getSubscriptionPeriod(subscription),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', organizationId);
+
+  if (error) {
+    console.error(`Failed to sync organization subscription (${organizationId}):`, error);
+  } else {
+    console.log(`Organization subscription synced: ${organizationId} (${subscription.status})`);
+  }
+}
+
+// サブスク由来の invoice から subscription metadata を取り出す
+// （2025 basil API では invoice.parent.subscription_details に入る）
+function getInvoiceSubscriptionMetadata(invoice: Stripe.Invoice): Record<string, string> | null {
+  const inv = invoice as any;
+  return inv.parent?.subscription_details?.metadata || inv.subscription_details?.metadata || null;
+}
+
 async function activateInstitutionalInvoice(invoice: Stripe.Invoice) {
   if (invoice.metadata?.billing_flow !== 'institutional_billing') return;
+
+  // 組織（シート課金）の銀行振込: organizations を有効化し、個人 subscriptions には触れない
+  if (invoice.metadata.productType === 'org_subscription' && invoice.metadata.organizationId) {
+    const supabase = createServerClient();
+    const seatCount = Number.parseInt(invoice.metadata.seatCount || '', 10);
+    const { error } = await supabase
+      .from('organizations')
+      .update({
+        subscription_status: 'active',
+        billing_type: 'invoice',
+        stripe_customer_id: invoice.customer as string,
+        ...(Number.isFinite(seatCount) && seatCount > 0 ? { seat_limit: seatCount } : {}),
+        current_period_start: invoice.metadata.periodStart,
+        current_period_end: invoice.metadata.periodEnd,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', invoice.metadata.organizationId);
+
+    if (error) {
+      console.error(
+        `Failed to activate org institutional invoice (${invoice.metadata.organizationId}):`,
+        error
+      );
+    } else {
+      console.log(
+        `Institutional org invoice paid for ${invoice.metadata.organizationId}: ${invoice.id}`
+      );
+    }
+    return;
+  }
 
   const email = invoice.metadata.userId || await getInvoiceEmail(invoice);
   if (!email) {
@@ -115,6 +191,20 @@ export async function POST(request: NextRequest) {
         const session = event.data.object as Stripe.Checkout.Session;
 
         if (session.mode === 'subscription') {
+          // 組織サブスク: organizations のみ更新し、個人 subscriptions には触れない
+          if (session.metadata?.productType === 'org_subscription') {
+            const organizationId = session.metadata.organizationId;
+            const orgSubscription = session.subscription
+              ? await stripe.subscriptions.retrieve(session.subscription as string)
+              : null;
+            if (organizationId && orgSubscription) {
+              await syncOrganizationSubscription(organizationId, orgSubscription);
+            } else {
+              console.error('Org checkout completed without organizationId/subscription:', session.id);
+            }
+            break;
+          }
+
           const email = await getCheckoutSessionEmail(session);
           const subscription = session.subscription
             ? await stripe.subscriptions.retrieve(session.subscription as string)
@@ -144,6 +234,18 @@ export async function POST(request: NextRequest) {
       // サブスクリプション更新（更新・キャンセル予約など）
       case 'customer.subscription.updated': {
         const subscription = event.data.object as Stripe.Subscription;
+
+        // 組織サブスク: organizations のみ更新（seat_limit も quantity から同期）
+        if (subscription.metadata?.productType === 'org_subscription') {
+          const organizationId = subscription.metadata.organizationId;
+          if (organizationId) {
+            await syncOrganizationSubscription(organizationId, subscription);
+          } else {
+            console.error('Org subscription updated without organizationId:', subscription.id);
+          }
+          break;
+        }
+
         const customer = await stripe.customers.retrieve(subscription.customer as string);
 
         if ('email' in customer && customer.email) {
@@ -169,6 +271,34 @@ export async function POST(request: NextRequest) {
       // サブスクリプション削除（完全キャンセル）
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as Stripe.Subscription;
+
+        // 組織サブスク: 即時に組織プランの適用を終了させる
+        if (subscription.metadata?.productType === 'org_subscription') {
+          const organizationId = subscription.metadata.organizationId;
+          if (organizationId) {
+            const endedAt = (subscription as any).ended_at
+              ? new Date((subscription as any).ended_at * 1000).toISOString()
+              : new Date().toISOString();
+            const supabase = createServerClient();
+            const { error } = await supabase
+              .from('organizations')
+              .update({
+                subscription_status: 'cancelled',
+                current_period_end: endedAt,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', organizationId);
+            if (error) {
+              console.error(`Failed to cancel organization subscription (${organizationId}):`, error);
+            } else {
+              console.log(`Organization subscription cancelled: ${organizationId}`);
+            }
+          } else {
+            console.error('Org subscription deleted without organizationId:', subscription.id);
+          }
+          break;
+        }
+
         const customer = await stripe.customers.retrieve(subscription.customer as string);
 
         if ('email' in customer && customer.email) {
@@ -184,6 +314,23 @@ export async function POST(request: NextRequest) {
       // 支払い失敗
       case 'invoice.payment_failed': {
         const invoice = event.data.object as Stripe.Invoice;
+
+        // 組織サブスクの請求失敗: 組織を past_due に（個人 subscriptions には触れない）
+        const orgMeta = getInvoiceSubscriptionMetadata(invoice);
+        if (orgMeta?.productType === 'org_subscription' && orgMeta.organizationId) {
+          const supabase = createServerClient();
+          const { error } = await supabase
+            .from('organizations')
+            .update({ subscription_status: 'past_due', updated_at: new Date().toISOString() })
+            .eq('id', orgMeta.organizationId);
+          if (error) {
+            console.error(`Failed to mark organization past_due (${orgMeta.organizationId}):`, error);
+          } else {
+            console.log(`Organization payment failed: ${orgMeta.organizationId}`);
+          }
+          break;
+        }
+
         const email = await getInvoiceEmail(invoice);
         if (email) {
           await upsertSubscription(email, {

@@ -37,14 +37,19 @@ function AdminRegisterForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const signupRef = searchParams?.get('ref') || ''
+  // 組織の招待経由の登録。登録完了後に招待受諾ページへ戻す
+  const inviteToken = searchParams?.get('invite') || ''
+  const postAuthUrl = inviteToken
+    ? `/admin/organization/join?token=${encodeURIComponent(inviteToken)}`
+    : '/admin?first=1'
 
   useEffect(() => {
     getSession().then((session) => {
       if (session) {
-        router.push('/admin')
+        router.push(inviteToken ? postAuthUrl : '/admin')
       }
     })
-  }, [router])
+  }, [router, inviteToken, postAuthUrl])
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -100,7 +105,7 @@ function AdminRegisterForm() {
       if (result?.error) {
         setStep('complete')
       } else {
-        router.push('/admin?first=1')
+        router.push(postAuthUrl)
       }
     } catch {
       setError(

@@ -8,6 +8,7 @@ import { useSession, signOut } from 'next-auth/react';
 import {
   Presentation,
   BarChart3,
+  Building2,
   FilePenLine,
   HelpCircle,
   LogOut,
@@ -21,12 +22,15 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 
-export type AdminSection = 'courses' | 'export' | 'rooms' | 'account' | 'faq';
+export type AdminSection = 'courses' | 'export' | 'rooms' | 'organization' | 'account' | 'faq';
 
 export interface AdminShellPlanInfo {
   subscription: {
     plan: 'free' | 'paid' | 'enterprise';
     status: 'active' | 'cancelled' | 'past_due' | 'incomplete';
+    // organization = 所属組織のサブスクにより enterprise が付与されている状態
+    source?: 'personal' | 'organization';
+    organization?: { id: string; name: string; role: 'owner' | 'admin' | 'member' };
     currentPeriodEnd?: string;
   };
   usage: {
@@ -113,6 +117,17 @@ const MENU_ITEMS: Array<{
     iconColor: 'text-[#2864f0]',
     activeBg: 'bg-[#dce8ff] text-[#23418c]',
     inPage: true,
+  },
+  {
+    key: 'organization',
+    label: '組織管理',
+    description: 'メンバー・シート・法人契約',
+    icon: Building2,
+    iconBg: 'bg-[#ebf3ff]',
+    iconColor: 'text-[#2864f0]',
+    activeBg: 'bg-[#dce8ff] text-[#23418c]',
+    inPage: false,
+    href: '/admin/organization',
   },
   {
     key: 'account',
@@ -334,9 +349,19 @@ function SidebarContent({
               />
               プラン
             </div>
-            <div className="mt-1 flex items-baseline gap-1">
+            <div className="mt-1 flex items-baseline gap-1.5">
               <span className="text-lg font-extrabold tabular-nums">{displayPlan}</span>
+              {subscription?.source === 'organization' && (
+                <span className="rounded bg-white/20 px-1.5 py-0.5 text-[10px] font-semibold leading-none">
+                  組織プラン
+                </span>
+              )}
             </div>
+            {subscription?.source === 'organization' && subscription.organization?.name && (
+              <p className="mt-1 truncate text-[10px] text-white/70">
+                {subscription.organization.name}
+              </p>
+            )}
           </div>
         </div>
       ) : (

@@ -3,6 +3,12 @@ import { getServerSession } from 'next-auth';
 import Stripe from 'stripe';
 import { z } from 'zod';
 import { authOptions } from '@/lib/auth';
+import {
+  ORG_MIN_SEATS,
+  ORG_SEAT_UNIT_PRICE,
+  countUsedSeats,
+  requireOrgRole,
+} from '@/lib/organization';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-07-30.basil',
@@ -18,7 +24,9 @@ const PLAN_PRICES = {
 } as const;
 
 const requestSchema = z.object({
-  plan: z.enum(['pro']),
+  plan: z.enum(['pro', 'org']),
+  // plan='org' のときのみ使用（契約シート数）
+  seatCount: z.coerce.number().int().min(ORG_MIN_SEATS).max(1000).optional(),
   termMonths: z.coerce.number().int().min(1).max(12),
   institutionName: z.string().trim().min(1).max(120),
   departmentName: z.string().trim().max(120).optional().default(''),
@@ -118,20 +126,65 @@ export async function POST(request: NextRequest) {
     }
 
     const input = requestSchema.parse(await request.json());
-    const plan = PLAN_PRICES[input.plan];
+
+    // プラン内容の解決。組織プランは操作者の所属組織からサーバ側で解決する
+    // （リクエストボディの組織IDは信用しない）
+    let planName: string;
+    let monthlyAmount: number;
+    let productType: string;
+    let planKey: string;
+    let orgMetadata: Record<string, string> = {};
+
+    if (input.plan === 'org') {
+      const membership = await requireOrgRole(session.user.email, ['owner', 'admin']);
+      if (!membership) {
+        return NextResponse.json(
+          { error: '組織プランの申請は組織のオーナーまたは管理者のみ行えます。先に組織を作成してください' },
+          { status: 403 }
+        );
+      }
+      if (!input.seatCount) {
+        return NextResponse.json({ error: 'シート数を指定してください' }, { status: 400 });
+      }
+      const usedSeats = await countUsedSeats(membership.organization.id);
+      if (input.seatCount < usedSeats) {
+        return NextResponse.json(
+          { error: `現在${usedSeats}シートを使用中です。それ以上のシート数を指定してください` },
+          { status: 400 }
+        );
+      }
+      planName = 'ざせきくん エンタープライズ（組織）プラン';
+      monthlyAmount = ORG_SEAT_UNIT_PRICE * input.seatCount;
+      productType = 'org_subscription';
+      planKey = 'enterprise';
+      orgMetadata = {
+        organizationId: membership.organization.id,
+        seatCount: String(input.seatCount),
+      };
+    } else {
+      const plan = PLAN_PRICES[input.plan];
+      planName = plan.name;
+      monthlyAmount = plan.monthlyAmount;
+      productType = plan.productType;
+      planKey = plan.plan;
+    }
+
     const productId = await getOrCreateInstitutionalProduct();
     const customer = await getOrCreateCustomer(input, session.user.email);
     const periodStart = new Date();
     const periodEnd = addMonths(periodStart, input.termMonths);
-    const amount = plan.monthlyAmount * input.termMonths;
+    const amount = monthlyAmount * input.termMonths;
     const periodLabel = `${periodStart.toLocaleDateString('ja-JP')} - ${periodEnd.toLocaleDateString('ja-JP')}`;
-    const description = `${plan.name} ${input.termMonths}ヶ月分（税込）`;
+    const description =
+      input.plan === 'org'
+        ? `${planName} ${input.seatCount}シート × ${input.termMonths}ヶ月分（税込）`
+        : `${planName} ${input.termMonths}ヶ月分（税込）`;
     const metadata = {
       service: 'zaseki_kun',
       billing_flow: 'institutional_billing',
       userId: session.user.email,
-      productType: plan.productType,
-      plan: plan.plan,
+      productType,
+      plan: planKey,
       termMonths: String(input.termMonths),
       periodStart: periodStart.toISOString(),
       periodEnd: periodEnd.toISOString(),
@@ -140,6 +193,7 @@ export async function POST(request: NextRequest) {
       contactName: input.contactName,
       taxId: input.taxId,
       purchaseOrderNumber: input.purchaseOrderNumber,
+      ...orgMetadata,
     };
 
     const quote = await stripe.quotes.create({

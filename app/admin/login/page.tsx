@@ -1,8 +1,8 @@
 'use client'
 
 import { signIn, getSession } from 'next-auth/react'
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -45,7 +45,7 @@ import Link from 'next/link'
 const LOGO_URL =
   'https://res.cloudinary.com/dz9trbwma/image/upload/f_auto,q_auto,w_200/v1753971383/%E3%81%95%E3%82%99%E3%81%9B%E3%81%8D%E3%81%8F%E3%82%93%E3%81%AE%E3%81%8F%E3%81%A4%E3%82%8D%E3%81%8D%E3%82%99%E3%82%BF%E3%82%A4%E3%83%A0_-_%E7%B7%A8%E9%9B%86%E6%B8%88%E3%81%BF_ikidyx.png'
 
-export default function AdminLoginPage() {
+function AdminLoginForm() {
   const [loading, setLoading] = useState(false)
   const [emailLoading, setEmailLoading] = useState(false)
   const [email, setEmail] = useState('')
@@ -53,19 +53,24 @@ export default function AdminLoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
+  const searchParams = useSearchParams()
+  // ログイン後の戻り先（組織の招待受諾など）。オープンリダイレクト防止のためサイト内パスのみ許可
+  const rawCallbackUrl = searchParams?.get('callbackUrl') || ''
+  const callbackUrl =
+    rawCallbackUrl.startsWith('/') && !rawCallbackUrl.startsWith('//') ? rawCallbackUrl : '/admin'
 
   useEffect(() => {
     getSession().then((session) => {
       if (session) {
-        router.push('/admin')
+        router.push(callbackUrl)
       }
     })
-  }, [router])
+  }, [router, callbackUrl])
 
   const handleGoogleSignIn = async () => {
     try {
       setLoading(true)
-      await signIn('google', { callbackUrl: '/admin' })
+      await signIn('google', { callbackUrl })
     } catch (error) {
       console.error('ログインエラー:', error)
     } finally {
@@ -93,7 +98,7 @@ export default function AdminLoginPage() {
       if (result?.error) {
         setError('メールアドレスまたはパスワードが正しくありません')
       } else {
-        router.push('/admin')
+        router.push(callbackUrl)
       }
     } catch {
       setError('ログイン中にエラーが発生しました')
@@ -426,5 +431,13 @@ export default function AdminLoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function AdminLoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <AdminLoginForm />
+    </Suspense>
   )
 }

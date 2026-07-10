@@ -283,7 +283,14 @@ export default function AccountSettingsPage() {
   const currentPeriodEndLabel = subscription?.currentPeriodEnd
     ? new Date(subscription.currentPeriodEnd).toLocaleDateString('ja-JP')
     : null;
-  const displayPlan = PLAN_DISPLAY[subscription?.plan ?? 'free'];
+  // 組織プラン適用中は表示・操作を組織管理へ誘導する（個人サブスクの解約/ポータルとは別扱い）
+  const isOrgPlan = subscription?.source === 'organization';
+  const displayPlan = isOrgPlan
+    ? {
+        label: 'Enterprise',
+        description: `組織「${subscription?.organization?.name ?? ''}」のプランが適用中 / 無制限`,
+      }
+    : PLAN_DISPLAY[subscription?.plan ?? 'free'];
   const isPaidPlan = subscription?.plan === 'paid' || subscription?.plan === 'enterprise';
 
   return (
@@ -380,7 +387,17 @@ export default function AccountSettingsPage() {
                     )}
                   </Button>
                 )}
-                {isPaidPlan && (
+                {isPaidPlan && isOrgPlan && (
+                  <Button
+                    size="sm"
+                    onClick={() => router.push('/admin/organization')}
+                    className="h-9 px-3 bg-white/15 text-white hover:bg-white/25 border-0"
+                  >
+                    <Building2 className="h-3.5 w-3.5 mr-1.5" />
+                    組織管理へ
+                  </Button>
+                )}
+                {isPaidPlan && !isOrgPlan && (
                   <Button
                     size="sm"
                     onClick={() => setIsCancelModalOpen(true)}
@@ -455,6 +472,11 @@ export default function AccountSettingsPage() {
                 {!isPaidPlan && (
                   <p className="mt-2 text-[11px] text-slate-400">
                     Pro / Enterprise プランに加入すると利用できます。
+                  </p>
+                )}
+                {isOrgPlan && (
+                  <p className="mt-2 text-[11px] text-slate-400">
+                    組織契約の請求書・領収書は「組織管理 → 課金」から確認できます。このボタンは個人契約用です。
                   </p>
                 )}
               </div>

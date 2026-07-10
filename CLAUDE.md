@@ -27,6 +27,8 @@
 
 ## プロジェクト固有の注意
 
+- 組織（エンタープライズ）機能: プラン解決は `lib/subscription.ts` の `getUserSubscription` に一元化（組織サブスク優先→個人にフォールバック）。個人サブスクの操作は `getPersonalSubscription` を使う。Stripe の組織サブスクは `metadata.productType='org_subscription'` で識別し、webhook 各ハンドラの先頭で分岐する（個人パスに落とすとオーナー個人のプランを誤上書きする）。シート = メンバー数 + 未受諾招待数、1ユーザー1組織（DB unique index）
+
 - 投影ウィンドウの遠隔操作など揮発的な状態は Supabase Realtime の broadcast チャネル（`room-screen-${id}` / `room-control-${id}`）で渡す。DB に書かない
 - 別ウィンドウから画面共有・ファイル選択を発火する機能は transient activation 制約に注意（詳細: `tasks/lessons.md`）
 - 無料プランのレポート閲覧期限は「ルーム作成 + 30日」の既存ゲートを流用する

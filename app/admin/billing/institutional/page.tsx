@@ -26,6 +26,7 @@ export default function InstitutionalBillingPage() {
   const [result, setResult] = useState<BillingResult | null>(null);
   const [formData, setFormData] = useState({
     plan: 'pro',
+    seatCount: '10',
     termMonths: '12',
     institutionName: '',
     departmentName: '',
@@ -41,9 +42,10 @@ export default function InstitutionalBillingPage() {
   });
 
   const estimatedAmount = useMemo(() => {
-    const monthly = 550;
+    const monthly =
+      formData.plan === 'org' ? 2000 * Math.max(Number(formData.seatCount || 0), 0) : 550;
     return monthly * Number(formData.termMonths || 1);
-  }, [formData.termMonths]);
+  }, [formData.plan, formData.seatCount, formData.termMonths]);
 
   const updateField = (field: keyof typeof formData, value: string) => {
     setFormData((current) => ({ ...current, [field]: value }));
@@ -187,8 +189,28 @@ export default function InstitutionalBillingPage() {
                     className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   >
                     <option value="pro">Pro / 月額550円</option>
+                    <option value="org">エンタープライズ（組織）/ 1シート月額2,000円</option>
                   </select>
+                  {formData.plan === 'org' && (
+                    <p className="text-xs text-slate-500">
+                      組織のオーナー・管理者のみ申請できます。お支払い確認後、組織のメンバー全員が利用できます。
+                    </p>
+                  )}
                 </div>
+                {formData.plan === 'org' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="seatCount">契約シート数（最低2）</Label>
+                    <Input
+                      id="seatCount"
+                      type="number"
+                      min={2}
+                      max={1000}
+                      required
+                      value={formData.seatCount}
+                      onChange={(event) => updateField('seatCount', event.target.value)}
+                    />
+                  </div>
+                )}
                 <div className="space-y-2">
                   <Label htmlFor="termMonths">契約期間</Label>
                   <select

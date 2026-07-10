@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { getUserPlanInfo, syncUserSubscriptionFromStripe, upsertSubscription } from '@/lib/subscription';
+import {
+  getPersonalSubscription,
+  getUserPlanInfo,
+  syncUserSubscriptionFromStripe,
+  upsertSubscription,
+} from '@/lib/subscription';
 import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -61,20 +66,21 @@ export async function POST(request: Request) {
     const { action } = await request.json();
 
     if (action === 'portal') {
-      // カスタマーポータルセッションを作成
-      let planInfo = await getUserPlanInfo(session.user.email);
+      // カスタマーポータルセッションを作成。
+      // 組織プラン適用中でも操作対象は常に「個人サブスク」（組織サブスクは組織管理画面から）。
+      let subscription = await getPersonalSubscription(session.user.email);
 
-      if (!planInfo.subscription.stripeCustomerId) {
+      if (!subscription.stripeCustomerId) {
         await syncUserSubscriptionFromStripe(session.user.email, stripe);
-        planInfo = await getUserPlanInfo(session.user.email);
+        subscription = await getPersonalSubscription(session.user.email);
       }
 
-      if (!planInfo.subscription.stripeCustomerId) {
+      if (!subscription.stripeCustomerId) {
         return NextResponse.json({ error: 'サブスクリプションが見つかりません' }, { status: 404 });
       }
 
       const portalSession = await stripe.billingPortal.sessions.create({
-        customer: planInfo.subscription.stripeCustomerId,
+        customer: subscription.stripeCustomerId,
         return_url: `${getAppUrl(request)}/admin`,
         ...(process.env.STRIPE_BILLING_PORTAL_CONFIGURATION_ID
           ? { configuration: process.env.STRIPE_BILLING_PORTAL_CONFIGURATION_ID }
@@ -85,26 +91,27 @@ export async function POST(request: Request) {
     }
 
     if (action === 'cancel') {
-      let planInfo = await getUserPlanInfo(session.user.email);
+      // 解約対象も常に「個人サブスク」。組織サブスクの解約は組織管理画面から行う。
+      let personal = await getPersonalSubscription(session.user.email);
 
-      if (!planInfo.subscription.stripeSubscriptionId || !planInfo.subscription.stripeCustomerId) {
+      if (!personal.stripeSubscriptionId || !personal.stripeCustomerId) {
         await syncUserSubscriptionFromStripe(session.user.email, stripe);
-        planInfo = await getUserPlanInfo(session.user.email);
+        personal = await getPersonalSubscription(session.user.email);
       }
 
-      if (!planInfo.subscription.stripeSubscriptionId || !planInfo.subscription.stripeCustomerId) {
+      if (!personal.stripeSubscriptionId || !personal.stripeCustomerId) {
         return NextResponse.json({ error: 'サブスクリプションが見つかりません' }, { status: 404 });
       }
 
       const subscription = await stripe.subscriptions.update(
-        planInfo.subscription.stripeSubscriptionId,
+        personal.stripeSubscriptionId,
         { cancel_at_period_end: true }
       );
 
       await upsertSubscription(session.user.email, {
-        plan: planInfo.subscription.plan,
+        plan: personal.plan,
         status: 'cancelled',
-        stripe_customer_id: planInfo.subscription.stripeCustomerId,
+        stripe_customer_id: personal.stripeCustomerId,
         stripe_subscription_id: subscription.id,
         ...getSubscriptionPeriod(subscription),
       });
