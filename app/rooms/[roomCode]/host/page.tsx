@@ -56,6 +56,8 @@ import {
   Vote,
   MessageCircleQuestion,
   StickyNote,
+  Building2,
+  CopyPlus,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -542,6 +544,50 @@ export default function HostPage() {
   const [qrUrl, setQrUrl] = useState('');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  // 組織共同メンバーのルーム判定（非オーナーに「複製してご利用ください」を案内するための表示分岐。
+  // 実際の認可は複製API側の areOrgCoMembers が持つ）
+  const [orgCoMemberRoom, setOrgCoMemberRoom] = useState(false);
+  const [sharedRoomDuplicating, setSharedRoomDuplicating] = useState(false);
+  const [sharedRoomDuplicateError, setSharedRoomDuplicateError] = useState('');
+
+  useEffect(() => {
+    if (authStatus !== 'authenticated' || !session?.user?.email || !room) return;
+    if (room.host_id === session.user.email) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/v2/organization/members');
+        if (!res.ok) return; // 未所属(404)等はデフォルトの「アクセス権なし」表示のまま
+        const data = await res.json();
+        const members: Array<{ email: string }> = data.members ?? [];
+        if (!cancelled) {
+          setOrgCoMemberRoom(members.some((m) => m.email === room.host_id));
+        }
+      } catch {
+        // 判定失敗時は従来表示のまま
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [authStatus, session?.user?.email, room]);
+
+  const handleDuplicateSharedRoom = async () => {
+    setSharedRoomDuplicating(true);
+    setSharedRoomDuplicateError('');
+    try {
+      const res = await fetch(`/api/rooms/${roomCode}/duplicate`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || '複製に失敗しました');
+      }
+      window.location.href = `/rooms/${data.room.code}/host`;
+    } catch (error) {
+      setSharedRoomDuplicateError(error instanceof Error ? error.message : '複製に失敗しました');
+      setSharedRoomDuplicating(false);
+    }
+  };
 
   useEffect(() => {
     if (isHostTab(requestedTab)) {
@@ -2060,6 +2106,56 @@ export default function HostPage() {
     );
   }
   if (!session || !room || room.host_id !== session.user?.email) {
+    // 同一組織メンバーのルーム: 取得データ保護のため直接操作はさせず、複製して使ってもらう
+    if (session && room && orgCoMemberRoom) {
+      return (
+        <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-4 bg-slate-50">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 text-center shadow-sm ring-1 ring-black/5 sm:p-8">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+              <Building2 className="h-7 w-7" />
+            </div>
+            <h1 className="text-base font-bold text-slate-900 sm:text-lg">
+              組織メンバーのルームです
+            </h1>
+            <p className="mt-2 text-sm leading-relaxed text-slate-500">
+              「{room.title}」は組織の他のメンバーが作成したルームです。
+              投票・質問などの取得データは作成者本人のみ閲覧できるため、直接操作はできません。
+              <span className="font-semibold text-slate-700">複製してご利用ください</span>
+              （ワーク構成を引き継いだ自分のルームが作成されます）。
+            </p>
+            {sharedRoomDuplicateError && (
+              <p className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+                {sharedRoomDuplicateError}
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={handleDuplicateSharedRoom}
+              disabled={sharedRoomDuplicating}
+              className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 text-sm font-semibold text-white transition-colors hover:from-indigo-600 hover:to-purple-600 disabled:opacity-60"
+            >
+              {sharedRoomDuplicating ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  複製中...
+                </>
+              ) : (
+                <>
+                  <CopyPlus className="h-4 w-4" />
+                  複製して利用する
+                </>
+              )}
+            </button>
+            <Link
+              href="/admin/organization"
+              className="mt-3 inline-block text-xs text-slate-400 hover:text-slate-600 hover:underline"
+            >
+              組織管理へ戻る
+            </Link>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4">
         <p className="text-sm sm:text-base text-slate-500">このルームへのアクセス権がありません</p>

@@ -6,12 +6,16 @@ import { useSession } from 'next-auth/react';
 import {
   Building2,
   Copy,
+  CopyPlus,
   CreditCard,
   DoorOpen,
   ExternalLink,
+  FilePenLine,
   FileText,
   HelpCircle,
+  Library,
   Loader2,
+  Presentation,
   Save,
   ShieldAlert,
   Sparkles,
@@ -64,6 +68,25 @@ interface OrgInvitation {
   expired: boolean;
   inviteUrl: string;
   createdAt: string;
+}
+
+interface LibraryCourse {
+  code: string;
+  name: string;
+  description: string | null;
+  category: string;
+  formType: 'attendance' | 'invitation';
+  createdAt: string;
+  ownerName: string;
+  ownerEmail: string;
+}
+
+interface LibraryRoom {
+  code: string;
+  title: string;
+  createdAt: string;
+  ownerEmail: string;
+  pollCount: number;
 }
 
 const ROLE_LABEL: Record<OrgRole, string> = {
@@ -209,9 +232,17 @@ export default function OrganizationPage() {
 
   const [orgData, setOrgData] = useState<OrganizationResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'members' | 'billing' | 'settings'>(
-    'overview'
+  const [activeTab, setActiveTab] = useState<
+    'overview' | 'members' | 'library' | 'billing' | 'settings'
+  >('overview');
+
+  // 共有ライブラリタブ
+  const [library, setLibrary] = useState<{ courses: LibraryCourse[]; rooms: LibraryRoom[] } | null>(
+    null
   );
+  const [libraryLoading, setLibraryLoading] = useState(false);
+  const [libraryError, setLibraryError] = useState('');
+  const [duplicatingCode, setDuplicatingCode] = useState<string | null>(null);
 
   // 課金タブ
   const [billingSeats, setBillingSeats] = useState('');
@@ -426,6 +457,64 @@ export default function OrganizationPage() {
     }
   };
 
+  const fetchLibrary = useCallback(async () => {
+    setLibraryLoading(true);
+    setLibraryError('');
+    try {
+      const res = await fetch('/api/v2/organization/library');
+      const data = await res.json();
+      if (!res.ok) {
+        setLibrary(null);
+        setLibraryError(data.error || '共有ライブラリの取得に失敗しました');
+        return;
+      }
+      setLibrary({ courses: data.courses ?? [], rooms: data.rooms ?? [] });
+    } catch (error) {
+      console.error('Failed to fetch library:', error);
+      setLibraryError('共有ライブラリの取得に失敗しました');
+    } finally {
+      setLibraryLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'library' && orgData?.organization) {
+      fetchLibrary();
+    }
+  }, [activeTab, orgData?.organization, fetchLibrary]);
+
+  // 共有ライブラリからの複製（複製後の所有者は自分。元のデータは引き継がれない）
+  const handleDuplicateFromLibrary = async (kind: 'course' | 'room', code: string) => {
+    setDuplicatingCode(code);
+    try {
+      const url =
+        kind === 'course'
+          ? `/api/v2/courses/${encodeURIComponent(code)}/duplicate`
+          : `/api/rooms/${encodeURIComponent(code)}/duplicate`;
+      const res = await fetch(url, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(
+          data.message || data.error || '複製に失敗しました'
+        );
+      }
+      toast({
+        title: kind === 'course' ? 'フォームを複製しました' : 'ルームを複製しました',
+        description: '自分の作成物として管理画面に追加されました。取得データは複製されません。',
+        duration: 2500,
+      });
+    } catch (error) {
+      toast({
+        title: 'エラー',
+        description: error instanceof Error ? error.message : '複製に失敗しました',
+        variant: 'destructive',
+        duration: 2500,
+      });
+    } finally {
+      setDuplicatingCode(null);
+    }
+  };
+
   // Checkout からの戻り（?billing=success / cancelled）をトースト表示
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -556,6 +645,7 @@ export default function OrganizationPage() {
   const tabs: Array<{ key: typeof activeTab; label: string; visible: boolean }> = [
     { key: 'overview', label: '概要', visible: true },
     { key: 'members', label: 'メンバー', visible: true },
+    { key: 'library', label: '共有ライブラリ', visible: true },
     { key: 'billing', label: '課金', visible: canManage },
     { key: 'settings', label: '設定', visible: canManage },
   ];
@@ -879,6 +969,137 @@ export default function OrganizationPage() {
                     </Button>
                   </div>
                 </section>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'library' && (
+            <div className="space-y-6">
+              <section className="rounded-2xl border border-indigo-100 bg-indigo-50/60 p-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-indigo-600 ring-1 ring-indigo-100">
+                    <Library className="h-4 w-4" />
+                  </div>
+                  <div className="text-sm text-indigo-900">
+                    <p className="font-semibold">組織メンバーのフォーム・ルームを複製して使えます</p>
+                    <p className="mt-1 text-xs leading-relaxed text-indigo-700">
+                      複製すると設定のみコピーされ、自分の作成物になります。出席データ・投票・質問などの取得データは複製されず、
+                      <span className="font-semibold">作成者本人のみ</span>が閲覧・出力できます。
+                    </p>
+                  </div>
+                </div>
+              </section>
+
+              {libraryLoading ? (
+                <div className="flex justify-center py-10">
+                  <Loader2 className="h-5 w-5 animate-spin text-indigo-500" />
+                </div>
+              ) : libraryError ? (
+                <section className="rounded-2xl bg-white p-6 text-center shadow-sm ring-1 ring-black/5">
+                  <p className="text-sm text-slate-500">{libraryError}</p>
+                  {canManage && libraryError.includes('契約') && (
+                    <Button variant="outline" className="mt-4 h-9" onClick={() => setActiveTab('billing')}>
+                      課金タブへ
+                    </Button>
+                  )}
+                </section>
+              ) : (
+                <>
+                  {/* フォーム */}
+                  <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5 sm:p-6">
+                    <div className="mb-3 flex items-center gap-2">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#ebf3ff] text-[#2864f0]">
+                        <FilePenLine className="h-3.5 w-3.5" />
+                      </div>
+                      <h2 className="text-sm font-semibold text-slate-900">
+                        メンバーのフォーム{' '}
+                        <span className="text-slate-400">({library?.courses.length ?? 0})</span>
+                      </h2>
+                    </div>
+                    {(library?.courses.length ?? 0) === 0 ? (
+                      <p className="py-4 text-sm text-slate-400">
+                        他のメンバーが作成したフォームはまだありません。
+                      </p>
+                    ) : (
+                      <ul className="divide-y divide-slate-100">
+                        {library?.courses.map((course) => (
+                          <li key={course.code} className="flex items-center gap-3 py-3">
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-medium text-slate-900">{course.name}</p>
+                              <p className="mt-0.5 truncate text-xs text-slate-400">
+                                作成者: {course.ownerName}（{course.ownerEmail}）・{' '}
+                                {course.formType === 'invitation' ? '招待フォーム' : '出席フォーム'} ・{' '}
+                                {new Date(course.createdAt).toLocaleDateString('ja-JP')}
+                              </p>
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDuplicateFromLibrary('course', course.code)}
+                              disabled={duplicatingCode === course.code}
+                              className="h-8 shrink-0"
+                              title="設定を引き継いで自分のフォームとして複製します（取得データはコピーされません）"
+                            >
+                              {duplicatingCode === course.code ? (
+                                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <CopyPlus className="mr-1.5 h-3.5 w-3.5" />
+                              )}
+                              複製して利用
+                            </Button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </section>
+
+                  {/* ルーム */}
+                  <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5 sm:p-6">
+                    <div className="mb-3 flex items-center gap-2">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#e8f7ee] text-[#00963c]">
+                        <Presentation className="h-3.5 w-3.5" />
+                      </div>
+                      <h2 className="text-sm font-semibold text-slate-900">
+                        メンバーのルーム{' '}
+                        <span className="text-slate-400">({library?.rooms.length ?? 0})</span>
+                      </h2>
+                    </div>
+                    {(library?.rooms.length ?? 0) === 0 ? (
+                      <p className="py-4 text-sm text-slate-400">
+                        他のメンバーが作成したルームはまだありません。
+                      </p>
+                    ) : (
+                      <ul className="divide-y divide-slate-100">
+                        {library?.rooms.map((room) => (
+                          <li key={room.code} className="flex items-center gap-3 py-3">
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-medium text-slate-900">{room.title}</p>
+                              <p className="mt-0.5 truncate text-xs text-slate-400">
+                                作成者: {room.ownerEmail} ・ ワーク {room.pollCount} 個 ・{' '}
+                                {new Date(room.createdAt).toLocaleDateString('ja-JP')}
+                              </p>
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDuplicateFromLibrary('room', room.code)}
+                              disabled={duplicatingCode === room.code}
+                              className="h-8 shrink-0"
+                              title="ワーク構成を引き継いで自分のルームとして複製します（票・質問はコピーされません）"
+                            >
+                              {duplicatingCode === room.code ? (
+                                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <CopyPlus className="mr-1.5 h-3.5 w-3.5" />
+                              )}
+                              複製して利用
+                            </Button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </section>
+                </>
               )}
             </div>
           )}

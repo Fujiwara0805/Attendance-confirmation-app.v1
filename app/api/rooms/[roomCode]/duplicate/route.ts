@@ -4,10 +4,12 @@ import { createServerClient } from '@/lib/supabase';
 import { generateRoomCode } from '@/lib/roomUtils';
 import { canCreateRoom, getUserPlanInfo, PLAN_LIMITS } from '@/lib/subscription';
 import { buildPollOptionsPayload, extractPollPayload, type PollMeta } from '@/lib/pollModes';
+import { areOrgCoMembers } from '@/lib/organization';
 
-// POST: ルームを複製する（ホストのみ）
+// POST: ルームを複製する（ホスト本人、または同一組織のメンバー）
 // ワーク構成（カード・設定・並び順）は引き継ぎ、票・質問・実施履歴は引き継がない。
 // 毎週の授業・研修で「同じ構成をもう一度」を1操作にする反復利用の中核機能。
+// 組織メンバーが複製した場合も所有者は操作者本人になり、複製元の票・質問には一切アクセスできない。
 export async function POST(
   _req: NextRequest,
   { params }: { params: { roomCode: string } }
@@ -26,7 +28,11 @@ export async function POST(
       .eq('code', params.roomCode.toUpperCase())
       .single();
 
-    if (!source || source.host_id !== session.email) {
+    if (!source) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+    const isOwner = source.host_id === session.email;
+    if (!isOwner && !(await areOrgCoMembers(session.email, source.host_id))) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -50,7 +56,9 @@ export async function POST(
         title: `${source.title}のコピー`,
         settings: source.settings || {},
         moderation_enabled: !!source.moderation_enabled,
-        linked_course_code: source.linked_course_code || null,
+        // 組織メンバーによる複製では、他人所有フォームへのリンクを引き継がない
+        // （リンク先の付け替えは所有者チェックで403になるため、残すと外せない紐づけが残る）
+        linked_course_code: isOwner ? source.linked_course_code || null : null,
       })
       .select()
       .single();

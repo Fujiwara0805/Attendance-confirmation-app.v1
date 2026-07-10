@@ -120,6 +120,21 @@ export async function countUsedSeats(organizationId: string): Promise<number> {
   return (membersRes.count ?? 0) + (invitesRes.count ?? 0);
 }
 
+// 2人が「有効なサブスクを持つ同一組織」の共同メンバーか（共有ライブラリの複製認可に使う）
+export async function areOrgCoMembers(emailA: string, emailB: string): Promise<boolean> {
+  const membership = await getOrganizationForUser(emailA);
+  if (!membership || !isOrgEntitled(membership.organization)) return false;
+
+  const supabase = createServerClient();
+  const { count } = await supabase
+    .from('organization_members')
+    .select('id', { count: 'exact', head: true })
+    .eq('organization_id', membership.organization.id)
+    .eq('member_email', normalizeEmail(emailB));
+
+  return (count ?? 0) > 0;
+}
+
 // 指定ロールを持つメンバーシップを返す。所属なし・権限不足は null
 export async function requireOrgRole(
   email: string,

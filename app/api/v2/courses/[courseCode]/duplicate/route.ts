@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { createServerClient } from '@/lib/supabase';
 import { canCreateForm, getUserPlanInfo, PLAN_LIMITS } from '@/lib/subscription';
+import { areOrgCoMembers } from '@/lib/organization';
 
-// POST: フォーム（講義/招待）を複製する（作成者のみ）
+// POST: フォーム（講義/招待）を複製する（作成者本人、または同一組織のメンバー）
 // カスタム項目・位置情報設定・クールダウン・招待設定を引き継ぎ、回答データは引き継がない。
+// 組織メンバーが複製した場合も所有者は操作者本人になり、複製元の出席データには一切アクセスできない。
 export async function POST(
   _req: NextRequest,
   { params }: { params: { courseCode: string } }
@@ -25,7 +27,11 @@ export async function POST(
       .eq('code', params.courseCode)
       .single();
 
-    if (!source || source.teacher_email !== user.email) {
+    if (!source) {
+      return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+    }
+    const isOwner = source.teacher_email === user.email;
+    if (!isOwner && !(await areOrgCoMembers(user.email, source.teacher_email))) {
       return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     }
 
@@ -61,7 +67,8 @@ export async function POST(
         code,
         name: `${source.name}のコピー`,
         description: source.description,
-        teacher_name: source.teacher_name,
+        // 組織メンバーによる複製では作成者名を操作者に差し替える
+        teacher_name: isOwner ? source.teacher_name : user.name || source.teacher_name,
         teacher_email: user.email,
         category: source.category,
         template_id: source.template_id,
