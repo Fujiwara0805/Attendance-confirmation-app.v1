@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import { headers } from 'next/headers';
 import { upsertSubscription, getUserSubscription } from '@/lib/subscription';
 import { createServerClient } from '@/lib/supabase';
+import { convertReferralAndReward } from '@/lib/referral';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-07-30.basil',
@@ -227,6 +228,13 @@ export async function POST(request: NextRequest) {
             ...(subscription ? getSubscriptionPeriod(subscription) : {}),
           });
           console.log(`${plan === 'enterprise' ? 'Enterprise' : 'Pro'} subscription started for ${email}`);
+
+          // 紹介成立の確定と紹介者特典の付与（べき等。紹介なしなら何もしない）
+          try {
+            await convertReferralAndReward(stripe, email, session.id);
+          } catch (referralError) {
+            console.error('[referral] 紹介成立処理に失敗しました:', referralError);
+          }
         }
         break;
       }

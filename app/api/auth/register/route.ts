@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { createServerClient } from '@/lib/supabase'
+import { recordReferralRegistration } from '@/lib/referral'
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, password, name, ref } = await req.json()
+    const { email, password, name, ref, referral } = await req.json()
 
     if (!email || !password || !name) {
       return NextResponse.json(
@@ -63,6 +64,11 @@ export async function POST(req: NextRequest) {
         { error: 'ユーザー登録に失敗しました' },
         { status: 500 }
       )
+    }
+
+    // 紹介経由の登録を記録（自己紹介・重複は内部で無視。失敗しても登録は成功扱い）
+    if (typeof referral === 'string' && referral) {
+      await recordReferralRegistration(referral, emailNormalized)
     }
 
     return NextResponse.json({ user }, { status: 201 })

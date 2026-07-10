@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { getOrCreateReferralCoupon, getRegisteredReferralEvent } from '@/lib/referral';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-07-30.basil',
@@ -39,6 +40,20 @@ export async function POST(request: NextRequest) {
     }
 
     const isEnterprise = productType === 'enterprise_subscription';
+
+    // 紹介経由で登録したユーザーの Pro 初回契約には初月無料クーポンを適用する。
+    // クーポン取得に失敗しても決済自体は止めない（割引なしで続行）
+    let referralCouponId: string | null = null;
+    if (productType === 'pro_subscription') {
+      try {
+        const referralEvent = await getRegisteredReferralEvent(session.user.email);
+        if (referralEvent) {
+          referralCouponId = await getOrCreateReferralCoupon(stripe);
+        }
+      } catch (error) {
+        console.error('[referral] クーポン適用の準備に失敗しました:', error);
+      }
+    }
 
     // 既存のStripe Customerを検索、なければ作成
     const customers = await stripe.customers.list({
@@ -99,10 +114,12 @@ export async function POST(request: NextRequest) {
       mode: 'subscription',
       success_url: appendCheckoutSessionId(successUrl),
       cancel_url: cancelUrl,
+      ...(referralCouponId ? { discounts: [{ coupon: referralCouponId }] } : {}),
       metadata: {
         userId: session.user.email,
         productType,
         service: 'zaseki_kun',
+        ...(referralCouponId ? { referral: 'applied' } : {}),
       },
       subscription_data: {
         metadata: {

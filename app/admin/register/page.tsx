@@ -39,6 +39,8 @@ function AdminRegisterForm() {
   const signupRef = searchParams?.get('ref') || ''
   // 組織の招待経由の登録。登録完了後に招待受諾ページへ戻す
   const inviteToken = searchParams?.get('invite') || ''
+  // 紹介（リファラル）コード。Pro初回Checkoutで初月無料が適用される
+  const referralCode = (searchParams?.get('referral') || '').toUpperCase().trim()
   const postAuthUrl = inviteToken
     ? `/admin/organization/join?token=${encodeURIComponent(inviteToken)}`
     : '/admin?first=1'
@@ -50,6 +52,14 @@ function AdminRegisterForm() {
       }
     })
   }, [router, inviteToken, postAuthUrl])
+
+  // Google 登録は /admin/login 経由になるため、紹介コードを Cookie で引き継ぐ
+  // （signIn コールバックがサーバ側で読み取って記録する）
+  useEffect(() => {
+    if (!referralCode) return
+    const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toUTCString()
+    document.cookie = `zaseki_referral=${encodeURIComponent(referralCode)}; path=/; expires=${expires}; SameSite=Lax`
+  }, [referralCode])
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -87,6 +97,7 @@ function AdminRegisterForm() {
           password,
           name: name.trim(),
           ref: signupRef || undefined,
+          referral: referralCode || undefined,
         }),
       })
       const data = await res.json()
@@ -207,6 +218,13 @@ function AdminRegisterForm() {
                 ざせきくんの全機能をご利用ください。
               </p>
             </div>
+
+            {referralCode && (
+              <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                🎁 紹介リンク経由の登録です。登録後、Pro プランへのアップグレード時に
+                <span className="font-bold">初月無料</span>が自動適用されます。
+              </div>
+            )}
 
             <form onSubmit={handleRegister} className="space-y-4">
               <div className="space-y-1.5">

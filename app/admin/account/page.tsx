@@ -5,9 +5,11 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import {
+  Copy,
   CreditCard,
   ExternalLink,
   FileText,
+  Gift,
   Loader2,
   Sparkles,
   UserX,
@@ -35,6 +37,14 @@ const PLAN_DISPLAY: Record<'free' | 'paid' | 'enterprise', { label: string; desc
   paid: { label: 'Pro', description: '月額550円 / フォーム・ルーム拡張' },
   enterprise: { label: 'Enterprise', description: '法人向けプラン（個別契約） / 無制限' },
 };
+
+interface ReferralInfo {
+  code: string;
+  url: string;
+  convertedCount: number;
+  rewardsThisYear: number;
+  maxRewardsPerYear: number;
+}
 
 type AccountColorTheme = {
   headerBg: string;
@@ -124,6 +134,7 @@ export default function AccountSettingsPage() {
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const [referral, setReferral] = useState<ReferralInfo | null>(null);
 
   const showToast = useCallback(
     (title: string, description: string, variant: 'default' | 'destructive' = 'default') => {
@@ -162,6 +173,31 @@ export default function AccountSettingsPage() {
     }
     fetchPlanInfo();
   }, [session, status, router, fetchPlanInfo]);
+
+  // 紹介リンク（初回アクセスで自動発行）
+  useEffect(() => {
+    if (status === 'loading' || !session) return;
+    (async () => {
+      try {
+        const res = await fetch('/api/v2/referral');
+        if (res.ok) {
+          setReferral(await res.json());
+        }
+      } catch (error) {
+        console.error('Failed to fetch referral info:', error);
+      }
+    })();
+  }, [session, status]);
+
+  const handleCopyReferralUrl = async () => {
+    if (!referral) return;
+    try {
+      await navigator.clipboard.writeText(referral.url);
+      showToast('コピーしました', '紹介リンクをクリップボードにコピーしました。');
+    } catch {
+      showToast('エラー', 'コピーに失敗しました', 'destructive');
+    }
+  };
 
   const handleUpgrade = async () => {
     setIsProcessingPayment(true);
@@ -497,6 +533,47 @@ export default function AccountSettingsPage() {
               </div>
             </Link>
           </div>
+        </section>
+
+        {/* Referral */}
+        <section className="bg-white rounded-2xl ring-1 ring-black/5 shadow-sm p-5 sm:p-6">
+          <div className="flex items-start gap-3 mb-4">
+            <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
+              <Gift className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold text-slate-900">友だち紹介</h2>
+              <p className="text-sm text-slate-500 mt-0.5">
+                紹介された方は Pro プランの<span className="font-semibold text-slate-700">初月が無料</span>。
+                紹介が成立する（紹介された方が Pro を契約する）と、あなたにも
+                <span className="font-semibold text-slate-700"> Pro 1ヶ月無料</span>をプレゼント（年
+                {referral?.maxRewardsPerYear ?? 12}回まで）。
+              </p>
+            </div>
+          </div>
+
+          {referral ? (
+            <div className="space-y-3">
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <div className="flex-1 truncate rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 font-mono text-xs text-slate-600 sm:text-sm">
+                  {referral.url}
+                </div>
+                <Button onClick={handleCopyReferralUrl} className="h-10 shrink-0">
+                  <Copy className="mr-2 h-4 w-4" />
+                  リンクをコピー
+                </Button>
+              </div>
+              <p className="text-xs text-slate-400">
+                紹介成立 {referral.convertedCount} 件 ・ 今年の特典 {referral.rewardsThisYear} /{' '}
+                {referral.maxRewardsPerYear} 回
+              </p>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 py-2 text-sm text-slate-400">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              紹介リンクを準備中...
+            </div>
+          )}
         </section>
 
         {/* Danger zone */}

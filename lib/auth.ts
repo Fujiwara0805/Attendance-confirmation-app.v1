@@ -2,9 +2,34 @@ import { getServerSession } from 'next-auth/next'
 import GoogleProvider from 'next-auth/providers/google'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
+import { cookies } from 'next/headers'
 import type { NextAuthOptions } from 'next-auth'
 import { createServerClient } from '@/lib/supabase'
 import { autoJoinOrganizationByDomain } from '@/lib/organization'
+import { recordReferralRegistration, REFERRAL_COOKIE_NAME } from '@/lib/referral'
+
+// Google 登録は /admin/login 経由のため、register ページが Cookie に保存した紹介コードを
+// サインイン時に読み取って記録する。既存ユーザー（subscriptions 行あり）には適用しない。
+// 失敗してもログインを妨げない。
+async function recordReferralFromCookie(email: string) {
+  const referral = cookies().get(REFERRAL_COOKIE_NAME)?.value
+  if (!referral) return
+
+  const supabase = createServerClient()
+  const { data: existingSub } = await supabase
+    .from('subscriptions')
+    .select('id')
+    .eq('user_email', email.toLowerCase().trim())
+    .single()
+  if (existingSub) return
+
+  await recordReferralRegistration(referral, email)
+  try {
+    cookies().delete(REFERRAL_COOKIE_NAME)
+  } catch {
+    // Cookie 削除不可の実行コンテキストでも記録側の unique 制約で二重記録は防がれる
+  }
+}
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -50,6 +75,11 @@ export const authOptions: NextAuthOptions = {
           await autoJoinOrganizationByDomain(user.email)
         } catch (error) {
           console.error('[auth] ドメイン自動参加に失敗しました:', error)
+        }
+        try {
+          await recordReferralFromCookie(user.email)
+        } catch (error) {
+          console.error('[auth] 紹介コードの記録に失敗しました:', error)
         }
       }
       return true // すべてのアカウントを許可
