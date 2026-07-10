@@ -2559,31 +2559,31 @@ export default function HostPage() {
                   未回答
                 </FilterPill>
                 <FilterPill active={statusFilter === 'all'} onClick={() => setStatusFilter('all')}>
-                  すべて ({counts.all})
+                  すべて {counts.all}
                 </FilterPill>
                 <FilterPill
                   active={statusFilter === 'pending'}
                   onClick={() => setStatusFilter('pending')}
                 >
-                  承認待ち ({counts.pending})
+                  承認待ち {counts.pending}
                 </FilterPill>
                 <FilterPill
                   active={statusFilter === 'approved'}
                   onClick={() => setStatusFilter('approved')}
                 >
-                  公開中 ({counts.approved})
+                  公開中 {counts.approved}
                 </FilterPill>
                 <FilterPill
                   active={statusFilter === 'answered'}
                   onClick={() => setStatusFilter('answered')}
                 >
-                  回答済 ({counts.answered})
+                  回答済 {counts.answered}
                 </FilterPill>
                 <FilterPill
                   active={statusFilter === 'rejected'}
                   onClick={() => setStatusFilter('rejected')}
                 >
-                  非表示 ({counts.rejected})
+                  非表示 {counts.rejected}
                 </FilterPill>
               </div>
               <div className="flex items-center gap-1.5 sm:gap-2">
@@ -2594,11 +2594,11 @@ export default function HostPage() {
                   className="h-8 w-[136px] rounded-full border border-slate-200 bg-white px-2.5 text-[10px] font-semibold text-slate-700 focus:border-emerald-400 focus:outline-none sm:hidden"
                 >
                   <option value="unanswered">未回答</option>
-                  <option value="all">すべて ({counts.all})</option>
-                  <option value="pending">承認待ち ({counts.pending})</option>
-                  <option value="approved">公開中 ({counts.approved})</option>
-                  <option value="answered">回答済 ({counts.answered})</option>
-                  <option value="rejected">非表示 ({counts.rejected})</option>
+                  <option value="all">すべて {counts.all}</option>
+                  <option value="pending">承認待ち {counts.pending}</option>
+                  <option value="approved">公開中 {counts.approved}</option>
+                  <option value="answered">回答済 {counts.answered}</option>
+                  <option value="rejected">非表示 {counts.rejected}</option>
                 </select>
                 <button
                   type="button"
