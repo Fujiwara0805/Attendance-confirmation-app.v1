@@ -93,6 +93,68 @@ export async function recordReferralRegistration(
   }
 }
 
+// 既存アカウントへの紹介コード適用（アカウント設定画面の入力から呼ぶ）。
+// 登録フローの recordReferralRegistration と違い、結果をユーザーに提示するため
+// 失敗理由を明示的に返す。入力は紹介URL全体でもコード単体でも受け付ける。
+export async function applyReferralCode(
+  rawInput: string,
+  referredEmail: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  let input = rawInput.trim();
+  try {
+    input = new URL(input).searchParams.get('referral') ?? '';
+  } catch {
+    // URL でなければコード単体とみなす
+  }
+  const normalized = input.toUpperCase().trim();
+  if (!REFERRAL_CODE_REGEX.test(normalized)) {
+    return { ok: false, error: '紹介コードの形式が正しくありません。紹介リンクをそのまま貼り付けてください' };
+  }
+
+  const supabase = createServerClient();
+  const referred = normalizeEmail(referredEmail);
+
+  const { data: codeRow } = await supabase
+    .from('referral_codes')
+    .select('code, owner_email')
+    .eq('code', normalized)
+    .single();
+  if (!codeRow) {
+    return { ok: false, error: '紹介コードが見つかりません' };
+  }
+  if (codeRow.owner_email === referred) {
+    return { ok: false, error: 'ご自身の紹介コードは利用できません' };
+  }
+
+  const { error } = await supabase.from('referral_events').insert({
+    referral_code: codeRow.code,
+    referrer_email: codeRow.owner_email,
+    referred_email: referred,
+  });
+  if (error) {
+    if (error.code === '23505') {
+      return { ok: false, error: '既に紹介が適用されています' };
+    }
+    console.error('[referral] 紹介コードの適用に失敗しました:', error);
+    return { ok: false, error: '紹介コードの適用に失敗しました。時間をおいて再度お試しください' };
+  }
+  return { ok: true };
+}
+
+// 被紹介者としての状態（アカウント設定画面の表示用）
+export async function getReferredStatus(
+  email: string
+): Promise<'none' | 'registered' | 'converted'> {
+  const supabase = createServerClient();
+  const { data } = await supabase
+    .from('referral_events')
+    .select('status')
+    .eq('referred_email', normalizeEmail(email))
+    .single();
+  if (data?.status === 'registered' || data?.status === 'converted') return data.status;
+  return 'none';
+}
+
 // 未成立（registered）の紹介イベントを取得（Checkout 割引の適用判定用）
 export async function getRegisteredReferralEvent(
   email: string

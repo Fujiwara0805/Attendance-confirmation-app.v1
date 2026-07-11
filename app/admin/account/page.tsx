@@ -39,11 +39,14 @@ const PLAN_DISPLAY: Record<'free' | 'paid' | 'enterprise', { label: string; desc
 };
 
 interface ReferralInfo {
-  code: string;
-  url: string;
-  convertedCount: number;
-  rewardsThisYear: number;
-  maxRewardsPerYear: number;
+  // Free は紹介を「受ける側」（canRefer=false、リンク未発行）、Pro/Enterprise は「配る側」
+  canRefer: boolean;
+  referredStatus: 'none' | 'registered' | 'converted';
+  code?: string;
+  url?: string;
+  convertedCount?: number;
+  rewardsThisYear?: number;
+  maxRewardsPerYear?: number;
 }
 
 type AccountColorTheme = {
@@ -135,6 +138,8 @@ export default function AccountSettingsPage() {
   const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [referral, setReferral] = useState<ReferralInfo | null>(null);
+  const [referralCodeInput, setReferralCodeInput] = useState('');
+  const [isApplyingReferral, setIsApplyingReferral] = useState(false);
 
   const showToast = useCallback(
     (title: string, description: string, variant: 'default' | 'destructive' = 'default') => {
@@ -190,12 +195,42 @@ export default function AccountSettingsPage() {
   }, [session, status]);
 
   const handleCopyReferralUrl = async () => {
-    if (!referral) return;
+    if (!referral?.url) return;
     try {
       await navigator.clipboard.writeText(referral.url);
       showToast('コピーしました', '紹介リンクをクリップボードにコピーしました。');
     } catch {
       showToast('エラー', 'コピーに失敗しました', 'destructive');
+    }
+  };
+
+  // 紹介URL/コードを自分に適用（Freeユーザー向け）。成立後の挙動はリンク経由登録と同じ
+  const handleApplyReferral = async () => {
+    const input = referralCodeInput.trim();
+    if (!input) return;
+    setIsApplyingReferral(true);
+    try {
+      const res = await fetch('/api/v2/referral', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: input }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showToast('エラー', data.error || '紹介コードの適用に失敗しました', 'destructive');
+        return;
+      }
+      setReferral((prev) =>
+        prev
+          ? { ...prev, referredStatus: 'registered' }
+          : { canRefer: false, referredStatus: 'registered' }
+      );
+      setReferralCodeInput('');
+      showToast('紹介を適用しました', 'Pro プランへのアップグレード時に初月無料が適用されます。');
+    } catch {
+      showToast('エラー', '紹介コードの適用に失敗しました', 'destructive');
+    } finally {
+      setIsApplyingReferral(false);
     }
   };
 
@@ -423,6 +458,17 @@ export default function AccountSettingsPage() {
                     )}
                   </Button>
                 )}
+                {!loadingPlan && subscription?.plan === 'free' && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => router.push('/admin/organization')}
+                    className="h-9 px-3 border-slate-200 text-slate-700 hover:bg-slate-50"
+                  >
+                    <Building2 className="h-3.5 w-3.5 mr-1.5" />
+                    エンタープライズ
+                  </Button>
+                )}
                 {isPaidPlan && isOrgPlan && (
                   <Button
                     size="sm"
@@ -535,46 +581,99 @@ export default function AccountSettingsPage() {
           </div>
         </section>
 
-        {/* Referral */}
-        <section className="bg-white rounded-2xl ring-1 ring-black/5 shadow-sm p-5 sm:p-6">
-          <div className="flex items-start gap-3 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
-              <Gift className="h-5 w-5" />
-            </div>
-            <div>
-              <h2 className="text-base font-semibold text-slate-900">友だち紹介</h2>
-              <p className="text-sm text-slate-500 mt-0.5">
-                紹介された方は Pro プランの<span className="font-semibold text-slate-700">初月が無料</span>。
-                紹介が成立する（紹介された方が Pro を契約する）と、あなたにも
-                <span className="font-semibold text-slate-700"> Pro 1ヶ月無料</span>をプレゼント（年
-                {referral?.maxRewardsPerYear ?? 3}回まで）。
-              </p>
-            </div>
-          </div>
-
-          {referral ? (
-            <div className="space-y-3">
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <div className="flex-1 truncate rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 font-mono text-xs text-slate-600 sm:text-sm">
-                  {referral.url}
-                </div>
-                <Button onClick={handleCopyReferralUrl} className="h-10 shrink-0">
-                  <Copy className="mr-2 h-4 w-4" />
-                  リンクをコピー
-                </Button>
+        {/* Referral（Pro/Enterprise = 配る側の共有カード） */}
+        {!loadingPlan && isPaidPlan && (
+          <section className="bg-white rounded-2xl ring-1 ring-black/5 shadow-sm p-5 sm:p-6">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
+                <Gift className="h-5 w-5" />
               </div>
-              <p className="text-xs text-slate-400">
-                紹介成立 {referral.convertedCount} 件 ・ 今年の特典 {referral.rewardsThisYear} /{' '}
-                {referral.maxRewardsPerYear} 回
-              </p>
+              <div>
+                <h2 className="text-base font-semibold text-slate-900">友だち紹介</h2>
+                <p className="text-sm text-slate-500 mt-0.5">
+                  紹介された方は Pro プランの<span className="font-semibold text-slate-700">初月が無料</span>。
+                  紹介が成立する（紹介された方が Pro を契約する）と、あなたにも
+                  <span className="font-semibold text-slate-700"> Pro 1ヶ月無料</span>をプレゼント（年
+                  {referral?.maxRewardsPerYear ?? 3}回まで）。
+                </p>
+              </div>
             </div>
-          ) : (
-            <div className="flex items-center gap-2 py-2 text-sm text-slate-400">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              紹介リンクを準備中...
-            </div>
+
+            {referral?.canRefer ? (
+              <div className="space-y-3">
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <div className="flex-1 truncate rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 font-mono text-xs text-slate-600 sm:text-sm">
+                    {referral.url}
+                  </div>
+                  <Button onClick={handleCopyReferralUrl} className="h-10 shrink-0">
+                    <Copy className="mr-2 h-4 w-4" />
+                    リンクをコピー
+                  </Button>
+                </div>
+                <p className="text-xs text-slate-400">
+                  紹介成立 {referral.convertedCount} 件 ・ 今年の特典 {referral.rewardsThisYear} /{' '}
+                  {referral.maxRewardsPerYear} 回
+                </p>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 py-2 text-sm text-slate-400">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                紹介リンクを準備中...
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* Referral（Free = 受ける側の入力カード。適用消化済みなら表示しない） */}
+        {!loadingPlan &&
+          subscription?.plan === 'free' &&
+          referral &&
+          referral.referredStatus !== 'converted' && (
+            <section className="bg-white rounded-2xl ring-1 ring-black/5 shadow-sm p-5 sm:p-6">
+              <div className="flex items-start gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
+                  <Gift className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-semibold text-slate-900">紹介を受けた方</h2>
+                  <p className="text-sm text-slate-500 mt-0.5">
+                    紹介リンクをお持ちの方は、リンク（またはコード）を入力すると Pro
+                    プランへのアップグレード時に
+                    <span className="font-semibold text-slate-700">初月無料</span>が適用されます。
+                  </p>
+                </div>
+              </div>
+
+              {referral.referredStatus === 'registered' ? (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                  🎁 紹介が適用されています。Pro プランへのアップグレード時に
+                  <span className="font-bold">初月無料</span>になります。
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <input
+                    type="text"
+                    value={referralCodeInput}
+                    onChange={(e) => setReferralCodeInput(e.target.value)}
+                    placeholder="https://zaseki-kun.com/admin/register?referral=XXXXXXXX"
+                    className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 font-mono text-xs text-slate-700 outline-none transition-colors focus:border-indigo-300 focus:bg-white sm:text-sm"
+                  />
+                  <Button
+                    onClick={handleApplyReferral}
+                    disabled={isApplyingReferral || !referralCodeInput.trim()}
+                    className="h-10 shrink-0"
+                  >
+                    {isApplyingReferral ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Gift className="mr-2 h-4 w-4" />
+                    )}
+                    適用する
+                  </Button>
+                </div>
+              )}
+            </section>
           )}
-        </section>
 
         {/* Danger zone */}
         <section className="bg-white rounded-2xl ring-1 ring-red-100 shadow-sm p-5 sm:p-6">
