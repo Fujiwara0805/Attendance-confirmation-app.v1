@@ -7,6 +7,7 @@ import { useSession } from 'next-auth/react';
 import { motion } from 'framer-motion';
 import { Building2, CheckCircle2, Loader2, LogIn, UserPlus, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ORG_FEATURE_COMING_SOON } from '@/lib/featureFlags';
 
 interface InvitationPreview {
   email: string;
@@ -77,6 +78,26 @@ function JoinOrganizationContent() {
   }, [token, router]);
 
   const joinPath = `/admin/organization/join?token=${encodeURIComponent(token)}`;
+
+  // 組織・エンタープライズ機能は Coming Soon（フラグを戻せば招待受諾フローが復帰する）
+  if (ORG_FEATURE_COMING_SOON) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 px-4">
+        <div className="w-full max-w-md rounded-2xl bg-white px-8 py-10 text-center shadow-xl ring-1 ring-black/5">
+          <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-50">
+            <Building2 className="h-8 w-8 text-indigo-600" />
+          </div>
+          <h1 className="text-lg font-bold text-slate-900">組織機能は近日公開予定です</h1>
+          <p className="mt-2 text-sm text-slate-500">
+            組織・エンタープライズ機能は現在準備中です。公開までいましばらくお待ちください。
+          </p>
+          <Link href="/admin" className="mt-6 inline-block text-sm text-indigo-600 hover:underline">
+            管理画面へ戻る
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 px-4">

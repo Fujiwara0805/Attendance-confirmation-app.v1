@@ -29,7 +29,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { CustomModal } from '@/components/ui/custom-modal';
 import { useToast } from '@/hooks/use-toast';
-import AdminShell from '../components/AdminShell';
+import AdminShell, {
+  writeCachedAdminShellPlanInfo,
+  type AdminShellPlanInfo,
+} from '../components/AdminShell';
+import { ORG_FEATURE_COMING_SOON } from '@/lib/featureFlags';
 
 export type OrgRole = 'owner' | 'admin' | 'member';
 
@@ -231,6 +235,7 @@ export default function OrganizationPage() {
   const { data: session, status } = useSession();
 
   const [orgData, setOrgData] = useState<OrganizationResponse | null>(null);
+  const [planInfo, setPlanInfo] = useState<AdminShellPlanInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<
     'overview' | 'members' | 'library' | 'billing' | 'settings'
@@ -284,6 +289,22 @@ export default function OrganizationPage() {
     }
   }, []);
 
+  // サイドバーのプラン表示・「組織管理」メニューの出し分けは購読情報に依存する。
+  // 課金状態はこのページ（Checkout の戻り先）で変化するため、キャッシュ優先ではなく
+  // 常に最新を取得してキャッシュも更新する（他ページはキャッシュ優先でよいがここは即時反映が要る）。
+  const fetchPlanInfo = useCallback(async () => {
+    try {
+      const res = await fetch('/api/v2/subscription');
+      if (res.ok) {
+        const data: AdminShellPlanInfo = await res.json();
+        setPlanInfo(data);
+        writeCachedAdminShellPlanInfo(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch plan info:', error);
+    }
+  }, []);
+
   useEffect(() => {
     if (status === 'loading') return;
     if (!session) {
@@ -291,7 +312,8 @@ export default function OrganizationPage() {
       return;
     }
     fetchOrg();
-  }, [session, status, router, fetchOrg]);
+    fetchPlanInfo();
+  }, [session, status, router, fetchOrg, fetchPlanInfo]);
 
   const canManageMembers =
     orgData?.role === 'owner' || orgData?.role === 'admin';
@@ -527,12 +549,14 @@ export default function OrganizationPage() {
       });
       setActiveTab('billing');
       fetchOrg();
+      // 課金完了直後はサイドバーの表示（Enterprise・組織管理メニュー）も最新化する
+      fetchPlanInfo();
       window.history.replaceState({}, document.title, window.location.pathname);
     } else if (billingStatus === 'cancelled') {
       toast({ title: '決済キャンセル', description: '決済がキャンセルされました', variant: 'destructive', duration: 2000 });
       window.history.replaceState({}, document.title, window.location.pathname);
     }
-  }, [toast, fetchOrg]);
+  }, [toast, fetchOrg, fetchPlanInfo]);
 
   const handleBillingAction = async (
     action: 'checkout' | 'update_seats' | 'portal',
@@ -625,7 +649,43 @@ export default function OrganizationPage() {
     }
   };
 
-  if (status === 'loading' || !session || loading) {
+  if (status === 'loading' || !session) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+        <Loader2 className="h-6 w-6 animate-spin text-indigo-500" />
+      </div>
+    );
+  }
+
+  // 組織・エンタープライズ機能は Coming Soon（UI のみ無効化。フラグを戻せば以下の本体が復帰する）
+  if (ORG_FEATURE_COMING_SOON) {
+    return (
+      <AdminShell activeSection="organization" planInfo={planInfo}>
+        <OrganizationPageHeader />
+        <div className="mx-auto w-full max-w-2xl px-4 py-16 sm:px-6">
+          <div className="rounded-2xl bg-white p-8 text-center shadow-sm ring-1 ring-black/5">
+            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+              <Building2 className="h-7 w-7" />
+            </div>
+            <h2 className="text-xl font-bold text-slate-900">
+              組織・エンタープライズ機能は近日公開予定です
+            </h2>
+            <p className="mt-3 text-sm leading-relaxed text-slate-500">
+              会社・団体でまとめて利用できるエンタープライズプランは現在準備中です。
+              公開までいましばらくお待ちください。
+            </p>
+            <div className="mt-6">
+              <Button variant="outline" className="h-10" onClick={() => router.push('/admin')}>
+                管理画面へ戻る
+              </Button>
+            </div>
+          </div>
+        </div>
+      </AdminShell>
+    );
+  }
+
+  if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50">
         <Loader2 className="h-6 w-6 animate-spin text-indigo-500" />
@@ -657,7 +717,7 @@ export default function OrganizationPage() {
       org.subscriptionStatus === 'cancelled');
 
   return (
-    <AdminShell activeSection="organization">
+    <AdminShell activeSection="organization" planInfo={planInfo}>
       <OrganizationPageHeader />
 
       {!org ? (

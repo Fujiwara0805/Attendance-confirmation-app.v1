@@ -21,6 +21,7 @@ import {
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
+import { ORG_FEATURE_COMING_SOON } from '@/lib/featureFlags';
 
 export type AdminSection = 'courses' | 'export' | 'rooms' | 'organization' | 'account' | 'faq';
 
@@ -225,9 +226,11 @@ function SidebarContent({
       : 'bg-white text-slate-900 ring-black/5';
 
   // 組織管理はエンタープライズプラン加入時のみナビに表示する。
-  // 未加入者の導線はLPの料金セクション（/admin/organization への直接リンク）に残る
+  // ただし Coming Soon 中は常に非表示（フラグを戻すとエンタープライズ加入者に再表示される）。
   const visibleMenuItems = MENU_ITEMS.filter(
-    (item) => item.key !== 'organization' || subscription?.plan === 'enterprise'
+    (item) =>
+      item.key !== 'organization' ||
+      (!ORG_FEATURE_COMING_SOON && subscription?.plan === 'enterprise')
   );
 
   const isUnlimited = (limit?: number | null) =>

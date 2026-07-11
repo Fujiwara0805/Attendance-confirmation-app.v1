@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
+import { ORG_FEATURE_COMING_SOON } from '@/lib/featureFlags';
 import {
   MapPin,
   ShieldCheck,
@@ -1162,18 +1163,39 @@ export default function LandingPage() {
                   </li>
                 ))}
               </ul>
-              <Link
-                href="/admin/organization"
-                className="block w-full text-center text-sm lg:text-base font-semibold text-white bg-gradient-to-r from-slate-700 to-slate-900 hover:from-slate-800 hover:to-black active:scale-[0.97] transition-all px-6 py-3 rounded-xl shadow-lg shadow-slate-200/50"
-              >
-                組織アカウントを作成
-              </Link>
-              <p className="mt-3 text-xs lg:text-sm text-slate-400 text-center leading-relaxed">
-                導入のご相談は
-                <Link href="/contact" className="text-indigo-600 hover:underline mx-0.5">
-                  お問い合わせ
+              {ORG_FEATURE_COMING_SOON ? (
+                <div
+                  aria-disabled="true"
+                  className="block w-full text-center text-sm lg:text-base font-semibold text-slate-500 bg-slate-100 px-6 py-3 rounded-xl cursor-not-allowed select-none"
+                >
+                  Coming Soon
+                </div>
+              ) : (
+                <Link
+                  href="/admin/organization"
+                  className="block w-full text-center text-sm lg:text-base font-semibold text-white bg-gradient-to-r from-slate-700 to-slate-900 hover:from-slate-800 hover:to-black active:scale-[0.97] transition-all px-6 py-3 rounded-xl shadow-lg shadow-slate-200/50"
+                >
+                  組織アカウントを作成
                 </Link>
-                から。
+              )}
+              <p className="mt-3 text-xs lg:text-sm text-slate-400 text-center leading-relaxed">
+                {ORG_FEATURE_COMING_SOON ? (
+                  <>
+                    エンタープライズプランは近日公開予定です。ご相談は
+                    <Link href="/contact" className="text-indigo-600 hover:underline mx-0.5">
+                      お問い合わせ
+                    </Link>
+                    から。
+                  </>
+                ) : (
+                  <>
+                    導入のご相談は
+                    <Link href="/contact" className="text-indigo-600 hover:underline mx-0.5">
+                      お問い合わせ
+                    </Link>
+                    から。
+                  </>
+                )}
               </p>
             </motion.div>
           </motion.div>

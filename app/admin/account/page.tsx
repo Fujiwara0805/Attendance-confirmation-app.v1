@@ -21,6 +21,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { CustomModal } from '@/components/ui/custom-modal';
 import { useToast } from '@/hooks/use-toast';
+import { ORG_FEATURE_COMING_SOON } from '@/lib/featureFlags';
 import AdminShell, {
   readCachedAdminShellPlanInfo,
   type AdminShellPlanInfo,
@@ -458,17 +459,29 @@ export default function AccountSettingsPage() {
                     )}
                   </Button>
                 )}
-                {!loadingPlan && subscription?.plan === 'free' && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => router.push('/admin/organization')}
-                    className="h-9 px-3 border-slate-200 text-slate-700 hover:bg-slate-50"
-                  >
-                    <Building2 className="h-3.5 w-3.5 mr-1.5" />
-                    エンタープライズ
-                  </Button>
-                )}
+                {!loadingPlan && subscription?.plan === 'free' &&
+                  (ORG_FEATURE_COMING_SOON ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled
+                      title="エンタープライズプランは近日公開予定です"
+                      className="h-9 px-3 border-slate-200 text-slate-400 cursor-not-allowed"
+                    >
+                      <Building2 className="h-3.5 w-3.5 mr-1.5" />
+                      エンタープライズ（Coming Soon）
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => router.push('/admin/organization')}
+                      className="h-9 px-3 border-slate-200 text-slate-700 hover:bg-slate-50"
+                    >
+                      <Building2 className="h-3.5 w-3.5 mr-1.5" />
+                      エンタープライズ
+                    </Button>
+                  ))}
                 {isPaidPlan && isOrgPlan && (
                   <Button
                     size="sm"
@@ -594,7 +607,7 @@ export default function AccountSettingsPage() {
                   紹介された方は Pro プランの<span className="font-semibold text-slate-700">初月が無料</span>。
                   紹介が成立する（紹介された方が Pro を契約する）と、あなたにも
                   <span className="font-semibold text-slate-700"> Pro 1ヶ月無料</span>をプレゼント（年
-                  {referral?.maxRewardsPerYear ?? 3}回まで）。
+                  {referral?.maxRewardsPerYear ?? 6}回まで）。
                 </p>
               </div>
             </div>

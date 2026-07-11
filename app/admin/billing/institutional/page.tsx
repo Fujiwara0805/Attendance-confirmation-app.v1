@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { ORG_FEATURE_COMING_SOON } from '@/lib/featureFlags';
 
 type BillingResult = {
   quoteId: string;
@@ -189,7 +190,10 @@ export default function InstitutionalBillingPage() {
                     className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   >
                     <option value="pro">Pro / 月額550円</option>
-                    <option value="org">エンタープライズ（組織）/ 1アカウント月額500円</option>
+                    {/* エンタープライズ（組織）は Coming Soon のため選択肢から一時的に除外 */}
+                    {!ORG_FEATURE_COMING_SOON && (
+                      <option value="org">エンタープライズ（組織）/ 1アカウント月額500円</option>
+                    )}
                   </select>
                   {formData.plan === 'org' && (
                     <p className="text-xs text-slate-500">

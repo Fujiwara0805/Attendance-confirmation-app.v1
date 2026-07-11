@@ -10,7 +10,7 @@ import { getPersonalSubscription, upsertSubscription } from '@/lib/subscription'
 //   （Stripe課金中なら次回請求にクーポン / それ以外はDB付与で自然失効）
 
 export const REFERRAL_COUPON_ID = 'zaseki_kun_referral_1m_free';
-export const REFERRAL_MAX_REWARDS_PER_YEAR = 3;
+export const REFERRAL_MAX_REWARDS_PER_YEAR = 6;
 export const REFERRAL_CODE_REGEX = /^[A-Z0-9]{8}$/;
 export const REFERRAL_COOKIE_NAME = 'zaseki_referral';
 
@@ -238,16 +238,32 @@ export async function convertReferralAndReward(
     const personal = await getPersonalSubscription(event.referrer_email);
 
     if (personal.stripeSubscriptionId && personal.status === 'active') {
-      // Stripe 課金中: 次回請求に 100%オフ（1回）を適用
-      const couponId = await getOrCreateReferralCoupon(stripe);
-      await stripe.subscriptions.update(personal.stripeSubscriptionId, {
-        discounts: [{ coupon: couponId }],
+      // Stripe 課金中: 1ヶ月分を「顧客クレジット」として付与する。
+      // 旧実装は once クーポンを subscriptions.update(discounts) で当てていたが、
+      // discounts は毎回上書きされ once は1請求のみのため、複数成立でも実質1ヶ月分しか
+      // 効かなかった。クレジットは顧客残高に加算され次回以降の請求へ自動充当されるので、
+      // 成立件数分（最大 REFERRAL_MAX_REWARDS_PER_YEAR ヶ月）きちんと積み上がる。
+      const subscription = await stripe.subscriptions.retrieve(personal.stripeSubscriptionId);
+      const price = subscription.items.data[0]?.price;
+      const unitAmount = price?.unit_amount;
+      const currency = price?.currency ?? 'jpy';
+      const customerId = personal.stripeCustomerId ?? (subscription.customer as string);
+
+      if (!unitAmount || !customerId) {
+        throw new Error('紹介特典のクレジット付与に必要な請求情報を取得できませんでした');
+      }
+
+      await stripe.customers.createBalanceTransaction(customerId, {
+        amount: -unitAmount, // 負値 = 顧客クレジット（次回以降の請求に充当。成立ごとに積み上がる）
+        currency,
+        description: 'ざせきくん 紹介特典（Pro 1ヶ月無料）',
       });
+      // DB 値は既存 CHECK 制約に合わせ 'stripe_coupon' を継続使用（Stripe経由の特典付与の意）
       await supabase
         .from('referral_events')
         .update({ reward_type: 'stripe_coupon' })
         .eq('id', event.id);
-      console.log(`[referral] 紹介者へクーポン適用: ${event.referrer_email}`);
+      console.log(`[referral] 紹介者へ1ヶ月分クレジット付与: ${event.referrer_email}`);
     } else {
       // Free / DB付与中 / 解約予約中: DB付与で1ヶ月の Pro を積み上げる。
       // status='cancelled' + period_end により既存の失効ロジックで自然に Free へ戻る
