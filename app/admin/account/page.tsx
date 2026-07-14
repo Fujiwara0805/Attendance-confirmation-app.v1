@@ -605,6 +605,7 @@ export default function AccountSettingsPage() {
                 <h2 className="text-base font-semibold text-slate-900">友だち紹介</h2>
                 <p className="text-sm text-slate-500 mt-0.5">
                   紹介された方は Pro プランの<span className="font-semibold text-slate-700">初月が無料</span>。
+                  <br />
                   紹介が成立する（紹介された方が Pro を契約する）と、あなたにも
                   <span className="font-semibold text-slate-700"> Pro 1ヶ月無料</span>をプレゼント（年
                   {referral?.maxRewardsPerYear ?? 6}回まで）。
