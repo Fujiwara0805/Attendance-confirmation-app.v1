@@ -3,6 +3,13 @@ import Stripe from 'stripe';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getOrCreateReferralCoupon, getRegisteredReferralEvent } from '@/lib/referral';
+import {
+  TERMS_ACCEPTANCE_REQUIRED_CODE,
+  TERMS_DOCUMENT_ID,
+  TERMS_DOCUMENT_SHA256,
+  TERMS_VERSION,
+} from '@/lib/terms';
+import { hasAcceptedLatestTerms } from '@/lib/terms.server';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-07-30.basil',
@@ -40,6 +47,17 @@ export async function POST(request: NextRequest) {
     }
 
     const isEnterprise = productType === 'enterprise_subscription';
+
+    if (!(await hasAcceptedLatestTerms(session.user.email))) {
+      return NextResponse.json(
+        {
+          code: TERMS_ACCEPTANCE_REQUIRED_CODE,
+          error: '有料プランへ加入するには、現在の利用規約への同意が必要です',
+          termsVersion: TERMS_VERSION,
+        },
+        { status: 428 }
+      );
+    }
 
     // 紹介経由で登録したユーザーの Pro 初回契約には初月無料クーポンを適用する。
     // クーポン取得に失敗しても決済自体は止めない（割引なしで続行）
@@ -119,6 +137,9 @@ export async function POST(request: NextRequest) {
         userId: session.user.email,
         productType,
         service: 'zaseki_kun',
+        termsVersion: TERMS_VERSION,
+        termsDocumentId: TERMS_DOCUMENT_ID,
+        termsDocumentSha256: TERMS_DOCUMENT_SHA256,
         ...(referralCouponId ? { referral: 'applied' } : {}),
       },
       subscription_data: {
@@ -126,6 +147,9 @@ export async function POST(request: NextRequest) {
           userId: session.user.email,
           productType,
           service: 'zaseki_kun',
+          termsVersion: TERMS_VERSION,
+          termsDocumentId: TERMS_DOCUMENT_ID,
+          termsDocumentSha256: TERMS_DOCUMENT_SHA256,
         },
       },
       locale: 'ja',

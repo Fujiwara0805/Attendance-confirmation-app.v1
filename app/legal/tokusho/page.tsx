@@ -126,9 +126,10 @@ export default function TokushoPage() {
                   </h3>
                   <p className="text-sm sm:text-base text-slate-700 leading-relaxed">
                     Proプラン（月額サブスクリプション）: <span className="font-extrabold text-lg sm:text-xl text-slate-900 tabular-nums">¥550</span> / 月<br />
+                    Enterprise（組織）プラン: <span className="font-extrabold text-lg sm:text-xl text-slate-900 tabular-nums">¥500</span> / アカウント・月（最低2アカウント）<br />
                     Freeプラン: <span className="font-extrabold text-slate-900 tabular-nums">¥0</span><br />
                     <span className="text-xs sm:text-sm text-slate-500">
-                      各プランの詳細はサービスサイトの料金ページに表示
+                      請求書払いの総額は、プラン・アカウント数・契約月数に応じて申込画面、見積書および請求書に表示
                     </span>
                   </p>
                 </div>
@@ -143,7 +144,7 @@ export default function TokushoPage() {
                     送料: なし（デジタルサービスのため）<br />
                     決済手数料: なし<br />
                     <span className="text-xs sm:text-sm text-slate-500">
-                      表示価格以外の追加料金は一切発生いたしません
+                      インターネット接続料金、通信料金および銀行振込時の振込手数料は利用者の負担となります。
                     </span>
                   </p>
                 </div>
@@ -155,9 +156,9 @@ export default function TokushoPage() {
                     支払方法
                   </h3>
                   <p className="text-sm sm:text-base text-slate-700 leading-relaxed">
-                    クレジットカード決済（Visa、Mastercard、American Express、JCB）<br />
+                    クレジットカード決済（Stripe）または銀行振込（請求書払い）<br />
                     <span className="text-xs sm:text-sm text-slate-500">
-                      Stripe決済システムを利用
+                      利用可能なカードブランドはStripeの決済画面に表示します。
                     </span>
                   </p>
                 </div>
@@ -171,6 +172,7 @@ export default function TokushoPage() {
                   <p className="text-sm sm:text-base text-slate-700 leading-relaxed">
                     サブスクリプション契約時に初回決済。<br />
                     以降、毎月自動更新・決済。<br />
+                    銀行振込は請求書記載の支払期限（申込時に選択した14日、30日または60日以内）までにお支払いください。<br />
                     <span className="text-xs sm:text-sm text-slate-500">
                       解約はいつでも可能。解約後も契約期間終了まで利用可能。
                     </span>
@@ -204,7 +206,7 @@ export default function TokushoPage() {
                       ＜サブスクリプションの解約＞
                     </h4>
                     <p className="text-sm sm:text-base text-slate-700 leading-relaxed">
-                      Proプランのサブスクリプションはいつでも解約可能です。<br />
+                      個人向け有料プランはアカウント設定画面から、組織向けカード決済は組織管理画面からStripeの請求ポータルを開いて、いつでも次回更新を停止できます。<br />
                       解約後も契約期間の残り日数分はサービスを継続してご利用いただけます。<br />
                       日割り返金は行っておりません。
                     </p>

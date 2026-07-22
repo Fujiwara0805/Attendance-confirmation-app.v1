@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ORG_FEATURE_COMING_SOON } from '@/lib/featureFlags';
+import { TermsAgreementModal } from '@/components/legal/TermsAgreementModal';
 import {
   MapPin,
   ShieldCheck,
@@ -318,8 +319,9 @@ export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [productMenuOpen, setProductMenuOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [pendingProductType, setPendingProductType] = useState<string | null>(null);
 
-  const handlePlanPurchase = async (productType: string) => {
+  const createCheckoutSession = async (productType: string) => {
     try {
       const res = await fetch('/api/stripe/create-checkout-session', {
         method: 'POST',
@@ -335,9 +337,31 @@ export default function LandingPage() {
         return;
       }
       const data = await res.json();
+      if (res.status === 428) {
+        setPendingProductType(productType);
+        return;
+      }
       if (data.url) window.location.href = data.url;
     } catch {
       window.location.href = '/admin/login';
+    }
+  };
+
+  const handlePlanPurchase = async (productType: string) => {
+    try {
+      const response = await fetch('/api/v2/terms-consent', { cache: 'no-store' });
+      if (response.status === 401) {
+        window.location.href = '/admin/login';
+        return;
+      }
+      const data = await response.json();
+      if (response.ok && data.accepted === true) {
+        await createCheckoutSession(productType);
+        return;
+      }
+      setPendingProductType(productType);
+    } catch {
+      setPendingProductType(productType);
     }
   };
 
@@ -1352,6 +1376,29 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+
+      <TermsAgreementModal
+        isOpen={pendingProductType !== null}
+        source="personal_checkout"
+        onClose={() => setPendingProductType(null)}
+        submitLabel="同意してStripeの申込画面へ進む"
+        billingSummary={
+          <ul className="list-disc space-y-1 pl-5">
+            <li>Proプラン: 月額550円（税込）</li>
+            <li>通常料金で12ヶ月利用した場合の目安: 年間6,600円（税込）</li>
+            <li>紹介特典の対象者は初月0円、2ヶ月目以降は月額550円</li>
+            <li>申込完了後から提供を開始し、解約するまで毎月自動更新</li>
+            <li>申込時および以後毎月の更新日にクレジットカードで決済</li>
+            <li>アカウント設定からいつでも次回更新を停止可能。解約手数料なし</li>
+            <li>解約後も支払済み期間の終了までは利用可能。原則として日割り返金なし</li>
+          </ul>
+        }
+        onAccepted={async () => {
+          const productType = pendingProductType;
+          if (!productType) return;
+          await createCheckoutSession(productType);
+        }}
+      />
     </div>
   );
 }

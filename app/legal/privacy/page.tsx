@@ -38,6 +38,8 @@ export default function PrivacyPolicyPage() {
               <li>出席登録時：利用者が入力した氏名、学籍番号、所属等の情報</li>
               <li>Q&A・投票機能利用時：投稿内容、投票内容</li>
               <li>位置情報：出席登録時にGPS情報を取得する場合があります（利用者の同意のもと）</li>
+              <li>契約・決済時：契約プラン、契約期間、決済状況、請求先情報（カード情報はStripeが管理し、当社は完全なカード番号を保持しません）</li>
+              <li>利用規約への同意時：メールアドレス、規約バージョン、同意日時、IPアドレス、ブラウザ情報、同意取得画面</li>
               <li>アクセスログ：IPアドレス、ブラウザ情報、アクセス日時</li>
             </ul>
           </section>
@@ -50,6 +52,8 @@ export default function PrivacyPolicyPage() {
               <li>管理者アカウントの認証・管理</li>
               <li>出席管理機能の提供（位置情報による認証を含む）</li>
               <li>Q&A・投票機能の提供</li>
+              <li>有料プランの契約・請求・解約の管理</li>
+              <li>利用規約への同意の確認および契約・紛争に関する記録の保存</li>
               <li>利用状況の分析・統計データの作成</li>
               <li>お問い合わせへの対応</li>
               <li>重要なお知らせの送付</li>
@@ -84,7 +88,14 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section>
-            <h2 className="text-lg sm:text-xl font-bold text-slate-800 mb-3">7. お問い合わせ窓口</h2>
+            <h2 className="text-lg sm:text-xl font-bold text-slate-800 mb-3">7. 保存期間</h2>
+            <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
+              当社は、利用目的の達成に必要な期間、または法令、会計、決済、不正防止および権利の行使・防御に必要な期間に限り個人情報を保存します。アカウント削除後も、決済記録、利用規約の同意証跡、セキュリティログその他法令上または正当な事業上の理由により保存が必要な情報は、必要な範囲で保持した後に削除または匿名化する場合があります。
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg sm:text-xl font-bold text-slate-800 mb-3">8. お問い合わせ窓口</h2>
             <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
               個人情報の開示・訂正・削除等のご請求、またはご質問・ご意見は、以下までご連絡ください。
             </p>
@@ -97,14 +108,14 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section>
-            <h2 className="text-lg sm:text-xl font-bold text-slate-800 mb-3">8. ポリシーの改定</h2>
+            <h2 className="text-lg sm:text-xl font-bold text-slate-800 mb-3">9. ポリシーの改定</h2>
             <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
               当社は、必要に応じて本ポリシーを改定することがあります。重要な変更がある場合は、本サービス上で通知します。改定後のポリシーは、本ページに掲載した時点から効力を生じるものとします。
             </p>
           </section>
 
           <p className="text-xs sm:text-sm text-slate-400 pt-4 border-t border-slate-100 tabular-nums">
-            制定日: 2026年3月17日
+            制定日: 2026年3月17日 / 最終改定日: 2026年7月22日
           </p>
         </div>
 

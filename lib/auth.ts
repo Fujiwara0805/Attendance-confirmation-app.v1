@@ -6,22 +6,16 @@ import { cookies } from 'next/headers'
 import type { NextAuthOptions } from 'next-auth'
 import { createServerClient } from '@/lib/supabase'
 import { autoJoinOrganizationByDomain } from '@/lib/organization'
-import { recordReferralRegistration, REFERRAL_COOKIE_NAME } from '@/lib/referral'
+import { hasPersonalPaidHistory, recordReferralRegistration, REFERRAL_COOKIE_NAME } from '@/lib/referral'
 
 // Google 登録は /admin/login 経由のため、register ページが Cookie に保存した紹介コードを
-// サインイン時に読み取って記録する。既存ユーザー（subscriptions 行あり）には適用しない。
+// サインイン時に読み取って記録する。個人プランの課金・特典履歴があるユーザーには適用しない。
 // 失敗してもログインを妨げない。
 async function recordReferralFromCookie(email: string) {
   const referral = cookies().get(REFERRAL_COOKIE_NAME)?.value
   if (!referral) return
 
-  const supabase = createServerClient()
-  const { data: existingSub } = await supabase
-    .from('subscriptions')
-    .select('id')
-    .eq('user_email', email.toLowerCase().trim())
-    .single()
-  if (existingSub) return
+  if (await hasPersonalPaidHistory(email)) return
 
   await recordReferralRegistration(referral, email)
   try {

@@ -14,6 +14,28 @@ export const REFERRAL_MAX_REWARDS_PER_YEAR = 6;
 export const REFERRAL_CODE_REGEX = /^[A-Z0-9]{8}$/;
 export const REFERRAL_COOKIE_NAME = 'zaseki_referral';
 
+// 規約同意だけのために作成されたFree行は、過去の課金・紹介特典履歴には数えない。
+export async function hasPersonalPaidHistory(email: string): Promise<boolean> {
+  const supabase = createServerClient();
+  const { data, error } = await supabase
+    .from('subscriptions')
+    .select('plan, stripe_customer_id, stripe_subscription_id, current_period_start, current_period_end')
+    .eq('user_email', normalizeEmail(email))
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) return false;
+
+  return Boolean(
+    data.plan === 'paid' ||
+      data.plan === 'enterprise' ||
+      data.stripe_customer_id ||
+      data.stripe_subscription_id ||
+      data.current_period_start ||
+      data.current_period_end
+  );
+}
+
 // 紛らわしい文字（0/O, 1/I/L）を除いた文字集合
 const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 

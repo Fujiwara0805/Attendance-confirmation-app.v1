@@ -135,7 +135,7 @@ export async function getPersonalSubscription(email: string): Promise<Subscripti
 
   const { data } = await supabase
     .from('subscriptions')
-    .select('*')
+    .select('plan, status, stripe_customer_id, stripe_subscription_id, current_period_end')
     .eq('user_email', email)
     .single();
 

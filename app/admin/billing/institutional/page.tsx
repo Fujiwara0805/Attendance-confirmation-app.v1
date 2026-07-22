@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ORG_FEATURE_COMING_SOON } from '@/lib/featureFlags';
+import { TermsAgreementModal } from '@/components/legal/TermsAgreementModal';
 
 type BillingResult = {
   quoteId: string;
@@ -25,6 +26,7 @@ export default function InstitutionalBillingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState<BillingResult | null>(null);
+  const [showCheckoutTerms, setShowCheckoutTerms] = useState(false);
   const [formData, setFormData] = useState({
     plan: 'pro',
     seatCount: '10',
@@ -60,8 +62,7 @@ export default function InstitutionalBillingPage() {
     }));
   }, [session?.user]);
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const submitBillingRequest = async () => {
     setSubmitting(true);
     setError('');
     setResult(null);
@@ -74,6 +75,10 @@ export default function InstitutionalBillingPage() {
       });
       const data = await response.json();
 
+      if (response.status === 428) {
+        setShowCheckoutTerms(true);
+        return;
+      }
       if (!response.ok) {
         throw new Error(data.error || '銀行振込払いの請求書作成に失敗しました');
       }
@@ -83,6 +88,21 @@ export default function InstitutionalBillingPage() {
       setError(err instanceof Error ? err.message : '銀行振込払いの請求書作成に失敗しました');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    try {
+      const response = await fetch('/api/v2/terms-consent', { cache: 'no-store' });
+      const data = await response.json();
+      if (response.ok && data.accepted === true) {
+        await submitBillingRequest();
+        return;
+      }
+      setShowCheckoutTerms(true);
+    } catch {
+      setShowCheckoutTerms(true);
     }
   };
 
@@ -326,6 +346,28 @@ export default function InstitutionalBillingPage() {
           )}
         </div>
       </div>
+
+      <TermsAgreementModal
+        isOpen={showCheckoutTerms}
+        source="institutional_billing"
+        onClose={() => setShowCheckoutTerms(false)}
+        submitLabel="同意して見積書・請求書を作成"
+        billingSummary={
+          <ul className="list-disc space-y-1 pl-5">
+            <li>
+              {formData.plan === 'org'
+                ? `Enterprise（組織）${formData.seatCount}アカウント`
+                : 'Proプラン'}
+              : {formData.termMonths}ヶ月分・合計{estimatedAmount.toLocaleString('ja-JP')}円（税込）
+            </li>
+            <li>後払いの銀行振込。支払期限は請求書発行から{formData.daysUntilDue}日以内</li>
+            <li>Stripeから発行される請求書の振込案内に従ってお支払い</li>
+            <li>入金確認後にサービス提供を開始し、選択した期間の満了時に終了</li>
+            <li>自動更新なし。原則として利用者都合の日割り返金なし</li>
+          </ul>
+        }
+        onAccepted={submitBillingRequest}
+      />
     </main>
   );
 }

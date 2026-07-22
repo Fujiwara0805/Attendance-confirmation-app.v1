@@ -4,14 +4,13 @@
 // POST: Free ユーザーが紹介URL/コードを入力して自分に適用する（リンク経由登録と同じ扱い）
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
-import { createServerClient } from '@/lib/supabase';
-import { normalizeEmail } from '@/lib/organization';
 import { getUserSubscription } from '@/lib/subscription';
 import {
   applyReferralCode,
   getOrCreateReferralCode,
   getReferralStats,
   getReferredStatus,
+  hasPersonalPaidHistory,
   REFERRAL_MAX_REWARDS_PER_YEAR,
 } from '@/lib/referral';
 
@@ -74,15 +73,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Freeプランの方のみ利用できます' }, { status: 400 });
     }
 
-    // 登録時の Cookie 経由（recordReferralFromCookie）と同じ基準:
-    // 個人 subscriptions 行がある = 過去に課金・特典付与の履歴があるため対象外
-    const supabase = createServerClient();
-    const { data: existingSub } = await supabase
-      .from('subscriptions')
-      .select('id')
-      .eq('user_email', normalizeEmail(user.email))
-      .single();
-    if (existingSub) {
+    // 規約同意のためだけに作成されたFree行は除外し、実際の課金・特典履歴で判定する。
+    if (await hasPersonalPaidHistory(user.email)) {
       return NextResponse.json(
         { error: 'Proプランのご利用履歴があるため、紹介の対象外です' },
         { status: 400 }

@@ -13,6 +13,7 @@ interface CustomModalProps {
   title: string;
   description?: string;
   showCloseButton?: boolean;
+  dismissible?: boolean;
   className?: string; // For the main motion.div content wrapper
   dialogContentClassName?: string; // For DialogPrimitive.Content (positioning, max-width etc.)
   overlayClassName?: string;
@@ -32,6 +33,7 @@ const CustomModal = React.forwardRef<
       title,
       description,
       showCloseButton = true,
+      dismissible = true,
       className,
       dialogContentClassName,
       overlayClassName,
@@ -41,7 +43,7 @@ const CustomModal = React.forwardRef<
     ref
   ) => {
     const handleOpenChange = (open: boolean) => {
-      if (!open) {
+      if (!open && dismissible) {
         onClose();
       }
     };
@@ -49,7 +51,7 @@ const CustomModal = React.forwardRef<
     // Escapeキーで閉じるイベントハンドラ
     React.useEffect(() => {
       const handleKeyDown = (event: KeyboardEvent) => {
-        if (event.key === 'Escape') {
+        if (event.key === 'Escape' && dismissible) {
           onClose();
         }
       };
@@ -59,7 +61,7 @@ const CustomModal = React.forwardRef<
       return () => {
         document.removeEventListener('keydown', handleKeyDown);
       };
-    }, [isOpen, onClose]);
+    }, [dismissible, isOpen, onClose]);
 
     // Generate unique IDs for title and description for aria attributes
     const titleId = React.useId();
@@ -80,12 +82,20 @@ const CustomModal = React.forwardRef<
                     "fixed inset-0 z-50 bg-black/60 backdrop-blur-sm", // UIガイドラインに合わせ少し濃いめの背景
                     overlayClassName
                   )}
-                  onClick={onClose} // Overlayクリックでも閉じる
+                  onClick={dismissible ? onClose : undefined} // Overlayクリックでも閉じる
                   {...overlayMotionProps}
                 />
               </DialogPrimitive.Overlay>
               <DialogPrimitive.Content
-                onEscapeKeyDown={onClose} // Radix UIのEscapeキー処理
+                onEscapeKeyDown={(event) => {
+                  if (!dismissible) event.preventDefault();
+                }}
+                onPointerDownOutside={(event) => {
+                  if (!dismissible) event.preventDefault();
+                }}
+                onInteractOutside={(event) => {
+                  if (!dismissible) event.preventDefault();
+                }}
                 aria-labelledby={titleId} // Set aria-labelledby
                 aria-describedby={description ? descriptionId : undefined} // Set aria-describedby only if description exists
                 className={cn(
@@ -119,7 +129,7 @@ const CustomModal = React.forwardRef<
                         </DialogPrimitive.Description>
                       )}
                     </div>
-                    {showCloseButton && (
+                    {showCloseButton && dismissible && (
                       <DialogPrimitive.Close
                         onClick={onClose}
                         className="-mt-1 -mr-2 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background"

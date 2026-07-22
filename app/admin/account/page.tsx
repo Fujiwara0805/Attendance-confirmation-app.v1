@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CustomModal } from '@/components/ui/custom-modal';
+import { TermsAgreementModal } from '@/components/legal/TermsAgreementModal';
 import { useToast } from '@/hooks/use-toast';
 import { ORG_FEATURE_COMING_SOON } from '@/lib/featureFlags';
 import AdminShell, {
@@ -141,6 +142,7 @@ export default function AccountSettingsPage() {
   const [referral, setReferral] = useState<ReferralInfo | null>(null);
   const [referralCodeInput, setReferralCodeInput] = useState('');
   const [isApplyingReferral, setIsApplyingReferral] = useState(false);
+  const [showCheckoutTerms, setShowCheckoutTerms] = useState(false);
 
   const showToast = useCallback(
     (title: string, description: string, variant: 'default' | 'destructive' = 'default') => {
@@ -235,7 +237,7 @@ export default function AccountSettingsPage() {
     }
   };
 
-  const handleUpgrade = async () => {
+  const createUpgradeCheckout = async () => {
     setIsProcessingPayment(true);
     try {
       const res = await fetch('/api/stripe/create-checkout-session', {
@@ -247,14 +249,33 @@ export default function AccountSettingsPage() {
           cancelUrl: `${window.location.origin}/admin/account?payment=cancelled`,
         }),
       });
-      if (!res.ok) throw new Error('決済セッションの作成に失敗しました');
-      const { url } = await res.json();
+      const data = await res.json();
+      if (res.status === 428) {
+        setShowCheckoutTerms(true);
+        return;
+      }
+      if (!res.ok) throw new Error(data.error || '決済セッションの作成に失敗しました');
+      const { url } = data;
       window.location.href = url;
     } catch (error) {
       console.error('Upgrade error:', error);
       showToast('エラー', '決済処理中にエラーが発生しました', 'destructive');
     } finally {
       setIsProcessingPayment(false);
+    }
+  };
+
+  const handleUpgrade = async () => {
+    try {
+      const response = await fetch('/api/v2/terms-consent', { cache: 'no-store' });
+      const data = await response.json();
+      if (response.ok && data.accepted === true) {
+        await createUpgradeCheckout();
+        return;
+      }
+      setShowCheckoutTerms(true);
+    } catch {
+      setShowCheckoutTerms(true);
     }
   };
 
@@ -698,7 +719,7 @@ export default function AccountSettingsPage() {
             <div>
               <h2 className="text-base font-semibold text-red-700">危険な操作</h2>
               <p className="text-sm text-slate-500 mt-0.5">
-                アカウントを削除すると、すべてのデータが完全に削除されます。
+                アカウントを削除すると、サービス上のデータが削除されます。
               </p>
             </div>
           </div>
@@ -715,6 +736,25 @@ export default function AccountSettingsPage() {
       </div>
 
       {/* Cancel subscription modal */}
+      <TermsAgreementModal
+        isOpen={showCheckoutTerms}
+        source="personal_checkout"
+        onClose={() => setShowCheckoutTerms(false)}
+        submitLabel="同意してStripeの申込画面へ進む"
+        billingSummary={
+          <ul className="list-disc space-y-1 pl-5">
+            <li>Proプラン: 月額550円（税込）</li>
+            <li>通常料金で12ヶ月利用した場合の目安: 年間6,600円（税込）</li>
+            <li>紹介特典の対象者は初月0円、2ヶ月目以降は月額550円</li>
+            <li>申込完了後から提供を開始し、解約するまで毎月自動更新</li>
+            <li>申込時および以後毎月の更新日にクレジットカードで決済</li>
+            <li>アカウント設定からいつでも次回更新を停止可能。解約手数料なし</li>
+            <li>解約後も支払済み期間の終了までは利用可能。原則として日割り返金なし</li>
+          </ul>
+        }
+        onAccepted={createUpgradeCheckout}
+      />
+
       <CustomModal
         isOpen={isCancelModalOpen}
         onClose={() => {
@@ -770,7 +810,7 @@ export default function AccountSettingsPage() {
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
             <p className="text-sm text-red-800 font-medium mb-2">この操作は取り消せません</p>
             <p className="text-sm text-red-700">
-              アカウントを削除すると、すべてのデータ（出席管理フォーム、ルーム、出席データなど）が完全に削除されます。
+              アカウントを削除すると、出席管理フォーム、ルーム、出席データなどのサービス上のデータが削除されます。法令・会計・決済・規約同意の証跡など、保存義務または正当な保存理由がある記録は必要な期間保持される場合があります。
             </p>
           </div>
           <p className="text-sm text-slate-600">本当にアカウントを削除しますか？</p>

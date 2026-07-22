@@ -28,6 +28,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { CustomModal } from '@/components/ui/custom-modal';
+import { TermsAgreementModal } from '@/components/legal/TermsAgreementModal';
 import { useToast } from '@/hooks/use-toast';
 import AdminShell, {
   writeCachedAdminShellPlanInfo,
@@ -252,6 +253,7 @@ export default function OrganizationPage() {
   // 課金タブ
   const [billingSeats, setBillingSeats] = useState('');
   const [billingPending, setBillingPending] = useState(false);
+  const [showCheckoutTerms, setShowCheckoutTerms] = useState(false);
 
   // メンバータブ
   const [members, setMembers] = useState<OrgMember[]>([]);
@@ -570,6 +572,10 @@ export default function OrganizationPage() {
         body: JSON.stringify({ action, ...(seats !== undefined ? { seats } : {}) }),
       });
       const data = await res.json();
+      if (res.status === 428 && action === 'checkout') {
+        setShowCheckoutTerms(true);
+        return;
+      }
       if (!res.ok) throw new Error(data.error || '処理に失敗しました');
 
       if (action === 'checkout' && data.url) {
@@ -597,6 +603,20 @@ export default function OrganizationPage() {
       });
     } finally {
       setBillingPending(false);
+    }
+  };
+
+  const requestOrganizationCheckout = async (seats: number) => {
+    try {
+      const response = await fetch('/api/v2/terms-consent', { cache: 'no-store' });
+      const data = await response.json();
+      if (response.ok && data.accepted === true) {
+        await handleBillingAction('checkout', seats);
+        return;
+      }
+      setShowCheckoutTerms(true);
+    } catch {
+      setShowCheckoutTerms(true);
     }
   };
 
@@ -1200,7 +1220,7 @@ export default function OrganizationPage() {
                         />
                       </div>
                       <Button
-                        onClick={() => handleBillingAction('checkout', Number.parseInt(billingSeats, 10))}
+                        onClick={() => requestOrganizationCheckout(Number.parseInt(billingSeats, 10))}
                         disabled={billingPending || !billingSeats || Number.parseInt(billingSeats, 10) < 2}
                         className="h-11 bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:from-indigo-600 hover:to-purple-600"
                       >
@@ -1415,6 +1435,35 @@ export default function OrganizationPage() {
           )}
         </div>
       )}
+
+      <TermsAgreementModal
+        isOpen={showCheckoutTerms}
+        source="organization_checkout"
+        onClose={() => setShowCheckoutTerms(false)}
+        submitLabel="同意してStripeの申込画面へ進む"
+        billingSummary={
+          <ul className="list-disc space-y-1 pl-5">
+            <li>
+              Enterprise（組織）: 1アカウント月額500円（税込）、最低2アカウント
+            </li>
+            <li>
+              今回の選択: {Number.parseInt(billingSeats, 10) || 0}アカウント・月額
+              {((Number.parseInt(billingSeats, 10) || 0) * 500).toLocaleString('ja-JP')}円（税込）
+            </li>
+            <li>
+              12ヶ月利用した場合の目安:
+              {((Number.parseInt(billingSeats, 10) || 0) * 500 * 12).toLocaleString('ja-JP')}
+              円（税込）
+            </li>
+            <li>申込完了後から提供を開始し、解約するまで毎月自動更新</li>
+            <li>申込時および以後毎月の更新日にクレジットカードで決済</li>
+            <li>組織管理のStripeポータルから次回更新を停止可能。原則として日割り返金なし</li>
+          </ul>
+        }
+        onAccepted={() =>
+          handleBillingAction('checkout', Number.parseInt(billingSeats, 10))
+        }
+      />
 
       {/* 脱退確認モーダル */}
       <CustomModal
